@@ -763,6 +763,197 @@ class MemoState(TypedDict):
     final_memo: Optional[str]
 ```
 
+### Artifact Trail System for Transparency
+
+**Purpose**: Create a persistent record of all intermediate outputs during memo generation to enable transparency, targeted improvements, and citation preservation.
+
+**Directory Structure**:
+```
+output/
+└── {Company-Name}-v0.0.x/
+    ├── 1-research.json          # Raw structured research data
+    ├── 1-research.md            # Human-readable research summary
+    ├── 2-sections/              # Individual section drafts
+    │   ├── 01-executive-summary.md
+    │   ├── 02-business-overview.md
+    │   ├── 03-market-context.md
+    │   ├── 04-technology-product.md
+    │   ├── 05-traction-milestones.md
+    │   ├── 06-team.md
+    │   ├── 07-funding-terms.md
+    │   ├── 08-risks-mitigations.md
+    │   ├── 09-investment-thesis.md
+    │   └── 10-recommendation.md
+    ├── 3-validation.json        # Validation scores and feedback
+    ├── 3-validation.md          # Human-readable validation report
+    ├── 4-final-draft.md         # Complete assembled memo
+    └── state.json               # Full workflow state for debugging
+```
+
+**Benefits**:
+
+1. **Transparency**: Expose all intermediate steps that occur during generation, making the AI's research and reasoning visible
+2. **Targeted Re-runs**: Re-generate specific sections without re-running entire workflow
+3. **Citation Tracking**: Preserve web search sources and citations through all editing stages
+4. **Manual Editing**: Enable human intervention at any stage (edit research, revise individual sections)
+5. **Version Comparison**: Easily diff sections between versions to track improvements
+6. **Quality Assurance**: Review validation feedback in detail to understand scoring rationale
+7. **Debugging**: Full state export enables troubleshooting and iteration on prompts
+
+**Implementation Approaches**:
+
+**Option 1: Agent-Level Persistence** (Recommended)
+- Each agent saves its output immediately after execution
+- Research agent writes `1-research.json` and `1-research.md`
+- Writer agent saves each section to `2-sections/`
+- Validator agent writes `3-validation.json` and `3-validation.md`
+- Finalize step assembles `4-final-draft.md`
+
+```python
+def research_agent_enhanced(state: MemoState) -> dict:
+    # ... perform research ...
+
+    # Save artifacts
+    company_safe_name = sanitize_filename(state["company_name"])
+    version = get_current_version(company_safe_name)
+    output_dir = Path(f"output/{company_safe_name}-{version}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save structured data
+    with open(output_dir / "1-research.json", "w") as f:
+        json.dump(research_data, f, indent=2)
+
+    # Save human-readable summary
+    with open(output_dir / "1-research.md", "w") as f:
+        f.write(format_research_summary(research_data))
+
+    return {"research": research_data}
+```
+
+**Option 2: Workflow-Level Hooks**
+- LangGraph checkpointing with custom serializers
+- Automatically save state after each node execution
+- Requires implementing custom persistence layer
+
+**Option 3: Post-Processing Export**
+- Generate entire memo first
+- Extract artifacts from final state at end of workflow
+- Simpler but doesn't enable mid-workflow intervention
+
+**Option 4: Hybrid Approach** (Best for Week 2+)
+- Real-time artifact saving during execution (Option 1)
+- Plus LangGraph checkpointing for resume capability (Option 2)
+- Enables both transparency and fault tolerance
+
+**Citation Preservation Strategy**:
+
+To ensure citations from web search (Perplexity/Tavily) are retained throughout edits:
+
+1. **Research Phase**: Store citations with each data point in structured format
+```json
+{
+  "funding": {
+    "total_raised": "$136M",
+    "citation": {
+      "source": "Crunchbase",
+      "url": "https://crunchbase.com/organization/aalo-atomics",
+      "retrieved": "2025-11-16",
+      "context": "Aalo has raised $136M across 3 rounds..."
+    }
+  }
+}
+```
+
+2. **Writing Phase**: Include inline citations in markdown that reference research data
+```markdown
+Aalo has raised $136M across three rounds[^1], with the most recent Series B...
+
+[^1]: [Crunchbase - Aalo Atomics](https://crunchbase.com/organization/aalo-atomics), retrieved 2025-11-16
+```
+
+3. **Validation Phase**: Check that all claims have citations, flag unsupported statements
+
+4. **Artifact Trail**: Preserve original research.json so citations can always be traced back to source
+
+**Enhanced Linking for Context**:
+
+Automatically enrich mentions of people and organizations with relevant links:
+
+- **Team Members**: Add LinkedIn profile links when available
+  ```markdown
+  **Matt Loszak** ([LinkedIn](https://linkedin.com/in/matt-loszak)) - CEO, previously...
+  ```
+
+- **Investors**: Link to firm websites and portfolio pages
+  ```markdown
+  **Valor Equity Partners** ([website](https://valorep.com)) led the Series B...
+  ```
+
+- **Government Agencies**: Link to official websites
+  ```markdown
+  Partnership with **Idaho National Laboratory** ([INL](https://inl.gov))...
+  ```
+
+- **Implementation**: Research agent extracts URLs during web search, stores in structured data, writer agent formats as markdown links
+
+---
+
+### ✅ Implementation Status Update (2025-11-16)
+
+**Artifact Trail System: IMPLEMENTED**
+- ✅ Agent-level persistence (Option 1) fully functional
+- ✅ All agents save artifacts immediately after execution
+- ✅ Research artifacts: `1-research.json` and `1-research.md`
+- ✅ Section artifacts: `2-sections/*.md` (all 10 sections)
+- ✅ Validation artifacts: `3-validation.json` and `3-validation.md`
+- ✅ Final output: `4-final-draft.md` with citations
+- ✅ State snapshot: `state.json` for debugging
+- ✅ Version directory structure: `output/{Company-Name}-v0.0.x/`
+
+**Citation System: IMPLEMENTED**
+- ✅ New Citation-Enrichment Agent added to workflow
+- ✅ Workflow: Research (Tavily) → Write (Claude) → Cite (Perplexity) → Validate (Claude)
+- ✅ Perplexity Sonar Pro model integration for citation generation
+- ✅ Inline citation format: `[^1]`, `[^2]`, etc. with full citation list
+- ✅ Citation format: `[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD`
+- ✅ Industry sources prioritized: TechCrunch, Medium, Sifted, Crunchbase, press releases
+- ✅ Narrative preservation: Citations added WITHOUT rewriting content
+- ✅ Successfully tested with Aalo Atomics (8 citations, 8.5/10 quality score)
+
+**Test Results (Aalo Atomics v0.0.5)**:
+- Research data: Comprehensive company information from 4 web searches
+- Draft quality: Well-written 10-section memo with proper structure
+- Citations: 8 inline citations with full source attribution at bottom
+- Validation score: 8.5/10 (auto-finalized)
+- Artifact count: 16 files (1 research.json, 1 research.md, 10 section files, 1 validation.json, 1 validation.md, 1 final-draft.md, 1 state.json)
+
+**Key Implementation Details**:
+
+*Hybrid Research + Citation Approach*:
+- **Tavily** for research phase (fast, reliable, broad coverage)
+- **Perplexity Sonar Pro** for citation enrichment (high-quality sources with publication dates)
+- This hybrid approach combines reliability (Tavily) with citation quality (Perplexity)
+
+*Citation-Enrichment Agent System Prompt*:
+- Strict instruction: DO NOT rewrite or change narrative
+- ONLY insert `[^1]`, `[^2]` citations to support existing factual claims
+- Prioritize industry sources over academic papers
+- Generate comprehensive citation list with exact format specification
+
+*Files Created*:
+- `src/artifacts.py`: Central module for artifact trail functionality
+- `src/agents/citation_enrichment.py`: New agent for adding citations
+- Updated: `src/workflow.py` to include citation step
+- Updated: `src/agents/research_enhanced.py` to use sonar-pro model
+- Updated: All agents to save artifacts during execution
+
+**Remaining Work**:
+- LinkedIn profile links (planned)
+- Organization links for investors, government bodies (planned)
+- Chart/visualization inclusion (planned)
+
+---
+
 ## Lessons Learned
 
 ### What Works Well

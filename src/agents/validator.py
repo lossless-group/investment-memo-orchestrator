@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Dict, Any
 
 from ..state import MemoState, ValidationFeedback
+from ..artifacts import sanitize_filename, save_validation_artifacts
+from ..versioning import VersionManager
 
 
 def load_style_guide() -> str:
@@ -197,6 +199,38 @@ Return your validation as JSON matching the schema in your system prompt."""
             suggestions=validation_data.get("suggestions", [])
         )
     }
+
+    # Save validation artifacts
+    try:
+        # Get version manager
+        version_mgr = VersionManager(Path("output"))
+        safe_name = sanitize_filename(company_name)
+        version = version_mgr.get_next_version(safe_name)
+
+        # Get artifact directory (should already exist)
+        output_dir = Path("output") / f"{safe_name}-{version}"
+
+        # Prepare validation data for saving
+        validation_artifact = {
+            "overall_score": overall_score,
+            "needs_revision": needs_revision,
+            "category_scores": validation_data.get("category_scores", {}),
+            "issues": validation_data.get("issues", []),
+            "suggestions": validation_data.get("suggestions", []),
+            "strengths": validation_data.get("strengths", []),
+            "full_memo": {
+                "score": overall_score,
+                "issues": validation_data.get("issues", []),
+                "suggestions": validation_data.get("suggestions", [])
+            }
+        }
+
+        # Save validation artifacts
+        save_validation_artifacts(output_dir, validation_artifact)
+
+        print(f"Validation artifacts saved to: {output_dir}")
+    except Exception as e:
+        print(f"Warning: Could not save validation artifacts: {e}")
 
     # Update state
     return {

@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Dict, Any
 
 from ..state import MemoState, SectionDraft
+from ..artifacts import sanitize_filename, save_section_artifact
+from ..versioning import VersionManager
+import re
 
 
 def load_template() -> str:
@@ -26,6 +29,59 @@ def load_style_guide() -> str:
     style_guide_path = Path(__file__).parent.parent.parent / "templates" / "style-guide.md"
     with open(style_guide_path, "r") as f:
         return f.read()
+
+
+def parse_memo_sections(memo_content: str) -> Dict[str, str]:
+    """
+    Parse memo into individual sections.
+
+    Args:
+        memo_content: Full memo markdown content
+
+    Returns:
+        Dictionary mapping section names to content
+    """
+    sections = {}
+
+    # Define the 10 expected sections with their markdown headers
+    section_patterns = [
+        (1, r"##\s*1\.\s*Executive Summary", "Executive Summary"),
+        (2, r"##\s*2\.\s*Business Overview", "Business Overview"),
+        (3, r"##\s*3\.\s*Market Context", "Market Context"),
+        (4, r"##\s*4\.\s*Technology & Product", "Technology & Product"),
+        (5, r"##\s*5\.\s*Traction & Milestones", "Traction & Milestones"),
+        (6, r"##\s*6\.\s*Team", "Team"),
+        (7, r"##\s*7\.\s*Funding & Terms", "Funding & Terms"),
+        (8, r"##\s*8\.\s*Risks & Mitigations", "Risks & Mitigations"),
+        (9, r"##\s*9\.\s*Investment Thesis", "Investment Thesis"),
+        (10, r"##\s*10\.\s*Recommendation", "Recommendation"),
+    ]
+
+    # Split content by section headers
+    for i, (num, pattern, name) in enumerate(section_patterns):
+        # Find start of this section
+        match = re.search(pattern, memo_content, re.IGNORECASE)
+        if not match:
+            continue
+
+        start_pos = match.end()
+
+        # Find start of next section (or end of document)
+        if i + 1 < len(section_patterns):
+            next_pattern = section_patterns[i + 1][1]
+            next_match = re.search(next_pattern, memo_content[start_pos:], re.IGNORECASE)
+            if next_match:
+                end_pos = start_pos + next_match.start()
+            else:
+                end_pos = len(memo_content)
+        else:
+            end_pos = len(memo_content)
+
+        # Extract section content
+        section_content = memo_content[start_pos:end_pos].strip()
+        sections[name] = section_content
+
+    return sections
 
 
 # System prompt for Writer Agent (template/style guide will be appended at runtime)
@@ -140,6 +196,41 @@ Write the complete memo as markdown following the template format."""
             citations=[]  # Would extract these in production
         )
     }
+
+    # Save section artifacts
+    try:
+        # Get version manager
+        version_mgr = VersionManager(Path("output"))
+        safe_name = sanitize_filename(company_name)
+        version = version_mgr.get_next_version(safe_name)
+
+        # Get artifact directory (should already exist from research phase)
+        output_dir = Path("output") / f"{safe_name}-{version}"
+
+        # Parse memo into individual sections
+        sections = parse_memo_sections(memo_content)
+
+        # Save each section
+        section_mapping = [
+            (1, "Executive Summary"),
+            (2, "Business Overview"),
+            (3, "Market Context"),
+            (4, "Technology & Product"),
+            (5, "Traction & Milestones"),
+            (6, "Team"),
+            (7, "Funding & Terms"),
+            (8, "Risks & Mitigations"),
+            (9, "Investment Thesis"),
+            (10, "Recommendation"),
+        ]
+
+        for num, name in section_mapping:
+            if name in sections:
+                save_section_artifact(output_dir, num, name, sections[name])
+
+        print(f"Section artifacts saved to: {output_dir / '2-sections'}")
+    except Exception as e:
+        print(f"Warning: Could not save section artifacts: {e}")
 
     # Update state
     return {

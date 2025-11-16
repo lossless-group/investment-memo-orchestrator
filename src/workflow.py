@@ -9,11 +9,15 @@ from langgraph.graph import StateGraph, END
 from typing import Literal
 
 import os
+from pathlib import Path
 from .state import MemoState
 from .agents.researcher import research_agent
 from .agents.research_enhanced import research_agent_enhanced
 from .agents.writer import writer_agent
+from .agents.citation_enrichment import citation_enrichment_agent
 from .agents.validator import validator_agent
+from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
+from .versioning import VersionManager
 
 
 def should_continue(state: MemoState) -> Literal["finalize", "human_review"]:
@@ -50,6 +54,28 @@ def finalize_memo(state: MemoState) -> dict:
     """
     draft = state.get("draft_sections", {}).get("full_memo", {})
     memo_content = draft.get("content", "")
+    company_name = state["company_name"]
+
+    # Save final draft artifact
+    try:
+        # Get version manager
+        version_mgr = VersionManager(Path("output"))
+        safe_name = sanitize_filename(company_name)
+        version = version_mgr.get_next_version(safe_name)
+
+        # Get artifact directory
+        output_dir = Path("output") / f"{safe_name}-{version}"
+
+        # Save final draft
+        save_final_draft(output_dir, memo_content)
+
+        # Save state snapshot
+        save_state_snapshot(output_dir, state)
+
+        print(f"Final draft saved to: {output_dir / '4-final-draft.md'}")
+        print(f"State snapshot saved to: {output_dir / 'state.json'}")
+    except Exception as e:
+        print(f"Warning: Could not save final draft artifacts: {e}")
 
     return {
         "final_memo": memo_content,
@@ -71,6 +97,33 @@ def human_review(state: MemoState) -> dict:
     score = state.get("overall_score", 0.0)
     issues = validation.get("issues", [])
     suggestions = validation.get("suggestions", [])
+    company_name = state["company_name"]
+
+    # Save draft artifacts even when it needs review
+    try:
+        # Get version manager
+        version_mgr = VersionManager(Path("output"))
+        safe_name = sanitize_filename(company_name)
+        version = version_mgr.get_next_version(safe_name)
+
+        # Get artifact directory
+        output_dir = Path("output") / f"{safe_name}-{version}"
+
+        # Get draft content
+        draft = state.get("draft_sections", {}).get("full_memo", {})
+        memo_content = draft.get("content", "")
+
+        # Save as draft (not final)
+        if memo_content:
+            save_final_draft(output_dir, memo_content)
+
+        # Save state snapshot
+        save_state_snapshot(output_dir, state)
+
+        print(f"Draft saved for review to: {output_dir / '4-final-draft.md'}")
+        print(f"State snapshot saved to: {output_dir / 'state.json'}")
+    except Exception as e:
+        print(f"Warning: Could not save draft artifacts: {e}")
 
     review_message = f"""
 MEMO REQUIRES HUMAN REVIEW
@@ -105,13 +158,15 @@ def build_workflow() -> StateGraph:
     # Add agent nodes
     workflow.add_node("research", research_fn)
     workflow.add_node("draft", writer_agent)
+    workflow.add_node("cite", citation_enrichment_agent)
     workflow.add_node("validate", validator_agent)
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
     # Define edges (workflow sequence)
     workflow.add_edge("research", "draft")
-    workflow.add_edge("draft", "validate")
+    workflow.add_edge("draft", "cite")
+    workflow.add_edge("cite", "validate")
 
     # Conditional edge after validation
     workflow.add_conditional_edges(

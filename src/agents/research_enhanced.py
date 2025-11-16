@@ -14,6 +14,9 @@ import httpx
 from bs4 import BeautifulSoup
 
 from ..state import MemoState, ResearchData
+from ..artifacts import create_artifact_directory, save_research_artifacts
+from ..versioning import VersionManager
+from pathlib import Path
 
 
 class WebSearchProvider:
@@ -86,7 +89,7 @@ class PerplexityProvider(WebSearchProvider):
         """Search using Perplexity API."""
         try:
             response = self.client.chat.completions.create(
-                model="llama-3.1-sonar-large-128k-online",
+                model="sonar-pro",  # Perplexity Sonar Pro for advanced research with citations
                 messages=[
                     {"role": "system", "content": "You are a research assistant providing detailed, cited information for investment analysis."},
                     {"role": "user", "content": query}
@@ -326,6 +329,32 @@ Return valid JSON only."""
             research_data = json.loads(json_str)
         else:
             raise ValueError(f"Could not parse research data as JSON: {content[:200]}...")
+
+    # Add web search metadata to research data
+    if search_provider:
+        research_data["web_search_metadata"] = {
+            "provider": provider_name,
+            "queries_count": 4,  # We ran 4 searches
+            "total_results": len(research_context)
+        }
+
+    # Save research artifacts
+    try:
+        # Get version manager
+        version_mgr = VersionManager(Path("output"))
+        from ..artifacts import sanitize_filename
+        safe_name = sanitize_filename(company_name)
+        version = version_mgr.get_next_version(safe_name)
+
+        # Create artifact directory
+        output_dir = create_artifact_directory(company_name, str(version))
+
+        # Save research artifacts
+        save_research_artifacts(output_dir, research_data)
+
+        print(f"Research artifacts saved to: {output_dir}")
+    except Exception as e:
+        print(f"Warning: Could not save research artifacts: {e}")
 
     # Update state
     return {

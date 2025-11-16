@@ -2,7 +2,7 @@
 
 Multi-agent orchestration system for generating high-quality investment memos using LangGraph and specialized AI agents.
 
-**Status**: Week 1 POC Complete ✅
+**Status**: Week 1 POC Complete + Artifact Trail & Citation System ✅
 
 Sponsored by [Hypernova Capital](https://www.hypernova.capital)
 
@@ -15,6 +15,7 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 ### Multi-Agent Architecture
 - **Research Agent**: Actively searches the web (Tavily/Perplexity) for company information, funding data, team backgrounds, and market context
 - **Writer Agent**: Drafts professional memos following Hypernova's 10-section template and style guide
+- **Citation-Enrichment Agent**: Adds inline citations [^1], [^2] to drafted content using Perplexity Sonar Pro, preserving narrative while adding scholarly rigor with industry sources (TechCrunch, Medium, Crunchbase, etc.)
 - **Validator Agent**: Rigorously evaluates quality (0-10 scale) with specific, actionable feedback
 - **Supervisor**: Orchestrates workflow, manages state, routes to revision or finalization
 
@@ -23,6 +24,22 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 - Multi-query strategy: company overview, funding, team, news
 - Automatic source aggregation and synthesis
 - Fallback to Claude-only mode (no API keys required for testing)
+
+### Artifact Trail System
+- **Complete transparency**: Every workflow step saves artifacts to output directory
+- **Research artifacts**: `1-research.json` (structured data) and `1-research.md` (human-readable summary)
+- **Section drafts**: Individual section files in `2-sections/` (all 10 sections as separate .md files)
+- **Validation reports**: `3-validation.json` (scores/feedback) and `3-validation.md` (human-readable report)
+- **Final output**: `4-final-draft.md` with inline citations and citation list
+- **State snapshot**: `state.json` for full workflow debugging
+- **Benefits**: Inspect intermediate outputs, identify improvement areas, preserve citations through pipeline
+
+### Citation System
+- **Inline citations**: Industry-standard [^1], [^2] format throughout memo
+- **Source preservation**: Citations from research phase maintained through final output
+- **Quality sources**: Prioritizes TechCrunch, Sifted, Crunchbase, Medium, company blogs, press releases over academic papers
+- **Citation list**: Formatted with publication dates, URLs, and titles matching Obsidian workflow
+- **Format**: `[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD`
 
 ### Version Control System
 - Semantic versioning for memo iterations (v0.0.x → v0.x.0 → vx.0.0)
@@ -41,7 +58,7 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 
 - **Orchestration**: LangGraph (Python) for multi-agent coordination
 - **LLM**: Anthropic Claude Sonnet 4.5 for analysis and writing
-- **Web Search**: Tavily API (recommended) or Perplexity API for research
+- **Web Search**: Tavily API (recommended) or [Perplexity Sonar Pro](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) API for research
 - **Web Scraping**: httpx + BeautifulSoup for website parsing
 - **CLI**: Rich for beautiful terminal output with progress indicators
 - **State Management**: TypedDict schemas with LangGraph state graphs
@@ -92,10 +109,22 @@ python -m src.main
 
 ### Output
 
-Memos are saved to `output/` directory:
-- `{company}-v0.0.1-draft.md` - The memo draft
-- `{company}-v0.0.1-state.json` - Full workflow state
-- `versions.json` - Version history across all iterations
+Each generation creates a versioned artifact directory:
+```
+output/{Company-Name}-v0.0.x/
+├── 1-research.json          # Structured research data
+├── 1-research.md            # Human-readable research summary
+├── 2-sections/              # Individual section drafts
+│   ├── 01-executive-summary.md
+│   ├── 02-business-overview.md
+│   └── ... (all 10 sections)
+├── 3-validation.json        # Validation scores and feedback
+├── 3-validation.md          # Human-readable validation report
+├── 4-final-draft.md         # Complete memo with citations
+└── state.json               # Full workflow state for debugging
+```
+
+Plus `versions.json` tracking version history across all iterations.
 
 ## Architecture
 
@@ -107,16 +136,20 @@ Memos are saved to `output/` directory:
 └──────┬───────┘
        │
    ┌───┴────┐
-   │Research│ ← Web search (4 queries) + synthesis
-   └───┬────┘
+   │Research│ ← Web search (Tavily: 4 queries) + synthesis
+   └───┬────┘   Saves: 1-research.json, 1-research.md
        │
    ┌───┴────┐
    │ Writer │ ← Draft memo (10 sections)
-   └───┬────┘
+   └───┬────┘   Saves: 2-sections/*.md (10 files)
+       │
+   ┌───┴─────────────┐
+   │Citation Enrich  │ ← Add inline citations (Perplexity Sonar Pro)
+   └───┬─────────────┘   Preserves narrative, adds [^1], [^2], etc.
        │
    ┌───┴────────┐
    │ Validator  │ ← Score 0-10, identify issues
-   └───┬────────┘
+   └───┬────────┘   Saves: 3-validation.json, 3-validation.md
        │
    ┌───┴───────────────┐
    │   Score >= 8?     │
@@ -125,6 +158,7 @@ Memos are saved to `output/` directory:
    ┌───┴────┐  ┌──┴──────────┐
    │Finalize│  │Human Review │
    └────────┘  └─────────────┘
+   Both save: 4-final-draft.md, state.json
 ```
 
 ### State Management
@@ -148,24 +182,30 @@ MemoState = {
 investment-memo-orchestrator/
 ├── src/
 │   ├── agents/
-│   │   ├── researcher.py          # Basic research (no web search)
-│   │   ├── research_enhanced.py   # Web search + synthesis
-│   │   ├── writer.py              # Memo drafting
-│   │   └── validator.py           # Quality validation
-│   ├── state.py                   # TypedDict schemas
-│   ├── workflow.py                # LangGraph orchestration
-│   ├── versioning.py              # Version tracking system
-│   └── main.py                    # CLI entry point
+│   │   ├── researcher.py             # Basic research (no web search)
+│   │   ├── research_enhanced.py      # Web search + synthesis
+│   │   ├── writer.py                 # Memo drafting
+│   │   ├── citation_enrichment.py    # Citation addition (Perplexity)
+│   │   └── validator.py              # Quality validation
+│   ├── state.py                      # TypedDict schemas
+│   ├── workflow.py                   # LangGraph orchestration
+│   ├── artifacts.py                  # Artifact trail system
+│   ├── versioning.py                 # Version tracking system
+│   └── main.py                       # CLI entry point
 ├── templates/
-│   ├── memo-template.md           # 10-section structure
-│   └── style-guide.md             # Writing standards
+│   ├── memo-template.md              # 10-section structure
+│   └── style-guide.md                # Writing standards
 ├── docs/
-│   └── WEB_SEARCH_SETUP.md        # Search provider guide
+│   └── WEB_SEARCH_SETUP.md           # Search provider guide
 ├── changelog/
-│   └── 2025-11-16_01.md           # Development log
-├── output/                        # Generated memos
-├── data/                          # Sample company data
-└── tests/                         # Unit tests (TODO)
+│   ├── 2025-11-16_01.md              # Week 1 POC completion
+│   └── 2025-11-16_02.md              # Artifact trail system
+├── context-vigilance/
+│   └── Multi-Agent-Orchestration...  # Exploration document
+├── output/                           # Generated memos with artifacts
+│   └── {Company}-v0.0.x/             # Versioned artifact directories
+├── data/                             # Sample company data
+└── tests/                            # Unit tests (TODO)
 ```
 
 ## Testing
@@ -177,20 +217,42 @@ investment-memo-orchestrator/
 - Issues: 90% placeholders, no actual company data
 - Output: Framework memo showing what should be evaluated
 
-**With Web Search** (v0.0.1):
-- Score: 7.5/10
+**With Web Search** (v0.0.1-v0.0.4):
+- Score: 7.5-8.5/10
 - Real Data Found:
   - Founders: Matt Loszak (CEO), Yasir Arafat (CTO, ex-INL)
   - Funding: $136M total (Seed $6.3M, Series A $27M, Series B $100M)
   - Investors: Valor Equity Partners, NRG Energy, Hitachi Ventures
   - Location: Austin, Texas
   - Technology: 50 MWe modular reactors for AI data centers
-- Issues: Source citations need improvement, some promotional language
+- Issues: Source citations were missing
+
+**With Citation-Enrichment Agent** (v0.0.5):
+- Score: 8.5/10
+- **Citations Added**: 8 inline citations with full source attribution
+- **Citation Format**: `[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD`
+- **Sources Used**: TechCrunch, Business Insider, PowerMag, World Nuclear News, company blog
+- **Artifact Trail**: 16 files saved (research, sections, validation, final draft, state)
+- Issues: Some data gaps, market sizing lacks specifics (expected for pre-commercial company)
+
+### Completed Improvements ✅
+- [x] Create a "trail" of the collected information as structured output or markdown files
+- [x] Assure that citations are retained in the final output with proper attribution
+- [x] Terminal progress indicators and status messages to track workflow
+
+### Remaining Enhancements
+- [ ] Find a way to include direct markdown links to team's LinkedIn profiles
+- [ ] Find a way to "add" links to important organizations, such as government bodies, co-investors or previous investors, etc
+- [ ] Find a way to include any public charts, graphs, diagrams, or visualizations from the company's website or other sources 
+
 
 ## Current Capabilities ✅
 
-- [x] Multi-agent orchestration (Research → Write → Validate)
-- [x] Web search integration (Tavily/Perplexity)
+- [x] Multi-agent orchestration (Research → Write → Cite → Validate)
+- [x] Web search integration (Tavily for research, Perplexity Sonar Pro for citations)
+- [x] Citation-Enrichment Agent with inline [^1], [^2] format
+- [x] Artifact trail system (research, sections, validation, final draft)
+- [x] Complete workflow transparency with 16+ files per generation
 - [x] Hypernova template following (10 sections)
 - [x] Style guide enforcement
 - [x] Rigorous validation with specific feedback
@@ -236,19 +298,21 @@ investment-memo-orchestrator/
 # Required
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Web Search (choose one)
-TAVILY_API_KEY=tvly-...         # Recommended for POC
-PERPLEXITY_API_KEY=pplx-...     # Better quality, higher cost
+# Web Search (recommended: both for best results)
+TAVILY_API_KEY=tvly-...         # For research phase (fast, reliable)
+PERPLEXITY_API_KEY=pplx-...     # For citation enrichment (sonar-pro model)
 
 # Optional
 OPENAI_API_KEY=sk-...           # For future multi-model support
 
 # Settings
 USE_WEB_SEARCH=true             # Enable/disable web search
-RESEARCH_PROVIDER=tavily        # tavily, perplexity, or claude
+RESEARCH_PROVIDER=tavily        # tavily, perplexity, or claude (for research)
 MAX_SEARCH_RESULTS=10           # Results per query
 DEFAULT_MODEL=claude-sonnet-4-5-20250929
 ```
+
+**Note**: For full citation support, both `TAVILY_API_KEY` (research) and `PERPLEXITY_API_KEY` (citations) are recommended. Without Perplexity, the Citation-Enrichment Agent will be skipped.
 
 See `docs/WEB_SEARCH_SETUP.md` for detailed provider comparison.
 

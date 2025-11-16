@@ -21,8 +21,10 @@
 3. **Set up environment variables**:
    ```bash
    cp .env.example .env
-   # Edit .env and add your ANTHROPIC_API_KEY
-   # Optional: Add TAVILY_API_KEY or PERPLEXITY_API_KEY for web search
+   # Edit .env and add your keys:
+   # - ANTHROPIC_API_KEY (required for all operations)
+   # - TAVILY_API_KEY (recommended for research)
+   # - PERPLEXITY_API_KEY (required for citation enrichment)
    # See docs/WEB_SEARCH_SETUP.md for details
    ```
 
@@ -48,9 +50,22 @@ python -m src.main "Aalo Atomics"
 
 ## Output
 
-Generated memos are saved to the `output/` directory:
-- `{company-name}-memo.md` - The final memo
-- `{company-name}-state.json` - Full workflow state (for debugging)
+Each generation creates a versioned artifact directory:
+```
+output/{Company-Name}-v0.0.x/
+├── 1-research.json          # Structured research data
+├── 1-research.md            # Human-readable research summary
+├── 2-sections/              # Individual section drafts (10 files)
+│   ├── 01-executive-summary.md
+│   ├── 02-business-overview.md
+│   └── ... (all 10 sections)
+├── 3-validation.json        # Validation scores and feedback
+├── 3-validation.md          # Human-readable validation report
+├── 4-final-draft.md         # Complete memo with inline citations
+└── state.json               # Full workflow state for debugging
+```
+
+Plus `versions.json` tracking version history across all iterations.
 
 ## Project Structure
 
@@ -90,12 +105,18 @@ ruff check src/
 
 The memo generation follows this sequence:
 
-1. **Research Agent**: Gathers company and market data
-2. **Writer Agent**: Drafts memo following template
-3. **Validator Agent**: Checks quality and provides feedback
-4. **Decision**:
+1. **Research Agent**: Gathers company and market data via Tavily web search
+   - Saves: `1-research.json`, `1-research.md`
+2. **Writer Agent**: Drafts memo following template (10 sections)
+   - Saves: `2-sections/*.md` (10 individual section files)
+3. **Citation-Enrichment Agent**: Adds inline citations using Perplexity Sonar Pro
+   - Preserves narrative, adds [^1], [^2] citations with source list
+4. **Validator Agent**: Checks quality and provides feedback
+   - Saves: `3-validation.json`, `3-validation.md`
+5. **Decision**:
    - Score >= 8: Auto-finalize
    - Score < 8: Human review required
+   - Both save: `4-final-draft.md`, `state.json`
 
 ## Next Steps
 

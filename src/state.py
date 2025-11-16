@@ -9,6 +9,20 @@ from typing import TypedDict, Optional, List, Dict, Any, Annotated
 from operator import add
 
 
+class CitationSource(TypedDict, total=False):
+    """
+    Citation source metadata for preserving attribution.
+
+    Used to track where information came from during web search and research.
+    This enables proper source attribution in the final memo.
+    """
+    title: str              # Title of the source (e.g., "Crunchbase - Aalo Atomics")
+    url: str                # URL of the source
+    retrieved: str          # Date retrieved (YYYY-MM-DD format)
+    context: str            # Relevant excerpt or context from source
+    provider: str           # Search provider that returned this (e.g., "tavily", "perplexity")
+
+
 class CompanyData(TypedDict, total=False):
     """Basic company information."""
     name: str
@@ -19,7 +33,43 @@ class CompanyData(TypedDict, total=False):
 
 
 class ResearchData(TypedDict, total=False):
-    """Comprehensive research gathered by Research Agent."""
+    """
+    Comprehensive research gathered by Research Agent.
+
+    Each subsection (market, technology, team, traction, funding) can contain:
+    - Data fields specific to that area
+    - A 'sources' list with CitationSource objects for attribution
+    - A 'linkedin_url' or other URLs for linking
+
+    Example structure:
+    {
+        "company": {...},
+        "market": {
+            "tam": "$23B",
+            "sources": [{"title": "Gartner 2024", "url": "...", ...}]
+        },
+        "team": {
+            "founders": [
+                {
+                    "name": "John Doe",
+                    "title": "CEO",
+                    "background": "...",
+                    "linkedin_url": "https://linkedin.com/in/johndoe"
+                }
+            ],
+            "sources": [...]
+        },
+        "funding": {
+            "total_raised": "$136M",
+            "sources": [...]
+        },
+        "web_search_metadata": {
+            "provider": "tavily",
+            "queries_count": 4,
+            "total_results": 25
+        }
+    }
+    """
     company: CompanyData
     market: Dict[str, Any]
     technology: Dict[str, Any]
@@ -27,6 +77,9 @@ class ResearchData(TypedDict, total=False):
     traction: Dict[str, Any]
     funding: Dict[str, Any]
     sources: List[str]
+    web_search_metadata: Dict[str, Any]  # Metadata about web search execution
+    company_overview: Dict[str, Any]     # Company overview with sources
+    recent_news: Dict[str, Any]          # Recent news with sources
 
 
 class SectionDraft(TypedDict, total=False):
