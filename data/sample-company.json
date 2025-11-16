@@ -1,0 +1,6 @@
+{
+  "name": "Aalo Atomics",
+  "description": "Nuclear microreactor company for remote power generation",
+  "stage": "Series B",
+  "notes": "This is sample data for testing the POC. Real implementation would fetch from Crunchbase, company website, etc."
+}
