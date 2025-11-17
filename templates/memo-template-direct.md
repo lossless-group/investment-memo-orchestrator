@@ -43,7 +43,31 @@
 
 ---
 
-## 4. Technology & Product
+## 4. Team
+
+**Founders**:
+- **{Founder 1 Name}** ({Title}): [Prior experience, relevant expertise]
+- **{Founder 2 Name}** ({Title}): [Prior experience, relevant expertise]
+
+**Key hires**: [Critical roles filled or needed]
+
+**Team assessment**:
+- Strengths: [Domain expertise, execution track record]
+- Gaps: [Functions that need strengthening]
+
+### Enabling Network
+
+**Investors on cap table**:
+- **{Investor Name}** ({Firm}): [Relevance to deal - domain expertise, network, operational support]
+- **{Investor Name}** ({Firm}): [Relevance to deal - strategic relationships, market access]
+
+**Advisors**:
+- **{Advisor Name}**: [Role/expertise, how they add value]
+- **{Advisor Name}**: [Role/expertise, how they add value]
+
+---
+
+## 5. Technology & Product
 
 **Technical approach**: [Core technology or methodology]
 
@@ -57,7 +81,7 @@
 
 ---
 
-## 5. Traction & Milestones
+## 6. Traction & Milestones
 
 **Current metrics**:
 - Revenue: [Specific figures or ARR]
@@ -72,20 +96,6 @@
 **Next milestones** (6-12 months):
 - [Target 1]
 - [Target 2]
-
----
-
-## 6. Team
-
-**Founders**:
-- **{Founder 1 Name}** ({Title}): [Prior experience, relevant expertise]
-- **{Founder 2 Name}** ({Title}): [Prior experience, relevant expertise]
-
-**Key hires**: [Critical roles filled or needed]
-
-**Team assessment**:
-- Strengths: [Domain expertise, execution track record]
-- Gaps: [Functions that need strengthening]
 
 ---
 

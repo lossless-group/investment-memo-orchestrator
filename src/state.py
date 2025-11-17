@@ -5,7 +5,7 @@ This module defines the TypedDict structures that LangGraph uses to maintain
 state throughout the multi-agent memo generation process.
 """
 
-from typing import TypedDict, Optional, List, Dict, Any, Annotated
+from typing import TypedDict, Optional, List, Dict, Any, Annotated, Literal
 from operator import add
 
 
@@ -107,6 +107,11 @@ class MemoState(TypedDict):
     """
     # Input
     company_name: str
+    investment_type: Literal["direct", "fund"]  # Type of investment: direct (startup) or fund (LP commitment)
+    memo_mode: Literal["justify", "consider"]   # Mode: justify (retrospective, already invested) or consider (prospective)
+
+    # Deck analysis phase (optional, runs if PDF deck exists)
+    deck_analysis: Optional[Dict[str, Any]]
 
     # Research phase
     research: Optional[ResearchData]
@@ -128,18 +133,27 @@ class MemoState(TypedDict):
     messages: Annotated[List[str], add]  # Append-only list of agent outputs
 
 
-def create_initial_state(company_name: str) -> MemoState:
+def create_initial_state(
+    company_name: str,
+    investment_type: Literal["direct", "fund"] = "direct",
+    memo_mode: Literal["justify", "consider"] = "consider"
+) -> MemoState:
     """
     Create initial state for a new memo generation workflow.
 
     Args:
-        company_name: Name of the company to research and create memo for
+        company_name: Name of the company/fund to research and create memo for
+        investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
+        memo_mode: Memo purpose - "justify" for retrospective (already invested), "consider" for prospective
 
     Returns:
         MemoState with initialized values
     """
     return MemoState(
         company_name=company_name,
+        investment_type=investment_type,
+        memo_mode=memo_mode,
+        deck_analysis=None,
         research=None,
         draft_sections={},
         validation_results={},
