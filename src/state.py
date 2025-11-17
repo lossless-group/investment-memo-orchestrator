@@ -118,6 +118,14 @@ class ValidationFeedback(TypedDict, total=False):
     suggestions: List[str]
 
 
+class CitationValidation(TypedDict, total=False):
+    """Citation accuracy validation results."""
+    total_citations: int
+    valid_citations: int
+    issues: List[str]       # Format errors, date mismatches, broken links
+    warnings: List[str]     # Duplicate URLs, old sources, etc.
+
+
 class MemoState(TypedDict):
     """
     Main state object for the investment memo workflow.
@@ -142,6 +150,7 @@ class MemoState(TypedDict):
 
     # Validation phase
     validation_results: Dict[str, ValidationFeedback]
+    citation_validation: Optional[CitationValidation]  # NEW: Citation accuracy validation
     overall_score: float
 
     # Iteration tracking
@@ -181,6 +190,7 @@ def create_initial_state(
         research=None,
         draft_sections={},
         validation_results={},
+        citation_validation=None,
         overall_score=0.0,
         revision_count=0,
         final_memo=None,

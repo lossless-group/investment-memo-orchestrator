@@ -39,13 +39,17 @@ CRITICAL RULES:
 
 [^1]: YYYY, MMM DD. Source Title - Source Name. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://full-url-here.com
 
-[^2]: YYYY, MMM DD. Source Title - Source Name. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://full-url-here.com
+[^2]: YYYY, MMM DD. Source Title - Source Name. Published: YYYY-MM-DD | Updated: N/A | URL: https://full-url-here.com
 
 IMPORTANT FORMATTING:
 - DD must ALWAYS be two digits with zero-padding (e.g., "Jan 08" not "Jan 8", "Mar 03" not "Mar 3")
+- ALWAYS include "Updated:" field - use "Updated: N/A" if source has no update date
+- ALWAYS include "Published:" field with actual date
 - ALWAYS include "URL: https://..." at the end of each citation
+- The format MUST be: YYYY, MMM DD. Title. Published: YYYY-MM-DD | Updated: YYYY-MM-DD or N/A | URL: https://...
 - No space before colon in "[^1]:"
 - Exactly one space after colon before text begins
+- All THREE fields (Published, Updated, URL) are REQUIRED in every citation
 
 WHAT TO CITE:
 - Funding amounts and rounds (cite Crunchbase, PitchBook, press releases)
@@ -129,7 +133,8 @@ CRITICAL REQUIREMENTS:
 1. Do NOT rewrite the content - only add [^1], [^2], etc. citations
 2. Place citations AFTER punctuation with a space: "text. [^1]" not "text[^1]."
 3. EVERY citation in the reference list MUST include the full URL
-4. Format: [^1]: YYYY, MMM DD. Title - Source. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://...
+4. Format: [^1]: YYYY, MMM DD. Title - Source. Published: YYYY-MM-DD | Updated: YYYY-MM-DD or N/A | URL: https://...
+5. ALL THREE FIELDS REQUIRED: Published, Updated (or "N/A"), and URL
 
 MEMO CONTENT:
 {memo_content}
