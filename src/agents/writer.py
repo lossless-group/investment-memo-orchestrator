@@ -173,7 +173,11 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
 
     # Create writing prompt
     import json
+    from datetime import datetime
     research_json = json.dumps(research, indent=2)
+
+    # Get current date
+    current_date = datetime.now().strftime("%B %Y")  # e.g., "November 2024"
 
     # Customize instructions based on memo mode
     mode_instruction = ""
@@ -195,6 +199,9 @@ This is a prospective analysis. The recommendation section should objectively re
 
     user_prompt = f"""Write a complete investment memo for {company_name} using the following research data:
 
+CURRENT DATE: {current_date}
+IMPORTANT: Use "{current_date}" as the memo date. Do NOT use any other date.
+
 INVESTMENT TYPE: {investment_type.upper()}
 {type_instruction}
 
@@ -211,6 +218,7 @@ Create a professional, analytical investment memo that:
 5. Includes balanced risk assessment
 6. Cites sources for market claims
 7. Provides appropriate recommendation based on memo mode
+8. Uses the current date "{current_date}" for the memo date field
 
 Write the complete memo as markdown following the template format."""
 

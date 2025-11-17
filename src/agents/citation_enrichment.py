@@ -32,15 +32,20 @@ CRITICAL RULES:
    - Industry analyst reports (Gartner, CB Insights, McKinsey, etc.)
    - News outlets (Bloomberg, Reuters, WSJ, FT)
    - Academic papers only when relevant for technical claims
-6. Generate a comprehensive citation list at the end in this exact format:
+6. EVERY citation MUST include the full URL in the reference list
+7. Generate a comprehensive citation list at the end in this exact format:
 
 ### Citations
 
-[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD
+[^1]: YYYY, MMM DD. Source Title - Source Name. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://full-url-here.com
 
-[^2]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD
+[^2]: YYYY, MMM DD. Source Title - Source Name. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://full-url-here.com
 
-IMPORTANT: DD must ALWAYS be two digits with zero-padding (e.g., "Jan 08" not "Jan 8", "Mar 03" not "Mar 3")
+IMPORTANT FORMATTING:
+- DD must ALWAYS be two digits with zero-padding (e.g., "Jan 08" not "Jan 8", "Mar 03" not "Mar 3")
+- ALWAYS include "URL: https://..." at the end of each citation
+- No space before colon in "[^1]:"
+- Exactly one space after colon before text begins
 
 WHAT TO CITE:
 - Funding amounts and rounds (cite Crunchbase, PitchBook, press releases)
@@ -51,19 +56,26 @@ WHAT TO CITE:
 - Investor names and details (cite funding announcements, Crunchbase)
 - Competitive landscape claims (cite company websites, industry analysis)
 
-CITATION PLACEMENT:
-- Place citation immediately after the claim, before punctuation: "raised $136M[^1]"
-- Multiple facts in one sentence can have multiple citations: "founded in 2023[^1] and raised $136M[^2]"
-- For lists, cite each item if sources differ
+CITATION PLACEMENT (OBSIDIAN MARKDOWN FORMAT):
+- Place citation AFTER punctuation when punctuation exists: "raised $136M. [^1]" NOT "raised $136M[^1]."
+- Always include exactly ONE SPACE before each citation marker: "claim. [^1] [^2]" NOT "claim.[^1][^2]"
+- Multiple citations: "text. [^1] [^2] [^3]" with one space before each
+- In bullet points without ending punctuation: "- Bullet item [^1]" (one space before citation)
+- Examples:
+  CORRECT: "The company raised $136M. [^1]"
+  CORRECT: "Founded in 2023 by Jane Doe. [^1] [^2]"
+  CORRECT: "- Strategic partnership with Acme Corp [^3]"
+  WRONG: "The company raised $136M[^1]."
+  WRONG: "Founded in 2023.[^1][^2]"
 
 OUTPUT FORMAT:
 Return the content with inline citations added, followed by:
 
 ### Citations
 
-[citation list in the format above]
+[citation list in the format above with URLs]
 
-Remember: Your goal is to add scholarly rigor WITHOUT changing what was written."""
+Remember: Your goal is to add scholarly rigor WITHOUT changing what was written. ALWAYS include URLs in the citation list."""
 
 
 def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
@@ -113,12 +125,16 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     # Create citation enrichment prompt
     user_prompt = f"""Add inline academic citations to this investment memo for {company_name}.
 
-IMPORTANT: Do NOT rewrite the content. Only add [^1], [^2], etc. citations and generate the citation list.
+CRITICAL REQUIREMENTS:
+1. Do NOT rewrite the content - only add [^1], [^2], etc. citations
+2. Place citations AFTER punctuation with a space: "text. [^1]" not "text[^1]."
+3. EVERY citation in the reference list MUST include the full URL
+4. Format: [^1]: YYYY, MMM DD. Title - Source. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://...
 
 MEMO CONTENT:
 {memo_content}
 
-Return the same content with citations added, followed by the citation list in the format specified in your system prompt."""
+Return the same content with citations added (space before each citation marker), followed by the citation list with URLs."""
 
     print(f"Enriching memo with citations using Perplexity...")
 
