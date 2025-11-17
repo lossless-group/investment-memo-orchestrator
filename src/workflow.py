@@ -14,6 +14,8 @@ from .state import MemoState
 from .agents.researcher import research_agent
 from .agents.research_enhanced import research_agent_enhanced
 from .agents.writer import writer_agent
+from .agents.link_enrichment import link_enrichment_agent
+from .agents.visualization_enrichment import visualization_enrichment_agent
 from .agents.citation_enrichment import citation_enrichment_agent
 from .agents.validator import validator_agent
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
@@ -158,14 +160,19 @@ def build_workflow() -> StateGraph:
     # Add agent nodes
     workflow.add_node("research", research_fn)
     workflow.add_node("draft", writer_agent)
+    workflow.add_node("enrich_links", link_enrichment_agent)
+    workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
     workflow.add_node("cite", citation_enrichment_agent)
     workflow.add_node("validate", validator_agent)
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
     # Define edges (workflow sequence)
+    # Research → Draft → Link Enrichment → Visualization Enrichment → Citation Enrichment → Validate
     workflow.add_edge("research", "draft")
-    workflow.add_edge("draft", "cite")
+    workflow.add_edge("draft", "enrich_links")
+    workflow.add_edge("enrich_links", "enrich_visualizations")
+    workflow.add_edge("enrich_visualizations", "cite")
     workflow.add_edge("cite", "validate")
 
     # Conditional edge after validation
