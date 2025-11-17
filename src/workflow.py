@@ -145,6 +145,21 @@ Suggested improvements:
     }
 
 
+def router_node(state: MemoState) -> dict:
+    """
+    Router node that decides whether to analyze deck first.
+
+    Args:
+        state: Current memo state
+
+    Returns:
+        State with router decision
+    """
+    return {
+        "messages": ["Routing workflow..."]
+    }
+
+
 def should_analyze_deck(state: MemoState) -> str:
     """
     Route to deck analyst if deck exists, otherwise go to research.
@@ -157,7 +172,9 @@ def should_analyze_deck(state: MemoState) -> str:
     """
     deck_path = state.get("deck_path")
     if deck_path and Path(deck_path).exists():
+        print("Routing to deck analyst...")
         return "deck_analyst"
+    print("Routing to research...")
     return "research"
 
 
@@ -176,7 +193,7 @@ def build_workflow() -> StateGraph:
     research_fn = research_agent_enhanced if use_enhanced_research else research_agent
 
     # Add agent nodes
-    workflow.add_node("deck_analyst", deck_analyst_agent)  # NEW: Deck analyst
+    workflow.add_node("deck_analyst", deck_analyst_agent)  # NEW: Deck analyst (always runs, skips if no deck)
     workflow.add_node("research", research_fn)
     workflow.add_node("draft", writer_agent)
     workflow.add_node("enrich_socials", socials_enrichment_agent)
@@ -187,14 +204,8 @@ def build_workflow() -> StateGraph:
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
-    # NEW: Conditional entry point - check for deck
-    workflow.set_conditional_entry_point(
-        should_analyze_deck,
-        {
-            "deck_analyst": "deck_analyst",
-            "research": "research"
-        }
-    )
+    # SIMPLIFIED: Always start with deck_analyst (it skips if no deck)
+    workflow.set_entry_point("deck_analyst")
 
     # Define edges (workflow sequence)
     # Deck Analyst → Research → Draft → Socials → Links → Visualizations → Citations → Validate
