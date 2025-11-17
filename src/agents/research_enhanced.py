@@ -137,6 +137,36 @@ def fetch_website(url: str) -> Optional[str]:
         return None
 
 
+def generate_queries_from_deck(company_name: str, deck_data: Dict[str, Any]) -> List[str]:
+    """
+    Generate targeted search queries based on deck gaps.
+
+    Args:
+        company_name: Name of the company
+        deck_data: Deck analysis data
+
+    Returns:
+        List of search queries tailored to fill gaps
+    """
+    queries = [f"{company_name} company overview"]
+
+    # Add queries for missing information
+    if not deck_data.get("team_members") or deck_data.get("team_members") == "Not mentioned":
+        queries.append(f"{company_name} founders team background LinkedIn")
+
+    if not deck_data.get("market_size") or deck_data.get("market_size") == "Not mentioned":
+        queries.append(f"{company_name} market size TAM SAM industry analysis")
+
+    if not deck_data.get("traction_metrics") or deck_data.get("traction_metrics") == "Not mentioned":
+        queries.append(f"{company_name} revenue customers traction metrics")
+
+    # Always verify claimed traction and get recent news
+    queries.append(f"{company_name} latest news funding announcements 2024")
+    queries.append(f"{company_name} funding investors Crunchbase")
+
+    return queries
+
+
 def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     """
     Enhanced Research Agent with web search capability.
@@ -148,6 +178,8 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     - Team information (LinkedIn via search)
     - News and press releases
 
+    NEW: Deck-aware research - adjusts queries based on deck analysis gaps.
+
     Args:
         state: Current memo state containing company_name
 
@@ -155,6 +187,7 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
         Updated state with research data populated
     """
     company_name = state["company_name"]
+    deck_analysis = state.get("deck_analysis")
 
     # Get configuration
     provider_name = os.getenv("RESEARCH_PROVIDER", "tavily").lower()
@@ -181,41 +214,25 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     research_context = []
 
     if search_provider:
-        # Search 1: Company overview
-        print(f"Searching for: {company_name} company overview...")
-        results = search_provider.search(
-            f"{company_name} company founders technology product",
-            max_results=max_results
-        )
-        for r in results:
-            research_context.append(f"Source: {r['title']} ({r['url']})\n{r['content']}\n")
+        # NEW: Generate targeted queries based on deck analysis
+        if deck_analysis:
+            print(f"Deck analysis available - generating targeted queries to fill gaps...")
+            search_queries = generate_queries_from_deck(company_name, deck_analysis)
+        else:
+            # Default queries when no deck available
+            search_queries = [
+                f"{company_name} company founders technology product",
+                f"{company_name} funding investors Series A seed Crunchbase",
+                f"{company_name} founders CEO team LinkedIn background",
+                f"{company_name} news announcement partnership 2024"
+            ]
 
-        # Search 2: Funding and investors
-        print(f"Searching for: {company_name} funding...")
-        results = search_provider.search(
-            f"{company_name} funding investors Series A seed Crunchbase",
-            max_results=5
-        )
-        for r in results:
-            research_context.append(f"Source: {r['title']} ({r['url']})\n{r['content']}\n")
-
-        # Search 3: Team and founders
-        print(f"Searching for: {company_name} team...")
-        results = search_provider.search(
-            f"{company_name} founders CEO team LinkedIn background",
-            max_results=5
-        )
-        for r in results:
-            research_context.append(f"Source: {r['title']} ({r['url']})\n{r['content']}\n")
-
-        # Search 4: Recent news
-        print(f"Searching for: {company_name} news...")
-        results = search_provider.search(
-            f"{company_name} news announcement partnership 2024",
-            max_results=5
-        )
-        for r in results:
-            research_context.append(f"Source: {r['title']} ({r['url']})\n{r['content']}\n")
+        # Execute searches
+        for idx, query in enumerate(search_queries, 1):
+            print(f"Search {idx}/{len(search_queries)}: {query}...")
+            results = search_provider.search(query, max_results=5 if idx > 1 else max_results)
+            for r in results:
+                research_context.append(f"Source: {r['title']} ({r['url']})\n{r['content']}\n")
 
     # Compile research context
     research_text = "\n\n---\n\n".join(research_context) if research_context else "No web search results available."
@@ -288,7 +305,21 @@ OUTPUT FORMAT: Return structured JSON matching this schema:
 
 Be thorough but honest about data gaps. Quality over completeness."""
 
+    # NEW: Include deck analysis context if available
+    deck_context = ""
+    if deck_analysis:
+        deck_context = f"""
+PITCH DECK ANALYSIS:
+The following information was extracted from the company's pitch deck:
+{json.dumps(deck_analysis, indent=2)}
+
+Use this as a baseline, but prioritize web search results for verification and additional details.
+Note any discrepancies between deck claims and external sources.
+"""
+
     user_prompt = f"""Analyze the following web search results about {company_name} and extract structured company data for investment analysis.
+
+{deck_context}
 
 WEB SEARCH RESULTS:
 {research_text}

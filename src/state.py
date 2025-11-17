@@ -23,6 +23,26 @@ class CitationSource(TypedDict, total=False):
     provider: str           # Search provider that returned this (e.g., "tavily", "perplexity")
 
 
+class DeckAnalysisData(TypedDict, total=False):
+    """Structured data extracted from pitch deck"""
+    company_name: str
+    tagline: Optional[str]
+    problem_statement: Optional[str]
+    solution_description: Optional[str]
+    product_description: Optional[str]
+    business_model: Optional[str]
+    market_size: Optional[Dict[str, str]]  # TAM, SAM, SOM
+    traction_metrics: Optional[List[Dict[str, str]]]
+    team_members: Optional[List[Dict[str, str]]]
+    funding_ask: Optional[str]
+    use_of_funds: Optional[List[str]]
+    competitive_landscape: Optional[str]
+    go_to_market: Optional[str]
+    milestones: Optional[List[str]]
+    deck_page_count: int
+    extraction_notes: List[str]  # What info was/wasn't found
+
+
 class CompanyData(TypedDict, total=False):
     """Basic company information."""
     name: str
@@ -110,6 +130,10 @@ class MemoState(TypedDict):
     investment_type: Literal["direct", "fund"]  # Type of investment
     memo_mode: Literal["consider", "justify"]  # Memo purpose
 
+    # Deck analysis (NEW)
+    deck_path: Optional[str]
+    deck_analysis: Optional[DeckAnalysisData]
+
     # Research phase
     research: Optional[ResearchData]
 
@@ -133,7 +157,8 @@ class MemoState(TypedDict):
 def create_initial_state(
     company_name: str,
     investment_type: Literal["direct", "fund"] = "direct",
-    memo_mode: Literal["consider", "justify"] = "consider"
+    memo_mode: Literal["consider", "justify"] = "consider",
+    deck_path: Optional[str] = None
 ) -> MemoState:
     """
     Create initial state for a new memo generation workflow.
@@ -142,6 +167,7 @@ def create_initial_state(
         company_name: Name of the company to research and create memo for
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
+        deck_path: Optional path to pitch deck PDF
 
     Returns:
         MemoState with initialized values
@@ -150,6 +176,8 @@ def create_initial_state(
         company_name=company_name,
         investment_type=investment_type,
         memo_mode=memo_mode,
+        deck_path=deck_path,
+        deck_analysis=None,
         research=None,
         draft_sections={},
         validation_results={},

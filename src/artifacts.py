@@ -47,6 +47,148 @@ def create_artifact_directory(company_name: str, version: str) -> Path:
     return output_dir
 
 
+def save_deck_analysis_artifacts(
+    company_name: str,
+    deck_analysis: Dict[str, Any],
+    section_drafts: Dict[str, str]
+) -> None:
+    """
+    Save deck analysis artifacts with 0- prefix.
+
+    Args:
+        company_name: Name of the company
+        deck_analysis: Deck analysis data
+        section_drafts: Initial section drafts from deck
+    """
+    from .versioning import VersionManager
+
+    # Get or create output directory
+    version_mgr = VersionManager(Path("output"))
+    safe_name = sanitize_filename(company_name)
+    version = version_mgr.get_next_version(safe_name)
+    output_dir = create_artifact_directory(company_name, version)
+
+    # Save structured JSON
+    with open(output_dir / "0-deck-analysis.json", "w") as f:
+        json.dump(deck_analysis, f, indent=2, ensure_ascii=False)
+
+    # Save human-readable summary
+    summary = format_deck_analysis_summary(deck_analysis)
+    with open(output_dir / "0-deck-analysis.md", "w") as f:
+        f.write(summary)
+
+    # Save initial section drafts
+    sections_dir = output_dir / "2-sections"
+    sections_dir.mkdir(exist_ok=True)
+
+    for filename, content in section_drafts.items():
+        with open(sections_dir / filename, "w") as f:
+            f.write(f"<!-- DRAFT FROM DECK ANALYSIS -->\n\n{content}")
+
+    print(f"Deck analysis artifacts saved: {len(section_drafts)} initial sections created")
+
+
+def load_existing_section_drafts(company_name: str) -> Dict[str, str]:
+    """
+    Load any existing section drafts from artifacts.
+
+    Args:
+        company_name: Name of the company
+
+    Returns:
+        Dictionary mapping section filenames to content
+    """
+    from .versioning import VersionManager
+
+    version_mgr = VersionManager(Path("output"))
+    safe_name = sanitize_filename(company_name)
+
+    # Get the latest version for this company
+    if safe_name not in version_mgr.versions_data:
+        return {}
+
+    latest_version = version_mgr.versions_data[safe_name]["latest_version"]
+    output_dir = Path("output") / f"{safe_name}-{latest_version}"
+
+    sections_dir = output_dir / "2-sections"
+
+    if not sections_dir.exists():
+        return {}
+
+    drafts = {}
+    for section_file in sections_dir.glob("*.md"):
+        with open(section_file) as f:
+            drafts[section_file.name] = f.read()
+
+    return drafts
+
+
+def format_deck_analysis_summary(deck_analysis: Dict[str, Any]) -> str:
+    """
+    Create human-readable deck analysis summary.
+
+    Args:
+        deck_analysis: Deck analysis data
+
+    Returns:
+        Markdown formatted summary
+    """
+    md = "# Deck Analysis Summary\n\n"
+    md += f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    md += f"**Company**: {deck_analysis.get('company_name', 'N/A')}\n\n"
+    md += f"**Pages**: {deck_analysis.get('deck_page_count', 'N/A')}\n\n"
+    md += "---\n\n"
+
+    md += "## Key Information Extracted\n\n"
+
+    # Business
+    md += "### Business\n\n"
+    md += f"- **Tagline**: {deck_analysis.get('tagline', 'Not mentioned')}\n"
+    md += f"- **Problem**: {deck_analysis.get('problem_statement', 'Not mentioned')}\n"
+    md += f"- **Solution**: {deck_analysis.get('solution_description', 'Not mentioned')}\n"
+    md += f"- **Business Model**: {deck_analysis.get('business_model', 'Not mentioned')}\n\n"
+
+    # Market
+    if deck_analysis.get('market_size'):
+        md += "### Market\n\n"
+        md += f"```json\n{json.dumps(deck_analysis.get('market_size', {}), indent=2)}\n```\n\n"
+
+    # Traction
+    if deck_analysis.get('traction_metrics'):
+        md += "### Traction\n\n"
+        md += f"```json\n{json.dumps(deck_analysis.get('traction_metrics', []), indent=2)}\n```\n\n"
+
+    # Team
+    if deck_analysis.get('team_members'):
+        md += "### Team\n\n"
+        md += f"```json\n{json.dumps(deck_analysis.get('team_members', []), indent=2)}\n```\n\n"
+
+    # Funding
+    md += "### Funding\n\n"
+    md += f"- **Ask**: {deck_analysis.get('funding_ask', 'Not mentioned')}\n"
+    if deck_analysis.get('use_of_funds'):
+        md += f"- **Use of Funds**: {json.dumps(deck_analysis.get('use_of_funds', []))}\n"
+    md += "\n"
+
+    # Go-to-Market & Competition
+    if deck_analysis.get('go_to_market') and deck_analysis.get('go_to_market') != 'Not mentioned':
+        md += "### Go-to-Market\n\n"
+        md += f"{deck_analysis.get('go_to_market')}\n\n"
+
+    if deck_analysis.get('competitive_landscape') and deck_analysis.get('competitive_landscape') != 'Not mentioned':
+        md += "### Competitive Landscape\n\n"
+        md += f"{deck_analysis.get('competitive_landscape')}\n\n"
+
+    # Extraction notes
+    if deck_analysis.get('extraction_notes'):
+        md += "## Extraction Notes\n\n"
+        for note in deck_analysis.get('extraction_notes', []):
+            md += f"- {note}\n"
+        md += "\n"
+
+    return md
+
+
 def save_research_artifacts(output_dir: Path, research_data: Dict[str, Any]) -> None:
     """
     Save research artifacts (JSON and markdown summary).

@@ -13,6 +13,7 @@ from pathlib import Path
 from .state import MemoState
 from .agents.researcher import research_agent
 from .agents.research_enhanced import research_agent_enhanced
+from .agents.deck_analyst import deck_analyst_agent
 from .agents.writer import writer_agent
 from .agents.socials_enrichment import socials_enrichment_agent
 from .agents.link_enrichment import link_enrichment_agent
@@ -144,6 +145,22 @@ Suggested improvements:
     }
 
 
+def should_analyze_deck(state: MemoState) -> str:
+    """
+    Route to deck analyst if deck exists, otherwise go to research.
+
+    Args:
+        state: Current memo state
+
+    Returns:
+        Next node to execute ("deck_analyst" or "research")
+    """
+    deck_path = state.get("deck_path")
+    if deck_path and Path(deck_path).exists():
+        return "deck_analyst"
+    return "research"
+
+
 def build_workflow() -> StateGraph:
     """
     Build the LangGraph workflow for memo generation.
@@ -159,6 +176,7 @@ def build_workflow() -> StateGraph:
     research_fn = research_agent_enhanced if use_enhanced_research else research_agent
 
     # Add agent nodes
+    workflow.add_node("deck_analyst", deck_analyst_agent)  # NEW: Deck analyst
     workflow.add_node("research", research_fn)
     workflow.add_node("draft", writer_agent)
     workflow.add_node("enrich_socials", socials_enrichment_agent)
@@ -169,8 +187,18 @@ def build_workflow() -> StateGraph:
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
+    # NEW: Conditional entry point - check for deck
+    workflow.set_conditional_entry_point(
+        should_analyze_deck,
+        {
+            "deck_analyst": "deck_analyst",
+            "research": "research"
+        }
+    )
+
     # Define edges (workflow sequence)
-    # Research → Draft → Socials → Links → Visualizations → Citations → Validate
+    # Deck Analyst → Research → Draft → Socials → Links → Visualizations → Citations → Validate
+    workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "draft")
     workflow.add_edge("draft", "enrich_socials")
     workflow.add_edge("enrich_socials", "enrich_links")
@@ -192,9 +220,6 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("finalize", END)
     workflow.add_edge("human_review", END)
 
-    # Set entry point
-    workflow.set_entry_point("research")
-
     # Compile and return
     return workflow.compile()
 
@@ -202,7 +227,8 @@ def build_workflow() -> StateGraph:
 def generate_memo(
     company_name: str,
     investment_type: LiteralType["direct", "fund"] = "direct",
-    memo_mode: LiteralType["consider", "justify"] = "consider"
+    memo_mode: LiteralType["consider", "justify"] = "consider",
+    deck_path: str = None
 ) -> MemoState:
     """
     Main entry point for generating an investment memo.
@@ -211,6 +237,7 @@ def generate_memo(
         company_name: Name of the company to analyze
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
+        deck_path: Optional path to pitch deck PDF
 
     Returns:
         Final state containing research, draft, validation, and final memo
@@ -218,7 +245,7 @@ def generate_memo(
     from .state import create_initial_state
 
     # Create initial state
-    initial_state = create_initial_state(company_name, investment_type, memo_mode)
+    initial_state = create_initial_state(company_name, investment_type, memo_mode, deck_path)
 
     # Build and run workflow
     app = build_workflow()

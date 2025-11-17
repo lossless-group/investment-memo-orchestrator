@@ -72,13 +72,37 @@ def main():
     investment_type = args.investment_type
     memo_mode = args.memo_mode
 
+    # NEW: Load company data if exists (check for deck)
+    deck_path = None
+    data_file = Path(f"data/{company_name}.json")
+
+    if data_file.exists():
+        try:
+            with open(data_file) as f:
+                company_data = json.load(f)
+                deck_path = company_data.get("deck")
+
+                # Validate deck path
+                if deck_path:
+                    deck_file = Path(deck_path)
+                    if deck_file.exists():
+                        console.print(f"[bold green]Found pitch deck:[/bold green] {deck_file.name}")
+                    else:
+                        console.print(f"[bold yellow]Warning:[/bold yellow] Deck specified but not found: {deck_path}")
+                        deck_path = None
+        except Exception as e:
+            console.print(f"[bold yellow]Warning:[/bold yellow] Could not load company data file: {e}")
+
     # Display configuration
     type_label = "Direct Investment" if investment_type == "direct" else "Fund Commitment"
     mode_label = "Prospective Analysis" if memo_mode == "consider" else "Retrospective Justification"
 
     console.print(f"\n[bold green]Starting memo generation for:[/bold green] {company_name}")
     console.print(f"[bold cyan]Type:[/bold cyan] {type_label}")
-    console.print(f"[bold cyan]Mode:[/bold cyan] {mode_label}\n")
+    console.print(f"[bold cyan]Mode:[/bold cyan] {mode_label}")
+    if deck_path:
+        console.print(f"[bold cyan]Deck:[/bold cyan] Analyzing pitch deck first")
+    console.print()
 
     # Run workflow with progress indicators
     try:
@@ -89,8 +113,8 @@ def main():
         ) as progress:
             task = progress.add_task("Generating investment memo...", total=None)
 
-            # Generate memo
-            final_state = generate_memo(company_name, investment_type, memo_mode)
+            # Generate memo (NEW: pass deck_path)
+            final_state = generate_memo(company_name, investment_type, memo_mode, deck_path)
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")
 

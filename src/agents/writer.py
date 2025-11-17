@@ -136,11 +136,60 @@ Replace all template placeholders with actual data from the research.
 """
 
 
+def augment_section_draft(
+    section_name: str,
+    existing_draft: str,
+    research: Dict[str, Any],
+    deck_data: Dict[str, Any],
+    model: ChatAnthropic
+) -> str:
+    """
+    Augment existing section draft with research findings.
+
+    Args:
+        section_name: Name of the section being augmented
+        existing_draft: Existing draft from deck analysis
+        research: Research data
+        deck_data: Deck analysis data (for context)
+        model: Language model for augmentation
+
+    Returns:
+        Augmented section content
+    """
+    import json
+
+    prompt = f"""You have an initial section draft from deck analysis. Augment it with web research findings.
+
+EXISTING DRAFT (from pitch deck):
+{existing_draft}
+
+RESEARCH FINDINGS:
+{json.dumps(research, indent=2)}
+
+TASK:
+1. Keep all good information from the existing draft
+2. Add new findings from research (with appropriate context)
+3. Fill in gaps noted in original draft
+4. Maintain analytical tone
+5. Ensure no contradictions (note if deck claims differ from research)
+6. Integrate the information smoothly - don't just append
+
+Output the AUGMENTED section (300-500 words) in markdown format.
+Return ONLY the section content, no preamble.
+"""
+
+    response = model.invoke(prompt)
+    return response.content
+
+
 def writer_agent(state: MemoState) -> Dict[str, Any]:
     """
     Writer Agent implementation.
 
     Drafts a complete investment memo based on research data.
+
+    NEW: Checks for existing section drafts from deck analysis and augments them
+    instead of creating from scratch.
 
     Args:
         state: Current memo state containing research data
@@ -155,6 +204,11 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     company_name = state["company_name"]
     investment_type = state.get("investment_type", "direct")
     memo_mode = state.get("memo_mode", "consider")
+    deck_analysis = state.get("deck_analysis")
+
+    # NEW: Load any existing section drafts from deck analysis
+    from ..artifacts import load_existing_section_drafts
+    existing_drafts = load_existing_section_drafts(company_name)
 
     # Load appropriate template and style guide
     template = load_template(investment_type)
@@ -197,6 +251,18 @@ This is a prospective analysis. The recommendation section should objectively re
     else:
         type_instruction = "This is a direct investment into a startup company. Focus on product, market, team, traction, and technology."
 
+    # NEW: Include deck drafts context if they exist
+    deck_drafts_context = ""
+    if existing_drafts:
+        deck_drafts_context = f"""
+IMPORTANT - EXISTING SECTION DRAFTS:
+The following sections have initial drafts from pitch deck analysis:
+{', '.join(existing_drafts.keys())}
+
+For these sections, integrate and enhance the existing content with research findings rather than starting from scratch.
+Preserve deck-sourced insights while adding verification and additional context from research.
+"""
+
     user_prompt = f"""Write a complete investment memo for {company_name} using the following research data:
 
 CURRENT DATE: {current_date}
@@ -206,6 +272,8 @@ INVESTMENT TYPE: {investment_type.upper()}
 {type_instruction}
 
 {mode_instruction}
+
+{deck_drafts_context}
 
 RESEARCH DATA:
 {research_json}
