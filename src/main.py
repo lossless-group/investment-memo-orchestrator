@@ -6,6 +6,7 @@ Run this script to generate an investment memo for a company.
 
 import os
 import sys
+import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 from rich.console import Console
@@ -32,9 +33,35 @@ def main():
         console.print("Please set it in .env file or environment variables")
         sys.exit(1)
 
-    # Get company name from command line or prompt
-    if len(sys.argv) > 1:
-        company_name = " ".join(sys.argv[1:])
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Generate investment memos using multi-agent AI orchestration"
+    )
+    parser.add_argument(
+        "company_name",
+        nargs="?",
+        help="Name of the company to analyze"
+    )
+    parser.add_argument(
+        "--type",
+        dest="investment_type",
+        choices=["direct", "fund"],
+        default="direct",
+        help="Type of investment: 'direct' for startup investments, 'fund' for LP commitments (default: direct)"
+    )
+    parser.add_argument(
+        "--mode",
+        dest="memo_mode",
+        choices=["consider", "justify"],
+        default="consider",
+        help="Memo mode: 'consider' for prospective analysis, 'justify' for retrospective justification (default: consider)"
+    )
+
+    args = parser.parse_args()
+
+    # Get company name from args or prompt
+    if args.company_name:
+        company_name = args.company_name
     else:
         company_name = console.input("\n[bold cyan]Enter company name:[/bold cyan] ")
 
@@ -42,7 +69,16 @@ def main():
         console.print("[bold red]Error:[/bold red] Company name cannot be empty")
         sys.exit(1)
 
-    console.print(f"\n[bold green]Starting memo generation for:[/bold green] {company_name}\n")
+    investment_type = args.investment_type
+    memo_mode = args.memo_mode
+
+    # Display configuration
+    type_label = "Direct Investment" if investment_type == "direct" else "Fund Commitment"
+    mode_label = "Prospective Analysis" if memo_mode == "consider" else "Retrospective Justification"
+
+    console.print(f"\n[bold green]Starting memo generation for:[/bold green] {company_name}")
+    console.print(f"[bold cyan]Type:[/bold cyan] {type_label}")
+    console.print(f"[bold cyan]Mode:[/bold cyan] {mode_label}\n")
 
     # Run workflow with progress indicators
     try:
@@ -54,7 +90,7 @@ def main():
             task = progress.add_task("Generating investment memo...", total=None)
 
             # Generate memo
-            final_state = generate_memo(company_name)
+            final_state = generate_memo(company_name, investment_type, memo_mode)
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")
 

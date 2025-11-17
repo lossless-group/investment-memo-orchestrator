@@ -17,9 +17,27 @@ from ..versioning import VersionManager
 import re
 
 
-def load_template() -> str:
-    """Load the memo template from file."""
-    template_path = Path(__file__).parent.parent.parent / "templates" / "memo-template.md"
+def load_template(investment_type: str = "direct") -> str:
+    """
+    Load the appropriate memo template based on investment type.
+
+    Args:
+        investment_type: "direct" for startup investments, "fund" for LP commitments
+
+    Returns:
+        Template markdown content
+    """
+    templates_dir = Path(__file__).parent.parent.parent / "templates"
+
+    if investment_type == "fund":
+        template_path = templates_dir / "memo-template-fund.md"
+    else:
+        template_path = templates_dir / "memo-template-direct.md"
+
+    # Fallback to original template if specific one doesn't exist
+    if not template_path.exists():
+        template_path = templates_dir / "memo-template.md"
+
     with open(template_path, "r") as f:
         return f.read()
 
@@ -135,9 +153,11 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
         raise ValueError("No research data available. Research agent must run first.")
 
     company_name = state["company_name"]
+    investment_type = state.get("investment_type", "direct")
+    memo_mode = state.get("memo_mode", "consider")
 
-    # Load template and style guide
-    template = load_template()
+    # Load appropriate template and style guide
+    template = load_template(investment_type)
     style_guide = load_style_guide()
 
     # Initialize Claude
@@ -155,7 +175,30 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     import json
     research_json = json.dumps(research, indent=2)
 
+    # Customize instructions based on memo mode
+    mode_instruction = ""
+    if memo_mode == "justify":
+        mode_instruction = """
+IMPORTANT - MEMO MODE: JUSTIFY (Retrospective)
+This investment has already been made. The recommendation section should be "COMMIT" with a rationale explaining why this was a good investment decision based on the analysis."""
+    else:
+        mode_instruction = """
+IMPORTANT - MEMO MODE: CONSIDER (Prospective)
+This is a prospective analysis. The recommendation section should objectively recommend "PASS", "CONSIDER", or "COMMIT" based on the strength of the opportunity and risks identified."""
+
+    # Customize based on investment type
+    type_instruction = ""
+    if investment_type == "fund":
+        type_instruction = "This is an LP commitment into a venture fund. Focus on GP track record, fund strategy, portfolio construction, and fee structure."
+    else:
+        type_instruction = "This is a direct investment into a startup company. Focus on product, market, team, traction, and technology."
+
     user_prompt = f"""Write a complete investment memo for {company_name} using the following research data:
+
+INVESTMENT TYPE: {investment_type.upper()}
+{type_instruction}
+
+{mode_instruction}
 
 RESEARCH DATA:
 {research_json}
@@ -167,6 +210,7 @@ Create a professional, analytical investment memo that:
 4. Maintains analytical tone (not promotional)
 5. Includes balanced risk assessment
 6. Cites sources for market claims
+7. Provides appropriate recommendation based on memo mode
 
 Write the complete memo as markdown following the template format."""
 

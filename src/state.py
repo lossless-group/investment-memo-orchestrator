@@ -5,7 +5,7 @@ This module defines the TypedDict structures that LangGraph uses to maintain
 state throughout the multi-agent memo generation process.
 """
 
-from typing import TypedDict, Optional, List, Dict, Any, Annotated
+from typing import TypedDict, Optional, List, Dict, Any, Annotated, Literal
 from operator import add
 
 
@@ -107,6 +107,8 @@ class MemoState(TypedDict):
     """
     # Input
     company_name: str
+    investment_type: Literal["direct", "fund"]  # Type of investment
+    memo_mode: Literal["consider", "justify"]  # Memo purpose
 
     # Research phase
     research: Optional[ResearchData]
@@ -128,18 +130,26 @@ class MemoState(TypedDict):
     messages: Annotated[List[str], add]  # Append-only list of agent outputs
 
 
-def create_initial_state(company_name: str) -> MemoState:
+def create_initial_state(
+    company_name: str,
+    investment_type: Literal["direct", "fund"] = "direct",
+    memo_mode: Literal["consider", "justify"] = "consider"
+) -> MemoState:
     """
     Create initial state for a new memo generation workflow.
 
     Args:
         company_name: Name of the company to research and create memo for
+        investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
+        memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
 
     Returns:
         MemoState with initialized values
     """
     return MemoState(
         company_name=company_name,
+        investment_type=investment_type,
+        memo_mode=memo_mode,
         research=None,
         draft_sections={},
         validation_results={},

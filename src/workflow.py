@@ -6,7 +6,7 @@ Writer, and Validator agents through a state graph.
 """
 
 from langgraph.graph import StateGraph, END
-from typing import Literal
+from typing import Literal as LiteralType
 
 import os
 from pathlib import Path
@@ -20,7 +20,7 @@ from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
 from .versioning import VersionManager
 
 
-def should_continue(state: MemoState) -> Literal["finalize", "human_review"]:
+def should_continue(state: MemoState) -> LiteralType["finalize", "human_review"]:
     """
     Determine next step after validation.
 
@@ -189,12 +189,18 @@ def build_workflow() -> StateGraph:
     return workflow.compile()
 
 
-def generate_memo(company_name: str) -> MemoState:
+def generate_memo(
+    company_name: str,
+    investment_type: LiteralType["direct", "fund"] = "direct",
+    memo_mode: LiteralType["consider", "justify"] = "consider"
+) -> MemoState:
     """
     Main entry point for generating an investment memo.
 
     Args:
         company_name: Name of the company to analyze
+        investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
+        memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
 
     Returns:
         Final state containing research, draft, validation, and final memo
@@ -202,7 +208,7 @@ def generate_memo(company_name: str) -> MemoState:
     from .state import create_initial_state
 
     # Create initial state
-    initial_state = create_initial_state(company_name)
+    initial_state = create_initial_state(company_name, investment_type, memo_mode)
 
     # Build and run workflow
     app = build_workflow()

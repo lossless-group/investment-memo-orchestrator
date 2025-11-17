@@ -24,6 +24,11 @@ Investment memos at [[moc/Hypernova|Hypernova]] follow a specific analytical for
 
 Traditional AI-assisted writing approaches struggle to maintain this balance across all sections while ensuring consistency with firm standards.
 
+## Running the Command
+```bash
+source .venv/bin/activate && python -m src.main "DayOne" --type direct
+```
+
 ## The Challenge
 
 ### Single-Prompt Limitations
@@ -526,7 +531,7 @@ class MemoOrchestrator:
 
 ## Implementation Roadmap
 
-### Week 1: Proof of Concept
+### Step 1: Proof of Concept
 1. **Choose framework**: LangGraph (recommended) or CrewAI (faster start)
 2. **Define 3 core agents**: Researcher, Writer, Validator
 3. **Create simple tools**:
@@ -535,13 +540,628 @@ class MemoOrchestrator:
    - `validate_section(section, criteria)` - checks one section
 4. **Test with existing portfolio company**
 5. **Compare output** to manual memos
+6. **Add a Deck Analyst Agent**
+   - Role: Venture Capital Investment Analyst
+   - Goal: Review the "Slide Deck" for the investment opportunity, either an LP Commmitment into a fund or a direct investment into a startup company. Include relevant information, especially numbers about the organizations' traction, reach, business model, product definition and market potential.
+   - Backstory: Young venture capital investment analyst with 3+ years of experience who understands the basic technologies and market opportunities of early stage venture capital at the time of writing.
 
-**Success criteria**:
+### Issues, Troubleshooting, Preferences during Implementation
+- [x] Create a "trail" of the collected information as structured output or markdown files
+- [x] Assure that citations are retained in the final output with proper attribution
+- [x] Terminal progress indicators and status messages to track workflow
+
+### Remaining Enhancements
+- [x] Find a way to include direct markdown links to team's LinkedIn profiles
+- [ ] Allow arguments for specifying whether the investment has already been decided (even wired already) or is currently being considered.
+    - [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
+- [ ] Find a way to "add" links to important organizations, such as government bodies, co-investors or previous investors, etc
+- [ ] Find a way to include any public charts, graphs, diagrams, or visualizations from the company's website or other sources
+
+
+
+## **Success criteria**:
 - Generates complete 10-section memo
+- Deck Analyst Agent includes relevant information from the slide deck as the starter information for the memo.
+- Research Analyst Agent works from the output of the Deck Analyst Agent if it exists.
 - Validates against checklist
 - Identifies at least 3 quality issues automatically
 
-### Week 2: MCP Integration
+---
+
+#### Detailed Implementation Plan: Deck Analyst Agent
+
+**Overview**: Add a new Deck Analyst Agent that extracts key information from pitch decks (PDF or images) and creates initial section drafts. This agent runs BEFORE the Research Agent, providing a foundation of company-provided data that subsequent agents can build upon.
+
+**Architecture Changes**:
+
+```
+┌──────────────┐
+│  Supervisor  │ ← Checks if deck exists, routes accordingly
+└──────┬───────┘
+       │
+   ┌───┴─────────────┐
+   │ Deck Analyst    │ ← NEW: Runs FIRST if deck available
+   │ (if deck exists)│    Saves: 0-deck-analysis.json, 0-deck-analysis.md
+   └───┬─────────────┘    Saves: 2-sections/*.md (partial drafts)
+       │
+   ┌───┴────┐
+   │Research│ ← UPDATED: Builds on deck analysis if available
+   └───┬────┘   Reads: 0-deck-analysis.json
+       │        Saves: 1-research.json, 1-research.md
+   ┌───┴────┐
+   │ Writer │ ← UPDATED: Uses existing section drafts as starting point
+   └───┬────┘   Reads: 2-sections/*.md (if exists)
+       │        Augments or creates sections
+       │
+   [Rest of workflow unchanged]
+```
+
+**File Changes Required**:
+
+1. **New File: `src/agents/deck_analyst.py`**
+   - Role: Venture Capital Investment Analyst
+   - Goal: Extract traction, business model, product, market, team info from deck
+   - Uses: `pypdf` library (already installed)
+   - Outputs: Structured JSON + initial section drafts
+
+2. **Update: `src/state.py`**
+   - Add `deck_path: Optional[str]` to MemoState
+   - Add `deck_analysis: Optional[DeckAnalysisData]` to MemoState
+   - New TypedDict: `DeckAnalysisData`
+
+3. **Update: `src/workflow.py`**
+   - Add conditional deck analysis node
+   - Update supervisor routing logic
+   - Modify research agent to check for deck analysis
+
+4. **Update: `src/agents/researcher.py` or `research_enhanced.py`**
+   - Check for existing deck_analysis in state
+   - Incorporate deck findings into research queries
+   - Avoid duplicating information already in deck
+
+5. **Update: `src/agents/writer.py`**
+   - Check for existing section files in `2-sections/`
+   - If section file exists, read it and augment (don't overwrite)
+   - If doesn't exist, create from scratch
+
+6. **Update: `src/artifacts.py`**
+   - Add function: `save_deck_analysis_artifacts()`
+   - Add function: `load_existing_section_drafts()`
+   - Add numbering: deck artifacts use `0-` prefix
+
+7. **Update: `src/main.py`**
+   - Load company data JSON (check for "deck" property)
+   - Pass deck_path to initial state if exists
+
+**Implementation Steps (In Order)**:
+
+**Step 1: Define State Schema**
+```python
+# src/state.py additions
+
+class DeckAnalysisData(TypedDict):
+    """Structured data extracted from pitch deck"""
+    company_name: str
+    tagline: Optional[str]
+    problem_statement: Optional[str]
+    solution_description: Optional[str]
+    product_description: Optional[str]
+    business_model: Optional[str]
+    market_size: Optional[Dict[str, str]]  # TAM, SAM, SOM
+    traction_metrics: Optional[List[Dict[str, str]]]
+    team_members: Optional[List[Dict[str, str]]]
+    funding_ask: Optional[str]
+    use_of_funds: Optional[List[str]]
+    competitive_landscape: Optional[str]
+    go_to_market: Optional[str]
+    milestones: Optional[List[str]]
+    deck_page_count: int
+    extraction_notes: List[str]  # What info was/wasn't found
+
+class MemoState(TypedDict):
+    # ... existing fields ...
+    deck_path: Optional[str]  # NEW
+    deck_analysis: Optional[DeckAnalysisData]  # NEW
+```
+
+**Step 2: Create Deck Analyst Agent**
+```python
+# src/agents/deck_analyst.py
+
+from pathlib import Path
+from typing import Dict
+from langchain_anthropic import ChatAnthropic
+from pypdf import PdfReader
+import json
+
+def deck_analyst_agent(state: Dict) -> Dict:
+    """
+    Analyzes pitch deck and extracts key information.
+
+    CRITICAL: Only handles PDF decks for now. Image decks cause bottlenecks.
+    Future: Add image deck support with optimization (resizing, compression).
+    """
+    deck_path = state.get("deck_path")
+
+    if not deck_path or not Path(deck_path).exists():
+        return {
+            "deck_analysis": None,
+            "messages": ["No deck available, skipping deck analysis"]
+        }
+
+    deck_file = Path(deck_path)
+
+    # STEP 1: Extract text from PDF (pypdf)
+    if deck_file.suffix.lower() == ".pdf":
+        deck_content = extract_text_from_pdf(deck_path)
+    else:
+        # For now, skip image decks to avoid bottleneck
+        return {
+            "deck_analysis": None,
+            "messages": [f"Deck format {deck_file.suffix} not yet supported (images cause bottleneck)"]
+        }
+
+    # STEP 2: Analyze with Claude
+    llm = ChatAnthropic(
+        model="claude-sonnet-4-5-20250929",
+        temperature=0
+    )
+
+    analysis_prompt = f"""You are a venture capital investment analyst reviewing a pitch deck.
+
+PITCH DECK CONTENT:
+{deck_content}
+
+Extract the following information in JSON format:
+{{
+  "company_name": "...",
+  "tagline": "...",
+  "problem_statement": "...",
+  "solution_description": "...",
+  "product_description": "...",
+  "business_model": "...",
+  "market_size": {{"TAM": "...", "SAM": "...", "SOM": "..."}},
+  "traction_metrics": [{{"metric": "...", "value": "..."}}, ...],
+  "team_members": [{{"name": "...", "role": "...", "background": "..."}}, ...],
+  "funding_ask": "...",
+  "use_of_funds": ["...", "..."],
+  "competitive_landscape": "...",
+  "go_to_market": "...",
+  "milestones": ["...", "..."],
+  "extraction_notes": ["List what info was found vs. missing"]
+}}
+
+IMPORTANT:
+- Only include information explicitly stated in the deck
+- Use "Not mentioned" if information is absent
+- Capture specific numbers (revenue, users, growth rates)
+- Note the deck's strengths and weaknesses in extraction_notes
+"""
+
+    response = llm.invoke(analysis_prompt)
+    deck_analysis = json.loads(response.content)
+    deck_analysis["deck_page_count"] = len(PdfReader(deck_path).pages)
+
+    # STEP 3: Create initial section drafts where relevant info exists
+    section_drafts = create_initial_section_drafts(deck_analysis, state)
+
+    # STEP 4: Save artifacts
+    from src.artifacts import save_deck_analysis_artifacts
+    save_deck_analysis_artifacts(
+        state["company_name"],
+        deck_analysis,
+        section_drafts
+    )
+
+    return {
+        "deck_analysis": deck_analysis,
+        "draft_sections": section_drafts,  # Partial sections
+        "messages": [f"Deck analysis complete: {deck_analysis['deck_page_count']} pages analyzed"]
+    }
+
+
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """Extract text from PDF using pypdf."""
+    reader = PdfReader(pdf_path)
+    text_content = []
+
+    for page_num, page in enumerate(reader.pages, 1):
+        page_text = page.extract_text()
+        text_content.append(f"--- PAGE {page_num} ---\n{page_text}\n")
+
+    return "\n".join(text_content)
+
+
+def create_initial_section_drafts(deck_analysis: Dict, state: Dict) -> Dict[str, str]:
+    """
+    Create draft sections based on deck content.
+    Only creates sections where substantial info exists.
+    """
+    llm = ChatAnthropic(model="claude-sonnet-4-5-20250929", temperature=0)
+
+    drafts = {}
+
+    # Map deck data to sections
+    section_mapping = {
+        "02-business-overview.md": ["problem_statement", "solution_description", "product_description"],
+        "03-market-context.md": ["market_size", "competitive_landscape"],
+        "04-technology-product.md": ["product_description", "solution_description"],
+        "05-traction-milestones.md": ["traction_metrics", "milestones"],
+        "06-team.md": ["team_members"],
+        "07-funding-terms.md": ["funding_ask", "use_of_funds"],
+        "09-investment-thesis.md": ["go_to_market", "competitive_landscape"]
+    }
+
+    for section_file, relevant_fields in section_mapping.items():
+        # Check if deck has substantial info for this section
+        has_info = any(
+            deck_analysis.get(field) and
+            deck_analysis[field] != "Not mentioned"
+            for field in relevant_fields
+        )
+
+        if has_info:
+            section_name = section_file.replace(".md", "").replace("-", " ").title()
+            draft = create_section_draft_from_deck(
+                llm,
+                section_name,
+                deck_analysis,
+                relevant_fields
+            )
+            drafts[section_file] = draft
+
+    return drafts
+
+
+def create_section_draft_from_deck(llm, section_name: str, deck_data: Dict, fields: List[str]) -> str:
+    """Generate a section draft from deck data."""
+    relevant_data = {k: deck_data.get(k) for k in fields if deck_data.get(k)}
+
+    prompt = f"""Draft the "{section_name}" section for an investment memo based on this pitch deck data:
+
+{json.dumps(relevant_data, indent=2)}
+
+Write a concise, analytical section (200-400 words) that:
+- Uses specific numbers and metrics from the deck
+- Maintains analytical (not promotional) tone
+- Notes data gaps explicitly (e.g., "Team backgrounds not disclosed in deck")
+- Formats for readability (bullet points where appropriate)
+
+This is an INITIAL DRAFT. The Research and Writer agents will augment with external data.
+"""
+
+    response = llm.invoke(prompt)
+    return response.content
+```
+
+**Step 3: Update Artifacts System**
+```python
+# src/artifacts.py additions
+
+def save_deck_analysis_artifacts(
+    company_name: str,
+    deck_analysis: Dict,
+    section_drafts: Dict[str, str]
+) -> None:
+    """Save deck analysis artifacts with 0- prefix."""
+    output_dir = get_or_create_output_dir(company_name)
+
+    # Save structured JSON
+    with open(output_dir / "0-deck-analysis.json", "w") as f:
+        json.dump(deck_analysis, f, indent=2)
+
+    # Save human-readable summary
+    summary = format_deck_analysis_summary(deck_analysis)
+    with open(output_dir / "0-deck-analysis.md", "w") as f:
+        f.write(summary)
+
+    # Save initial section drafts
+    sections_dir = output_dir / "2-sections"
+    sections_dir.mkdir(exist_ok=True)
+
+    for filename, content in section_drafts.items():
+        with open(sections_dir / filename, "w") as f:
+            f.write(f"<!-- DRAFT FROM DECK ANALYSIS -->\n\n{content}")
+
+    print(f"Deck analysis artifacts saved: {len(section_drafts)} initial sections created")
+
+
+def load_existing_section_drafts(company_name: str) -> Dict[str, str]:
+    """Load any existing section drafts from artifacts."""
+    output_dir = get_output_dir(company_name)
+    sections_dir = output_dir / "2-sections"
+
+    if not sections_dir.exists():
+        return {}
+
+    drafts = {}
+    for section_file in sections_dir.glob("*.md"):
+        with open(section_file) as f:
+            drafts[section_file.name] = f.read()
+
+    return drafts
+
+
+def format_deck_analysis_summary(deck_analysis: Dict) -> str:
+    """Create human-readable deck analysis summary."""
+    return f"""# Deck Analysis Summary
+
+**Company**: {deck_analysis.get('company_name', 'N/A')}
+**Pages**: {deck_analysis.get('deck_page_count', 'N/A')}
+
+## Key Information Extracted
+
+### Business
+- **Tagline**: {deck_analysis.get('tagline', 'Not mentioned')}
+- **Problem**: {deck_analysis.get('problem_statement', 'Not mentioned')}
+- **Solution**: {deck_analysis.get('solution_description', 'Not mentioned')}
+
+### Market
+{json.dumps(deck_analysis.get('market_size', {}), indent=2)}
+
+### Traction
+{json.dumps(deck_analysis.get('traction_metrics', []), indent=2)}
+
+### Team
+{json.dumps(deck_analysis.get('team_members', []), indent=2)}
+
+### Funding
+- **Ask**: {deck_analysis.get('funding_ask', 'Not mentioned')}
+- **Use of Funds**: {json.dumps(deck_analysis.get('use_of_funds', []))}
+
+## Extraction Notes
+{chr(10).join('- ' + note for note in deck_analysis.get('extraction_notes', []))}
+"""
+```
+
+**Step 4: Update Supervisor Logic**
+```python
+# src/workflow.py modifications
+
+def create_workflow():
+    workflow = StateGraph(MemoState)
+
+    # Add deck analyst node (conditional)
+    workflow.add_node("deck_analyst", deck_analyst_agent)
+    workflow.add_node("research", research_agent_enhanced)
+    workflow.add_node("write", writer_agent)
+    # ... other nodes ...
+
+    # NEW: Conditional entry point
+    def should_analyze_deck(state: MemoState) -> str:
+        """Route to deck analyst if deck exists, otherwise research."""
+        if state.get("deck_path") and Path(state["deck_path"]).exists():
+            return "deck_analyst"
+        return "research"
+
+    # Set conditional entry
+    workflow.set_conditional_entry_point(
+        should_analyze_deck,
+        {
+            "deck_analyst": "deck_analyst",
+            "research": "research"
+        }
+    )
+
+    # Connect deck analyst to research
+    workflow.add_edge("deck_analyst", "research")
+    workflow.add_edge("research", "write")
+    # ... rest of workflow ...
+
+    return workflow.compile()
+```
+
+**Step 5: Update Research Agent**
+```python
+# src/agents/research_enhanced.py modifications
+
+def research_agent_enhanced(state: MemoState) -> dict:
+    """Enhanced research with deck awareness."""
+
+    # NEW: Check for existing deck analysis
+    deck_analysis = state.get("deck_analysis")
+
+    if deck_analysis:
+        # Modify search strategy based on deck findings
+        search_queries = generate_queries_from_deck(state["company_name"], deck_analysis)
+
+        # Example: If deck has traction, focus on validation/verification
+        # If deck lacks market size, prioritize market research
+    else:
+        # Original search strategy
+        search_queries = generate_default_queries(state["company_name"])
+
+    # ... rest of research logic ...
+
+    # Combine deck findings with web search results
+    if deck_analysis:
+        research_data = merge_deck_and_web_research(deck_analysis, web_results)
+    else:
+        research_data = synthesize_web_results(web_results)
+
+    return {"research": research_data}
+
+
+def generate_queries_from_deck(company_name: str, deck_data: Dict) -> List[str]:
+    """Generate targeted search queries based on deck gaps."""
+    queries = [f"{company_name} company overview"]
+
+    # Add queries for missing information
+    if not deck_data.get("team_members") or deck_data["team_members"] == "Not mentioned":
+        queries.append(f"{company_name} founders team background")
+
+    if not deck_data.get("market_size") or deck_data["market_size"] == "Not mentioned":
+        queries.append(f"{company_name} market size TAM SAM")
+
+    # Always verify claimed traction
+    queries.append(f"{company_name} latest news funding traction")
+
+    return queries
+```
+
+**Step 6: Update Writer Agent**
+```python
+# src/agents/writer.py modifications
+
+def writer_agent(state: MemoState) -> dict:
+    """Write sections, augmenting any existing drafts from deck analysis."""
+    from src.artifacts import load_existing_section_drafts
+
+    # Load any existing section drafts
+    existing_drafts = load_existing_section_drafts(state["company_name"])
+
+    draft_sections = {}
+
+    for section_name in ALL_SECTIONS:
+        section_file = f"{section_name}.md"
+
+        if section_file in existing_drafts:
+            # AUGMENT existing draft with research findings
+            draft_sections[section_name] = augment_section_draft(
+                section_name,
+                existing_drafts[section_file],
+                state["research"],
+                state.get("deck_analysis")
+            )
+        else:
+            # CREATE new section from research
+            draft_sections[section_name] = create_section_from_scratch(
+                section_name,
+                state["research"]
+            )
+
+    return {"draft_sections": draft_sections}
+
+
+def augment_section_draft(section_name: str, existing_draft: str, research: Dict, deck_data: Dict) -> str:
+    """Augment existing section with research findings."""
+    llm = ChatAnthropic(model="claude-sonnet-4-5-20250929", temperature=0)
+
+    prompt = f"""You have an initial section draft from deck analysis. Augment it with web research findings.
+
+EXISTING DRAFT (from pitch deck):
+{existing_draft}
+
+RESEARCH FINDINGS:
+{json.dumps(research, indent=2)}
+
+TASK:
+1. Keep all good information from the existing draft
+2. Add new findings from research (with citations)
+3. Fill in gaps noted in original draft
+4. Maintain analytical tone
+5. Ensure no contradictions (note if deck claims differ from research)
+
+Output the AUGMENTED section (300-500 words).
+"""
+
+    response = llm.invoke(prompt)
+    return response.content
+```
+
+**Step 7: Update Main Entry Point**
+```python
+# src/main.py modifications
+
+def main():
+    # ... argument parsing ...
+
+    company_name = args.company_name
+
+    # NEW: Load company data if exists
+    deck_path = None
+    data_file = Path(f"data/{company_name}.json")
+
+    if data_file.exists():
+        with open(data_file) as f:
+            company_data = json.load(f)
+            deck_path = company_data.get("deck")
+
+            # Validate deck path
+            if deck_path and not Path(deck_path).exists():
+                print(f"Warning: Deck specified but not found: {deck_path}")
+                deck_path = None
+
+    # Initialize state
+    initial_state = {
+        "company_name": company_name,
+        "investment_type": args.type,
+        "memo_mode": args.mode,
+        "deck_path": deck_path,  # NEW
+        "deck_analysis": None,
+        "research": None,
+        "draft_sections": {},
+        "validation_results": {},
+        "revision_count": 0,
+        "messages": []
+    }
+
+    # Run workflow
+    app = create_workflow()
+    result = app.invoke(initial_state)
+```
+
+**Testing Strategy**:
+
+1. **Test without deck** (existing behavior):
+   ```bash
+   python -m src.main "Company Without Deck" --type direct --mode consider
+   ```
+   Expected: Skips deck analyst, goes straight to research
+
+2. **Test with PDF deck**:
+   ```bash
+   python -m src.main "DayOne" --type direct --mode consider
+   ```
+   Expected:
+   - Creates `0-deck-analysis.json` and `0-deck-analysis.md`
+   - Creates initial drafts in `2-sections/` (only for sections with deck data)
+   - Research agent references deck findings
+   - Writer agent augments (not overwrites) deck-based sections
+
+3. **Test with image deck** (should gracefully skip for now):
+   ```bash
+   # Create test data file with image deck path
+   python -m src.main "ImageDeckCompany" --type direct --mode consider
+   ```
+   Expected: Warning message, skips deck analysis due to bottleneck
+
+**Troubleshooting Guide**:
+
+**Issue: Image decks cause bottleneck**
+- **Cause**: Sending raw images to Claude is slow/expensive
+- **Solution**: For now, skip image decks with warning
+- **Future**: Implement image compression/resizing before sending to Claude
+
+**Issue: Deck analyst overwrites good research data**
+- **Cause**: Writer agent replaces instead of augments
+- **Solution**: Use `augment_section_draft()` function, not `create_section_from_scratch()`
+
+**Issue: Citations lost from research when using deck**
+- **Cause**: Writer agent not preserving citation-enrichment agent's work
+- **Solution**: Writer augments BEFORE citation enrichment runs
+
+**Issue: Deck analysis creates wrong sections**
+- **Cause**: `section_mapping` in `create_initial_section_drafts()` incorrect
+- **Solution**: Review mapping, ensure deck fields match section needs
+
+**Key Files Summary**:
+- **New**: `src/agents/deck_analyst.py` (main logic)
+- **Update**: `src/state.py` (add deck fields)
+- **Update**: `src/workflow.py` (conditional routing)
+- **Update**: `src/artifacts.py` (save/load deck artifacts)
+- **Update**: `src/agents/research_enhanced.py` (deck-aware queries)
+- **Update**: `src/agents/writer.py` (augment vs. create)
+- **Update**: `src/main.py` (load deck path from data JSON)
+
+**Artifact Numbering**:
+- `0-deck-analysis.*` - Deck analysis (runs first)
+- `1-research.*` - Web research (second, builds on deck)
+- `2-sections/` - Combined deck + research + writing
+- `3-validation.*` - Validation (unchanged)
+- `4-final-draft.md` - Final output (unchanged)
+
+### Step 2: MCP Integration
 1. **Build Portfolio Data MCP server**:
    ```
    /resources/companies/{company_id}
@@ -557,7 +1177,7 @@ class MemoOrchestrator:
 - Templates loaded from MCP (not hardcoded)
 - External API data integrated seamlessly
 
-### Week 3: Specialized Section Writers
+### Step 3: Specialized Section Writers
 1. **Split Writer Agent** into domain specialists:
    - Market Writer (sections 2-3)
    - Technical Writer (sections 4-5)
@@ -570,7 +1190,7 @@ class MemoOrchestrator:
 - Parallel execution reduces total time
 - Revision loop successfully fixes common issues
 
-### Week 4: Production Deployment
+### Step 4: Production Deployment
 1. **Build simple UI** (Streamlit or Gradio):
    - Company data input form
    - Progress visualization
