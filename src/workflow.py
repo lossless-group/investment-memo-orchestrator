@@ -19,6 +19,7 @@ from .agents.socials_enrichment import socials_enrichment_agent
 from .agents.link_enrichment import link_enrichment_agent
 from .agents.visualization_enrichment import visualization_enrichment_agent
 from .agents.citation_enrichment import citation_enrichment_agent
+from .agents.citation_validator import citation_validator_agent
 from .agents.validator import validator_agent
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
 from .versioning import VersionManager
@@ -200,6 +201,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("enrich_links", link_enrichment_agent)
     workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
     workflow.add_node("cite", citation_enrichment_agent)
+    workflow.add_node("validate_citations", citation_validator_agent)  # NEW: Citation accuracy validator
     workflow.add_node("validate", validator_agent)
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
@@ -208,14 +210,15 @@ def build_workflow() -> StateGraph:
     workflow.set_entry_point("deck_analyst")
 
     # Define edges (workflow sequence)
-    # Deck Analyst → Research → Draft → Socials → Links → Visualizations → Citations → Validate
+    # Deck Analyst → Research → Draft → Socials → Links → Visualizations → Citations → Citation Validator → Validate
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "draft")
     workflow.add_edge("draft", "enrich_socials")
     workflow.add_edge("enrich_socials", "enrich_links")
     workflow.add_edge("enrich_links", "enrich_visualizations")
     workflow.add_edge("enrich_visualizations", "cite")
-    workflow.add_edge("cite", "validate")
+    workflow.add_edge("cite", "validate_citations")  # NEW: Validate citation accuracy after enrichment
+    workflow.add_edge("validate_citations", "validate")
 
     # Conditional edge after validation
     workflow.add_conditional_edges(

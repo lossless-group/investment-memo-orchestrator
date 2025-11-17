@@ -119,10 +119,12 @@ IMPORTANT:
     # STEP 4: Save artifacts
     from ..artifacts import save_deck_analysis_artifacts
     print("Saving deck analysis artifacts...")
+    # Extract just the content strings for artifact saving
+    section_drafts_for_disk = {k: v["content"] for k, v in section_drafts.items()}
     save_deck_analysis_artifacts(
         state["company_name"],
         deck_analysis,
-        section_drafts
+        section_drafts_for_disk
     )
 
     return {

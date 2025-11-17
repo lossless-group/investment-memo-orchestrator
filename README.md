@@ -18,9 +18,11 @@ python3.11 -m src.main "Class5 Global" --type fund --mode justify
 ```
 
 ### Multi-Agent Architecture
+- **Deck Analyst Agent**: Extracts key information from pitch deck PDFs (team, metrics, market sizing) and creates initial section drafts that subsequent agents build upon
 - **Research Agent**: Actively searches the web (Tavily/Perplexity) for company information, funding data, team backgrounds, and market context
-- **Writer Agent**: Drafts professional memos following Hypernova's 10-section template and style guide
+- **Writer Agent**: Drafts professional memos following Hypernova's 10-section template and style guide, enriching deck-based drafts with research findings
 - **Citation-Enrichment Agent**: Adds inline citations [^1], [^2] to drafted content using Perplexity Sonar Pro, preserving narrative while adding scholarly rigor with industry sources (TechCrunch, Medium, Crunchbase, etc.)
+- **Citation Validator Agent**: Validates citation accuracy, checking for date consistency (display vs published), duplicate URLs, broken links, and proper formatting
 - **Validator Agent**: Rigorously evaluates quality (0-10 scale) with specific, actionable feedback
 - **Supervisor**: Orchestrates workflow, manages state, routes to revision or finalization
 
@@ -196,17 +198,25 @@ The tool automatically downloads pandoc if needed. All converted files maintain 
 │  Supervisor  │ ← Coordinates workflow
 └──────┬───────┘
        │
+   ┌───┴────────────┐
+   │ Deck Analyst   │ ← Extract info from pitch deck PDF (if available)
+   └───┬────────────┘   Saves: 0-deck-analysis.json, 0-deck-analysis.md, initial drafts
+       │
    ┌───┴────┐
    │Research│ ← Web search (Tavily: 4 queries) + synthesis
    └───┬────┘   Saves: 1-research.json, 1-research.md
        │
    ┌───┴────┐
-   │ Writer │ ← Draft memo (10 sections)
+   │ Writer │ ← Draft memo (10 sections), enrich deck drafts with research
    └───┬────┘   Saves: 2-sections/*.md (10 files)
        │
    ┌───┴─────────────┐
    │Citation Enrich  │ ← Add inline citations (Perplexity Sonar Pro)
    └───┬─────────────┘   Preserves narrative, adds [^1], [^2], etc.
+       │
+   ┌───┴──────────────────┐
+   │Citation Validator    │ ← Validate date accuracy, detect duplicates
+   └───┬──────────────────┘   Check URLs, ensure proper formatting
        │
    ┌───┴────────┐
    │ Validator  │ ← Score 0-10, identify issues
@@ -245,10 +255,12 @@ MemoState = {
 investment-memo-orchestrator/
 ├── src/
 │   ├── agents/
+│   │   ├── deck_analyst.py           # Pitch deck analysis (PDF extraction)
 │   │   ├── researcher.py             # Basic research (no web search)
 │   │   ├── research_enhanced.py      # Web search + synthesis
 │   │   ├── writer.py                 # Memo drafting
 │   │   ├── citation_enrichment.py    # Citation addition (Perplexity)
+│   │   ├── citation_validator.py     # Citation accuracy validation
 │   │   └── validator.py              # Quality validation
 │   ├── state.py                      # TypedDict schemas
 │   ├── workflow.py                   # LangGraph orchestration
@@ -400,6 +412,6 @@ Investing in frontier technology companies at the intersection of climate, energ
 
 ---
 
-*Last updated: 2024-11-16*
-*Version: 0.1.0-alpha*
-*Status: Week 1 POC Complete*
+*Last updated: 2024-11-17*
+*Version: 0.2.0-alpha*
+*Status: Deck Analysis + Citation Validation Added*
