@@ -12,6 +12,11 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 
 ## Key Features
 
+### Core Commands
+```bash
+python3.11 -m src.main "Class5 Global" --type fund --mode justify
+```
+
 ### Multi-Agent Architecture
 - **Research Agent**: Actively searches the web (Tavily/Perplexity) for company information, funding data, team backgrounds, and market context
 - **Writer Agent**: Drafts professional memos following Hypernova's 10-section template and style guide
@@ -54,6 +59,21 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 - Validation score threshold (8/10) for auto-finalization
 - Detailed improvement suggestions when score < 8
 
+### Dual-Template System
+Hypernova is a Fund-of-Funds, deploying 40% of capital as LP commitments to solo GPs and emerging managers, and 60% as direct investments into technology startups. The system supports both investment types:
+
+**Direct Investment Template** (`memo-template-direct.md`):
+- 10 sections optimized for startup analysis
+- Sections: Executive Summary, Business Overview, Market Context, Team, Technology & Product, Traction & Milestones, Funding & Terms, Risks & Mitigations, Investment Thesis, Recommendation
+
+**Fund Commitment Template** (`memo-template-fund.md`):
+- 10 sections optimized for LP diligence
+- Sections: Executive Summary, GP Background & Track Record, Fund Strategy & Thesis, Portfolio Construction, Value Add & Differentiation, Track Record Analysis, Fee Structure & Economics, LP Base & References, Risks & Mitigations, Recommendation
+
+**Memo Modes**:
+- **Justify mode**: Retrospective analysis for existing investments - recommendation is always "COMMIT" with rationale explaining the investment decision
+- **Consider mode**: Prospective analysis for potential investments - recommendation is "PASS/CONSIDER/COMMIT" based on objective analysis
+
 ## Tech Stack
 
 - **Orchestration**: LangGraph (Python) for multi-agent coordination
@@ -95,17 +115,35 @@ Get a free Tavily API key at [tavily.com](https://tavily.com) (1,000 searches/mo
 
 ### Usage
 
+The system supports two investment types and two memo modes:
+
+**Investment Types:**
+- `direct`: Direct startup investment (default)
+- `fund`: LP commitment to a venture fund
+
+**Memo Modes:**
+- `consider`: Prospective analysis for potential investment (default)
+- `justify`: Retrospective justification for existing investment
+
 ```bash
-# Generate a memo
+# Basic usage (defaults to: direct + consider)
 python -m src.main "Company Name"
 
-# Examples
-python -m src.main "Aalo Atomics"
-python -m src.main "OpenAI"
+# Direct investment examples
+python -m src.main "Aalo Atomics" --type direct --mode justify
+python -m src.main "Thinking Machines" --type direct --mode consider
+
+# Fund commitment examples
+python -m src.main "Pear VC" --type fund --mode justify
+python -m src.main "Accel Growth Fund V" --type fund --mode consider
 
 # Interactive mode
 python -m src.main
 ```
+
+**CLI Arguments:**
+- `--type [direct|fund]`: Investment type (default: `direct`)
+- `--mode [justify|consider]`: Memo mode (default: `consider`)
 
 ### Output
 
@@ -166,6 +204,8 @@ Plus `versions.json` tracking version history across all iterations.
 ```python
 MemoState = {
     "company_name": str,
+    "investment_type": Literal["direct", "fund"],  # Type of investment
+    "memo_mode": Literal["justify", "consider"],   # Memo purpose
     "research": ResearchData,      # Web search results + synthesis
     "draft_sections": Dict,         # Drafted memo sections
     "validation_results": Dict,     # Scores and feedback
@@ -241,9 +281,12 @@ investment-memo-orchestrator/
 - [x] Terminal progress indicators and status messages to track workflow
 
 ### Remaining Enhancements
-- [ ] Find a way to include direct markdown links to team's LinkedIn profiles
-- [ ] Find a way to "add" links to important organizations, such as government bodies, co-investors or previous investors, etc
-- [ ] Find a way to include any public charts, graphs, diagrams, or visualizations from the company's website or other sources 
+- [x] Find a way to include direct markdown links to team's LinkedIn profiles
+- [x] Find a way to "add" links to important organizations, such as government bodies, co-investors or previous investors, etc
+- [x] Find a way to include any public charts, graphs, diagrams, or visualizations from the company's website or other sources
+- [x] Allow arguments for customizing the memo template based on a "Direct Investment" or an "LP Commitment" that leads to changes in the template being generated.
+- [x] Allow arguments for specifying whether the investment has already been decided (even wired already) or is currently being considered.
+- [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
 
 
 ## Current Capabilities ✅

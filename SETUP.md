@@ -58,6 +58,8 @@ output/{Company-Name}-v0.0.x/
 ├── 2-sections/              # Individual section drafts (10 files)
 │   ├── 01-executive-summary.md
 │   ├── 02-business-overview.md
+│   ├── 03-market-context.md
+│   ├── 04-team.md
 │   └── ... (all 10 sections)
 ├── 3-validation.json        # Validation scores and feedback
 ├── 3-validation.md          # Human-readable validation report
