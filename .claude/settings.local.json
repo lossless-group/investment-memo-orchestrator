@@ -4,7 +4,18 @@
       "Bash(uv venv:*)",
       "Bash(source .venv/bin/activate)",
       "Bash(python -m src.main:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(python md2docx.py:*)",
+      "Bash(uv pip install:*)",
+      "Bash(tee:*)",
+      "Bash(timeout 180 python:*)",
+      "Bash(chmod:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

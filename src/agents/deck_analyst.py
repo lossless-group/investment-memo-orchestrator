@@ -11,7 +11,7 @@ from langchain_anthropic import ChatAnthropic
 from pypdf import PdfReader
 import json
 
-from ..state import MemoState, DeckAnalysisData
+from ..state import MemoState, DeckAnalysisData, SectionDraft
 
 
 def deck_analyst_agent(state: Dict) -> Dict:
@@ -144,7 +144,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     return "\n".join(text_content)
 
 
-def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnthropic) -> Dict[str, str]:
+def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnthropic) -> Dict[str, SectionDraft]:
     """
     Create draft sections based on deck content.
     Only creates sections where substantial info exists.
@@ -155,22 +155,22 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
         llm: Language model for generating drafts
 
     Returns:
-        Dictionary mapping section filenames to draft content
+        Dictionary mapping section filenames to SectionDraft objects
     """
     drafts = {}
 
     # Map deck data to sections
     section_mapping = {
-        "02-business-overview.md": ["problem_statement", "solution_description", "product_description"],
-        "03-market-context.md": ["market_size", "competitive_landscape"],
-        "04-technology-product.md": ["product_description", "solution_description"],
-        "05-traction-milestones.md": ["traction_metrics", "milestones"],
-        "06-team.md": ["team_members"],
-        "07-funding-terms.md": ["funding_ask", "use_of_funds"],
-        "09-investment-thesis.md": ["go_to_market", "competitive_landscape"]
+        "02-business-overview": ["problem_statement", "solution_description", "product_description"],
+        "03-market-context": ["market_size", "competitive_landscape"],
+        "04-technology-product": ["product_description", "solution_description"],
+        "05-traction-milestones": ["traction_metrics", "milestones"],
+        "06-team": ["team_members"],
+        "07-funding-terms": ["funding_ask", "use_of_funds"],
+        "09-investment-thesis": ["go_to_market", "competitive_landscape"]
     }
 
-    for section_file, relevant_fields in section_mapping.items():
+    for section_key, relevant_fields in section_mapping.items():
         # Check if deck has substantial info for this section
         has_info = any(
             deck_analysis.get(field) and
@@ -182,14 +182,21 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
         )
 
         if has_info:
-            section_name = section_file.replace(".md", "").replace("-", " ").title()
-            draft = create_section_draft_from_deck(
+            section_name = section_key.replace("-", " ").title()
+            content = create_section_draft_from_deck(
                 llm,
                 section_name,
                 deck_analysis,
                 relevant_fields
             )
-            drafts[section_file] = draft
+
+            # Create proper SectionDraft object
+            drafts[section_key] = SectionDraft(
+                section_name=section_name,
+                content=content,
+                word_count=len(content.split()),
+                citations=[]  # Citations will be added by citation enrichment agent
+            )
 
     return drafts
 

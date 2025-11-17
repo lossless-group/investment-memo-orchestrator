@@ -164,6 +164,29 @@ output/{Company-Name}-v0.0.x/
 
 Plus `versions.json` tracking version history across all iterations.
 
+### Exporting to Word Format
+
+Convert your generated markdown memos to Microsoft Word (.docx) format for easy sharing:
+
+```bash
+# Activate virtual environment first
+source .venv/bin/activate
+
+# Convert a single memo
+python md2docx.py output/Aalo-Atomics-v0.0.5-memo.md
+
+# Convert with custom output location
+python md2docx.py output/Aalo-Atomics-v0.0.5-memo.md -o exports/
+
+# Convert all memos in a directory
+python md2docx.py output/Aalo-Atomics-v0.0.5/2-sections/ -o exports/
+
+# Add table of contents
+python md2docx.py output/memo.md --toc
+```
+
+The tool automatically downloads pandoc if needed. All converted files maintain proper formatting, headers, lists, and links from the markdown source.
+
 ## Architecture
 
 ### Workflow
