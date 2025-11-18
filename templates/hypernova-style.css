@@ -54,9 +54,13 @@
     box-sizing: border-box;
 }
 
+html {
+    background: var(--hypernova-white);
+}
+
 body {
     font-family: 'Arboria', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 11pt;
+    font-size: 12pt;
     line-height: 1.6;
     color: var(--hypernova-dark-text);
     background: var(--hypernova-white);
@@ -68,6 +72,10 @@ body {
 /* ========================================
    DARK MODE STYLES
    ======================================== */
+
+html:has(body.dark-mode) {
+    background: var(--hypernova-navy);
+}
 
 body.dark-mode {
     background: var(--hypernova-navy);
@@ -173,6 +181,10 @@ body.dark-mode a:hover {
 
 body.dark-mode .footnote-ref + .footnote-ref::before {
     color: rgba(255, 255, 255, 0.5);
+}
+
+body.dark-mode img {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Header/Cover Page */
@@ -303,6 +315,28 @@ a {
 
 a:hover {
     border-bottom-color: var(--hypernova-cyan);
+}
+
+/* Images */
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1.5rem auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+figure {
+    max-width: 100%;
+    margin: 1.5rem 0;
+}
+
+figure img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
 }
 
 /* Lists */
@@ -481,7 +515,7 @@ sup {
 @media print {
     body {
         padding: 0.5in;
-        font-size: 10pt;
+        font-size: 12pt;
     }
 
     .memo-header {
@@ -509,6 +543,40 @@ sup {
 
 /* Page breaks for PDF */
 @page {
-    margin: 0.75in;
     size: letter;
+    margin: 0.5in 0.75in;
+}
+
+/* Use bleed for colored margins - extend content beyond page edges */
+@media print {
+    html {
+        background: var(--hypernova-white);
+    }
+
+    body {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        background: var(--hypernova-white);
+    }
+
+    body.dark-mode {
+        background: var(--hypernova-navy);
+    }
+
+    /* Bleed box - extends content to page edges for background color */
+    @page {
+        bleed: 0.5in 0.75in;
+        marks: none;
+    }
+
+    @page :left {
+        margin-left: 0.75in;
+        margin-right: 0.75in;
+    }
+
+    @page :right {
+        margin-left: 0.75in;
+        margin-right: 0.75in;
+    }
 }

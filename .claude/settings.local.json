@@ -18,7 +18,15 @@
       "Bash(git commit:*)",
       "Bash(python3:*)",
       "Bash(git reset:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git push)",
+      "Bash(python export-branded.py:*)",
+      "Bash(brew install:*)",
+      "Bash(python:*)",
+      "Bash(export PKG_CONFIG_PATH:*)",
+      "Bash(export DYLD_LIBRARY_PATH:*)",
+      "Bash(./html-to-pdf.sh:*)",
+      "Bash(./md-to-pdf.sh:*)"
     ],
     "deny": [],
     "ask": []
