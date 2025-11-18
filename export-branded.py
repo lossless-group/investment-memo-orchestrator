@@ -340,13 +340,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s memo.md                          # Export to light mode HTML (default brand)
+  %(prog)s memo.md                          # Export to dark mode HTML (default brand)
   %(prog)s memo.md --brand accel            # Use brand-accel-config.yaml
-  %(prog)s memo.md --mode dark              # Export to dark mode HTML
-  %(prog)s memo.md --mode dark --pdf        # Export dark mode HTML and PDF
-  %(prog)s output/ --all --mode light       # Export all memos (light mode)
+  %(prog)s memo.md --mode light             # Export to light mode HTML
+  %(prog)s memo.md --pdf                    # Export dark mode HTML and PDF
+  %(prog)s output/ --all                    # Export all memos (dark mode)
   %(prog)s memo.md -o exports/accel/        # Custom output directory
-  %(prog)s memo.md --brand hypernova --mode dark  # Specific brand and mode
+  %(prog)s memo.md --brand hypernova        # Specific brand with dark mode
 
 Multiple Brands:
   Create brand config files for different clients:
@@ -393,8 +393,8 @@ Multiple Brands:
     parser.add_argument(
         '--mode',
         choices=['light', 'dark'],
-        default='light',
-        help='Color mode: light (default) or dark'
+        default='dark',
+        help='Color mode: dark (default) or light'
     )
 
     args = parser.parse_args()
