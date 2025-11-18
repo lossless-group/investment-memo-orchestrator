@@ -26,7 +26,8 @@
       "Bash(export PKG_CONFIG_PATH:*)",
       "Bash(export DYLD_LIBRARY_PATH:*)",
       "Bash(./html-to-pdf.sh:*)",
-      "Bash(./md-to-pdf.sh:*)"
+      "Bash(./md-to-pdf.sh:*)",
+      "WebFetch(domain:www.collidecap.com)"
     ],
     "deny": [],
     "ask": []

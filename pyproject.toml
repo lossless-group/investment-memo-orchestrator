@@ -10,6 +10,7 @@ dependencies = [
     "langchain-anthropic>=0.2.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
+    "pyyaml>=6.0",  # For brand configuration files
     "rich>=13.0.0",  # For nice terminal output
     "tavily-python>=0.3.0",  # Web search for research
     "httpx>=0.27.0",  # For web fetching
@@ -18,6 +19,11 @@ dependencies = [
     "pypdf>=4.0.0",  # For PDF deck analysis
     "pypandoc>=1.13",  # For markdown to Word conversion
     "weasyprint>=60.0",  # For HTML to PDF conversion (wkhtmltopdf replacement)
+    "python-docx>=1.2.0",  # For Word document generation
+    "google-auth>=2.0.0",  # For Google API authentication
+    "google-auth-oauthlib>=1.0.0",  # For OAuth flow
+    "google-auth-httplib2>=0.2.0",  # For HTTP authentication
+    "google-api-python-client>=2.0.0",  # For Google Drive/Docs API
 ]
 
 [project.optional-dependencies]

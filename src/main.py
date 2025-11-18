@@ -69,18 +69,50 @@ def main():
         console.print("[bold red]Error:[/bold red] Company name cannot be empty")
         sys.exit(1)
 
+    # NEW: Load company data if exists (check for deck and additional context)
+    deck_path = None
+    company_description = None
+    company_url = None
+    company_stage = None
+    research_notes = None
+    data_file = Path(f"data/{company_name}.json")
+
+    # Default to CLI arguments
     investment_type = args.investment_type
     memo_mode = args.memo_mode
-
-    # NEW: Load company data if exists (check for deck)
-    deck_path = None
-    data_file = Path(f"data/{company_name}.json")
 
     if data_file.exists():
         try:
             with open(data_file) as f:
                 company_data = json.load(f)
+
+                # Load deck path
                 deck_path = company_data.get("deck")
+
+                # Load additional company context
+                company_description = company_data.get("description")
+                company_url = company_data.get("url")
+                company_stage = company_data.get("stage")
+                research_notes = company_data.get("notes")
+
+                # NEW: Read type and mode from JSON if present
+                json_type = company_data.get("type", "").lower()
+                json_mode = company_data.get("mode", "").lower()
+
+                # Map JSON values to internal values
+                if json_type in ["direct", "direct investment"]:
+                    investment_type = "direct"
+                    console.print(f"[bold cyan]Investment type from JSON:[/bold cyan] Direct Investment")
+                elif json_type in ["fund", "lp", "fund commitment", "lp commitment"]:
+                    investment_type = "fund"
+                    console.print(f"[bold cyan]Investment type from JSON:[/bold cyan] Fund Commitment")
+
+                if json_mode in ["consider", "prospective"]:
+                    memo_mode = "consider"
+                    console.print(f"[bold cyan]Memo mode from JSON:[/bold cyan] Prospective Analysis")
+                elif json_mode in ["justify", "retrospective"]:
+                    memo_mode = "justify"
+                    console.print(f"[bold cyan]Memo mode from JSON:[/bold cyan] Retrospective Justification")
 
                 # Validate deck path
                 if deck_path:
@@ -90,6 +122,17 @@ def main():
                     else:
                         console.print(f"[bold yellow]Warning:[/bold yellow] Deck specified but not found: {deck_path}")
                         deck_path = None
+
+                # Display loaded context
+                if company_description:
+                    console.print(f"[bold green]Company context:[/bold green] {company_description[:80]}...")
+                if company_url:
+                    console.print(f"[bold green]Company URL:[/bold green] {company_url}")
+                if company_stage:
+                    console.print(f"[bold green]Stage:[/bold green] {company_stage}")
+                if research_notes:
+                    console.print(f"[bold green]Research focus:[/bold green] {research_notes[:80]}...")
+
         except Exception as e:
             console.print(f"[bold yellow]Warning:[/bold yellow] Could not load company data file: {e}")
 
@@ -113,8 +156,17 @@ def main():
         ) as progress:
             task = progress.add_task("Generating investment memo...", total=None)
 
-            # Generate memo (NEW: pass deck_path)
-            final_state = generate_memo(company_name, investment_type, memo_mode, deck_path)
+            # Generate memo (pass all company context)
+            final_state = generate_memo(
+                company_name,
+                investment_type,
+                memo_mode,
+                deck_path,
+                company_description,
+                company_url,
+                company_stage,
+                research_notes
+            )
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")
 

@@ -242,7 +242,11 @@ def generate_memo(
     company_name: str,
     investment_type: LiteralType["direct", "fund"] = "direct",
     memo_mode: LiteralType["consider", "justify"] = "consider",
-    deck_path: str = None
+    deck_path: str = None,
+    company_description: str = None,
+    company_url: str = None,
+    company_stage: str = None,
+    research_notes: str = None
 ) -> MemoState:
     """
     Main entry point for generating an investment memo.
@@ -252,14 +256,27 @@ def generate_memo(
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
         deck_path: Optional path to pitch deck PDF
+        company_description: Brief description of what the company does
+        company_url: Company website URL
+        company_stage: Investment stage (Seed, Series A, etc.)
+        research_notes: Additional research guidance or focus areas
 
     Returns:
         Final state containing research, draft, validation, and final memo
     """
     from .state import create_initial_state
 
-    # Create initial state
-    initial_state = create_initial_state(company_name, investment_type, memo_mode, deck_path)
+    # Create initial state with all company context
+    initial_state = create_initial_state(
+        company_name,
+        investment_type,
+        memo_mode,
+        deck_path,
+        company_description,
+        company_url,
+        company_stage,
+        research_notes
+    )
 
     # Build and run workflow
     app = build_workflow()

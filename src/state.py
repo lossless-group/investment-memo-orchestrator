@@ -138,6 +138,12 @@ class MemoState(TypedDict):
     investment_type: Literal["direct", "fund"]  # Type of investment
     memo_mode: Literal["consider", "justify"]  # Memo purpose
 
+    # Company context (from JSON input file)
+    company_description: Optional[str]  # Brief description of what company does
+    company_url: Optional[str]  # Company website URL
+    company_stage: Optional[str]  # Investment stage (Seed, Series A, etc.)
+    research_notes: Optional[str]  # Additional research guidance/focus areas
+
     # Deck analysis (NEW)
     deck_path: Optional[str]
     deck_analysis: Optional[DeckAnalysisData]
@@ -167,7 +173,11 @@ def create_initial_state(
     company_name: str,
     investment_type: Literal["direct", "fund"] = "direct",
     memo_mode: Literal["consider", "justify"] = "consider",
-    deck_path: Optional[str] = None
+    deck_path: Optional[str] = None,
+    company_description: Optional[str] = None,
+    company_url: Optional[str] = None,
+    company_stage: Optional[str] = None,
+    research_notes: Optional[str] = None
 ) -> MemoState:
     """
     Create initial state for a new memo generation workflow.
@@ -177,6 +187,10 @@ def create_initial_state(
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
         deck_path: Optional path to pitch deck PDF
+        company_description: Brief description of what the company does
+        company_url: Company website URL
+        company_stage: Investment stage (Seed, Series A, etc.)
+        research_notes: Additional research guidance or focus areas
 
     Returns:
         MemoState with initialized values
@@ -185,6 +199,10 @@ def create_initial_state(
         company_name=company_name,
         investment_type=investment_type,
         memo_mode=memo_mode,
+        company_description=company_description,
+        company_url=company_url,
+        company_stage=company_stage,
+        research_notes=research_notes,
         deck_path=deck_path,
         deck_analysis=None,
         research=None,

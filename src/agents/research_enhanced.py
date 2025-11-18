@@ -189,6 +189,20 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     company_name = state["company_name"]
     deck_analysis = state.get("deck_analysis")
 
+    # NEW: Get company context from state (from JSON input file)
+    company_description = state.get("company_description")
+    company_url = state.get("company_url")
+    company_stage = state.get("company_stage")
+    research_notes = state.get("research_notes")
+
+    # Display loaded context
+    if company_description:
+        print(f"Using company description: {company_description[:80]}...")
+    if company_url:
+        print(f"Using company URL: {company_url}")
+    if research_notes:
+        print(f"Research focus: {research_notes[:80]}...")
+
     # Get configuration
     provider_name = os.getenv("RESEARCH_PROVIDER", "tavily").lower()
     max_results = int(os.getenv("MAX_SEARCH_RESULTS", "10"))
@@ -213,19 +227,42 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     # Gather research from multiple sources
     research_context = []
 
+    # NEW: Add company website as first source if URL provided
+    if company_url:
+        try:
+            print(f"Fetching company website: {company_url}")
+            website_content = fetch_website(company_url)
+            if website_content:
+                research_context.append(f"Source: Company Website ({company_url})\n{website_content}\n")
+        except Exception as e:
+            print(f"Warning: Could not fetch company website: {e}")
+
     if search_provider:
         # NEW: Generate targeted queries based on deck analysis
         if deck_analysis:
             print(f"Deck analysis available - generating targeted queries to fill gaps...")
             search_queries = generate_queries_from_deck(company_name, deck_analysis)
         else:
-            # Default queries when no deck available
+            # Enhanced queries using company description and research notes
             search_queries = [
-                f"{company_name} company founders technology product",
-                f"{company_name} funding investors Series A seed Crunchbase",
+                f"{company_name} company founders technology product"
+            ]
+
+            # Add description-based query if available
+            if company_description:
+                # Extract key terms from description for better search
+                search_queries.append(f"{company_name} {company_description[:50]}")
+
+            # Standard queries
+            search_queries.extend([
+                f"{company_name} funding investors {company_stage or 'Series A seed'} Crunchbase",
                 f"{company_name} founders CEO team LinkedIn background",
                 f"{company_name} news announcement partnership 2024"
-            ]
+            ])
+
+            # Add research notes focus if provided
+            if research_notes:
+                search_queries.append(f"{company_name} {research_notes[:80]}")
 
         # Execute searches
         for idx, query in enumerate(search_queries, 1):
@@ -317,8 +354,21 @@ Use this as a baseline, but prioritize web search results for verification and a
 Note any discrepancies between deck claims and external sources.
 """
 
+    # NEW: Include company context from input JSON
+    company_context = ""
+    if company_description or research_notes:
+        company_context = "\nCOMPANY CONTEXT:\n"
+        if company_description:
+            company_context += f"Description: {company_description}\n"
+        if company_stage:
+            company_context += f"Stage: {company_stage}\n"
+        if research_notes:
+            company_context += f"Research Focus: {research_notes}\n"
+        company_context += "\nUse this context to guide your research synthesis, but verify all claims with search results.\n"
+
     user_prompt = f"""Analyze the following web search results about {company_name} and extract structured company data for investment analysis.
 
+{company_context}
 {deck_context}
 
 WEB SEARCH RESULTS:
@@ -331,6 +381,7 @@ Extract and organize this information into the JSON schema provided in your syst
 4. Traction metrics and milestones
 5. Funding history and investors
 6. Team backgrounds and expertise
+{f"7. PRIORITY: {research_notes}" if research_notes else ""}
 
 Return valid JSON only."""
 
