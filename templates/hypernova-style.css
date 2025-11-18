@@ -1,0 +1,514 @@
+/* Hypernova Capital - Investment Memo Styling */
+
+/* Font Face Definitions - Using local fonts */
+@font-face {
+    font-family: 'Arboria';
+    src: local('Arboria Book'), local('Arboria-Book'),
+         url('fonts/Arboria_Book.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Arboria';
+    src: local('Arboria Medium'), local('Arboria-Medium'),
+         url('fonts/Arboria_Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Arboria';
+    src: local('Arboria Medium Italic'), local('Arboria-MediumItalic'),
+         url('fonts/Arboria_Medium_Italic.woff2') format('woff2');
+    font-weight: 500;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Arboria';
+    src: local('Arboria Bold'), local('Arboria-Bold'),
+         url('fonts/Arboria_Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* CSS Variables - Hypernova Brand Colors */
+:root {
+    --hypernova-navy: #1a3a52;
+    --hypernova-cyan: #1dd3d3;
+    --hypernova-white: #ffffff;
+    --hypernova-cream: #f0f0eb;
+    --hypernova-dark-text: #1a2332;
+    --hypernova-gray: #6b7280;
+}
+
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arboria', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: var(--hypernova-dark-text);
+    background: var(--hypernova-white);
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 0.75in;
+}
+
+/* ========================================
+   DARK MODE STYLES
+   ======================================== */
+
+body.dark-mode {
+    background: var(--hypernova-navy);
+    color: var(--hypernova-white);
+}
+
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode h4 {
+    color: var(--hypernova-white);
+}
+
+body.dark-mode h1 {
+    border-bottom-color: var(--hypernova-cyan);
+}
+
+body.dark-mode .memo-title {
+    color: var(--hypernova-white);
+}
+
+body.dark-mode .memo-subtitle {
+    color: var(--hypernova-cyan);
+}
+
+body.dark-mode .memo-meta {
+    border-top-color: var(--hypernova-cyan);
+    border-bottom-color: var(--hypernova-cyan);
+}
+
+body.dark-mode .memo-meta-label {
+    color: var(--hypernova-cyan);
+}
+
+body.dark-mode .memo-meta-value {
+    color: var(--hypernova-white);
+}
+
+body.dark-mode blockquote {
+    background: rgba(29, 211, 211, 0.1);
+    border-left-color: var(--hypernova-cyan);
+    color: var(--hypernova-white);
+}
+
+body.dark-mode code {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--hypernova-cyan);
+}
+
+body.dark-mode pre {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode pre code {
+    color: var(--hypernova-white);
+}
+
+body.dark-mode table thead {
+    background: rgba(29, 211, 211, 0.2);
+}
+
+body.dark-mode td {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode tbody tr:hover {
+    background: rgba(29, 211, 211, 0.1);
+}
+
+body.dark-mode hr {
+    border-top-color: var(--hypernova-cyan);
+}
+
+body.dark-mode .callout {
+    background: rgba(29, 211, 211, 0.1);
+    border-left-color: var(--hypernova-cyan);
+}
+
+body.dark-mode .footnotes {
+    border-top-color: var(--hypernova-cyan);
+}
+
+body.dark-mode .footnotes h2 {
+    color: var(--hypernova-white);
+}
+
+body.dark-mode .memo-footer {
+    border-top-color: var(--hypernova-cyan);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+body.dark-mode .memo-footer-logo {
+    color: var(--hypernova-white);
+}
+
+body.dark-mode a {
+    color: var(--hypernova-cyan);
+}
+
+body.dark-mode a:hover {
+    border-bottom-color: var(--hypernova-cyan);
+}
+
+body.dark-mode .footnote-ref + .footnote-ref::before {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Header/Cover Page */
+.memo-header {
+    background: var(--hypernova-navy);
+    color: var(--hypernova-white);
+    padding: 3rem 2rem;
+    margin: -0.75in -0.75in 2rem -0.75in;
+    text-align: center;
+    position: relative;
+}
+
+.memo-header::after {
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 20px solid var(--hypernova-navy);
+}
+
+.memo-logo {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+}
+
+.memo-logo-accent {
+    color: var(--hypernova-cyan);
+}
+
+.memo-tagline {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    font-weight: 400;
+}
+
+.memo-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--hypernova-navy);
+    margin: 2rem 0 1rem 0;
+    line-height: 1.2;
+}
+
+.memo-subtitle {
+    font-size: 1.1rem;
+    color: var(--hypernova-gray);
+    margin-bottom: 0.5rem;
+}
+
+.memo-meta {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 0;
+    border-top: 2px solid var(--hypernova-cyan);
+    border-bottom: 2px solid var(--hypernova-cyan);
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+}
+
+.memo-meta-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.memo-meta-label {
+    font-weight: 700;
+    color: var(--hypernova-navy);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.memo-meta-value {
+    color: var(--hypernova-dark-text);
+    margin-top: 0.25rem;
+}
+
+/* Typography */
+h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--hypernova-navy);
+    margin: 2rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid var(--hypernova-cyan);
+}
+
+h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--hypernova-navy);
+    margin: 1.5rem 0 0.75rem 0;
+}
+
+h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--hypernova-navy);
+    margin: 1.25rem 0 0.5rem 0;
+}
+
+h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--hypernova-dark-text);
+    margin: 1rem 0 0.5rem 0;
+}
+
+p {
+    margin: 0.75rem 0;
+    text-align: justify;
+}
+
+/* Links */
+a {
+    color: var(--hypernova-cyan);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
+}
+
+a:hover {
+    border-bottom-color: var(--hypernova-cyan);
+}
+
+/* Lists */
+ul, ol {
+    margin: 0.75rem 0 0.75rem 1.5rem;
+}
+
+li {
+    margin: 0.4rem 0;
+}
+
+ul li::marker {
+    color: var(--hypernova-cyan);
+}
+
+/* Blockquotes */
+blockquote {
+    border-left: 4px solid var(--hypernova-cyan);
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    background: var(--hypernova-cream);
+    font-style: italic;
+    color: var(--hypernova-dark-text);
+}
+
+/* Code */
+code {
+    font-family: 'Monaco', 'Courier New', monospace;
+    background: var(--hypernova-cream);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+pre {
+    background: var(--hypernova-cream);
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+pre code {
+    background: none;
+    padding: 0;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.95em;
+}
+
+thead {
+    background: var(--hypernova-navy);
+    color: var(--hypernova-white);
+}
+
+th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+}
+
+td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+tbody tr:hover {
+    background: var(--hypernova-cream);
+}
+
+/* Horizontal Rule */
+hr {
+    border: none;
+    border-top: 2px solid var(--hypernova-cyan);
+    margin: 2rem 0;
+}
+
+/* Emphasis Boxes */
+.callout {
+    background: var(--hypernova-cream);
+    border-left: 4px solid var(--hypernova-cyan);
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.callout-warning {
+    border-left-color: #f59e0b;
+    background: #fef3c7;
+}
+
+.callout-success {
+    border-left-color: #10b981;
+    background: #d1fae5;
+}
+
+/* Footnotes/Citations */
+.footnotes {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--hypernova-navy);
+}
+
+.footnotes h2 {
+    font-size: 1.2rem;
+    color: var(--hypernova-navy);
+    margin-bottom: 1rem;
+}
+
+.footnotes ol {
+    font-size: 0.9rem;
+    line-height: 1.8;
+}
+
+.footnotes li {
+    margin: 0.75rem 0;
+}
+
+.footnote-ref, .footnote-backref {
+    font-size: 0.85em;
+    vertical-align: super;
+    color: var(--hypernova-cyan);
+    text-decoration: none;
+    font-weight: 600;
+    margin-left: 0.15em;
+    margin-right: 0.15em;
+}
+
+.footnote-ref:hover, .footnote-backref:hover {
+    text-decoration: underline;
+}
+
+/* Add spacing between consecutive citations */
+.footnote-ref + .footnote-ref::before {
+    content: ",";
+    margin-right: 0.25em;
+    color: var(--hypernova-gray);
+    font-weight: normal;
+}
+
+/* Alternative: Use comma separators for grouped citations */
+sup a.footnote-ref {
+    margin: 0 0.1em;
+}
+
+sup a.footnote-ref::after {
+    content: "";
+}
+
+/* Better spacing for citation groups */
+sup {
+    line-height: 0;
+}
+
+/* Footer */
+.memo-footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--hypernova-cyan);
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--hypernova-gray);
+}
+
+.memo-footer-logo {
+    font-weight: 700;
+    color: var(--hypernova-navy);
+    margin-bottom: 0.5rem;
+}
+
+/* Print Styles */
+@media print {
+    body {
+        padding: 0.5in;
+        font-size: 10pt;
+    }
+
+    .memo-header {
+        margin: -0.5in -0.5in 1rem -0.5in;
+        padding: 2rem 1.5rem;
+    }
+
+    h1 {
+        page-break-after: avoid;
+    }
+
+    h2, h3, h4 {
+        page-break-after: avoid;
+    }
+
+    p, blockquote, li {
+        page-break-inside: avoid;
+    }
+
+    a {
+        color: var(--hypernova-cyan);
+        border-bottom: none;
+    }
+}
+
+/* Page breaks for PDF */
+@page {
+    margin: 0.75in;
+    size: letter;
+}

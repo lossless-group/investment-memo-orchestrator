@@ -166,19 +166,37 @@ output/{Company-Name}-v0.0.x/
 
 Plus `versions.json` tracking version history across all iterations.
 
-### Exporting to Word Format
+## File Format Conversion & Export
 
-Convert your generated markdown memos to Microsoft Word (.docx) format for easy sharing:
+The system supports multiple export formats with professional Hypernova branding and citation preservation.
+
+### Overview of Export Tools
+
+1. **`md2docx.py`** - Basic Word (.docx) conversion
+2. **`export-branded.py`** - Branded HTML exports with light/dark modes
+3. **`export-all-modes.sh`** - Batch export of all memos in both color modes
+
+All exports preserve:
+- ✅ Inline citations `[^1], [^2], [^3]` with proper spacing
+- ✅ Complete footnote sections with URLs and publication dates
+- ✅ Markdown formatting (headers, lists, tables, blockquotes)
+- ✅ Proper typography and professional styling
+
+---
+
+### 1. Word (.docx) Export
+
+Convert markdown memos to Microsoft Word format for traditional sharing:
 
 ```bash
 # Activate virtual environment first
 source .venv/bin/activate
 
 # Convert a single memo
-python md2docx.py output/Aalo-Atomics-v0.0.5-memo.md
+python md2docx.py output/Aalo-Atomics-v0.0.5/4-final-draft.md
 
 # Convert with custom output location
-python md2docx.py output/Aalo-Atomics-v0.0.5-memo.md -o exports/
+python md2docx.py output/Aalo-Atomics-v0.0.5/4-final-draft.md -o exports/
 
 # Convert all memos in a directory
 python md2docx.py output/Aalo-Atomics-v0.0.5/2-sections/ -o exports/
@@ -187,7 +205,182 @@ python md2docx.py output/Aalo-Atomics-v0.0.5/2-sections/ -o exports/
 python md2docx.py output/memo.md --toc
 ```
 
-The tool automatically downloads pandoc if needed. All converted files maintain proper formatting, headers, lists, and links from the markdown source.
+**Features:**
+- Automatically downloads pandoc if needed
+- Maintains all formatting from markdown source
+- Preserves footnotes (visible in Microsoft Word, not Google Docs/Preview)
+
+**Note:** Citations only render properly in Microsoft Word. For better citation visibility, use HTML exports.
+
+---
+
+### 2. Branded HTML Export (Light Mode)
+
+Export with full Hypernova Capital branding in light mode (default):
+
+```bash
+source .venv/bin/activate
+
+# Export single memo (light mode - default)
+python export-branded.py output/Aalo-Atomics-v0.0.5/4-final-draft.md
+
+# Export with custom output directory
+python export-branded.py output/Aalo-Atomics-v0.0.5/4-final-draft.md -o exports/light/
+
+# Export all memos in a directory
+python export-branded.py output/ --all -o exports/light/
+```
+
+**Features:**
+- **Hypernova branding**: Logo, colors (#1a3a52 navy, #1dd3d3 cyan), Arboria font
+- **Improved citation spacing**: `[1], [2], [3]` instead of `[1][2][3]`
+- **Clickable footnotes**: Citations link to source list at bottom
+- **Professional header/footer**: Company branding and metadata
+- **Self-contained HTML**: Includes all CSS and fonts (no external dependencies)
+- **Print-optimized**: Ready for PDF conversion via browser print
+
+---
+
+### 3. Branded HTML Export (Dark Mode)
+
+Export with dark theme optimized for screen reading:
+
+```bash
+source .venv/bin/activate
+
+# Export single memo in dark mode
+python export-branded.py output/Aalo-Atomics-v0.0.5/4-final-draft.md --mode dark
+
+# Export all memos in dark mode
+python export-branded.py output/ --all --mode dark -o exports/dark/
+```
+
+**Dark Mode Colors:**
+- Background: Dark navy (#1a3a52)
+- Text: White (#ffffff)
+- Accents: Cyan (#1dd3d3)
+- Perfect for: Screen reading, presentations, reducing eye strain
+
+---
+
+### 4. Batch Export (Both Light & Dark Modes)
+
+Export all memos in both color modes at once:
+
+```bash
+source .venv/bin/activate
+
+# Export everything
+./export-all-modes.sh
+```
+
+**Output structure:**
+```
+exports/
+├── light/  # 📄 Light mode HTML (white background)
+│   ├── Aalo-Atomics-v0.0.5.html
+│   ├── DayOne-v0.0.3.html
+│   └── ... (all memos)
+└── dark/   # 🌙 Dark mode HTML (navy background)
+    ├── Aalo-Atomics-v0.0.5.html
+    ├── DayOne-v0.0.3.html
+    └── ... (all memos)
+```
+
+This creates **267+ HTML files** per mode with the latest citation improvements.
+
+---
+
+### 5. PDF Export (via HTML)
+
+Convert branded HTML to PDF using your browser or command-line tools:
+
+**Option A: Browser Print to PDF**
+```bash
+# 1. Generate HTML export
+python export-branded.py output/Company/4-final-draft.md --mode light
+
+# 2. Open in browser
+open exports/branded/Company.html
+
+# 3. Print to PDF (Cmd+P on Mac, Ctrl+P on Windows)
+# - Enable "Background graphics" for full styling
+# - Save as PDF
+```
+
+**Option B: Command-line with wkhtmltopdf** (if installed)
+```bash
+# Export with PDF generation
+python export-branded.py output/Company/4-final-draft.md --mode light --pdf
+```
+
+---
+
+### Citation Improvements (All Export Formats)
+
+All exports include **improved citation spacing** for better readability:
+
+**Before:**
+```
+The company raised $100M[1][2][3][4][5] in funding.
+```
+Visual: **[1][2][3][4][5]** (cramped, hard to read)
+
+**After:**
+```
+The company raised $100M[^1], [^2], [^3], [^4], [^5] in funding.
+```
+Visual: **[1], [2], [3], [4], [5]** (clear, professional)
+
+**Technical Implementation:**
+- **0.15em margins** around each citation
+- **Automatic comma separators** between consecutive citations
+- **Gray commas** for subtlety (adapts to dark mode)
+- **Academic formatting** following IEEE/ACM standards
+
+---
+
+### Export Format Comparison
+
+| Format | Best For | Citations Visible | Branding | Editable |
+|--------|----------|-------------------|----------|----------|
+| **Word (.docx)** | Offline editing, track changes | ⚠️ MS Word only | ❌ Plain | ✅ Yes |
+| **HTML (Light)** | Printing, email attachments, bright environments | ✅ Always | ✅ Full | ⚠️ Via code |
+| **HTML (Dark)** | Screen reading, presentations, night reading | ✅ Always | ✅ Full | ⚠️ Via code |
+| **PDF (from HTML)** | Distribution, archival, compliance | ✅ Always | ✅ Full | ❌ No |
+
+---
+
+### Quick Reference Commands
+
+```bash
+# Activate environment
+source .venv/bin/activate
+
+# Word export (single memo)
+python md2docx.py output/Company/4-final-draft.md
+
+# HTML light mode (single memo)
+python export-branded.py output/Company/4-final-draft.md
+
+# HTML dark mode (single memo)
+python export-branded.py output/Company/4-final-draft.md --mode dark
+
+# Batch export all memos (both modes)
+./export-all-modes.sh
+
+# HTML with PDF generation
+python export-branded.py output/Company/4-final-draft.md --pdf
+```
+
+---
+
+### Documentation
+
+For more details, see:
+- `exports/EXPORT-GUIDE.md` - Comprehensive export documentation
+- `exports/DARK-MODE-GUIDE.md` - Light vs. dark mode usage guide
+- `exports/CITATION-IMPROVEMENTS.md` - Citation spacing implementation details
 
 ## Architecture
 
