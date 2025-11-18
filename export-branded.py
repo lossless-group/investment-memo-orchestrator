@@ -265,6 +265,34 @@ def convert_to_branded_html(
             ]
         )
 
+        # Post-process: Restore uncited footnotes that Pandoc excluded
+        try:
+            from pathlib import Path
+            import subprocess
+            restore_script = Path(__file__).parent / 'restore-uncited-footnotes.py'
+            if restore_script.exists():
+                result = subprocess.run(
+                    [sys.executable, str(restore_script), str(output_path), str(input_path)],
+                    capture_output=True, text=True
+                )
+                if result.stdout:
+                    print(f"  {result.stdout.strip()}")
+        except Exception as e:
+            print(f"  Warning: Could not restore uncited footnotes: {e}")
+
+        # Post-process: Fix duplicate citations (Obsidian-style)
+        try:
+            fix_script = Path(__file__).parent / 'fix-citations.py'
+            if fix_script.exists():
+                result = subprocess.run(
+                    [sys.executable, str(fix_script), str(output_path)],
+                    capture_output=True, text=True
+                )
+                if result.stdout:
+                    print(f"  {result.stdout.strip()}")
+        except Exception as e:
+            print(f"  Warning: Could not fix citations: {e}")
+
         return output_path
     finally:
         # Clean up temp template
