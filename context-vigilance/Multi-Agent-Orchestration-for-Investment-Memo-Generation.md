@@ -1759,6 +1759,686 @@ The export tools integrate seamlessly with the memo generation pipeline:
 
 ---
 
+### 🎨 PLANNED: Simplified Branding Configuration System (2025-11-18)
+
+**Context**: The current branded export system has Hypernova branding hardcoded throughout the codebase. For this to work as an open-source library that other VC firms can use, branding needs to be easily customizable without requiring technical expertise.
+
+**Problem Statement**:
+
+Current hardcoded branding locations:
+1. **`export-branded.py`** (Lines 84-125):
+   - Company name: "Hypernova Capital"
+   - Logo text: "Hypernova" with styled "o"
+   - Tagline: "Network-Driven | High-impact | Transformative venture fund"
+   - Footer text and confidentiality statement
+
+2. **`templates/hypernova-style.css`** (Lines 1-583):
+   - Custom font: Arboria (proprietary, requires font files)
+   - Brand colors: Navy (#1a3a52), Cyan (#1dd3d3)
+   - All styling tied to these specific colors
+
+**Challenges for Other Firms**:
+- Requires editing Python code to change company name
+- Need to modify CSS color variables throughout 583 lines
+- Must replace custom font files or accept default
+- No clear separation between "framework" and "branding"
+
+**Proposed Solution: `brand-config.yaml`**
+
+Create a single YAML configuration file that non-technical users can edit:
+
+```yaml
+# Brand Configuration - Customize for your firm
+company:
+  name: "Hypernova Capital"
+  tagline: "Network-Driven | High-impact | Transformative venture fund"
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  primary: "#1a3a52"          # Navy (headers, logo background)
+  secondary: "#1dd3d3"        # Cyan (accents, borders, links)
+  text_dark: "#1a2332"        # Main text color
+  text_light: "#6b7280"       # Subtle/gray text
+  background: "#ffffff"       # White background (light mode)
+  background_alt: "#f0f0eb"   # Cream (callouts, code blocks)
+
+fonts:
+  family: "Arboria"           # Primary font name
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  custom_fonts_dir: "templates/fonts"  # Optional: path to WOFF2 files
+```
+
+**Benefits**:
+1. ✅ **Zero code changes** - just edit YAML file
+2. ✅ **Clear documentation** - each field explains what it controls
+3. ✅ **Validates on load** - catches typos and missing values early
+4. ✅ **Works without custom fonts** - graceful fallback to system fonts
+5. ✅ **Example configs** - include templates for other firms
+6. ✅ **Backwards compatible** - defaults to Hypernova if no config found
+
+**Implementation Plan**:
+
+**Step 1: Create Brand Configuration Module** (`src/branding.py`)
+
+```python
+# src/branding.py
+from pathlib import Path
+from typing import Dict, Optional
+import yaml
+from dataclasses import dataclass
+
+@dataclass
+class BrandColors:
+    primary: str
+    secondary: str
+    text_dark: str
+    text_light: str
+    background: str
+    background_alt: str
+
+@dataclass
+class BrandFonts:
+    family: str
+    fallback: str
+    custom_fonts_dir: Optional[str] = None
+
+@dataclass
+class BrandCompany:
+    name: str
+    tagline: str
+    confidential_footer: str
+
+@dataclass
+class BrandConfig:
+    company: BrandCompany
+    colors: BrandColors
+    fonts: BrandFonts
+
+    @classmethod
+    def load(cls, config_path: Path = None) -> 'BrandConfig':
+        """Load brand configuration from YAML file.
+
+        Falls back to Hypernova defaults if config not found.
+        """
+        if config_path is None:
+            config_path = Path("brand-config.yaml")
+
+        if not config_path.exists():
+            return cls.get_default_config()
+
+        with open(config_path, 'r') as f:
+            data = yaml.safe_load(f)
+
+        return cls(
+            company=BrandCompany(**data['company']),
+            colors=BrandColors(**data['colors']),
+            fonts=BrandFonts(**data['fonts'])
+        )
+
+    @classmethod
+    def get_default_config(cls) -> 'BrandConfig':
+        """Return Hypernova Capital default branding."""
+        return cls(
+            company=BrandCompany(
+                name="Hypernova Capital",
+                tagline="Network-Driven | High-impact | Transformative venture fund",
+                confidential_footer="This document is confidential and proprietary to {company_name}."
+            ),
+            colors=BrandColors(
+                primary="#1a3a52",
+                secondary="#1dd3d3",
+                text_dark="#1a2332",
+                text_light="#6b7280",
+                background="#ffffff",
+                background_alt="#f0f0eb"
+            ),
+            fonts=BrandFonts(
+                family="Arboria",
+                fallback="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                custom_fonts_dir="templates/fonts"
+            )
+        )
+```
+
+**Step 2: Update CSS Generation** (Modify `export-branded.py`)
+
+```python
+def create_css_from_brand(brand: BrandConfig) -> str:
+    """Generate CSS with brand colors injected."""
+
+    # Base CSS template (unchanged structure)
+    css_template = """
+/* CSS Variables - Brand Colors */
+:root {
+    --brand-primary: {primary};
+    --brand-secondary: {secondary};
+    --brand-text-dark: {text_dark};
+    --brand-text-light: {text_light};
+    --brand-background: {background};
+    --brand-background-alt: {background_alt};
+}
+
+/* Font Face Definitions */
+@font-face {{
+    font-family: '{font_family}';
+    src: local('{font_family}'), local('{font_family}-Book'),
+         url('{fonts_dir}/{font_family}_Book.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}}
+
+/* ... rest of CSS using var(--brand-*) variables ... */
+"""
+
+    return css_template.format(
+        primary=brand.colors.primary,
+        secondary=brand.colors.secondary,
+        text_dark=brand.colors.text_dark,
+        text_light=brand.colors.text_light,
+        background=brand.colors.background,
+        background_alt=brand.colors.background_alt,
+        font_family=brand.fonts.family,
+        fonts_dir=brand.fonts.custom_fonts_dir or ""
+    )
+```
+
+**Step 3: Update HTML Template Generation** (Modify `export-branded.py`)
+
+```python
+def create_html_template(
+    title: str,
+    company: str,
+    brand: BrandConfig,
+    dark_mode: bool = False
+) -> str:
+    """Create HTML template with configurable branding."""
+
+    today = datetime.now().strftime("%B %d, %Y")
+
+    # Generate CSS with brand colors
+    css_content = create_css_from_brand(brand)
+
+    # Use brand config for all text
+    template = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} | {brand.company.name}</title>
+    <style>
+{css_content}
+    </style>
+</head>
+<body{' class="dark-mode"' if dark_mode else ''}>
+    <div class="memo-header">
+        <div class="memo-logo">
+            {brand.company.name}
+        </div>
+        <div class="memo-tagline">
+            {brand.company.tagline}
+        </div>
+    </div>
+
+    <div class="memo-title">{company}</div>
+    <div class="memo-subtitle">Investment Memo</div>
+
+    <div class="memo-meta">
+        <div class="memo-meta-item">
+            <span class="memo-meta-label">Date</span>
+            <span class="memo-meta-value">{today}</span>
+        </div>
+        <div class="memo-meta-item">
+            <span class="memo-meta-label">Prepared By</span>
+            <span class="memo-meta-value">{brand.company.name}</span>
+        </div>
+        <div class="memo-meta-item">
+            <span class="memo-meta-label">Status</span>
+            <span class="memo-meta-value">Confidential</span>
+        </div>
+    </div>
+
+    $body$
+
+    <div class="memo-footer">
+        <div class="memo-footer-logo">{brand.company.name}</div>
+        <div>{brand.company.tagline}</div>
+        <div style="margin-top: 0.5rem; font-size: 0.8rem;">
+            {brand.company.confidential_footer.format(company_name=brand.company.name)}
+        </div>
+    </div>
+</body>
+</html>"""
+
+    return template
+```
+
+**Step 4: Update Main Export Function**
+
+```python
+def main():
+    parser = argparse.ArgumentParser(...)
+
+    # Add brand config argument
+    parser.add_argument(
+        '--brand-config',
+        type=Path,
+        default=Path('brand-config.yaml'),
+        help='Path to brand configuration file (default: brand-config.yaml)'
+    )
+
+    args = parser.parse_args()
+
+    # Load brand configuration
+    brand = BrandConfig.load(args.brand_config)
+    print(f"Using brand: {brand.company.name}")
+
+    # ... rest of export logic using `brand` object ...
+```
+
+**Step 5: Create Example Configurations**
+
+**File: `brand-config.example.yaml`**
+```yaml
+# Example Brand Configuration
+# Copy this file to brand-config.yaml and customize for your firm
+
+company:
+  name: "Your VC Firm Name"
+  tagline: "Your firm's tagline or mission statement"
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  primary: "#1a3a52"          # Main brand color (headers, backgrounds)
+  secondary: "#1dd3d3"        # Accent color (links, highlights)
+  text_dark: "#1a2332"        # Primary text color
+  text_light: "#6b7280"       # Secondary/muted text
+  background: "#ffffff"       # Page background (light mode)
+  background_alt: "#f0f0eb"   # Alternate background (callouts, code)
+
+fonts:
+  family: "Inter"             # Font name (use web-safe or provide files)
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  custom_fonts_dir: null      # Set to null to use system fonts only
+```
+
+**File: `brand-configs/accel.yaml`** (Example for Accel)
+```yaml
+company:
+  name: "Accel"
+  tagline: "Early stage venture capital"
+  confidential_footer: "Confidential - Accel Partners"
+
+colors:
+  primary: "#0066CC"          # Accel blue
+  secondary: "#FF6B35"        # Orange accent
+  text_dark: "#1a1a1a"
+  text_light: "#666666"
+  background: "#ffffff"
+  background_alt: "#f5f5f5"
+
+fonts:
+  family: "Inter"
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  custom_fonts_dir: null
+```
+
+**Step 6: Update Documentation**
+
+**File: `docs/CUSTOM-BRANDING.md`**
+```markdown
+# Custom Branding Guide
+
+## Quick Start
+
+1. Copy the example configuration:
+   ```bash
+   cp brand-config.example.yaml brand-config.yaml
+   ```
+
+2. Edit `brand-config.yaml` with your firm's branding:
+   - Company name and tagline
+   - Brand colors (hex codes)
+   - Font preferences
+
+3. Run exports as normal:
+   ```bash
+   python export-branded.py output/Company/4-final-draft.md
+   ```
+
+## Configuration Options
+
+### Company Information
+
+- **name**: Your firm's name (appears in header, footer, metadata)
+- **tagline**: Firm mission or tagline (appears below logo)
+- **confidential_footer**: Legal disclaimer (use `{company_name}` placeholder)
+
+### Colors
+
+All colors use hex format (`#RRGGBB`):
+
+- **primary**: Main brand color (headers, logo background in light mode)
+- **secondary**: Accent color (links, highlights, borders)
+- **text_dark**: Main body text color
+- **text_light**: Secondary/muted text (metadata, captions)
+- **background**: Page background in light mode
+- **background_alt**: Alternate background (code blocks, callouts)
+
+**Tip**: Use a color picker tool to get hex codes from your brand guidelines.
+
+### Fonts
+
+- **family**: Primary font name
+- **fallback**: Comma-separated list of fallback fonts
+- **custom_fonts_dir**: Path to WOFF2 font files (or `null` for system fonts)
+
+**Using Custom Fonts**:
+1. Add WOFF2 font files to a directory
+2. Set `custom_fonts_dir` to that path
+3. Ensure filenames match: `{FontName}_Book.woff2`, `{FontName}_Bold.woff2`, etc.
+
+**Using System Fonts**:
+1. Set `custom_fonts_dir: null`
+2. Choose web-safe fonts: "Georgia", "Times New Roman", "Arial", "Helvetica", "Inter"
+
+## Examples
+
+### Minimal Configuration (System Fonts)
+
+```yaml
+company:
+  name: "My VC Firm"
+  tagline: "Investing in great founders"
+  confidential_footer: "Confidential"
+
+colors:
+  primary: "#2c3e50"
+  secondary: "#3498db"
+  text_dark: "#333333"
+  text_light: "#777777"
+  background: "#ffffff"
+  background_alt: "#f8f8f8"
+
+fonts:
+  family: "Georgia"
+  fallback: "Times New Roman, serif"
+  custom_fonts_dir: null
+```
+
+### Advanced Configuration (Custom Fonts)
+
+```yaml
+company:
+  name: "Hypernova Capital"
+  tagline: "Network-Driven | High-impact | Transformative"
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  primary: "#1a3a52"
+  secondary: "#1dd3d3"
+  text_dark: "#1a2332"
+  text_light: "#6b7280"
+  background: "#ffffff"
+  background_alt: "#f0f0eb"
+
+fonts:
+  family: "Arboria"
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  custom_fonts_dir: "templates/fonts"
+```
+
+## Testing Your Branding
+
+1. Generate a test export:
+   ```bash
+   python export-branded.py output/test-memo.md -o exports/test/
+   ```
+
+2. Open the HTML file in a browser to preview
+
+3. Adjust colors/fonts in `brand-config.yaml` and regenerate
+
+## Troubleshooting
+
+**"Brand config not found" warning**:
+- Create `brand-config.yaml` in the project root
+- Or specify path: `--brand-config path/to/config.yaml`
+
+**Colors not applying**:
+- Ensure hex codes start with `#`
+- Use 6-digit format: `#1a3a52` (not `#1a3`)
+
+**Custom fonts not loading**:
+- Check font files are in `custom_fonts_dir`
+- Ensure WOFF2 format (convert from TTF/OTF if needed)
+- Verify filenames match pattern: `FontName_Book.woff2`
+
+**Want to use Hypernova branding?**:
+- Delete `brand-config.yaml`
+- System will use built-in defaults
+```
+
+**Step 7: Add Dependency**
+
+```bash
+# Add PyYAML to pyproject.toml
+uv pip install pyyaml
+```
+
+Update `pyproject.toml`:
+```toml
+dependencies = [
+    # ... existing dependencies ...
+    "pyyaml>=6.0",  # For brand configuration
+]
+```
+
+**Testing Strategy**:
+
+1. **Test with Hypernova defaults** (no config file):
+   ```bash
+   rm brand-config.yaml
+   python export-branded.py output/test.md
+   ```
+   Expected: Uses Hypernova branding
+
+2. **Test with custom config** (example firm):
+   ```bash
+   cp brand-config.example.yaml brand-config.yaml
+   # Edit config with test colors
+   python export-branded.py output/test.md
+   ```
+   Expected: Uses custom colors, fonts, company name
+
+3. **Test with missing custom fonts** (graceful fallback):
+   ```yaml
+   fonts:
+     family: "NonexistentFont"
+     custom_fonts_dir: "bad/path"
+   ```
+   Expected: Falls back to system fonts, displays warning
+
+4. **Test with invalid YAML** (validation):
+   ```yaml
+   colors:
+     primary: "not-a-hex-color"  # Invalid
+   ```
+   Expected: Clear error message, suggests fix
+
+**Benefits for Open Source Adoption**:
+
+1. **Non-technical users**: Edit YAML, no code changes
+2. **Quick customization**: 5 minutes to rebrand
+3. **Clear documentation**: Step-by-step guide with examples
+4. **Graceful defaults**: Works out of box with Hypernova branding
+5. **Validation**: Catches errors early with helpful messages
+6. **Example configs**: Pre-made configs for common VC firms
+
+**Files to Create/Modify**:
+
+- **New**: `src/branding.py` - Brand configuration module
+- **New**: `brand-config.example.yaml` - Example configuration
+- **New**: `brand-configs/` - Directory with example firm configs
+- **New**: `docs/CUSTOM-BRANDING.md` - Customization guide
+- **Update**: `export-branded.py` - Use brand config instead of hardcoded values
+- **Update**: `templates/hypernova-style.css` - Use CSS variables for colors
+- **Update**: `pyproject.toml` - Add pyyaml dependency
+- **Update**: `README.md` - Add link to branding guide
+
+**Migration Path for Existing Users**:
+
+1. Existing code continues to work (defaults to Hypernova)
+2. Optional: Create `brand-config.yaml` to customize
+3. Warning message if no config found: "Using default Hypernova branding. Create brand-config.yaml to customize."
+
+**Success Criteria**:
+
+- ✅ Other VC firms can customize branding in <10 minutes
+- ✅ No Python or CSS knowledge required
+- ✅ Works with or without custom fonts
+- ✅ Clear error messages for invalid configs
+- ✅ Backward compatible with existing exports
+- ✅ Documentation includes 3+ example configs
+
+**Timeline Estimate**:
+
+- Step 1-2: Brand config module + CSS generation (2 hours)
+- Step 3-4: Update export script (1 hour)
+- Step 5-6: Example configs + documentation (2 hours)
+- Step 7: Testing and refinement (1 hour)
+
+**Total: ~6 hours of focused work**
+
+---
+
+### ✅ PDF Edge-to-Edge Backgrounds with Per-Page Padding: SOLVED (2025-11-18)
+
+**Problem Statement**:
+
+When exporting branded memos to PDF using WeasyPrint, we faced a fundamental conflict:
+- **Option 1**: `@page { margin: 0; }` → Edge-to-edge background BUT content touches top of pages 2, 3, 4+ (no per-page padding)
+- **Option 2**: `@page { margin: 0.75in; }` → Proper per-page content spacing BUT white margins (not edge-to-edge background)
+
+**Requirements**:
+1. ✅ Branded background color extends to all edges (no white margins)
+2. ✅ Content has proper padding on every page (not just page 1)
+3. ✅ Works in both light and dark modes
+4. ✅ Reduced bottom padding to minimize wasted space
+
+**The Solution: @page background-color**
+
+After researching WeasyPrint's CSS Paged Media implementation, discovered that `@page` supports `background-color` which colors the **entire page including margin areas**.
+
+**Implementation**:
+
+```css
+/* Base template (templates/base-style.css) */
+@page {
+    size: letter;
+    margin: 0.75in 0.75in 0.5in 0.75in;  /* top right bottom left */
+    background-color: #ffffff;  /* Placeholder - replaced at export time */
+}
+
+/* Print media query */
+@media print {
+    @page {
+        margin: 0.75in 0.75in 0.5in 0.75in;
+        background-color: var(--brand-background);  /* Replaced dynamically */
+    }
+}
+```
+
+**Dynamic Color Injection** (`export-branded.py`):
+
+```python
+def generate_css_from_brand(brand: BrandConfig, base_css_path: Path, dark_mode: bool = False) -> str:
+    # Read base CSS
+    with open(base_css_path, 'r') as f:
+        css_content = f.read()
+
+    # Replace color variables
+    css_content = css_content.replace('--brand-primary: #1a3a52;',
+                                     f'--brand-primary: {brand.colors.primary};')
+    # ... other color replacements ...
+
+    # Replace @page background-color based on mode
+    page_bg = brand.colors.primary if dark_mode else brand.colors.background
+    css_content = css_content.replace('background-color: #ffffff;',
+                                     f'background-color: {page_bg};')
+
+    return css_content
+```
+
+**How It Works**:
+
+1. **@page margins** create a content area on each page (0.75in top/sides, 0.5in bottom)
+2. **@page background-color** fills the ENTIRE page including those margin areas
+3. **Export script** injects the correct color based on light/dark mode:
+   - Light mode: Uses `background` color (white/cream)
+   - Dark mode: Uses `primary` color (navy/dark)
+4. **Content** flows within the margin boundaries, properly padded on every page
+
+**Example Result (Collide Capital Dark Mode)**:
+
+```
+Before: White margins around content on pages 2+
+After:  Navy (#203e4b) edge-to-edge on all pages
+        Content properly padded 0.75in from top on every page
+        Reduced 0.5in bottom padding (less wasted space)
+```
+
+**Key Insights**:
+
+1. **WeasyPrint's @page background-color is the solution** - Unlike HTML element backgrounds which don't extend into margin areas, `@page background-color` colors the entire page
+2. **CSS variables can't be used directly in @page** - WeasyPrint doesn't support CSS custom properties in `@page` rules, so we use string replacement at export time
+3. **Mode-specific colors must be injected** - Dark mode needs `primary` (dark background), light mode needs `background` (light background)
+4. **Margins ≠ Padding in PDF context** - `@page margin` creates a content box (like `<body>` padding) but with per-page effect
+
+**Files Modified**:
+
+- **`templates/base-style.css`**:
+  - Added `background-color` to `@page` rules
+  - Removed `body` padding (now handled by @page margins)
+  - Removed `.page-content` padding
+
+- **`export-branded.py`**:
+  - Updated `generate_css_from_brand()` to accept `dark_mode` parameter
+  - Added logic to replace `@page background-color` based on mode
+  - Injects brand-specific colors at export time
+
+**Benefits**:
+
+1. ✅ **Professional appearance** - No white margins breaking brand consistency
+2. ✅ **Proper pagination** - Content spacing consistent across all pages
+3. ✅ **Brand flexibility** - Works with any brand colors (light or dark)
+4. ✅ **Reduced waste** - 0.5in bottom padding vs 0.75in saves space
+5. ✅ **Future-proof** - Solution applies to all brand configs (Hypernova, Collide, etc.)
+
+**Testing Results**:
+
+Tested with Collide Capital dark mode export:
+- ✅ Navy background (#203e4b) extends to all edges
+- ✅ Content properly padded on pages 1, 2, 3, 4+
+- ✅ No white margins visible
+- ✅ Consistent spacing throughout document
+- ✅ PDF file size: 76KB (efficient)
+
+**Reference Documentation**:
+
+- WeasyPrint Paged Media: https://doc.courtbouillon.org/weasyprint/stable/
+- GitHub Issue #1993: Background images vs background-color in page margins
+- CSS Paged Media Module Level 3: W3C specification for @page rules
+
+**Lessons for Future PDF Exports**:
+
+1. Always research library-specific features (WeasyPrint docs revealed the solution)
+2. `@page background-color` is different from element backgrounds
+3. String replacement is acceptable for dynamic CSS when variables aren't supported
+4. Test with multi-page documents (single-page PDFs hide pagination issues)
+
+---
+
 ## Lessons Learned
 
 ### What Works Well

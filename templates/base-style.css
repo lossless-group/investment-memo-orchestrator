@@ -1,4 +1,4 @@
-/* Hypernova Capital - Investment Memo Styling */
+/* Base Investment Memo Styling - Multi-Brand Template */
 
 /* Font Face Definitions - Using local fonts */
 @font-face {
@@ -37,14 +37,14 @@
     font-display: swap;
 }
 
-/* CSS Variables - Hypernova Brand Colors */
+/* CSS Variables - Brand Colors (dynamically replaced by export script) */
 :root {
-    --hypernova-navy: #1a3a52;
-    --hypernova-cyan: #1dd3d3;
-    --hypernova-white: #ffffff;
-    --hypernova-cream: #f0f0eb;
-    --hypernova-dark-text: #1a2332;
-    --hypernova-gray: #6b7280;
+    --brand-primary: #1a3a52;
+    --brand-secondary: #1dd3d3;
+    --brand-background: #ffffff;
+    --brand-background-alt: #f0f0eb;
+    --brand-text-dark: #1a2332;
+    --brand-text-light: #6b7280;
 }
 
 /* Base Styles */
@@ -55,18 +55,23 @@
 }
 
 html {
-    background: var(--hypernova-white);
+    background: var(--brand-background);
 }
 
 body {
     font-family: 'Arboria', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 12pt;
     line-height: 1.6;
-    color: var(--hypernova-dark-text);
-    background: var(--hypernova-white);
+    color: var(--brand-text-dark);
+    background: var(--brand-background);
     max-width: 8.5in;
     margin: 0 auto;
-    padding: 0.75in;
+    padding: 0; /* No padding - @page margins handle content spacing */
+}
+
+/* Content wrapper - just centers content */
+.page-content {
+    max-width: 100%;
 }
 
 /* ========================================
@@ -74,55 +79,55 @@ body {
    ======================================== */
 
 html:has(body.dark-mode) {
-    background: var(--hypernova-navy);
+    background: var(--brand-primary);
 }
 
 body.dark-mode {
-    background: var(--hypernova-navy);
-    color: var(--hypernova-white);
+    background: var(--brand-primary);
+    color: var(--brand-background);
 }
 
 body.dark-mode h1,
 body.dark-mode h2,
 body.dark-mode h3,
 body.dark-mode h4 {
-    color: var(--hypernova-white);
+    color: var(--brand-background);
 }
 
 body.dark-mode h1 {
-    border-bottom-color: var(--hypernova-cyan);
+    border-bottom-color: var(--brand-secondary);
 }
 
 body.dark-mode .memo-title {
-    color: var(--hypernova-white);
+    color: var(--brand-background);
 }
 
 body.dark-mode .memo-subtitle {
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
 }
 
 body.dark-mode .memo-meta {
-    border-top-color: var(--hypernova-cyan);
-    border-bottom-color: var(--hypernova-cyan);
+    border-top-color: var(--brand-secondary);
+    border-bottom-color: var(--brand-secondary);
 }
 
 body.dark-mode .memo-meta-label {
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
 }
 
 body.dark-mode .memo-meta-value {
-    color: var(--hypernova-white);
+    color: var(--brand-background);
 }
 
 body.dark-mode blockquote {
     background: rgba(29, 211, 211, 0.1);
-    border-left-color: var(--hypernova-cyan);
-    color: var(--hypernova-white);
+    border-left-color: var(--brand-secondary);
+    color: var(--brand-background);
 }
 
 body.dark-mode code {
     background: rgba(255, 255, 255, 0.1);
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
 }
 
 body.dark-mode pre {
@@ -130,7 +135,7 @@ body.dark-mode pre {
 }
 
 body.dark-mode pre code {
-    color: var(--hypernova-white);
+    color: var(--brand-background);
 }
 
 body.dark-mode table thead {
@@ -146,37 +151,37 @@ body.dark-mode tbody tr:hover {
 }
 
 body.dark-mode hr {
-    border-top-color: var(--hypernova-cyan);
+    border-top-color: var(--brand-secondary);
 }
 
 body.dark-mode .callout {
     background: rgba(29, 211, 211, 0.1);
-    border-left-color: var(--hypernova-cyan);
+    border-left-color: var(--brand-secondary);
 }
 
 body.dark-mode .footnotes {
-    border-top-color: var(--hypernova-cyan);
+    border-top-color: var(--brand-secondary);
 }
 
 body.dark-mode .footnotes h2 {
-    color: var(--hypernova-white);
+    color: var(--brand-background);
 }
 
 body.dark-mode .memo-footer {
-    border-top-color: var(--hypernova-cyan);
+    border-top-color: var(--brand-secondary);
     color: rgba(255, 255, 255, 0.7);
 }
 
 body.dark-mode .memo-footer-logo {
-    color: var(--hypernova-white);
+    color: var(--brand-background);
 }
 
 body.dark-mode a {
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
 }
 
 body.dark-mode a:hover {
-    border-bottom-color: var(--hypernova-cyan);
+    border-bottom-color: var(--brand-secondary);
 }
 
 body.dark-mode .footnote-ref + .footnote-ref::before {
@@ -189,10 +194,10 @@ body.dark-mode img {
 
 /* Header/Cover Page */
 .memo-header {
-    background: var(--hypernova-navy);
-    color: var(--hypernova-white);
+    background: var(--brand-primary);
+    color: var(--brand-background);
     padding: 3rem 2rem;
-    margin: -0.75in -0.75in 2rem -0.75in;
+    margin: 0; /* No negative margin needed - let it sit within page margins */
     text-align: center;
     position: relative;
 }
@@ -207,7 +212,7 @@ body.dark-mode img {
     height: 0;
     border-left: 20px solid transparent;
     border-right: 20px solid transparent;
-    border-top: 20px solid var(--hypernova-navy);
+    border-top: 20px solid var(--brand-primary);
 }
 
 .memo-logo {
@@ -218,7 +223,7 @@ body.dark-mode img {
 }
 
 .memo-logo-accent {
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
 }
 
 .memo-tagline {
@@ -230,14 +235,14 @@ body.dark-mode img {
 .memo-title {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--hypernova-navy);
+    color: var(--brand-primary);
     margin: 2rem 0 1rem 0;
     line-height: 1.2;
 }
 
 .memo-subtitle {
     font-size: 1.1rem;
-    color: var(--hypernova-gray);
+    color: var(--brand-text-light);
     margin-bottom: 0.5rem;
 }
 
@@ -245,8 +250,8 @@ body.dark-mode img {
     display: flex;
     justify-content: space-between;
     padding: 1rem 0;
-    border-top: 2px solid var(--hypernova-cyan);
-    border-bottom: 2px solid var(--hypernova-cyan);
+    border-top: 2px solid var(--brand-secondary);
+    border-bottom: 2px solid var(--brand-secondary);
     margin: 1.5rem 0;
     font-size: 0.9rem;
 }
@@ -258,14 +263,14 @@ body.dark-mode img {
 
 .memo-meta-label {
     font-weight: 700;
-    color: var(--hypernova-navy);
+    color: var(--brand-primary);
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.05em;
 }
 
 .memo-meta-value {
-    color: var(--hypernova-dark-text);
+    color: var(--brand-text-dark);
     margin-top: 0.25rem;
 }
 
@@ -273,30 +278,30 @@ body.dark-mode img {
 h1 {
     font-size: 1.75rem;
     font-weight: 700;
-    color: var(--hypernova-navy);
+    color: var(--brand-primary);
     margin: 2rem 0 1rem 0;
     padding-bottom: 0.5rem;
-    border-bottom: 3px solid var(--hypernova-cyan);
+    border-bottom: 3px solid var(--brand-secondary);
 }
 
 h2 {
     font-size: 1.3rem;
     font-weight: 700;
-    color: var(--hypernova-navy);
+    color: var(--brand-primary);
     margin: 1.5rem 0 0.75rem 0;
 }
 
 h3 {
     font-size: 1.1rem;
     font-weight: 600;
-    color: var(--hypernova-navy);
+    color: var(--brand-primary);
     margin: 1.25rem 0 0.5rem 0;
 }
 
 h4 {
     font-size: 1rem;
     font-weight: 600;
-    color: var(--hypernova-dark-text);
+    color: var(--brand-text-dark);
     margin: 1rem 0 0.5rem 0;
 }
 
@@ -307,14 +312,14 @@ p {
 
 /* Links */
 a {
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: border-color 0.2s ease;
 }
 
 a:hover {
-    border-bottom-color: var(--hypernova-cyan);
+    border-bottom-color: var(--brand-secondary);
 }
 
 /* Images */
@@ -349,30 +354,30 @@ li {
 }
 
 ul li::marker {
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
 }
 
 /* Blockquotes */
 blockquote {
-    border-left: 4px solid var(--hypernova-cyan);
+    border-left: 4px solid var(--brand-secondary);
     padding: 1rem 1.5rem;
     margin: 1.5rem 0;
-    background: var(--hypernova-cream);
+    background: var(--brand-background-alt);
     font-style: italic;
-    color: var(--hypernova-dark-text);
+    color: var(--brand-text-dark);
 }
 
 /* Code */
 code {
     font-family: 'Monaco', 'Courier New', monospace;
-    background: var(--hypernova-cream);
+    background: var(--brand-background-alt);
     padding: 0.2em 0.4em;
     border-radius: 3px;
     font-size: 0.9em;
 }
 
 pre {
-    background: var(--hypernova-cream);
+    background: var(--brand-background-alt);
     padding: 1rem;
     border-radius: 4px;
     overflow-x: auto;
@@ -393,8 +398,8 @@ table {
 }
 
 thead {
-    background: var(--hypernova-navy);
-    color: var(--hypernova-white);
+    background: var(--brand-primary);
+    color: var(--brand-background);
 }
 
 th {
@@ -409,20 +414,20 @@ td {
 }
 
 tbody tr:hover {
-    background: var(--hypernova-cream);
+    background: var(--brand-background-alt);
 }
 
 /* Horizontal Rule */
 hr {
     border: none;
-    border-top: 2px solid var(--hypernova-cyan);
+    border-top: 2px solid var(--brand-secondary);
     margin: 2rem 0;
 }
 
 /* Emphasis Boxes */
 .callout {
-    background: var(--hypernova-cream);
-    border-left: 4px solid var(--hypernova-cyan);
+    background: var(--brand-background-alt);
+    border-left: 4px solid var(--brand-secondary);
     padding: 1rem 1.5rem;
     margin: 1.5rem 0;
 }
@@ -441,12 +446,12 @@ hr {
 .footnotes {
     margin-top: 3rem;
     padding-top: 1.5rem;
-    border-top: 2px solid var(--hypernova-navy);
+    border-top: 2px solid var(--brand-primary);
 }
 
 .footnotes h2 {
     font-size: 1.2rem;
-    color: var(--hypernova-navy);
+    color: var(--brand-primary);
     margin-bottom: 1rem;
 }
 
@@ -462,7 +467,7 @@ hr {
 .footnote-ref, .footnote-backref {
     font-size: 0.85em;
     vertical-align: super;
-    color: var(--hypernova-cyan);
+    color: var(--brand-secondary);
     text-decoration: none;
     font-weight: 600;
     margin-left: 0.15em;
@@ -477,7 +482,7 @@ hr {
 .footnote-ref + .footnote-ref::before {
     content: ",";
     margin-right: 0.25em;
-    color: var(--hypernova-gray);
+    color: var(--brand-text-light);
     font-weight: normal;
 }
 
@@ -499,15 +504,15 @@ sup {
 .memo-footer {
     margin-top: 3rem;
     padding-top: 1.5rem;
-    border-top: 2px solid var(--hypernova-cyan);
+    border-top: 2px solid var(--brand-secondary);
     text-align: center;
     font-size: 0.85rem;
-    color: var(--hypernova-gray);
+    color: var(--brand-text-light);
 }
 
 .memo-footer-logo {
     font-weight: 700;
-    color: var(--hypernova-navy);
+    color: var(--brand-primary);
     margin-bottom: 0.5rem;
 }
 
@@ -536,47 +541,54 @@ sup {
     }
 
     a {
-        color: var(--hypernova-cyan);
+        color: var(--brand-secondary);
         border-bottom: none;
     }
 }
 
-/* Page breaks for PDF */
+/* Page breaks for PDF - margins with background color for edge-to-edge effect */
 @page {
     size: letter;
-    margin: 0.5in 0.75in;
+    margin: 0.75in 0.75in 0.5in 0.75in; /* top right bottom left */
+    background-color: #ffffff; /* Light mode background - will be overridden in dark mode */
 }
 
 /* Use bleed for colored margins - extend content beyond page edges */
 @media print {
     html {
-        background: var(--hypernova-white);
+        background: var(--brand-background);
     }
 
     body {
         max-width: none;
         margin: 0;
         padding: 0;
-        background: var(--hypernova-white);
+        background: var(--brand-background);
     }
 
     body.dark-mode {
-        background: var(--hypernova-navy);
+        background: var(--brand-primary);
     }
 
-    /* Bleed box - extends content to page edges for background color */
+    /* Page margins for print with colored backgrounds */
     @page {
-        bleed: 0.5in 0.75in;
+        margin: 0.75in 0.75in 0.5in 0.75in;
         marks: none;
+        background-color: var(--brand-background); /* Light mode */
     }
 
     @page :left {
-        margin-left: 0.75in;
-        margin-right: 0.75in;
+        margin: 0.75in 0.75in 0.5in 0.75in;
+        background-color: var(--brand-background);
     }
 
     @page :right {
-        margin-left: 0.75in;
-        margin-right: 0.75in;
+        margin: 0.75in 0.75in 0.5in 0.75in;
+        background-color: var(--brand-background);
+    }
+
+    /* Dark mode @page - need to override for dark mode */
+    body.dark-mode {
+        /* WeasyPrint doesn't support @page inside selectors, handle via inline replacement */
     }
 }

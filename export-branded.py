@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-Hypernova Capital - Branded Memo Exporter
+Branded Memo Exporter - Multi-Brand Support
 
-Exports investment memos with Hypernova Capital branding to:
+Exports investment memos with customizable branding to:
 - Styled HTML (with embedded CSS and fonts)
 - PDF (via wkhtmltopdf or weasyprint)
 - DOCX (with custom styling)
+
+Supports multiple brand configurations:
+- brand-config.yaml (default)
+- brand-<name>-config.yaml (e.g., brand-accel-config.yaml)
 """
 
 import argparse
@@ -15,11 +19,21 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
+# Add src to path for branding module
+sys.path.insert(0, str(Path(__file__).parent))
+
 try:
     import pypandoc
 except ImportError:
     print("Error: pypandoc is not installed.")
     print("Please install it with: uv pip install pypandoc")
+    sys.exit(1)
+
+try:
+    from src.branding import BrandConfig, validate_brand_config
+except ImportError:
+    print("Error: Could not import branding module.")
+    print("Make sure src/branding.py exists.")
     sys.exit(1)
 
 
@@ -58,69 +72,145 @@ def extract_title_from_markdown(md_path: Path) -> tuple[str, str]:
     return title, company
 
 
-def create_html_template(title: str, company: str, css_path: Path, dark_mode: bool = False) -> str:
-    """Create HTML template with Hypernova branding.
+def generate_css_from_brand(brand: BrandConfig, base_css_path: Path, dark_mode: bool = False) -> str:
+    """Generate CSS with brand colors and fonts injected.
+
+    Args:
+        brand: Brand configuration
+        base_css_path: Path to base CSS template
+        dark_mode: If True, use dark mode colors for @page background
+
+    Returns:
+        CSS content with brand variables injected
+    """
+    # Read base CSS
+    with open(base_css_path, 'r') as f:
+        css_content = f.read()
+
+    # Replace color placeholders with brand-specific colors
+    css_content = css_content.replace('--brand-primary: #1a3a52;',
+                                     f'--brand-primary: {brand.colors.primary};')
+    css_content = css_content.replace('--brand-secondary: #1dd3d3;',
+                                     f'--brand-secondary: {brand.colors.secondary};')
+    css_content = css_content.replace('--brand-background: #ffffff;',
+                                     f'--brand-background: {brand.colors.background};')
+    css_content = css_content.replace('--brand-background-alt: #f0f0eb;',
+                                     f'--brand-background-alt: {brand.colors.background_alt};')
+    css_content = css_content.replace('--brand-text-dark: #1a2332;',
+                                     f'--brand-text-dark: {brand.colors.text_dark};')
+    css_content = css_content.replace('--brand-text-light: #6b7280;',
+                                     f'--brand-text-light: {brand.colors.text_light};')
+
+    # Replace @page background-color based on mode
+    page_bg = brand.colors.primary if dark_mode else brand.colors.background
+    css_content = css_content.replace('background-color: #ffffff; /* Light mode background - will be overridden in dark mode */',
+                                     f'background-color: {page_bg};')
+    css_content = css_content.replace('background-color: var(--brand-background); /* Light mode */',
+                                     f'background-color: {page_bg};')
+    css_content = css_content.replace('background-color: var(--brand-background);',
+                                     f'background-color: {page_bg};')
+
+    # Replace body font family
+    css_content = css_content.replace("font-family: 'Arboria'",
+                                     f"font-family: '{brand.fonts.family}'")
+    css_content = css_content.replace('font-family: Arboria',
+                                     f"font-family: '{brand.fonts.family}'")
+
+    # Add header font family if specified
+    if brand.fonts.header_family:
+        # Add CSS rule for headers to use different font
+        header_font_rule = f"""
+/* Header Font Override */
+h1, h2, h3, h4, h5, h6,
+.memo-title,
+.memo-subtitle,
+.memo-logo,
+.memo-header {{
+    font-family: '{brand.fonts.header_family}', {brand.fonts.header_fallback or brand.fonts.fallback} !important;
+}}
+"""
+        css_content += header_font_rule
+
+    return css_content
+
+
+def create_html_template(
+    title: str,
+    company: str,
+    brand: BrandConfig,
+    css_path: Path,
+    dark_mode: bool = False
+) -> str:
+    """Create HTML template with brand configuration.
 
     Args:
         title: Document title
         company: Company name
-        css_path: Path to CSS file
+        brand: Brand configuration
+        css_path: Path to base CSS file
         dark_mode: If True, apply dark mode styling
     """
     today = datetime.now().strftime("%B %d, %Y")
 
-    # Read CSS
-    with open(css_path, 'r') as f:
-        css_content = f.read()
+    # Generate CSS with brand colors and dark mode setting
+    css_content = generate_css_from_brand(brand, css_path, dark_mode)
 
     # Add dark-mode class to body if requested
     body_class = ' class="dark-mode"' if dark_mode else ''
+
+    # Handle logo with optional accent
+    # For Hypernova: "Hypern<o>va" with cyan 'o'
+    logo_html = brand.company.name
+    if 'hypernova' in brand.company.name.lower():
+        logo_html = 'Hypern<span class="memo-logo-accent">o</span>va'
 
     template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title} | Hypernova Capital</title>
+    <title>{title} | {brand.company.name}</title>
     <style>
 {css_content}
     </style>
 </head>
 <body{body_class}>
-    <div class="memo-header">
-        <div class="memo-logo">
-            Hypern<span class="memo-logo-accent">o</span>va
+    <div class="page-content">
+        <div class="memo-header">
+            <div class="memo-logo">
+                {logo_html}
+            </div>
+            <div class="memo-tagline">
+                {brand.company.tagline}
+            </div>
         </div>
-        <div class="memo-tagline">
-            Network-Driven | High-impact | Transformative venture fund
-        </div>
-    </div>
 
-    <div class="memo-title">{company}</div>
-    <div class="memo-subtitle">Investment Memo</div>
+        <div class="memo-title">{company}</div>
+        <div class="memo-subtitle">Investment Memo</div>
 
-    <div class="memo-meta">
-        <div class="memo-meta-item">
-            <span class="memo-meta-label">Date</span>
-            <span class="memo-meta-value">{today}</span>
+        <div class="memo-meta">
+            <div class="memo-meta-item">
+                <span class="memo-meta-label">Date</span>
+                <span class="memo-meta-value">{today}</span>
+            </div>
+            <div class="memo-meta-item">
+                <span class="memo-meta-label">Prepared By</span>
+                <span class="memo-meta-value">{brand.company.name}</span>
+            </div>
+            <div class="memo-meta-item">
+                <span class="memo-meta-label">Status</span>
+                <span class="memo-meta-value">Confidential</span>
+            </div>
         </div>
-        <div class="memo-meta-item">
-            <span class="memo-meta-label">Prepared By</span>
-            <span class="memo-meta-value">Hypernova Capital</span>
-        </div>
-        <div class="memo-meta-item">
-            <span class="memo-meta-label">Status</span>
-            <span class="memo-meta-value">Confidential</span>
-        </div>
-    </div>
 
-    $body$
+        $body$
 
-    <div class="memo-footer">
-        <div class="memo-footer-logo">Hypernova Capital</div>
-        <div>Network-Driven | High-impact | Transformative venture fund</div>
-        <div style="margin-top: 0.5rem; font-size: 0.8rem;">
-            This document is confidential and proprietary to Hypernova Capital.
+        <div class="memo-footer">
+            <div class="memo-footer-logo">{brand.company.name}</div>
+            <div>{brand.company.tagline}</div>
+            <div style="margin-top: 0.5rem; font-size: 0.8rem;">
+                {brand.company.confidential_footer.format(company_name=brand.company.name)}
+            </div>
         </div>
     </div>
 </body>
@@ -132,6 +222,7 @@ def create_html_template(title: str, company: str, css_path: Path, dark_mode: bo
 def convert_to_branded_html(
     input_path: Path,
     output_path: Path,
+    brand: BrandConfig,
     css_path: Path,
     dark_mode: bool = False
 ) -> Path:
@@ -140,6 +231,7 @@ def convert_to_branded_html(
     Args:
         input_path: Path to input markdown file
         output_path: Path for output HTML file
+        brand: Brand configuration
         css_path: Path to CSS file
         dark_mode: If True, use dark mode styling
     """
@@ -151,7 +243,7 @@ def convert_to_branded_html(
     title, company = extract_title_from_markdown(input_path)
 
     # Create HTML template
-    template = create_html_template(title, company, css_path, dark_mode)
+    template = create_html_template(title, company, brand, css_path, dark_mode)
 
     # Save template to temp file
     template_path = output_path.parent / f".temp_template_{output_path.stem}.html"
@@ -216,16 +308,25 @@ def convert_html_to_pdf(html_path: Path, pdf_path: Path) -> Optional[Path]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Export Hypernova Capital branded investment memos',
+        description='Export branded investment memos with customizable branding',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s memo.md                          # Export to light mode HTML (default)
+  %(prog)s memo.md                          # Export to light mode HTML (default brand)
+  %(prog)s memo.md --brand accel            # Use brand-accel-config.yaml
   %(prog)s memo.md --mode dark              # Export to dark mode HTML
   %(prog)s memo.md --mode dark --pdf        # Export dark mode HTML and PDF
   %(prog)s output/ --all --mode light       # Export all memos (light mode)
-  %(prog)s output/ --all --mode dark        # Export all memos (dark mode)
-  %(prog)s memo.md -o exports/dark/         # Custom output directory
+  %(prog)s memo.md -o exports/accel/        # Custom output directory
+  %(prog)s memo.md --brand hypernova --mode dark  # Specific brand and mode
+
+Multiple Brands:
+  Create brand config files for different clients:
+  - brand-hypernova-config.yaml
+  - brand-accel-config.yaml
+  - brand-a16z-config.yaml
+
+  Then export with: %(prog)s memo.md --brand accel
         """
     )
 
@@ -240,6 +341,13 @@ Examples:
         type=Path,
         default=Path('exports/branded'),
         help='Output directory (default: exports/branded)'
+    )
+
+    parser.add_argument(
+        '--brand',
+        type=str,
+        default=None,
+        help='Brand name (loads brand-{name}-config.yaml). If not specified, uses brand-config.yaml or defaults.'
     )
 
     parser.add_argument(
@@ -263,14 +371,34 @@ Examples:
 
     args = parser.parse_args()
 
+    # Load brand configuration
+    print(f"\n{'='*60}")
+    print("BRANDED MEMO EXPORTER")
+    print(f"{'='*60}\n")
+
+    try:
+        brand = BrandConfig.load(brand_name=args.brand)
+        print(f"✓ Brand: {brand.company.name}")
+
+        # Validate configuration
+        warnings = validate_brand_config(brand)
+        if warnings:
+            print("\n⚠️  Configuration warnings:")
+            for warning in warnings:
+                print(f"   - {warning}")
+            print()
+    except Exception as e:
+        print(f"✗ Error loading brand config: {e}")
+        sys.exit(1)
+
     # Determine dark mode flag
     dark_mode = args.mode == 'dark'
 
     # Check pandoc
     ensure_pandoc_installed()
 
-    # Get CSS path
-    css_path = Path(__file__).parent / 'templates' / 'hypernova-style.css'
+    # Get CSS path (base template for all brands)
+    css_path = Path(__file__).parent / 'templates' / 'base-style.css'
     if not css_path.exists():
         print(f"Error: CSS file not found: {css_path}")
         sys.exit(1)
@@ -314,7 +442,7 @@ Examples:
             html_path = args.output / f"{output_name}.html"
 
             # Convert to branded HTML
-            convert_to_branded_html(md_file, html_path, css_path, dark_mode)
+            convert_to_branded_html(md_file, html_path, brand, css_path, dark_mode)
             size = html_path.stat().st_size / 1024
             mode_label = "dark" if dark_mode else "light"
             print(f"✓ HTML ({mode_label}): {html_path.name} ({size:.1f} KB)")

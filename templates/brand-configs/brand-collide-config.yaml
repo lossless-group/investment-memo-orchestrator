@@ -1,0 +1,37 @@
+# Collide Capital Brand Configuration
+# Based on branding from https://www.collidecap.com/
+
+company:
+  name: "Collide Capital"
+  tagline: "Guiding founders on their institutional capital journey"
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  # Light mode: Uses these colors directly
+  # Dark mode: Primary becomes background, background becomes text (automatic)
+  primary: "#133f4c"          # Black (headers, logo in light mode / page bg in dark mode)
+  secondary: "#ef8b44"        # Purple (accents, highlights, links - same in both modes)
+  text_dark: "#203e4b"        # Near black (main text in light mode)
+  text_light: "#ccccce"       # Gray (metadata, subtle text)
+  background: "#e1e4e6"       # White (page background in light mode / text in dark mode)
+  background_alt: "#f9fafb"   # Light gray (callouts, code blocks)
+
+fonts:
+  # Body text (paragraphs, lists, etc.)
+  family: "GeneralSans"
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  custom_fonts_dir: "templates/fonts/GeneralSans/Fonts/WEB/fonts"
+
+  # Headers (h1-h6, titles, logo)
+  header_family: "Ranade"
+  header_fallback: "Georgia, serif"
+  header_fonts_dir: "templates/fonts/Ranade/Fonts/WEB/fonts"
+
+# Design Notes:
+# - Modern and minimalist aesthetic
+# - Professional sophistication with clean typography
+# - Purple accent (#8B5CF6) reflects newsletter section and brand personality
+# - Black/white foundation with purple highlights for institutional credibility
+# - Ranade for headers (bold, distinctive)
+# - GeneralSans for body text (clean, readable)
+# - Relative paths from project root

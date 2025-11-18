@@ -1,0 +1,49 @@
+# Brand Configuration Template
+# Copy this file to create your own brand config:
+#   cp brand-config.example.yaml brand-config.yaml              # Default config
+#   cp brand-config.example.yaml brand-yourfirm-config.yaml     # Specific brand
+
+# Then customize the values below for your firm
+
+company:
+  name: "Your VC Firm Name"
+  tagline: "Your firm's tagline or mission statement"
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  # All colors should be in hex format: #RRGGBB
+  # Light mode: Uses these colors directly
+  # Dark mode: Primary/background swap automatically (CSS handles this)
+  primary: "#2c3e50"          # Main brand color (headers in light, bg in dark)
+  secondary: "#3498db"        # Accent color (links, highlights, borders - same in both modes)
+  text_dark: "#333333"        # Primary text color (dark in light mode, light in dark mode)
+  text_light: "#777777"       # Secondary/muted text (metadata, captions)
+  background: "#ffffff"       # Page background (light in light mode, becomes text in dark mode)
+  background_alt: "#f8f8f8"   # Alternate background (callouts, code blocks)
+
+fonts:
+  # Body text (paragraphs, lists, general content)
+  family: "Inter"             # Body font name
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  custom_fonts_dir: null      # Relative path to body font WOFF2 files, or null for system fonts
+
+  # Headers (optional - if not set, uses body font)
+  header_family: null         # Header font name (h1-h6, titles, logo)
+  header_fallback: null       # Header font fallback stack
+  header_fonts_dir: null      # Relative path to header font WOFF2 files, or null
+
+# Tips:
+# - Use a color picker to get hex codes from your brand guidelines
+# - Colors automatically adapt between light/dark modes
+# - For custom fonts, add WOFF2 files to templates/fonts/ and use relative paths
+# - Headers can use different font than body text (set header_family)
+# - Paths are relative to project root
+# - Test both modes: python export-branded.py memo.md --mode dark
+# - Validate: python -c "from src.branding import BrandConfig; BrandConfig.load()"
+
+# Example with custom fonts:
+# fonts:
+#   family: "GeneralSans"
+#   custom_fonts_dir: "templates/fonts/GeneralSans"
+#   header_family: "Ranade"
+#   header_fonts_dir: "templates/fonts/Ranade"

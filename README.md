@@ -48,6 +48,48 @@ python3.11 -m src.main "Class5 Global" --type fund --mode justify
 - **Citation list**: Formatted with publication dates, URLs, and titles matching Obsidian workflow
 - **Format**: `[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD`
 
+### Multi-Brand Export System
+- **Customizable branding**: Configure company name, tagline, colors, and fonts via YAML files
+- **Multiple brands**: Support for multiple VC firm clients in a single installation
+- **Brand configurations**: Create `templates/brand-configs/brand-<name>-config.yaml` files (e.g., `brand-accel-config.yaml`, `brand-sequoia-config.yaml`)
+- **Quick setup**: Copy `templates/brand-configs/brand-config.example.yaml` and customize with your firm's colors and fonts
+- **Export formats**: HTML (light/dark modes) and PDF with full branding
+- **Easy switching**: `python export-branded.py memo.md --brand accel` applies Accel branding
+- **System fonts**: Works with or without custom font files
+- **Documentation**: Complete guide in [docs/CUSTOM-BRANDING.md](docs/CUSTOM-BRANDING.md)
+
+#### Creating Your Own Brand
+
+Any VC firm can create their own branded exports in 3 simple steps:
+
+1. **Copy the example config:**
+   ```bash
+   cp templates/brand-configs/brand-config.example.yaml templates/brand-configs/brand-yourfirm-config.yaml
+   ```
+
+2. **Edit with your firm's details:**
+   ```yaml
+   company:
+     name: "Your VC Firm Name"
+     tagline: "Your firm's tagline"
+
+   colors:
+     primary: "#1a3a52"        # Your brand's primary color (hex code)
+     secondary: "#1dd3d3"      # Accent color
+     # ... (see example file for all options)
+
+   fonts:
+     family: "Inter"           # Use system fonts like Inter, Georgia, Arial
+     custom_fonts_dir: null    # Or path to custom WOFF2 font files
+   ```
+
+3. **Export with your brand:**
+   ```bash
+   python export-branded.py memo.md --brand yourfirm
+   ```
+
+That's it! Your memos will now export with your firm's branding. See [docs/CUSTOM-BRANDING.md](docs/CUSTOM-BRANDING.md) for detailed customization options including custom fonts, color modes, and troubleshooting.
+
 ### Version Control System
 - Semantic versioning for memo iterations (v0.0.x → v0.x.0 → vx.0.0)
 - Automatic patch increments for each generation
@@ -476,6 +518,48 @@ investment-memo-orchestrator/
 └── tests/                            # Unit tests (TODO)
 ```
 
+## Versioning & Releases
+
+This project uses **git-based semantic versioning** with `setuptools-scm`:
+
+- **Version is automatically derived from git tags** (no manual file updates needed)
+- Tags follow semantic versioning: `v0.1.0`, `v0.2.0`, `v1.0.0`, etc.
+- Between releases, version includes commit count: `0.1.1.dev3` (3 commits after v0.1.0)
+
+### Creating a New Release
+
+```bash
+# 1. Ensure all changes are committed
+git status
+
+# 2. Create and push a new tag (follows semantic versioning)
+git tag v0.2.0 -m "Release v0.2.0: Brief description of changes"
+git push origin v0.2.0
+
+# 3. Version automatically updates to 0.2.0
+python -c "from src import __version__; print(__version__)"
+# Output: 0.2.0
+
+# 4. Create GitHub release from tag (optional)
+gh release create v0.2.0 --generate-notes
+```
+
+### Semantic Versioning Guide
+
+- **Patch** (`v0.1.1`): Bug fixes, minor improvements
+- **Minor** (`v0.2.0`): New features, backward-compatible changes
+- **Major** (`v1.0.0`): Breaking changes, major milestones
+
+### Checking Current Version
+
+```bash
+# From Python
+python -c "from src import __version__; print(__version__)"
+
+# From command line
+git describe --tags
+```
+
 ## Testing
 
 ### POC Test Results (Aalo Atomics)
@@ -605,6 +689,6 @@ Investing in frontier technology companies at the intersection of climate, energ
 
 ---
 
-*Last updated: 2024-11-17*
-*Version: 0.2.0-alpha*
-*Status: Deck Analysis + Citation Validation Added*
+*Last updated: 2025-11-18*
+*Version: Automatically derived from git tags (currently v0.1.0)*
+*Status: Git-based versioning with setuptools-scm*
