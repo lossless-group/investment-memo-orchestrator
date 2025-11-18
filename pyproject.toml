@@ -1,6 +1,6 @@
 [project]
 name = "investment-memo-orchestrator"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Multi-agent orchestration system for generating investment memos"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
@@ -38,3 +38,9 @@ target-version = ['py311']
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.setuptools_scm]
+# Version will be derived from git tags
+# Tags should follow format: v0.1.0, v0.2.0, etc.
+version_scheme = "python-simplified-semver"
+local_scheme = "no-local-version"
