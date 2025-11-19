@@ -119,19 +119,34 @@ git push origin v0.2.0
 
 ## Architecture & Workflow
 
-### Multi-Agent Pipeline
-The system uses a LangGraph state machine with specialized agents executing in sequence:
+### Multi-Agent Pipeline (Section-by-Section Processing)
+The system uses a LangGraph state machine with specialized agents executing in sequence. **CRITICAL**: Writer and Citation agents now process ONE SECTION AT A TIME to avoid API timeouts.
 
 1. **Deck Analyst** (`src/agents/deck_analyst.py`) - Extracts info from pitch deck PDFs, creates initial section drafts
 2. **Research** (`src/agents/research_enhanced.py`) - Web search via Tavily/Perplexity, synthesizes findings
-3. **Writer** (`src/agents/writer.py`) - Drafts 10-section memo, enriches deck drafts with research
+3. **Writer** (`src/agents/writer.py`) - **ITERATIVE**: Writes memo ONE SECTION AT A TIME (10 separate API calls)
+   - Writes section 1 → saves to file
+   - Writes section 2 → saves to file → stitches 1+2 together
+   - Continues until all 10 sections complete
+   - Each section: ~500 words, ~5k chars (small API payload)
 4. **Socials Enrichment** (`src/agents/socials_enrichment.py`) - Adds LinkedIn profile links for team members
 5. **Link Enrichment** (`src/agents/link_enrichment.py`) - Adds hyperlinks to organizations, investors, institutions
 6. **Visualization Enrichment** (`src/agents/visualization_enrichment.py`) - Embeds public charts/diagrams from company sources
-7. **Citation Enrichment** (`src/agents/citation_enrichment.py`) - Adds inline citations [^1], [^2] using Perplexity Sonar Pro
+7. **Citation Enrichment** (`src/agents/citation_enrichment.py`) - **ITERATIVE**: Enriches ONE SECTION AT A TIME using Perplexity Sonar Pro
+   - Loads each section file from `2-sections/`
+   - Enriches with citations independently
+   - Saves enriched section back
+   - Stitches all enriched sections together
 8. **Citation Validator** (`src/agents/citation_validator.py`) - Validates citation accuracy, checks dates, detects duplicates
 9. **Validator** (`src/agents/validator.py`) - Scores quality 0-10, provides specific feedback
 10. **Supervisor** (`src/workflow.py`) - Routes to finalization (score ≥8) or human review (score <8)
+
+### Why Section-by-Section Processing?
+LLMs don't have the context window to reliably handle full memos (50k+ chars) in one API call. By processing ONE SECTION AT A TIME:
+- Each API call: ~5k chars instead of ~50k chars
+- Reduces connection timeouts (10 small calls vs 1 giant call)
+- Enables progressive saving (work isn't lost if one section fails)
+- Better error isolation (can retry individual sections)
 
 ### State Management
 The `MemoState` TypedDict (src/state.py) flows through all agents:

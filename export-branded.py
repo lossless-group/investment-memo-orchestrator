@@ -134,6 +134,23 @@ h1, h2, h3, h4, h5, h6,
     return css_content
 
 
+def embed_svg_logo(svg_path: Path) -> str:
+    """Read and embed SVG logo content.
+
+    Args:
+        svg_path: Path to SVG file
+
+    Returns:
+        SVG content as string
+    """
+    try:
+        with open(svg_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        print(f"Warning: Could not read logo SVG {svg_path}: {e}")
+        return ""
+
+
 def create_html_template(
     title: str,
     company: str,
@@ -158,11 +175,24 @@ def create_html_template(
     # Add dark-mode class to body if requested
     body_class = ' class="dark-mode"' if dark_mode else ''
 
-    # Handle logo with optional accent
-    # For Hypernova: "Hypern<o>va" with cyan 'o'
+    # Handle logo - use SVG if available, otherwise text-based
     logo_html = brand.company.name
-    if 'hypernova' in brand.company.name.lower():
-        logo_html = 'Hypern<span class="memo-logo-accent">o</span>va'
+    if brand.logo:
+        # Use appropriate logo based on theme
+        logo_path_str = brand.logo.dark_mode if dark_mode else brand.logo.light_mode
+        if logo_path_str:
+            logo_path = Path(logo_path_str)
+            if logo_path.exists():
+                # Embed SVG directly
+                svg_content = embed_svg_logo(logo_path)
+                if svg_content:
+                    logo_html = f'<div style="width: {brand.logo.width}; height: {brand.logo.height}; margin: 0 auto;">{svg_content}</div>'
+            else:
+                print(f"Warning: Logo file not found: {logo_path}")
+    else:
+        # Fallback to text with optional accent (e.g., Hypernova)
+        if 'hypernova' in brand.company.name.lower():
+            logo_html = 'Hypern<span class="memo-logo-accent">o</span>va'
 
     template = f"""<!DOCTYPE html>
 <html lang="en">

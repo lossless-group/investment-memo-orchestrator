@@ -27,7 +27,11 @@
       "Bash(export DYLD_LIBRARY_PATH:*)",
       "Bash(./html-to-pdf.sh:*)",
       "Bash(./md-to-pdf.sh:*)",
-      "WebFetch(domain:www.collidecap.com)"
+      "WebFetch(domain:www.collidecap.com)",
+      "Bash(for section in \"Market Context\" \"Team\" \"Technology & Product\" \"Traction & Milestones\" \"Funding & Terms\" \"Risks & Mitigations\" \"Investment Thesis\" \"Recommendation\")",
+      "Bash(do echo \"Creating: $section\")",
+      "Bash(break)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

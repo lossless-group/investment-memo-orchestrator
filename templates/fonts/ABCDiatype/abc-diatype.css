@@ -1,0 +1,49 @@
+/* ABC Diatype - MaC Ventures Brand Font */
+
+@font-face {
+    font-family: 'ABC Diatype';
+    src: url('ABCDiatype-Regular-Trial.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ABC Diatype';
+    src: url('ABCDiatype-RegularItalic-Trial.woff2') format('woff2');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ABC Diatype';
+    src: url('ABCDiatype-Medium-Trial.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ABC Diatype';
+    src: url('ABCDiatype-MediumItalic-Trial.woff2') format('woff2');
+    font-weight: 500;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ABC Diatype';
+    src: url('ABCDiatype-Bold-Trial.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'ABC Diatype';
+    src: url('ABCDiatype-BoldItalic-Trial.woff2') format('woff2');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+}

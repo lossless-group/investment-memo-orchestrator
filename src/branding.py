@@ -60,11 +60,22 @@ class BrandCompany:
 
 
 @dataclass
+class BrandLogo:
+    """Logo configuration with theme support."""
+    light_mode: Optional[str] = None
+    dark_mode: Optional[str] = None
+    width: str = "180px"
+    height: str = "60px"
+    alt: str = ""
+
+
+@dataclass
 class BrandConfig:
     """Complete brand configuration."""
     company: BrandCompany
     colors: BrandColors
     fonts: BrandFonts
+    logo: Optional[BrandLogo] = None
 
     @classmethod
     def load(
@@ -134,10 +145,16 @@ class BrandConfig:
             )
 
         try:
+            # Parse logo configuration if present
+            logo = None
+            if 'logo' in data:
+                logo = BrandLogo(**data['logo'])
+
             return cls(
                 company=BrandCompany(**data['company']),
                 colors=BrandColors(**data['colors']),
-                fonts=BrandFonts(**data['fonts'])
+                fonts=BrandFonts(**data['fonts']),
+                logo=logo
             )
         except TypeError as e:
             raise ValueError(
@@ -270,5 +287,22 @@ def validate_brand_config(config: BrandConfig) -> list[str]:
     # Validate company name not empty
     if not config.company.name.strip():
         warnings.append("Company name is empty")
+
+    # Validate logo paths if specified
+    if config.logo:
+        if config.logo.light_mode:
+            light_logo_path = Path(config.logo.light_mode)
+            if not light_logo_path.exists():
+                warnings.append(
+                    f"Light mode logo not found: {light_logo_path}\n"
+                    f"  Will use text-based logo instead."
+                )
+        if config.logo.dark_mode:
+            dark_logo_path = Path(config.logo.dark_mode)
+            if not dark_logo_path.exists():
+                warnings.append(
+                    f"Dark mode logo not found: {dark_logo_path}\n"
+                    f"  Will use text-based logo instead."
+                )
 
     return warnings

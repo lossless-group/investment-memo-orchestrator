@@ -82,12 +82,58 @@ Return the content with inline citations added, followed by:
 Remember: Your goal is to add scholarly rigor WITHOUT changing what was written. ALWAYS include URLs in the citation list."""
 
 
+def enrich_section_with_citations(
+    section_content: str,
+    section_name: str,
+    company_name: str,
+    perplexity_client
+) -> str:
+    """
+    Enrich a single section with citations.
+
+    Args:
+        section_content: Section content to enrich
+        section_name: Name of the section
+        company_name: Company name
+        perplexity_client: Perplexity API client
+
+    Returns:
+        Section content with citations added
+    """
+    user_prompt = f"""Add inline citations to this {section_name} section for {company_name}.
+
+CRITICAL:
+1. Do NOT rewrite - only add [^1], [^2] citations
+2. Place citations AFTER punctuation with space: "text. [^1]"
+3. EVERY citation MUST have URL
+4. Format: [^1]: YYYY, MMM DD. Title. Published: YYYY-MM-DD | Updated: N/A | URL: https://...
+
+SECTION:
+{section_content}
+
+Return same content with citations added, plus citation list at end."""
+
+    try:
+        response = perplexity_client.chat.completions.create(
+            model="sonar-pro",
+            messages=[
+                {"role": "system", "content": CITATION_ENRICHMENT_SYSTEM_PROMPT[:2000]},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=6000,
+            temperature=0.3
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"  Warning: Citation enrichment failed for {section_name}: {e}")
+        return section_content  # Return original if enrichment fails
+
+
 def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     """
-    Citation-Enrichment Agent implementation.
+    Citation-Enrichment Agent - SECTION-BY-SECTION.
 
-    Takes drafted memo sections and adds inline citations using Perplexity,
-    without rewriting the content.
+    Enriches each section independently with citations.
 
     Args:
         state: Current memo state containing draft_sections
@@ -100,10 +146,6 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
         raise ValueError("No draft available. Writer agent must run first.")
 
     company_name = state["company_name"]
-    memo_content = draft_sections.get("full_memo", {}).get("content", "")
-
-    if not memo_content:
-        raise ValueError("Draft memo content is empty.")
 
     # Check if Perplexity is configured
     perplexity_key = os.getenv("PERPLEXITY_API_KEY")
@@ -116,6 +158,10 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     # Initialize Perplexity client
     try:
         from openai import OpenAI
+        from pathlib import Path
+        from ..artifacts import sanitize_filename
+        from ..versioning import VersionManager
+
         perplexity_client = OpenAI(
             api_key=perplexity_key,
             base_url="https://api.perplexity.ai"
@@ -126,60 +172,147 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
             "messages": ["Citation enrichment skipped - openai package not installed"]
         }
 
-    # Create citation enrichment prompt
-    user_prompt = f"""Add inline academic citations to this investment memo for {company_name}.
+    # Get output directory
+    version_mgr = VersionManager(Path("output"))
+    safe_name = sanitize_filename(company_name)
+    version = version_mgr.get_latest_version(safe_name)
+    output_dir = Path("output") / f"{safe_name}-{version}"
+    sections_dir = output_dir / "2-sections"
 
-CRITICAL REQUIREMENTS:
-1. Do NOT rewrite the content - only add [^1], [^2], etc. citations
-2. Place citations AFTER punctuation with a space: "text. [^1]" not "text[^1]."
-3. EVERY citation in the reference list MUST include the full URL
-4. Format: [^1]: YYYY, MMM DD. Title - Source. Published: YYYY-MM-DD | Updated: YYYY-MM-DD or N/A | URL: https://...
-5. ALL THREE FIELDS REQUIRED: Published, Updated (or "N/A"), and URL
+    if not sections_dir.exists():
+        print("Warning: No sections directory found, skipping citation enrichment")
+        return {"messages": ["Citation enrichment skipped - no sections found"]}
 
-MEMO CONTENT:
-{memo_content}
+    print(f"\n📚 Enriching citations section-by-section...")
 
-Return the same content with citations added (space before each citation marker), followed by the citation list with URLs."""
+    # Load all section files
+    section_files = sorted(sections_dir.glob("*.md"))
+    sections_data = []  # Store (section_num, section_name, enriched_content)
+    total_citations_before_renumber = 0
 
-    print(f"Enriching memo with citations using Perplexity...")
+    for section_file in section_files:
+        section_name = section_file.stem.split("-", 1)[1].replace("--", " & ").replace("-", " ").title()
+        print(f"  Enriching citations: {section_name}...")
 
-    try:
-        # Call Perplexity for citation enrichment
-        response = perplexity_client.chat.completions.create(
-            model="sonar-pro",  # Perplexity Sonar Pro for advanced research with citations
-            messages=[
-                {"role": "system", "content": CITATION_ENRICHMENT_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
-            ]
+        # Read section
+        with open(section_file) as f:
+            section_content = f.read()
+
+        # Enrich with citations
+        enriched_section = enrich_section_with_citations(
+            section_content=section_content,
+            section_name=section_name,
+            company_name=company_name,
+            perplexity_client=perplexity_client
         )
 
-        enriched_content = response.choices[0].message.content
+        # Save enriched section back
+        with open(section_file, "w") as f:
+            f.write(enriched_section)
 
-        # Update draft sections with enriched content
-        from ..state import SectionDraft
+        # Store for global renumbering
+        section_num = section_file.stem.split("-")[0]
+        sections_data.append((section_num, section_name, enriched_section))
 
-        enriched_sections = {
-            "full_memo": SectionDraft(
-                section_name="full_memo",
-                content=enriched_content,
-                word_count=len(enriched_content.split()),
-                citations=extract_citation_count(enriched_content)
+        # Count citations (before renumbering)
+        section_cites = len(re.findall(r'\[\^[0-9]+\]', enriched_section))
+        total_citations_before_renumber += section_cites
+        print(f"  ✓ {section_name}: {section_cites} citations added")
+
+    # Renumber citations globally across all sections
+    print(f"\n🔢 Renumbering citations globally across all sections...")
+    enriched_content = f"# Investment Memo: {company_name}\n\n"
+    enriched_content += renumber_citations_globally(sections_data)
+
+    # Save enriched final draft with globally renumbered citations
+    with open(output_dir / "4-final-draft.md", "w") as f:
+        f.write(enriched_content)
+
+    # Count unique citations after renumbering
+    total_citations_after = len(set(re.findall(r'\[\^(\d+)\]', enriched_content)))
+    print(f"✓ Citation renumbering complete: {total_citations_after} unique citations (from {total_citations_before_renumber} section citations)")
+
+    # Update state
+    from ..state import SectionDraft
+    enriched_sections = {
+        "full_memo": SectionDraft(
+            section_name="full_memo",
+            content=enriched_content,
+            word_count=len(enriched_content.split()),
+            citations=extract_citation_count(enriched_content)
+        )
+    }
+
+    return {
+        "draft_sections": enriched_sections,
+        "messages": [f"Citations added to memo for {company_name}: {total_citations_after} unique citations"]
+    }
+
+
+def renumber_citations_globally(sections_data: list) -> str:
+    """
+    Renumber citations globally across all sections.
+
+    Each section comes with its own [^1], [^2], etc. This function
+    renumbers them sequentially across the entire memo so each unique
+    source gets a globally unique citation number.
+
+    Args:
+        sections_data: List of tuples (section_num, section_name, section_content)
+
+    Returns:
+        Combined content with globally renumbered citations
+    """
+    combined_content = ""
+    citation_counter = 1
+    citation_map = {}  # Maps (section_idx, old_num) -> new_num
+
+    # First pass: Renumber inline citations and build mapping
+    for idx, (section_num, section_name, section_content) in enumerate(sections_data):
+        # Split content from citations
+        parts = section_content.split("### Citations")
+        main_content = parts[0] if parts else section_content
+        citations_section = parts[1] if len(parts) > 1 else ""
+
+        # Find all citation numbers in this section
+        old_citations = set(re.findall(r'\[\^(\d+)\]', section_content))
+
+        # Create mapping for this section
+        section_map = {}
+        for old_num in sorted(old_citations, key=int):
+            section_map[old_num] = citation_counter
+            citation_map[(idx, old_num)] = citation_counter
+            citation_counter += 1
+
+        # Renumber inline citations in main content
+        for old_num, new_num in section_map.items():
+            # Replace inline citations [^X] with [^NEW]
+            main_content = re.sub(
+                rf'\[\^{old_num}\]',
+                f'[^{new_num}]',
+                main_content
             )
-        }
 
-        print(f"Citation enrichment completed: {len(extract_citation_count(enriched_content))} citations added")
+        # Renumber citations in the reference list
+        if citations_section:
+            for old_num, new_num in section_map.items():
+                # Replace citation definitions [^X]: with [^NEW]:
+                citations_section = re.sub(
+                    rf'\[\^{old_num}\]:',
+                    f'[^{new_num}]:',
+                    citations_section
+                )
 
-        return {
-            "draft_sections": enriched_sections,
-            "messages": [f"Citations added to memo for {company_name}"]
-        }
+        # Reconstruct section with renumbered citations
+        if citations_section:
+            section_content = main_content + "### Citations" + citations_section
+        else:
+            section_content = main_content
 
-    except Exception as e:
-        print(f"Warning: Citation enrichment failed: {e}")
-        # If citation enrichment fails, return original content
-        return {
-            "messages": [f"Citation enrichment failed: {str(e)}. Proceeding with original content."]
-        }
+        # Add to combined content
+        combined_content += f"## {section_num}. {section_name}\n\n{section_content}\n\n"
+
+    return combined_content
 
 
 def extract_citation_count(content: str) -> list:

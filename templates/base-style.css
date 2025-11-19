@@ -474,6 +474,11 @@ hr {
     margin-right: 0.15em;
 }
 
+/* Ensure arrows render properly even with custom fonts */
+.footnote-back, .footnote-backref {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
 .footnote-ref:hover, .footnote-backref:hover {
     text-decoration: underline;
 }

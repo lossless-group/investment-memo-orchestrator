@@ -182,14 +182,71 @@ Return ONLY the section content, no preamble.
     return response.content
 
 
+def write_single_section(
+    section_num: int,
+    section_name: str,
+    research: Dict[str, Any],
+    company_name: str,
+    investment_type: str,
+    memo_mode: str,
+    template: str,
+    style_guide: str,
+    model: ChatAnthropic,
+    current_date: str
+) -> str:
+    """
+    Write a single section of the memo.
+
+    Args:
+        section_num: Section number (1-10)
+        section_name: Section name
+        research: Research data
+        company_name: Company name
+        investment_type: Investment type
+        memo_mode: Memo mode
+        template: Template content
+        style_guide: Style guide content
+        model: LLM model
+        current_date: Current date string
+
+    Returns:
+        Section content as markdown
+    """
+    import json
+
+    research_json = json.dumps(research, indent=2)[:3000]  # Limit research to 3k chars
+
+    user_prompt = f"""Write ONLY the "{section_name}" section for an investment memo about {company_name}.
+
+CURRENT DATE: {current_date}
+INVESTMENT TYPE: {investment_type.upper()}
+MEMO MODE: {memo_mode.upper()}
+
+RESEARCH DATA (summary):
+{research_json}
+
+TEMPLATE GUIDANCE (for this section):
+{template}
+
+STYLE GUIDE:
+{style_guide}
+
+Write ONLY this section's content (no section header, it will be added automatically).
+Be specific, analytical, use metrics from research.
+Target: 300-500 words.
+
+SECTION CONTENT:
+"""
+
+    response = model.invoke(user_prompt)
+    return response.content.strip()
+
+
 def writer_agent(state: MemoState) -> Dict[str, Any]:
     """
-    Writer Agent implementation.
+    Writer Agent implementation - ITERATIVE SECTION-BY-SECTION.
 
-    Drafts a complete investment memo based on research data.
-
-    NEW: Checks for existing section drafts from deck analysis and augments them
-    instead of creating from scratch.
+    Writes memo one section at a time, saving and stitching progressively.
 
     Args:
         state: Current memo state containing research data
@@ -204,11 +261,6 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     company_name = state["company_name"]
     investment_type = state.get("investment_type", "direct")
     memo_mode = state.get("memo_mode", "consider")
-    deck_analysis = state.get("deck_analysis")
-
-    # NEW: Load any existing section drafts from deck analysis
-    from ..artifacts import load_existing_section_drafts
-    existing_drafts = load_existing_section_drafts(company_name)
 
     # Load appropriate template and style guide
     template = load_template(investment_type)
@@ -222,135 +274,86 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     model = ChatAnthropic(
         model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
         api_key=api_key,
-        temperature=0.7,  # Higher temperature for creative writing
+        temperature=0.7,
+        max_tokens=4000  # Smaller context per section
     )
-
-    # Create writing prompt
-    import json
-    from datetime import datetime
-    research_json = json.dumps(research, indent=2)
 
     # Get current date
-    current_date = datetime.now().strftime("%B %Y")  # e.g., "November 2024"
+    from datetime import datetime
+    current_date = datetime.now().strftime("%B %Y")
 
-    # Customize instructions based on memo mode
-    mode_instruction = ""
-    if memo_mode == "justify":
-        mode_instruction = """
-IMPORTANT - MEMO MODE: JUSTIFY (Retrospective)
-This investment has already been made. The recommendation section should be "COMMIT" with a rationale explaining why this was a good investment decision based on the analysis."""
-    else:
-        mode_instruction = """
-IMPORTANT - MEMO MODE: CONSIDER (Prospective)
-This is a prospective analysis. The recommendation section should objectively recommend "PASS", "CONSIDER", or "COMMIT" based on the strength of the opportunity and risks identified."""
-
-    # Customize based on investment type
-    type_instruction = ""
-    if investment_type == "fund":
-        type_instruction = "This is an LP commitment into a venture fund. Focus on GP track record, fund strategy, portfolio construction, and fee structure."
-    else:
-        type_instruction = "This is a direct investment into a startup company. Focus on product, market, team, traction, and technology."
-
-    # NEW: Include deck drafts context if they exist
-    deck_drafts_context = ""
-    if existing_drafts:
-        deck_drafts_context = f"""
-IMPORTANT - EXISTING SECTION DRAFTS:
-The following sections have initial drafts from pitch deck analysis:
-{', '.join(existing_drafts.keys())}
-
-For these sections, integrate and enhance the existing content with research findings rather than starting from scratch.
-Preserve deck-sourced insights while adding verification and additional context from research.
-"""
-
-    user_prompt = f"""Write a complete investment memo for {company_name} using the following research data:
-
-CURRENT DATE: {current_date}
-IMPORTANT: Use "{current_date}" as the memo date. Do NOT use any other date.
-
-INVESTMENT TYPE: {investment_type.upper()}
-{type_instruction}
-
-{mode_instruction}
-
-{deck_drafts_context}
-
-RESEARCH DATA:
-{research_json}
-
-Create a professional, analytical investment memo that:
-1. Follows the template structure exactly (all 10 sections)
-2. Adheres to the style guide principles
-3. Uses specific metrics and data from the research
-4. Maintains analytical tone (not promotional)
-5. Includes balanced risk assessment
-6. Cites sources for market claims
-7. Provides appropriate recommendation based on memo mode
-8. Uses the current date "{current_date}" for the memo date field
-
-Write the complete memo as markdown following the template format."""
-
-    # Build the system prompt with template and style guide
-    system_prompt = (
-        f"{WRITER_SYSTEM_PROMPT_BASE}\n\n"
-        f"TEMPLATE:\n{template}\n\n"
-        f"STYLE GUIDE:\n{style_guide}"
-    )
-
-    # Call Claude for writing
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt)
+    # Define section order
+    section_mapping = [
+        (1, "Executive Summary"),
+        (2, "Business Overview"),
+        (3, "Market Context"),
+        (4, "Team"),
+        (5, "Technology & Product"),
+        (6, "Traction & Milestones"),
+        (7, "Funding & Terms"),
+        (8, "Risks & Mitigations"),
+        (9, "Investment Thesis"),
+        (10, "Recommendation"),
     ]
 
-    response = model.invoke(messages)
-    memo_content = response.content
+    # Get version manager and output directory
+    version_mgr = VersionManager(Path("output"))
+    safe_name = sanitize_filename(company_name)
+    version = version_mgr.get_next_version(safe_name)
+    output_dir = Path("output") / f"{safe_name}-{version}"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Parse into sections (simplified for POC - just store the full memo)
-    # In production, we'd parse each section separately for granular validation
+    print(f"\n📝 Writing memo section-by-section...")
+
+    # Write each section iteratively
+    all_sections = {}
+    combined_content = f"# Investment Memo: {company_name}\n\n**Date**: {current_date}\n\n"
+
+    for section_num, section_name in section_mapping:
+        print(f"  Writing section {section_num}/10: {section_name}...")
+
+        # Write individual section
+        section_content = write_single_section(
+            section_num=section_num,
+            section_name=section_name,
+            research=research,
+            company_name=company_name,
+            investment_type=investment_type,
+            memo_mode=memo_mode,
+            template=template,
+            style_guide=style_guide,
+            model=model,
+            current_date=current_date
+        )
+
+        # Save individual section
+        save_section_artifact(output_dir, section_num, section_name, section_content)
+        all_sections[section_name] = section_content
+
+        # Stitch together progressively
+        combined_content += f"## {section_num}. {section_name}\n\n{section_content}\n\n"
+
+        # Save combined draft after each section
+        with open(output_dir / "4-final-draft.md", "w") as f:
+            f.write(combined_content)
+
+        print(f"  ✓ Section {section_num} saved and stitched")
+
+    memo_content = combined_content
+
+    # Store in state
     draft_sections = {
         "full_memo": SectionDraft(
             section_name="full_memo",
             content=memo_content,
             word_count=len(memo_content.split()),
-            citations=[]  # Would extract these in production
+            citations=[]
         )
     }
 
-    # Save section artifacts
-    try:
-        # Get version manager
-        version_mgr = VersionManager(Path("output"))
-        safe_name = sanitize_filename(company_name)
-        version = version_mgr.get_next_version(safe_name)
-
-        # Get artifact directory (should already exist from research phase)
-        output_dir = Path("output") / f"{safe_name}-{version}"
-
-        # Parse memo into individual sections
-        sections = parse_memo_sections(memo_content)
-
-        # Save each section
-        section_mapping = [
-            (1, "Executive Summary"),
-            (2, "Business Overview"),
-            (3, "Market Context"),
-            (4, "Technology & Product"),
-            (5, "Traction & Milestones"),
-            (6, "Team"),
-            (7, "Funding & Terms"),
-            (8, "Risks & Mitigations"),
-            (9, "Investment Thesis"),
-            (10, "Recommendation"),
-        ]
-
-        for num, name in section_mapping:
-            if name in sections:
-                save_section_artifact(output_dir, num, name, sections[name])
-
-        print(f"Section artifacts saved to: {output_dir / '2-sections'}")
-    except Exception as e:
-        print(f"Warning: Could not save section artifacts: {e}")
+    # Sections already saved in the loop above
+    print(f"✓ All 10 sections written and saved to {output_dir}/2-sections/")
+    print(f"✓ Final draft: {output_dir}/4-final-draft.md")
 
     # Update state
     return {
