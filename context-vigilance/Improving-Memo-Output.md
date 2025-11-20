@@ -492,7 +492,13 @@ The original design used simple CLI corrections: `--correction "Fund size is $10
 ```yaml
 # Correction template for investment memo improvements
 company: "Avalanche"
-version: "v0.0.1"  # Which memo version to correct (optional, default: latest)
+
+# VERSION MANAGEMENT
+source_version: "v0.0.3"  # Which version to correct (required, can be path or version tag)
+# source_version: "output/Avalanche-v0.0.3"  # Alternative: full path
+output_mode: "new_version"  # "new_version" or "in_place"
+# output_mode: "in_place"  # Overwrites source version artifacts
+
 date_created: "2025-11-20"
 
 corrections:
@@ -567,6 +573,222 @@ corrections:
       - "Compare concentration to industry norms (seed funds typically 30-40 companies)"
       - "Connect to ownership targets (8-12% initial, 10-15% after reserves)"
 ```
+
+---
+
+#### Version Management Options
+
+**Critical Design Decision**: Should corrections modify the existing version or create a new version?
+
+**Option 1: `output_mode: "new_version"` (Recommended for most cases)**
+
+Creates a new version directory with corrected content, preserving the original.
+
+**How it works**:
+```yaml
+source_version: "v0.0.3"
+output_mode: "new_version"
+```
+
+**Behavior**:
+1. Reads all artifacts from `output/Avalanche-v0.0.3/`
+2. Applies corrections to sections
+3. Creates `output/Avalanche-v0.0.4/` with:
+   - Corrected section files (`2-sections/`)
+   - Updated final draft (`4-final-draft.md`)
+   - Copied artifacts from v0.0.3 (state.json, research, validation)
+   - New `corrections-log.json` documenting changes
+   - Updated `state.json` with correction metadata
+4. Increments version: v0.0.3 → v0.0.4
+5. Updates `output/versions.json`
+
+**Use when**:
+- You want to preserve the original memo for comparison
+- Corrections might substantially change the narrative/recommendation
+- You want an audit trail of what changed between versions
+- Multiple stakeholders reviewing different versions
+- Experimenting with different correction approaches
+
+**Example**: Fund size correction ($50M → $10M)
+- Creates v0.0.4 with corrected fund size
+- Original v0.0.3 remains unchanged
+- Can export both versions to compare side-by-side
+- If correction is wrong, v0.0.3 is still available
+
+---
+
+**Option 2: `output_mode: "in_place"` (Use with caution)**
+
+Overwrites the source version's artifacts directly. Original content is lost.
+
+**How it works**:
+```yaml
+source_version: "v0.0.3"
+output_mode: "in_place"
+```
+
+**Behavior**:
+1. Reads all artifacts from `output/Avalanche-v0.0.3/`
+2. Applies corrections to sections
+3. **Overwrites** files in `output/Avalanche-v0.0.3/`:
+   - Replaces section files in `2-sections/`
+   - Replaces `4-final-draft.md`
+   - Adds `corrections-log.json`
+   - Updates `state.json` with correction metadata
+4. Version tag remains v0.0.3
+5. No new version created
+
+**Use when**:
+- Minor corrections (typos, small factual updates)
+- You don't need to preserve the original
+- Disk space is limited
+- Corrections are unambiguously correct
+- Internal draft that hasn't been shared
+
+**Example**: Typo correction ("Managign Partner" → "Managing Partner")
+- Fixes typo directly in v0.0.3
+- No need to create v0.0.4 for a typo
+- Original v0.0.3 is overwritten
+
+**⚠️ Warning**: This is destructive. Use `--preview` flag first to verify changes.
+
+---
+
+#### Version Specification Options
+
+**Option A: Version Tag** (Recommended)
+```yaml
+source_version: "v0.0.3"
+```
+- Agent resolves to `output/Avalanche-v0.0.3/`
+- Validates version exists
+- Works with version history
+
+**Option B: Full Path**
+```yaml
+source_version: "output/Avalanche-v0.0.3"
+```
+- Direct path to artifact directory
+- Useful if directory isn't in standard location
+- Bypasses version resolution
+
+**Option C: Latest** (via CLI, not YAML)
+```bash
+# Use --source-version latest flag
+python rewrite-key-info.py "Avalanche" \
+  --corrections data/Avalanche-corrections.yaml \
+  --source-version latest
+```
+- Agent finds latest version automatically
+- Useful for quick iterations
+
+---
+
+#### Version Comparison & Audit Trail
+
+**With `new_version` mode**, the system creates a comparison log:
+
+**File**: `output/Avalanche-v0.0.4/corrections-log.json`
+```json
+{
+  "source_version": "v0.0.3",
+  "output_version": "v0.0.4",
+  "output_mode": "new_version",
+  "corrections_applied": 4,
+  "sections_modified": 7,
+  "timestamp": "2025-11-20T15:30:00Z",
+  "corrections_file": "data/Avalanche-corrections.yaml",
+  "changes": [
+    {
+      "correction_type": "inaccurate",
+      "sections_affected": ["Fund Strategy & Thesis", "Portfolio Construction", "Fee Structure & Economics", "Executive Summary"],
+      "instances_corrected": 11,
+      "summary": "Corrected fund size from $50M to $10M"
+    },
+    {
+      "correction_type": "incomplete",
+      "sections_affected": ["GP Background & Track Record", "Executive Summary"],
+      "facts_added": 5,
+      "summary": "Added Katelyn's Pearson Ventures track record (18% IRR)"
+    },
+    {
+      "correction_type": "narrative",
+      "sections_affected": ["Investment Thesis"],
+      "summary": "Reduced promotional language, added competitive comparisons"
+    },
+    {
+      "correction_type": "mixed",
+      "sections_affected": ["Portfolio Construction", "Fund Strategy & Thesis"],
+      "instances_corrected": 6,
+      "facts_added": 3,
+      "summary": "Corrected portfolio size and added reserve strategy"
+    }
+  ],
+  "narrative_impact": "Substantial - fund size correction changes check size strategy, portfolio construction, and economics sections. May affect overall recommendation.",
+  "recommendation_changed": false,
+  "recommendation_note": "Recommendation remains COMMIT but with updated rationale reflecting smaller fund size"
+}
+```
+
+**Comparison Command** (Future Enhancement):
+```bash
+# Compare two versions
+python compare-versions.py Avalanche v0.0.3 v0.0.4
+
+# Output:
+# Differences between v0.0.3 and v0.0.4:
+#   7 sections modified
+#   11 factual corrections
+#   3 narrative improvements
+#   Recommendation: COMMIT (unchanged)
+#   Key changes:
+#     - Fund size: $50M → $10M
+#     - Portfolio: 25 → 15-20 investments
+#     - Added reserve strategy details
+```
+
+---
+
+#### Impact on Research Data
+
+**Important**: Corrections do NOT re-run research or regenerate from scratch.
+
+**What happens to research artifacts**:
+
+**New Version Mode**:
+- `1-research.json` and `1-research.md` are **copied** from source version
+- Optionally updated if correction fundamentally conflicts (see "Research Conflicts" below)
+- `0-deck-analysis.json` is **copied** unchanged
+
+**In-Place Mode**:
+- Research artifacts remain unchanged
+- Only section files and final draft are modified
+
+**Research Conflicts** (Optional `--update-research` flag):
+
+If correction contradicts research data, the agent can optionally update research:
+
+```yaml
+# In corrections YAML
+corrections:
+  - type: "inaccurate"
+    inaccurate_information: "Fund size $50M"
+    correct_information: "Fund size $10M"
+    update_research: true  # Optional: update research artifacts
+```
+
+**Behavior with `update_research: true`**:
+1. Agent detects conflict: research mentions "$50M" but correction says "$10M"
+2. Updates `1-research.json` to reflect $10M
+3. Updates `1-research.md` narrative
+4. Logs research update in corrections-log.json
+
+**Default behavior** (`update_research: false` or omitted):
+- Research artifacts unchanged
+- Only sections and final draft corrected
+- Potential discrepancy logged in corrections-log.json
+
+**Why this matters**: If research says "$50M" but memo says "$10M", future regenerations might reintroduce the error. Updating research ensures consistency.
 
 ---
 
@@ -740,29 +962,48 @@ Return ONLY the corrected section content with citations.
 **Step 5: CLI Usage**
 ```bash
 # Basic usage: apply corrections from YAML
-python rewrite-key-info.py "Avalanche" --corrections data/Avalanche-corrections.yaml
+# (source_version and output_mode specified in YAML)
+python rewrite-key-info.py --corrections data/Avalanche-corrections.yaml
 
-# With source verification (uses Sonar Pro)
-python rewrite-key-info.py "Avalanche" \
+# With source verification (uses Sonar Pro to verify corrections)
+python rewrite-key-info.py \
   --corrections data/Avalanche-corrections.yaml \
   --verify-sources
 
-# Preview mode (show what would change)
-python rewrite-key-info.py "Avalanche" \
+# Preview mode (show what would change without saving)
+python rewrite-key-info.py \
   --corrections data/Avalanche-corrections.yaml \
   --preview
 
-# Specific version
-python rewrite-key-info.py "Avalanche" \
+# Override YAML output mode (force in-place even if YAML says new_version)
+python rewrite-key-info.py \
   --corrections data/Avalanche-corrections.yaml \
-  --version v0.0.1
+  --output-mode in_place
+
+# Override source version (use latest instead of YAML-specified version)
+python rewrite-key-info.py \
+  --corrections data/Avalanche-corrections.yaml \
+  --source-version latest
+
+# Direct path to artifact directory (bypasses company resolution)
+python rewrite-key-info.py \
+  --corrections data/Avalanche-corrections.yaml \
+  --source-path output/Avalanche-v0.0.3
 ```
 
+**CLI Flag Priority**:
+1. CLI flags override YAML settings
+2. YAML settings override defaults
+3. Defaults: `output_mode: "new_version"`, `source_version: "latest"`
+
 **Step 6: Output**
+
+**Example 1: New Version Mode**
 ```
 📋 Loaded corrections: data/Avalanche-corrections.yaml
   Company: Avalanche
-  Version: v0.0.1 (latest)
+  Source version: v0.0.3
+  Output mode: new_version → v0.0.4
   Corrections: 4
 
 🔍 Verifying corrections with sources...
@@ -789,21 +1030,62 @@ python rewrite-key-info.py "Avalanche" \
     ✓ Portfolio Construction (corrected count, added reserve strategy)
     ✓ Fund Strategy & Thesis (added reserve discussion)
 
-✅ Reassembled final draft: output/Avalanche-v0.0.1/4-final-draft.md
+📦 Creating new version: v0.0.4
+  ✓ Copied artifacts from v0.0.3
+  ✓ Applied corrections to 7 sections
+  ✓ Updated state.json with correction metadata
+  ✓ Created corrections-log.json
+
+✅ Reassembled final draft: output/Avalanche-v0.0.4/4-final-draft.md
 
 📊 Correction Summary:
+  Source version: v0.0.3
+  Output version: v0.0.4 (NEW)
   Total corrections: 4
   Sections modified: 7/10
   Instances corrected: 15
   Citations added: 8
   Narrative improvements: 1 section
 
-📝 Correction log saved: output/Avalanche-v0.0.1/corrections-log.json
+📝 Correction log saved: output/Avalanche-v0.0.4/corrections-log.json
 
 Next steps:
-  1. Review corrections: output/Avalanche-v0.0.1/2-sections/
-  2. View final draft: output/Avalanche-v0.0.1/4-final-draft.md
-  3. Export to HTML: python export-branded.py output/Avalanche-v0.0.1/4-final-draft.md
+  1. Review corrections: output/Avalanche-v0.0.4/2-sections/
+  2. View final draft: output/Avalanche-v0.0.4/4-final-draft.md
+  3. Compare versions: diff output/Avalanche-v0.0.3/4-final-draft.md output/Avalanche-v0.0.4/4-final-draft.md
+  4. Export to HTML: python export-branded.py output/Avalanche-v0.0.4/4-final-draft.md
+```
+
+**Example 2: In-Place Mode**
+```
+📋 Loaded corrections: data/Avalanche-corrections.yaml
+  Company: Avalanche
+  Source version: v0.0.3
+  Output mode: in_place (⚠️ will overwrite v0.0.3)
+  Corrections: 1
+
+⚠️  WARNING: In-place mode will overwrite existing artifacts.
+    Use --preview to see changes before applying.
+    Original content will be lost. Continue? [y/N]: y
+
+📝 Applying corrections...
+  Correction 1 (inaccurate):
+    ✓ GP Background & Track Record (1 instance corrected)
+
+✅ Updated final draft: output/Avalanche-v0.0.3/4-final-draft.md
+
+📊 Correction Summary:
+  Version: v0.0.3 (MODIFIED IN-PLACE)
+  Total corrections: 1
+  Sections modified: 1/10
+  Instances corrected: 1
+
+📝 Correction log saved: output/Avalanche-v0.0.3/corrections-log.json
+
+Next steps:
+  1. Review corrections: output/Avalanche-v0.0.3/2-sections/
+  2. View final draft: output/Avalanche-v0.0.3/4-final-draft.md
+  3. Export to HTML: python export-branded.py output/Avalanche-v0.0.3/4-final-draft.md
 ```
 
 ---
@@ -1152,7 +1434,17 @@ Next steps:
 # Copy to data/{CompanyName}-corrections.yaml and fill in corrections
 
 company: "CompanyName"
-version: "v0.0.1"  # Optional: Which memo version to correct (default: latest)
+
+# VERSION MANAGEMENT (required)
+source_version: "v0.0.3"  # Which version to use as source
+# Alternatives:
+#   source_version: "latest"  # Use latest version
+#   source_version: "output/CompanyName-v0.0.3"  # Full path
+
+output_mode: "new_version"  # "new_version" or "in_place"
+# new_version: Creates v0.0.4 from v0.0.3 (preserves original)
+# in_place: Overwrites v0.0.3 directly (DESTRUCTIVE - use with caution)
+
 date_created: "YYYY-MM-DD"
 
 corrections:
