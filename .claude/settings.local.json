@@ -31,7 +31,8 @@
       "Bash(for section in \"Market Context\" \"Team\" \"Technology & Product\" \"Traction & Milestones\" \"Funding & Terms\" \"Risks & Mitigations\" \"Investment Thesis\" \"Recommendation\")",
       "Bash(do echo \"Creating: $section\")",
       "Bash(break)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(ln:*)"
     ],
     "deny": [],
     "ask": []

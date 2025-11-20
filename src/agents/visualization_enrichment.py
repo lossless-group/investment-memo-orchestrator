@@ -147,34 +147,22 @@ def visualization_enrichment_agent(state: MemoState) -> Dict[str, Any]:
 
     Finds and embeds relevant charts, graphs, and diagrams in memo sections.
 
+    NOTE: Currently disabled - to be re-implemented for section-by-section processing.
+
     Args:
         state: Current memo state with draft sections and research
 
     Returns:
         Updated state with visualization-enriched sections
     """
-    draft_sections = state.get("draft_sections", {})
-    research = state.get("research", {})
-
-    if not draft_sections:
-        return {
-            "messages": ["No draft sections available for visualization enrichment"]
-        }
-
     company_name = state["company_name"]
 
-    # Get company website from research
-    company_data = research.get("company", {}) if research else {}
-    company_url = company_data.get("website", "")
+    # TODO: Re-implement to work on section files instead of full_memo
+    print("⊘ Visualization enrichment temporarily disabled (being refactored for section-by-section)")
 
-    # Get the full memo content
-    full_memo = draft_sections.get("full_memo", {})
-    memo_content = full_memo.get("content", "")
-
-    if not memo_content:
-        return {
-            "messages": ["No memo content available for visualization enrichment"]
-        }
+    return {
+        "messages": ["Visualization enrichment skipped (temporarily disabled)"]
+    }
 
     # Find candidate visualizations using Perplexity
     # Search for market charts, product diagrams, and company infographics

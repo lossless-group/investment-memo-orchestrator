@@ -2,13 +2,17 @@
 
 Multi-agent orchestration system for generating high-quality investment memos using LangGraph and specialized AI agents.
 
-**Status**: Week 1 POC Complete + Artifact Trail & Citation System ✅
+**Status**: Production-Ready with Section-by-Section Processing ✅
 
 Sponsored by [Hypernova Capital](https://www.hypernova.capital)
 
+## Recent Update (2025-11-20)
+
+**Major architecture refactor**: The system now processes sections individually throughout the entire pipeline, eliminating API timeout issues and ensuring consistent citation formatting. All enrichment agents work on section files rather than assembled content. See `changelog/2025-11-20_01.md` for complete details.
+
 ## Overview
 
-This system uses a supervisor pattern with specialized AI agents to generate investment memos that match Hypernova Capital's analytical standards. Instead of a single AI prompt, it coordinates multiple expert agents that research, write, validate, and iterate on memos.
+This system uses a supervisor pattern with specialized AI agents to generate investment memos that match Hypernova Capital's analytical standards. Instead of a single AI prompt, it coordinates multiple expert agents that research, write, enrich, cite, validate, and iterate on memos using **section-by-section processing** to avoid timeouts and maintain quality.
 
 ## Key Features
 
@@ -17,14 +21,19 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 python3.11 -m src.main "Class5 Global" --type fund --mode justify
 ```
 
-### Multi-Agent Architecture
-- **Deck Analyst Agent**: Extracts key information from pitch deck PDFs (team, metrics, market sizing) and creates initial section drafts that subsequent agents build upon
+### Multi-Agent Architecture (Section-by-Section Processing)
+- **Deck Analyst Agent**: Extracts key information from pitch deck PDFs (team, metrics, market sizing) and creates initial section drafts
 - **Research Agent**: Actively searches the web (Tavily/Perplexity) for company information, funding data, team backgrounds, and market context
-- **Writer Agent**: Drafts professional memos following Hypernova's 10-section template and style guide, enriching deck-based drafts with research findings
-- **Citation-Enrichment Agent**: Adds inline citations [^1], [^2] to drafted content using Perplexity Sonar Pro, preserving narrative while adding scholarly rigor with industry sources (TechCrunch, Medium, Crunchbase, etc.)
-- **Citation Validator Agent**: Validates citation accuracy, checking for date consistency (display vs published), duplicate URLs, broken links, and proper formatting
+- **Writer Agent**: Writes 10 sections individually, saving each to `2-sections/` directory (~5k chars per section instead of 50k+ char full memo)
+- **Trademark Enrichment**: Creates header file with company logo/trademark (if provided)
+- **Socials Enrichment**: Adds LinkedIn profile links to team members in Team section file
+- **Link Enrichment**: Processes each section file to add organization/entity hyperlinks
+- **Citation-Enrichment Agent**: Loads each section file, enriches with Perplexity Sonar Pro citations, renumbers globally, consolidates into ONE citation block
+- **Citation Validator Agent**: Validates citation accuracy, checking dates, duplicates, broken links
 - **Validator Agent**: Rigorously evaluates quality (0-10 scale) with specific, actionable feedback
 - **Supervisor**: Orchestrates workflow, manages state, routes to revision or finalization
+
+**Key Architecture Change**: All enrichment agents now process individual section files rather than the full assembled memo, eliminating API timeout issues and ensuring consistent citation formatting.
 
 ### Web Search Integration
 - Real-time company research via Tavily API or Perplexity API
@@ -41,12 +50,15 @@ python3.11 -m src.main "Class5 Global" --type fund --mode justify
 - **State snapshot**: `state.json` for full workflow debugging
 - **Benefits**: Inspect intermediate outputs, identify improvement areas, preserve citations through pipeline
 
-### Citation System
-- **Inline citations**: Industry-standard [^1], [^2] format throughout memo
-- **Source preservation**: Citations from research phase maintained through final output
-- **Quality sources**: Prioritizes TechCrunch, Sifted, Crunchbase, Medium, company blogs, press releases over academic papers
-- **Citation list**: Formatted with publication dates, URLs, and titles matching Obsidian workflow
-- **Format**: `[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD`
+### Citation System (Perplexity Sonar Pro)
+- **Inline citations**: Industry-standard [^1], [^2] format throughout memo with space separation
+- **Placement**: After punctuation with space: `text. [^1]` or multiple: `text. [^1] [^2]`
+- **Source enrichment**: Perplexity Sonar Pro adds citations to each section independently
+- **Global renumbering**: Citations renumbered sequentially across all sections ([^1][^2][^3]...)
+- **Consolidated format**: ONE citation block at the end (not duplicated per section)
+- **Quality sources**: Prioritizes TechCrunch, Sifted, Crunchbase, Medium, company blogs, press releases
+- **Citation format**: `[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: N/A`
+- **Markdown links**: URLs wrapped in clickable markdown links for easy reference
 
 ### Multi-Brand Export System
 - **Customizable branding**: Configure company name, tagline, colors, and fonts via YAML files
@@ -188,6 +200,45 @@ python -m src.main
 **CLI Arguments:**
 - `--type [direct|fund]`: Investment type (default: `direct`)
 - `--mode [justify|consider]`: Memo mode (default: `consider`)
+
+### Company Data Files (Optional)
+
+You can create a JSON file in `data/{CompanyName}.json` to provide additional context and configuration:
+
+```json
+{
+  "type": "direct",
+  "mode": "consider",
+  "description": "Brief company description for research context",
+  "url": "https://company.com",
+  "stage": "Series B",
+  "deck": "data/CompanyName-deck.pdf",
+  "trademark_light": "https://company.com/logo-light.svg",
+  "trademark_dark": "https://company.com/logo-dark.svg",
+  "notes": "Research focus: team backgrounds, competitive positioning, unit economics"
+}
+```
+
+**Field Reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `"direct"` or `"fund"` | Investment type (overrides CLI `--type`) |
+| `mode` | `"consider"` or `"justify"` | Memo mode (overrides CLI `--mode`) |
+| `description` | string | Brief description to guide research |
+| `url` | string | Company website URL |
+| `stage` | string | Investment stage (Seed, Series A, etc.) |
+| `deck` | string | Path to pitch deck PDF (relative to project root) |
+| `trademark_light` | string | URL or path to light mode company logo |
+| `trademark_dark` | string | URL or path to dark mode company logo |
+| `notes` | string | Specific research focus areas or instructions |
+
+**Trademark Insertion:**
+- If trademark paths are provided, the company logo will be automatically inserted in the memo content after the header metadata
+- Light mode exports use `trademark_light`, dark mode exports use `trademark_dark`
+- Trademarks can be URLs (e.g., from company website) or local file paths (e.g., `templates/trademarks/company-logo.svg`)
+
+**Example:** See `data/sample-company.json` and `data/TheoryForge.json` for complete examples.
 
 ### Output
 
@@ -591,14 +642,18 @@ git describe --tags
 - [x] Create a "trail" of the collected information as structured output or markdown files
 - [x] Assure that citations are retained in the final output with proper attribution
 - [x] Terminal progress indicators and status messages to track workflow
-
-### Remaining Enhancements
 - [x] Find a way to include direct markdown links to team's LinkedIn profiles
 - [x] Find a way to "add" links to important organizations, such as government bodies, co-investors or previous investors, etc
 - [x] Find a way to include any public charts, graphs, diagrams, or visualizations from the company's website or other sources
 - [x] Allow arguments for customizing the memo template based on a "Direct Investment" or an "LP Commitment" that leads to changes in the template being generated.
 - [x] Allow arguments for specifying whether the investment has already been decided (even wired already) or is currently being considered.
+
+### Remaining Enhancements
+- [ ] Elegant use of Trademarks of both authoring investment firm and target company.
 - [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
+- [ ] Specialized section outline per `fund` or `direct` investment type.
+- [ ] Agent that can screenshot the `deck` if provided and include relevant screenshots in relevant sections in the memo.
+- [ ] Ability for users to run a command to improve or enhance a certain section rather than running the whole memo generation orchestration.
 
 
 ## Current Capabilities ✅

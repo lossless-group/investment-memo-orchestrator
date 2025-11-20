@@ -18,3 +18,10 @@ fonts:
   family: "Arboria"
   fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
   custom_fonts_dir: "templates/fonts"
+
+logo:
+  light_mode: "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Hypernova--Light-Mode.svg"
+  dark_mode: "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Hypernova--Dark-Mode.svg"
+  width: "180px"
+  height: "60px"
+  alt: "Hypernova Capital"

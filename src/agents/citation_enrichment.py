@@ -32,31 +32,33 @@ CRITICAL RULES:
    - Industry analyst reports (Gartner, CB Insights, McKinsey, etc.)
    - News outlets (Bloomberg, Reuters, WSJ, FT)
    - Academic papers only when relevant for technical claims
-6. EVERY citation MUST include the full URL in the reference list
+6. EVERY citation MUST include the full URL wrapped as a markdown link in the title
 7. Generate a comprehensive citation list at the end in this exact format:
 
 ### Citations
 
-[^1]: YYYY, MMM DD. Source Title - Source Name. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://full-url-here.com
+[^1]: YYYY, MMM DD. Author Name. [Source Title](https://full-url-here.com). Publisher or Outlet Name.Published: YYYY-MM-DD | Updated: YYYY-MM-DD
 
-[^2]: YYYY, MMM DD. Source Title - Source Name. Published: YYYY-MM-DD | Updated: N/A | URL: https://full-url-here.com
+[^2]: YYYY, MMM DD. Author Name. [Source Title](https://full-url-here.com). Publisher or Outlet Name. Published: YYYY-MM-DD | Updated: N/A
 
 IMPORTANT FORMATTING:
 - DD must ALWAYS be two digits with zero-padding (e.g., "Jan 08" not "Jan 8", "Mar 03" not "Mar 3")
+- ALWAYS wrap the title in a markdown link: [Title](URL) - this makes the source clickable
+- Publisher or Outlet Name should be included after the title, if available.
+- Author Name is mostly relevant for articles or blog posts, not press releases or company websites. So, use judgement call when including it.
 - ALWAYS include "Updated:" field - use "Updated: N/A" if source has no update date
 - ALWAYS include "Published:" field with actual date
-- ALWAYS include "URL: https://..." at the end of each citation
-- The format MUST be: YYYY, MMM DD. Title. Published: YYYY-MM-DD | Updated: YYYY-MM-DD or N/A | URL: https://...
+- The format MUST be: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD or N/A
+- DO NOT add "URL: https://..." at the end - the URL goes inside the markdown link
 - No space before colon in "[^1]:"
 - Exactly one space after colon before text begins
-- All THREE fields (Published, Updated, URL) are REQUIRED in every citation
 
 WHAT TO CITE:
 - Funding amounts and rounds (cite Crunchbase, PitchBook, press releases)
-- Company founding date, location, team info (cite company website, LinkedIn, Crunchbase)
-- Market sizing and TAM figures (cite industry reports, analyst firms)
+- Company founding date, location, team info (cite company website, LinkedIn, Crunchbase, early media coverage)
+- Market sizing and TAM figures (cite industry reports, analyst firms, gold standard journalism sources like Wall Street Journal, Financial Times, etc)
 - Technical specifications and product details (cite company announcements, technical docs)
-- Traction metrics and milestones (cite company blog, press releases, news articles)
+- Traction metrics and milestones (cite company blog, press releases, news articles, included RAG materials)
 - Investor names and details (cite funding announcements, Crunchbase)
 - Competitive landscape claims (cite company websites, industry analysis)
 
@@ -105,8 +107,9 @@ def enrich_section_with_citations(
 CRITICAL:
 1. Do NOT rewrite - only add [^1], [^2] citations
 2. Place citations AFTER punctuation with space: "text. [^1]"
-3. EVERY citation MUST have URL
-4. Format: [^1]: YYYY, MMM DD. Title. Published: YYYY-MM-DD | Updated: N/A | URL: https://...
+3. Multiple citations separated by space: "text. [^1] [^2]"
+4. EVERY citation MUST have URL wrapped in markdown link
+5. Format: [^1]: YYYY, MMM DD. [Title](https://url.com). Published: YYYY-MM-DD | Updated: N/A
 
 SECTION:
 {section_content}
@@ -133,18 +136,14 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     """
     Citation-Enrichment Agent - SECTION-BY-SECTION.
 
-    Enriches each section independently with citations.
+    Enriches each section independently with citations by loading from section files.
 
     Args:
-        state: Current memo state containing draft_sections
+        state: Current memo state
 
     Returns:
         Updated state with citation-enriched sections
     """
-    draft_sections = state.get("draft_sections", {})
-    if not draft_sections:
-        raise ValueError("No draft available. Writer agent must run first.")
-
     company_name = state["company_name"]
 
     # Check if Perplexity is configured
@@ -159,8 +158,7 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     try:
         from openai import OpenAI
         from pathlib import Path
-        from ..artifacts import sanitize_filename
-        from ..versioning import VersionManager
+        from ..utils import get_latest_output_dir
 
         perplexity_client = OpenAI(
             api_key=perplexity_key,
@@ -173,11 +171,12 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
         }
 
     # Get output directory
-    version_mgr = VersionManager(Path("output"))
-    safe_name = sanitize_filename(company_name)
-    version = version_mgr.get_latest_version(safe_name)
-    output_dir = Path("output") / f"{safe_name}-{version}"
-    sections_dir = output_dir / "2-sections"
+    try:
+        output_dir = get_latest_output_dir(company_name)
+        sections_dir = output_dir / "2-sections"
+    except FileNotFoundError:
+        print("Warning: No output directory found, skipping citation enrichment")
+        return {"messages": ["Citation enrichment skipped - no output directory"]}
 
     if not sections_dir.exists():
         print("Warning: No sections directory found, skipping citation enrichment")
@@ -251,37 +250,37 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
 
 def renumber_citations_globally(sections_data: list) -> str:
     """
-    Renumber citations globally across all sections.
+    Renumber citations globally across all sections and consolidate into ONE citation block.
 
-    Each section comes with its own [^1], [^2], etc. This function
-    renumbers them sequentially across the entire memo so each unique
-    source gets a globally unique citation number.
+    Each section comes with its own [^1], [^2], etc. This function:
+    1. Renumbers them sequentially across the entire memo
+    2. Strips citation blocks from individual sections
+    3. Consolidates all citations into ONE block at the end
 
     Args:
         sections_data: List of tuples (section_num, section_name, section_content)
 
     Returns:
-        Combined content with globally renumbered citations
+        Combined content with globally renumbered citations and ONE citation block
     """
     combined_content = ""
+    all_citations = []  # Collect all citation definitions
     citation_counter = 1
-    citation_map = {}  # Maps (section_idx, old_num) -> new_num
 
-    # First pass: Renumber inline citations and build mapping
+    # Process each section
     for idx, (section_num, section_name, section_content) in enumerate(sections_data):
         # Split content from citations
         parts = section_content.split("### Citations")
-        main_content = parts[0] if parts else section_content
-        citations_section = parts[1] if len(parts) > 1 else ""
+        main_content = parts[0].strip() if parts else section_content.strip()
+        citations_section = parts[1].strip() if len(parts) > 1 else ""
 
-        # Find all citation numbers in this section
-        old_citations = set(re.findall(r'\[\^(\d+)\]', section_content))
+        # Find all citation numbers in this section's content
+        old_citations = set(re.findall(r'\[\^(\d+)\]', main_content))
 
         # Create mapping for this section
         section_map = {}
         for old_num in sorted(old_citations, key=int):
             section_map[old_num] = citation_counter
-            citation_map[(idx, old_num)] = citation_counter
             citation_counter += 1
 
         # Renumber inline citations in main content
@@ -293,24 +292,26 @@ def renumber_citations_globally(sections_data: list) -> str:
                 main_content
             )
 
-        # Renumber citations in the reference list
+        # Renumber and collect citation definitions
         if citations_section:
             for old_num, new_num in section_map.items():
-                # Replace citation definitions [^X]: with [^NEW]:
-                citations_section = re.sub(
-                    rf'\[\^{old_num}\]:',
-                    f'[^{new_num}]:',
-                    citations_section
-                )
+                # Find citation definition lines
+                citation_pattern = rf'\[\^{old_num}\]:.*?(?=\[\^|\Z)'
+                matches = re.findall(citation_pattern, citations_section, re.DOTALL)
+                for match in matches:
+                    # Renumber the citation
+                    renumbered = re.sub(rf'\[\^{old_num}\]:', f'[^{new_num}]:', match.strip())
+                    if renumbered and renumbered not in all_citations:
+                        all_citations.append(renumbered)
 
-        # Reconstruct section with renumbered citations
-        if citations_section:
-            section_content = main_content + "### Citations" + citations_section
-        else:
-            section_content = main_content
+        # Add section to combined content (WITHOUT citations block)
+        combined_content += f"## {section_num}. {section_name}\n\n{main_content}\n\n---\n\n"
 
-        # Add to combined content
-        combined_content += f"## {section_num}. {section_name}\n\n{section_content}\n\n"
+    # Add ONE consolidated citation block at the end
+    if all_citations:
+        combined_content += "### Citations\n\n"
+        combined_content += "\n\n".join(all_citations)
+        combined_content += "\n"
 
     return combined_content
 

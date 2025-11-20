@@ -15,6 +15,7 @@ from .agents.researcher import research_agent
 from .agents.research_enhanced import research_agent_enhanced
 from .agents.deck_analyst import deck_analyst_agent
 from .agents.writer import writer_agent
+from .agents.trademark_enrichment import trademark_enrichment_agent
 from .agents.socials_enrichment import socials_enrichment_agent
 from .agents.link_enrichment import link_enrichment_agent
 from .agents.visualization_enrichment import visualization_enrichment_agent
@@ -51,33 +52,40 @@ def finalize_memo(state: MemoState) -> dict:
     """
     Finalize the memo for output.
 
+    NOTE: The final draft is already assembled by citation enrichment agent.
+    This function verifies the file exists and saves the state snapshot.
+
     Args:
         state: Current memo state
 
     Returns:
         Updated state with final_memo set
     """
-    draft = state.get("draft_sections", {}).get("full_memo", {})
-    memo_content = draft.get("content", "")
+    from .utils import get_latest_output_dir
+
     company_name = state["company_name"]
 
-    # Save final draft artifact
+    # Get artifact directory (most recent)
     try:
-        # Get version manager
-        version_mgr = VersionManager(Path("output"))
-        safe_name = sanitize_filename(company_name)
-        version = version_mgr.get_next_version(safe_name)
+        output_dir = get_latest_output_dir(company_name)
+        final_draft_path = output_dir / "4-final-draft.md"
+    except FileNotFoundError:
+        raise FileNotFoundError(f"No output directory found for {company_name}")
 
-        # Get artifact directory
-        output_dir = Path("output") / f"{safe_name}-{version}"
+    # Verify final draft exists (created by citation enrichment)
+    if not final_draft_path.exists():
+        raise FileNotFoundError(f"Final draft not found at {final_draft_path}. Citation enrichment may have failed.")
 
-        # Save final draft
-        save_final_draft(output_dir, memo_content)
+    # Load final draft content
+    with open(final_draft_path) as f:
+        memo_content = f.read()
 
-        # Save state snapshot
+    # Save state snapshot
+    try:
         save_state_snapshot(output_dir, state)
+        print(f"✓ State snapshot saved")
 
-        print(f"Final draft saved to: {output_dir / '4-final-draft.md'}")
+        print(f"\n🎉 Final draft ready: {final_draft_path}")
         print(f"State snapshot saved to: {output_dir / 'state.json'}")
     except Exception as e:
         print(f"Warning: Could not save final draft artifacts: {e}")
@@ -197,6 +205,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("deck_analyst", deck_analyst_agent)  # NEW: Deck analyst (always runs, skips if no deck)
     workflow.add_node("research", research_fn)
     workflow.add_node("draft", writer_agent)
+    workflow.add_node("enrich_trademark", trademark_enrichment_agent)  # NEW: Company trademark insertion
     workflow.add_node("enrich_socials", socials_enrichment_agent)
     workflow.add_node("enrich_links", link_enrichment_agent)
     workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
@@ -213,7 +222,8 @@ def build_workflow() -> StateGraph:
     # Deck Analyst → Research → Draft → Socials → Links → Visualizations → Citations → Citation Validator → Validate
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "draft")
-    workflow.add_edge("draft", "enrich_socials")
+    workflow.add_edge("draft", "enrich_trademark")  # NEW: Insert company trademark after drafting
+    workflow.add_edge("enrich_trademark", "enrich_socials")
     workflow.add_edge("enrich_socials", "enrich_links")
     workflow.add_edge("enrich_links", "enrich_visualizations")
     workflow.add_edge("enrich_visualizations", "cite")
@@ -246,7 +256,9 @@ def generate_memo(
     company_description: str = None,
     company_url: str = None,
     company_stage: str = None,
-    research_notes: str = None
+    research_notes: str = None,
+    company_trademark_light: str = None,
+    company_trademark_dark: str = None
 ) -> MemoState:
     """
     Main entry point for generating an investment memo.
@@ -260,6 +272,8 @@ def generate_memo(
         company_url: Company website URL
         company_stage: Investment stage (Seed, Series A, etc.)
         research_notes: Additional research guidance or focus areas
+        company_trademark_light: Path or URL to light mode company logo/trademark
+        company_trademark_dark: Path or URL to dark mode company logo/trademark
 
     Returns:
         Final state containing research, draft, validation, and final memo
@@ -275,7 +289,9 @@ def generate_memo(
         company_description,
         company_url,
         company_stage,
-        research_notes
+        research_notes,
+        company_trademark_light,
+        company_trademark_dark
     )
 
     # Build and run workflow

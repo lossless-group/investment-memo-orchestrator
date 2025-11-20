@@ -1,6 +1,11 @@
 {
-  "name": "Aalo Atomics",
+  "type": "direct",
+  "mode": "consider",
   "description": "Nuclear microreactor company for remote power generation",
+  "url": "https://aaloatomics.com",
   "stage": "Series B",
-  "notes": "This is sample data for testing the POC. Real implementation would fetch from Crunchbase, company website, etc."
+  "deck": "data/AaloAtomics-deck.pdf",
+  "trademark_light": "https://aaloatomics.com/logo-light.svg",
+  "trademark_dark": "https://aaloatomics.com/logo-dark.svg",
+  "notes": "Focus on: nuclear safety certifications, government partnerships, competitive landscape vs SMR alternatives, team background in nuclear engineering, deployment timeline and unit economics."
 }

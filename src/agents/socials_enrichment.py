@@ -316,32 +316,19 @@ def socials_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     """
     Socials Enrichment Agent implementation.
 
-    Finds and adds social media links for company and team members.
+    Finds and adds LinkedIn links to team members in the Team section file.
 
     Args:
-        state: Current memo state with draft sections and research
+        state: Current memo state with research
 
     Returns:
         Updated state with social links added
     """
-    draft_sections = state.get("draft_sections", {})
+    from pathlib import Path
+    from ..utils import get_latest_output_dir
+
     research = state.get("research", {})
-
-    if not draft_sections:
-        return {
-            "messages": ["No draft sections available for socials enrichment"]
-        }
-
     company_name = state["company_name"]
-
-    # Get the full memo content
-    full_memo = draft_sections.get("full_memo", {})
-    memo_content = full_memo.get("content", "")
-
-    if not memo_content:
-        return {
-            "messages": ["No memo content available for socials enrichment"]
-        }
 
     # Extract team members from research
     team_data = research.get("team", {}) if research else {}
@@ -366,37 +353,40 @@ def socials_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     if team_members:
         team_profiles = find_team_linkedin_profiles(team_members, company_name)
 
-    # Enrich memo content
-    enriched_content = memo_content
+    # Get output directory
+    try:
+        output_dir = get_latest_output_dir(company_name)
+        sections_dir = output_dir / "2-sections"
+    except FileNotFoundError:
+        print(f"⊘ Socials enrichment skipped - no output directory found")
+        return {"messages": ["Socials enrichment skipped - no output directory"]}
 
-    # Add company socials to intro section
-    if company_socials:
-        enriched_content = enrich_intro_section_with_socials(enriched_content, company_socials)
-
-    # Add team LinkedIn links
+    # Enrich Team section (04-team.md) with LinkedIn links
+    links_added = 0
     if team_profiles:
-        enriched_content = enrich_team_section_with_linkedin(enriched_content, team_profiles)
+        team_section_file = sections_dir / "04-team.md"
+        if team_section_file.exists():
+            with open(team_section_file) as f:
+                team_content = f.read()
 
-    # Count total links added
-    total_links = len(company_socials) + len(team_profiles)
+            # Enrich with LinkedIn links
+            enriched_team_content = enrich_team_section_with_linkedin(team_content, team_profiles)
 
+            # Save back
+            with open(team_section_file, "w") as f:
+                f.write(enriched_team_content)
+
+            links_added = len(team_profiles)
+            print(f"✓ Team section enriched with {links_added} LinkedIn profiles")
+
+    # TODO: Add company socials to intro (Executive Summary)
+    # For now, just report them
     print(f"\nSocials enrichment completed:")
     print(f"  - Company social profiles: {len(company_socials)}")
-    print(f"  - Team LinkedIn profiles: {len(team_profiles)}")
-
-    # Update draft sections
-    enriched_sections = {
-        "full_memo": {
-            "section_name": "full_memo",
-            "content": enriched_content,
-            "word_count": len(enriched_content.split()),
-            "citations": full_memo.get("citations", [])
-        }
-    }
+    print(f"  - Team LinkedIn profiles: {links_added}")
 
     return {
-        "draft_sections": enriched_sections,
         "messages": [
-            f"Social links added for {company_name} ({len(company_socials)} company profiles, {len(team_profiles)} team profiles)"
+            f"Social links added for {company_name} ({len(company_socials)} company profiles, {links_added} team profiles)"
         ]
     }

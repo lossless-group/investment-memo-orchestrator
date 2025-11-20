@@ -216,11 +216,27 @@ def write_single_section(
 
     research_json = json.dumps(research, indent=2)[:3000]  # Limit research to 3k chars
 
+    # Add memo mode guidance
+    mode_guidance = ""
+    if memo_mode == "justify":
+        mode_guidance = """
+IMPORTANT - MEMO MODE: JUSTIFY (Retrospective Justification)
+This memo is justifying an EXISTING investment we have already made. Your recommendation MUST be "COMMIT"
+since the investment has already occurred. Focus on explaining WHY we made this investment and what
+strengths/thesis justified the commitment.
+"""
+    else:  # consider mode
+        mode_guidance = """
+IMPORTANT - MEMO MODE: CONSIDER (Prospective Analysis)
+This memo is evaluating a POTENTIAL investment we have not yet made. Your recommendation should be
+PASS, CONSIDER, or COMMIT based on the objective analysis of strengths vs. risks.
+"""
+
     user_prompt = f"""Write ONLY the "{section_name}" section for an investment memo about {company_name}.
 
 CURRENT DATE: {current_date}
 INVESTMENT TYPE: {investment_type.upper()}
-MEMO MODE: {memo_mode.upper()}
+{mode_guidance}
 
 RESEARCH DATA (summary):
 {research_json}
@@ -306,8 +322,7 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     print(f"\n📝 Writing memo section-by-section...")
 
     # Write each section iteratively
-    all_sections = {}
-    combined_content = f"# Investment Memo: {company_name}\n\n**Date**: {current_date}\n\n"
+    total_words = 0
 
     for section_num, section_name in section_mapping:
         print(f"  Writing section {section_num}/10: {section_name}...")
@@ -328,35 +343,17 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
 
         # Save individual section
         save_section_artifact(output_dir, section_num, section_name, section_content)
-        all_sections[section_name] = section_content
+        total_words += len(section_content.split())
 
-        # Stitch together progressively
-        combined_content += f"## {section_num}. {section_name}\n\n{section_content}\n\n"
+        print(f"  ✓ Section {section_num} saved to file")
 
-        # Save combined draft after each section
-        with open(output_dir / "4-final-draft.md", "w") as f:
-            f.write(combined_content)
-
-        print(f"  ✓ Section {section_num} saved and stitched")
-
-    memo_content = combined_content
-
-    # Store in state
-    draft_sections = {
-        "full_memo": SectionDraft(
-            section_name="full_memo",
-            content=memo_content,
-            word_count=len(memo_content.split()),
-            citations=[]
-        )
-    }
-
-    # Sections already saved in the loop above
+    # Sections saved - enrichment agents will process files directly
     print(f"✓ All 10 sections written and saved to {output_dir}/2-sections/")
-    print(f"✓ Final draft: {output_dir}/4-final-draft.md")
+    print(f"✓ Enrichment agents will process sections individually")
+    print(f"✓ Final assembly will happen after citations are added")
 
-    # Update state
+    # Return minimal state (enrichment agents load from files)
     return {
-        "draft_sections": draft_sections,
-        "messages": [f"Draft memo completed for {company_name} ({len(memo_content.split())} words)"]
+        "draft_sections": {},  # Enrichment agents load from files, not state
+        "messages": [f"Draft sections completed for {company_name} ({total_words} words total)"]
     }

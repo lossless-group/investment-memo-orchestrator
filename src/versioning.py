@@ -90,6 +90,24 @@ class VersionManager:
         # Increment patch version for new iteration
         return version.increment_patch()
 
+    def get_current_version(self, company_name: str) -> MemoVersion:
+        """
+        Get the current (latest) version for a company's memo.
+
+        Args:
+            company_name: Sanitized company name
+
+        Returns:
+            Current version number, or v0.0.1 if no versions exist
+        """
+        if company_name not in self.versions_data:
+            # No versions yet, return v0.0.1
+            return MemoVersion(0, 0, 1)
+
+        # Get latest version from versions.json
+        latest = self.versions_data[company_name]["latest_version"]
+        return MemoVersion.from_string(latest)
+
     def record_version(
         self,
         company_name: str,

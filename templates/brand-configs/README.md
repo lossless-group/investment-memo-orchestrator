@@ -232,3 +232,54 @@ Current brand configurations:
 - Uses `logo.light_mode` SVG
 
 Export with `--mode light` or `--mode dark` flag.
+
+## Company Trademarks (In Memo Content)
+
+In addition to the VC firm logo in the header, you can also insert the target company's logo/trademark within the memo content itself.
+
+### Configuration
+
+Add trademark paths to the company's data file (`data/{CompanyName}.json`):
+
+```json
+{
+  "type": "fund",
+  "mode": "justify",
+  "description": "Company description...",
+  "url": "https://company.com",
+  "trademark_light": "https://company.com/logo-light.svg",
+  "trademark_dark": "https://company.com/logo-dark.svg",
+  "notes": "Research focus..."
+}
+```
+
+### How It Works
+
+1. The **trademark enrichment agent** automatically inserts the company logo after the header metadata section
+2. For **fund memos**: Inserted after the "Date:" line
+3. For **direct investment memos**: Inserted after the company metadata
+4. The logo renders as a figure with caption
+
+### Example Output
+
+```markdown
+**Date**: November 19, 2025
+
+![Theory Forge Ventures Logo](https://theoryforge.vc/logo.svg)
+
+---
+
+## 1. Executive Summary
+...
+```
+
+### Trademark Sources
+
+- **URLs**: Use direct URLs to company logos (e.g., from company website)
+- **Local files**: Use relative paths from project root (e.g., `templates/trademarks/company-logo.svg`)
+
+### Theme Support
+
+- Light mode exports use `trademark_light`
+- Dark mode exports use `trademark_dark`
+- If only one is provided, it's used for both themes

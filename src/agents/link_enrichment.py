@@ -62,32 +62,32 @@ Return the COMPLETE section with links added. Do not summarize or truncate.
 
 def link_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     """
-    Link Enrichment Agent implementation.
+    Link Enrichment Agent implementation - SECTION-BY-SECTION.
 
-    Adds markdown links to organizations and entities mentioned in memo sections.
+    Adds markdown links to organizations and entities mentioned in each memo section.
 
     Args:
-        state: Current memo state with draft sections
+        state: Current memo state
 
     Returns:
-        Updated state with link-enriched sections
+        Updated state message
     """
-    draft_sections = state.get("draft_sections", {})
-    if not draft_sections:
-        return {
-            "messages": ["No draft sections available for link enrichment"]
-        }
+    from pathlib import Path
+    from ..utils import get_latest_output_dir
 
     company_name = state["company_name"]
 
-    # Get the full memo content
-    full_memo = draft_sections.get("full_memo", {})
-    memo_content = full_memo.get("content", "")
+    # Get output directory
+    try:
+        output_dir = get_latest_output_dir(company_name)
+        sections_dir = output_dir / "2-sections"
+    except FileNotFoundError:
+        print("⊘ Link enrichment skipped - no output directory found")
+        return {"messages": ["Link enrichment skipped - no output directory"]}
 
-    if not memo_content:
-        return {
-            "messages": ["No memo content available for link enrichment"]
-        }
+    if not sections_dir.exists():
+        print("⊘ Link enrichment skipped - no sections directory found")
+        return {"messages": ["Link enrichment skipped - no sections found"]}
 
     # Initialize Claude
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -100,11 +100,30 @@ def link_enrichment_agent(state: MemoState) -> Dict[str, Any]:
         temperature=0,  # Deterministic for link addition
     )
 
-    # Create enrichment prompt
-    user_prompt = f"""Add hyperlinks to organizations and entities in this investment memo for {company_name}.
+    print(f"\n🔗 Enriching links section-by-section...")
 
-MEMO CONTENT:
-{memo_content}
+    # Load all section files
+    section_files = sorted(sections_dir.glob("*.md"))
+    total_links_added = 0
+
+    for section_file in section_files:
+        section_name = section_file.stem.split("-", 1)[1].replace("--", " & ").replace("-", " ").title()
+
+        # Read section
+        with open(section_file) as f:
+            section_content = f.read()
+
+        # Skip if section is very short (likely minimal content)
+        if len(section_content) < 100:
+            continue
+
+        print(f"  Enriching links: {section_name}...")
+
+        # Create enrichment prompt
+        user_prompt = f"""Add hyperlinks to organizations and entities in this {section_name} section for {company_name}.
+
+SECTION CONTENT:
+{section_content}
 
 INSTRUCTIONS:
 1. Identify all investors, government bodies, partners, competitors, universities, and industry organizations
@@ -112,38 +131,38 @@ INSTRUCTIONS:
 3. Use official websites (firm sites, .gov, .edu domains)
 4. DO NOT change any text - only add links
 5. If unsure about the correct website, skip that entity
-6. Return the COMPLETE memo with links added
+6. Return the COMPLETE section with links added
 
-Output the full memo with links enriched."""
+Output the full section with links enriched."""
 
-    # Call Claude for link enrichment
-    messages = [
-        SystemMessage(content=LINK_ENRICHMENT_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt)
-    ]
+        # Call Claude for link enrichment
+        messages = [
+            SystemMessage(content=LINK_ENRICHMENT_SYSTEM_PROMPT),
+            HumanMessage(content=user_prompt)
+        ]
 
-    print("Enriching memo with organization links...")
-    response = model.invoke(messages)
-    enriched_content = response.content
+        try:
+            response = model.invoke(messages)
+            enriched_content = response.content
 
-    # Count links added
-    original_link_count = memo_content.count("](http")
-    enriched_link_count = enriched_content.count("](http")
-    links_added = enriched_link_count - original_link_count
+            # Count links added
+            original_link_count = section_content.count("](http")
+            enriched_link_count = enriched_content.count("](http")
+            links_added = enriched_link_count - original_link_count
 
-    print(f"Link enrichment completed: {links_added} links added")
+            # Save enriched section back
+            with open(section_file, "w") as f:
+                f.write(enriched_content)
 
-    # Update draft sections with enriched content
-    enriched_sections = {
-        "full_memo": {
-            "section_name": "full_memo",
-            "content": enriched_content,
-            "word_count": len(enriched_content.split()),
-            "citations": full_memo.get("citations", [])
-        }
-    }
+            total_links_added += links_added
+            print(f"  ✓ {section_name}: {links_added} links added")
+
+        except Exception as e:
+            print(f"  Warning: Link enrichment failed for {section_name}: {e}")
+            continue
+
+    print(f"✓ Link enrichment complete: {total_links_added} total links added")
 
     return {
-        "draft_sections": enriched_sections,
-        "messages": [f"Links added to memo for {company_name} ({links_added} organization links)"]
+        "messages": [f"Links added to memo for {company_name} ({total_links_added} organization links)"]
     }

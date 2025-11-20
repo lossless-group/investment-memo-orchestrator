@@ -75,6 +75,8 @@ def main():
     company_url = None
     company_stage = None
     research_notes = None
+    company_trademark_light = None
+    company_trademark_dark = None
     data_file = Path(f"data/{company_name}.json")
 
     # Default to CLI arguments
@@ -94,6 +96,10 @@ def main():
                 company_url = company_data.get("url")
                 company_stage = company_data.get("stage")
                 research_notes = company_data.get("notes")
+
+                # Load company trademark paths (light and dark mode)
+                company_trademark_light = company_data.get("trademark_light")
+                company_trademark_dark = company_data.get("trademark_dark")
 
                 # NEW: Read type and mode from JSON if present
                 json_type = company_data.get("type", "").lower()
@@ -165,7 +171,9 @@ def main():
                 company_description,
                 company_url,
                 company_stage,
-                research_notes
+                research_notes,
+                company_trademark_light,
+                company_trademark_dark
             )
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")

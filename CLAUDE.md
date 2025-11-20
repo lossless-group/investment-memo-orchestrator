@@ -6,6 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Investment Memo Orchestrator: A multi-agent system using LangGraph to generate professional investment memos for Hypernova Capital. The system coordinates specialized AI agents that research, write, enrich, cite, and validate investment memos for both direct startup investments and LP fund commitments.
 
+## Recent Changes (2025-11-20)
+
+**Major architecture refactor**: The system now processes sections individually throughout the entire pipeline. This eliminates API timeout issues and ensures consistent citation formatting.
+
+### What Changed
+- **Section-by-section processing**: All enrichment agents now process individual section files instead of the full assembled memo
+- **Citation consolidation**: Citations from all sections are renumbered globally and consolidated into ONE block at the end
+- **Citation format standardized**: `[^1]: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD | Updated: N/A`
+- **Dynamic version resolution**: New `get_latest_output_dir()` helper ensures all agents find the same output directory
+- **No more timeouts**: Each section ~5k chars instead of full memo ~50k+ chars
+
+See `changelog/2025-11-20_01.md` for complete details.
+
+## Ongoing Troubleshooting
+
+1. **Issue**: Dependencies keep disappearing after running `uv pip install -e .`  We need to find a way to have .venv activate effectively when initially running commands, and to ensure the program continues to be active with dependencies.
+
+
 ## Essential Commands
 
 ### Development Setup
@@ -120,26 +138,42 @@ git push origin v0.2.0
 ## Architecture & Workflow
 
 ### Multi-Agent Pipeline (Section-by-Section Processing)
-The system uses a LangGraph state machine with specialized agents executing in sequence. **CRITICAL**: Writer and Citation agents now process ONE SECTION AT A TIME to avoid API timeouts.
+The system uses a LangGraph state machine with specialized agents executing in sequence. **CRITICAL**: ALL enrichment agents now process section files individually to avoid API timeouts and ensure consistent formatting.
 
 1. **Deck Analyst** (`src/agents/deck_analyst.py`) - Extracts info from pitch deck PDFs, creates initial section drafts
 2. **Research** (`src/agents/research_enhanced.py`) - Web search via Tavily/Perplexity, synthesizes findings
-3. **Writer** (`src/agents/writer.py`) - **ITERATIVE**: Writes memo ONE SECTION AT A TIME (10 separate API calls)
-   - Writes section 1 → saves to file
-   - Writes section 2 → saves to file → stitches 1+2 together
-   - Continues until all 10 sections complete
+3. **Writer** (`src/agents/writer.py`) - **SECTION-BY-SECTION**: Writes memo ONE SECTION AT A TIME (10 separate API calls)
+   - Writes section 1 → saves to `2-sections/01-executive-summary.md`
+   - Writes section 2 → saves to `2-sections/02-business-overview.md`
+   - Continues until all 10 sections saved as individual files
+   - Returns EMPTY `draft_sections` dict (sections live in files, not state)
    - Each section: ~500 words, ~5k chars (small API payload)
-4. **Socials Enrichment** (`src/agents/socials_enrichment.py`) - Adds LinkedIn profile links for team members
-5. **Link Enrichment** (`src/agents/link_enrichment.py`) - Adds hyperlinks to organizations, investors, institutions
-6. **Visualization Enrichment** (`src/agents/visualization_enrichment.py`) - Embeds public charts/diagrams from company sources
-7. **Citation Enrichment** (`src/agents/citation_enrichment.py`) - **ITERATIVE**: Enriches ONE SECTION AT A TIME using Perplexity Sonar Pro
+4. **Trademark Enrichment** (`src/agents/trademark_enrichment.py`) - Creates header file with company logo/trademark
+   - Creates `header.md` file with company logo and date
+   - Supports both light and dark mode logos (URLs or local paths)
+   - Skips if no trademark paths provided in company data file
+   - Uses `get_latest_output_dir()` to find correct output directory
+5. **Socials Enrichment** (`src/agents/socials_enrichment.py`) - Adds LinkedIn links to team members
+   - Loads `04-team.md` section file
+   - Enriches with LinkedIn profile links
+   - Saves enriched section back to file
+6. **Link Enrichment** (`src/agents/link_enrichment.py`) - Adds organization/entity hyperlinks
+   - Processes EACH section file independently
+   - Adds markdown links to investors, competitors, partners, etc.
+   - Saves enriched sections back to files
+7. **Visualization Enrichment** (`src/agents/visualization_enrichment.py`) - **TEMPORARILY DISABLED**
+   - Being refactored for section-by-section processing
+   - Currently returns skip message
+8. **Citation Enrichment** (`src/agents/citation_enrichment.py`) - **SECTION-BY-SECTION + CONSOLIDATION**
    - Loads each section file from `2-sections/`
-   - Enriches with citations independently
+   - Enriches with Perplexity Sonar Pro citations
    - Saves enriched section back
-   - Stitches all enriched sections together
-8. **Citation Validator** (`src/agents/citation_validator.py`) - Validates citation accuracy, checks dates, detects duplicates
-9. **Validator** (`src/agents/validator.py`) - Scores quality 0-10, provides specific feedback
-10. **Supervisor** (`src/workflow.py`) - Routes to finalization (score ≥8) or human review (score <8)
+   - Renumbers citations globally ([^1][^2][^3]... sequentially across all sections)
+   - Consolidates ALL citations into ONE block at the end
+   - Assembles final `4-final-draft.md` with globally renumbered citations
+9. **Citation Validator** (`src/agents/citation_validator.py`) - Validates citation accuracy, checks dates, detects duplicates
+10. **Validator** (`src/agents/validator.py`) - Scores quality 0-10, provides specific feedback
+11. **Supervisor** (`src/workflow.py`) - Routes to finalization (score ≥8) or human review (score <8)
 
 ### Why Section-by-Section Processing?
 LLMs don't have the context window to reliably handle full memos (50k+ chars) in one API call. By processing ONE SECTION AT A TIME:
@@ -229,9 +263,19 @@ def agent_name(state: MemoState) -> dict:
 ### Brand Configuration System
 Multi-brand export support via YAML configs in `templates/brand-configs/`:
 - Create `brand-{name}-config.yaml` for each VC firm
-- Configure colors, fonts, logos
+- Configure colors, fonts, VC firm logos (header)
 - `src/branding.py` loads configs and generates branded CSS
 - `export-branded.py` applies branding to HTML exports
+
+**Dual Trademark System:**
+1. **VC Firm Logo** (Header): Configured in brand YAML, appears at top of every memo
+   - Set via `logo.light_mode` and `logo.dark_mode` in brand config
+   - Displayed in memo header with firm tagline
+2. **Company Trademark** (Content): Configured in company data JSON, inserted into memo body
+   - Set via `trademark_light` and `trademark_dark` in `data/{Company}.json`
+   - Automatically inserted after header metadata by Trademark Enrichment Agent
+
+See `templates/brand-configs/README.md` for complete documentation.
 
 ## Critical Code Locations
 
@@ -245,8 +289,12 @@ Multi-brand export support via YAML configs in `templates/brand-configs/`:
 
 ### Core Agents
 - `src/agents/research_enhanced.py` - Web search integration (Tavily/Perplexity)
-- `src/agents/writer.py` - Template selection, section drafting
+- `src/agents/writer.py` - Template selection, section-by-section drafting
+- `src/agents/trademark_enrichment.py` - Company logo/trademark insertion
+- `src/agents/socials_enrichment.py` - LinkedIn profile link insertion
+- `src/agents/link_enrichment.py` - Organization/investor hyperlink enrichment
 - `src/agents/citation_enrichment.py` - Inline citation addition (Perplexity Sonar Pro)
+- `src/agents/citation_validator.py` - Citation accuracy validation
 - `src/agents/validator.py` - Quality scoring (0-10 scale)
 
 ### Utilities
@@ -279,17 +327,37 @@ Optional:
 Store company context in `data/{CompanyName}.json`:
 ```json
 {
-  "type": "direct",  // or "fund"
-  "mode": "justify",  // or "consider"
-  "deck": "data/CompanyName-deck.pdf",
-  "description": "Brief company description",
+  "type": "direct",
+  "mode": "justify",
+  "description": "Brief company description for research context",
   "url": "https://company.com",
   "stage": "Series A",
-  "notes": "Research focus areas"
+  "deck": "data/CompanyName-deck.pdf",
+  "trademark_light": "https://company.com/logo-light.svg",
+  "trademark_dark": "https://company.com/logo-dark.svg",
+  "notes": "Research focus: team backgrounds, competitive positioning, unit economics"
 }
 ```
 
+**Field Descriptions:**
+- `type`: `"direct"` for startup investments, `"fund"` for LP commitments (overrides CLI `--type`)
+- `mode`: `"consider"` for prospective analysis, `"justify"` for retrospective (overrides CLI `--mode`)
+- `description`: Brief company description to guide research
+- `url`: Company website URL
+- `stage`: Investment stage (Seed, Series A, etc.)
+- `deck`: Path to pitch deck PDF (relative to project root)
+- `trademark_light`: URL or path to light mode company logo/trademark
+- `trademark_dark`: URL or path to dark mode company logo/trademark
+- `notes`: Specific research focus areas or instructions for agents
+
+**Trademark Support:**
+If trademark paths are provided, the **Trademark Enrichment Agent** automatically inserts the company logo into the memo content after the header metadata section. Light mode exports use `trademark_light`, dark mode exports use `trademark_dark`. Trademarks can be:
+- **URLs**: Direct links to company logos (e.g., from company website)
+- **Local paths**: Relative paths from project root (e.g., `templates/trademarks/company-logo.svg`)
+
 File presence triggers automatic loading in `main.py`. CLI arguments override JSON values.
+
+**Examples**: See `data/sample-company.json`, `data/TheoryForge.json`, `data/Powerline.json` for complete examples.
 
 ## Output Structure
 

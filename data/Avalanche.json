@@ -2,8 +2,11 @@
   "name": "Avalanche VC",
   "description": "A seed-stage VC focused on the future of how people Learn, Earn, and Own.",
   "stage": "Fund II",
-  "type": "LP Commitment",
+  "type": "fund",
+  "mode": "justify",
   "url": "https://avalanche.vc/",
-  "notes": "A seed-stage VC focused on the future of how people Learn, Earn, and Own.",
-  "deck": "/Users/mpstaton/code/lossless-monorepo/ai-labs/investment-memo-orchestrator/data/Avalanche Fund II.pdf"
+  "notes": "A seed-stage VC focused on the future of how people Learn, Earn, and Own. Research about Katelyn Donnelly, the founder Managing Partner and her backgorund and track record.",
+  "deck": "/Users/mpstaton/code/lossless-monorepo/ai-labs/investment-memo-orchestrator/data/Avalanche Fund II.pdf",
+  "trademark_light": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Light-Mode.png",
+  "trademark_dark": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Dark-Mode.png"
 }
