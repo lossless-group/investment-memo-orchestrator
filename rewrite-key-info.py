@@ -270,11 +270,12 @@ def resolve_artifact_directory(
         console.print(f"[dim]Resolved 'latest' to {version}[/dim]")
     else:
         version = source_version
-        # Validate version exists
-        if version not in version_mgr.versions_data[safe_name]["versions"]:
+        # Validate version exists by checking history
+        available_versions = [v["version"] for v in version_mgr.versions_data[safe_name]["history"]]
+        if version not in available_versions:
             console.print(f"[red]Error: Version '{version}' not found for '{company_name}'[/red]")
             console.print(f"[yellow]Available versions:[/yellow]")
-            for v in sorted(version_mgr.versions_data[safe_name]["versions"].keys()):
+            for v in sorted(available_versions):
                 console.print(f"  • {v}")
             return None
 
