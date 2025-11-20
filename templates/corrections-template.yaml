@@ -1,0 +1,101 @@
+# Investment Memo Correction Template
+# Copy to data/{CompanyName}-corrections.yaml and fill in corrections
+
+company: "CompanyName"
+
+# VERSION MANAGEMENT (required)
+source_version: "v0.0.3"  # Which version to use as source
+# Alternatives:
+#   source_version: "latest"  # Use latest version
+#   source_version: "output/CompanyName-v0.0.3"  # Full path
+
+output_mode: "new_version"  # "new_version" or "in_place"
+# new_version: Creates v0.0.4 from v0.0.3 (preserves original)
+# in_place: Overwrites v0.0.3 directly (DESTRUCTIVE - use with caution)
+
+date_created: "YYYY-MM-DD"
+
+corrections:
+  # Example 1: Inaccurate information
+  - type: "inaccurate"
+    inaccurate_information: |
+      Describe what's incorrect in the memo.
+      Example: "The memo states the fund is raising $50M"
+    correct_information: |
+      Provide the correct information.
+      Example: "The fund is raising $10M with a hard cap at $12M"
+    affected_sections:
+      - "Section Name 1"
+      - "Section Name 2"
+    sources:
+      - "https://source-url.com"
+      - "data/document.pdf"
+    narrative_shaping_comments:
+      - "Guidance on how to frame this correction"
+      - "Additional context or emphasis"
+    update_research: false  # Optional: update research artifacts if true
+
+  # Example 2: Incomplete information
+  - type: "incomplete"
+    incomplete_information: |
+      Describe what's missing from the memo.
+      Example: "The Team section doesn't mention the GP's previous fund performance"
+    additional_information: |
+      Provide the missing information.
+      Example: "Previous fund delivered 18% IRR over 5 years"
+    affected_sections:
+      - "Section Name"
+    sources:
+      - "https://source-url.com"
+    narrative_shaping_comments:
+      - "How to integrate this information"
+      - "What to emphasize"
+
+  # Example 3: Narrative shaping only (no factual changes)
+  - type: "narrative"
+    section: "Section Name"
+    narrative_shaping_comments:
+      - "Remove promotional language"
+      - "Add balanced risk discussion"
+      - "Quantify vague claims"
+    sources:
+      - "https://competitor-comparison.com"
+
+  # Example 4: Mixed correction (inaccurate + incomplete + narrative)
+  - type: "mixed"
+    inaccurate_information: "What's wrong"
+    correct_information: "What's correct"
+    incomplete_information: "What's missing"
+    additional_information: "What to add"
+    affected_sections:
+      - "Section 1"
+      - "Section 2"
+    sources:
+      - "https://source.com"
+    narrative_shaping_comments:
+      - "How to present this holistically"
+    update_research: false
+
+# Available Section Names (Direct Investment):
+# - "Executive Summary"
+# - "Business Overview"
+# - "Market Context"
+# - "Team"
+# - "Technology & Product"
+# - "Traction & Milestones"
+# - "Funding & Terms"
+# - "Risks & Mitigations"
+# - "Investment Thesis"
+# - "Recommendation"
+
+# Available Section Names (Fund Commitment):
+# - "Executive Summary"
+# - "GP Background & Track Record"
+# - "Fund Strategy & Thesis"
+# - "Portfolio Construction"
+# - "Value Add & Differentiation"
+# - "Track Record Analysis"
+# - "Fee Structure & Economics"
+# - "LP Base & References"
+# - "Risks & Mitigations"
+# - "Recommendation"
