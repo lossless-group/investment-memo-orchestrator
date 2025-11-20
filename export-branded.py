@@ -181,14 +181,19 @@ def create_html_template(
         # Use appropriate logo based on theme
         logo_path_str = brand.logo.dark_mode if dark_mode else brand.logo.light_mode
         if logo_path_str:
-            logo_path = Path(logo_path_str)
-            if logo_path.exists():
-                # Embed SVG directly
-                svg_content = embed_svg_logo(logo_path)
-                if svg_content:
-                    logo_html = f'<div style="width: {brand.logo.width}; height: {brand.logo.height}; margin: 0 auto;">{svg_content}</div>'
+            # Check if it's a URL or local path
+            if logo_path_str.startswith(('http://', 'https://')):
+                # Remote URL - use img tag
+                logo_html = f'<img src="{logo_path_str}" alt="{brand.logo.alt or brand.company.name}" style="width: {brand.logo.width}; height: {brand.logo.height}; margin: 0 auto; display: block;" />'
             else:
-                print(f"Warning: Logo file not found: {logo_path}")
+                # Local path - embed SVG directly
+                logo_path = Path(logo_path_str)
+                if logo_path.exists():
+                    svg_content = embed_svg_logo(logo_path)
+                    if svg_content:
+                        logo_html = f'<div style="width: {brand.logo.width}; height: {brand.logo.height}; margin: 0 auto;">{svg_content}</div>'
+                else:
+                    print(f"Warning: Logo file not found: {logo_path}")
     else:
         # Fallback to text with optional accent (e.g., Hypernova)
         if 'hypernova' in brand.company.name.lower():
@@ -269,8 +274,38 @@ def convert_to_branded_html(
     if not input_path.exists():
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
+    # Swap company trademark URLs based on mode (light <-> dark)
+    with open(input_path, 'r', encoding='utf-8') as f:
+        markdown_content = f.read()
+
+    if dark_mode:
+        # Swap light mode trademark URLs to dark mode
+        markdown_content = markdown_content.replace(
+            'trademark__Avalanche--Light-Mode',
+            'trademark__Avalanche--Dark-Mode'
+        )
+        markdown_content = markdown_content.replace(
+            'trademark__TheoryForge--Light-Mode',
+            'trademark__TheoryForge--Dark-Mode'
+        )
+    else:
+        # Swap dark mode trademark URLs to light mode
+        markdown_content = markdown_content.replace(
+            'trademark__Avalanche--Dark-Mode',
+            'trademark__Avalanche--Light-Mode'
+        )
+        markdown_content = markdown_content.replace(
+            'trademark__TheoryForge--Dark-Mode',
+            'trademark__TheoryForge--Light-Mode'
+        )
+
+    # Save modified markdown to temp file
+    temp_input_path = input_path.parent / f".temp_input_{input_path.stem}.md"
+    with open(temp_input_path, 'w', encoding='utf-8') as f:
+        f.write(markdown_content)
+
     # Extract metadata
-    title, company = extract_title_from_markdown(input_path)
+    title, company = extract_title_from_markdown(temp_input_path)
 
     # Create HTML template
     template = create_html_template(title, company, brand, css_path, dark_mode)
@@ -283,7 +318,7 @@ def convert_to_branded_html(
     try:
         # Convert using pypandoc with custom template
         pypandoc.convert_file(
-            str(input_path),
+            str(temp_input_path),
             'html',
             outputfile=str(output_path),
             extra_args=[
@@ -302,7 +337,7 @@ def convert_to_branded_html(
             restore_script = Path(__file__).parent / 'restore-uncited-footnotes.py'
             if restore_script.exists():
                 result = subprocess.run(
-                    [sys.executable, str(restore_script), str(output_path), str(input_path)],
+                    [sys.executable, str(restore_script), str(output_path), str(temp_input_path)],
                     capture_output=True, text=True
                 )
                 if result.stdout:
@@ -325,9 +360,11 @@ def convert_to_branded_html(
 
         return output_path
     finally:
-        # Clean up temp template
+        # Clean up temp files
         if template_path.exists():
             template_path.unlink()
+        if temp_input_path.exists():
+            temp_input_path.unlink()
 
 
 def convert_html_to_pdf(html_path: Path, pdf_path: Path) -> Optional[Path]:

@@ -291,18 +291,22 @@ def validate_brand_config(config: BrandConfig) -> list[str]:
     # Validate logo paths if specified
     if config.logo:
         if config.logo.light_mode:
-            light_logo_path = Path(config.logo.light_mode)
-            if not light_logo_path.exists():
-                warnings.append(
-                    f"Light mode logo not found: {light_logo_path}\n"
-                    f"  Will use text-based logo instead."
-                )
+            # Only validate local paths, not URLs
+            if not config.logo.light_mode.startswith(('http://', 'https://')):
+                light_logo_path = Path(config.logo.light_mode)
+                if not light_logo_path.exists():
+                    warnings.append(
+                        f"Light mode logo not found: {light_logo_path}\n"
+                        f"  Will use text-based logo instead."
+                    )
         if config.logo.dark_mode:
-            dark_logo_path = Path(config.logo.dark_mode)
-            if not dark_logo_path.exists():
-                warnings.append(
-                    f"Dark mode logo not found: {dark_logo_path}\n"
-                    f"  Will use text-based logo instead."
-                )
+            # Only validate local paths, not URLs
+            if not config.logo.dark_mode.startswith(('http://', 'https://')):
+                dark_logo_path = Path(config.logo.dark_mode)
+                if not dark_logo_path.exists():
+                    warnings.append(
+                        f"Dark mode logo not found: {dark_logo_path}\n"
+                        f"  Will use text-based logo instead."
+                    )
 
     return warnings

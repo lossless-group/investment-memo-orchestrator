@@ -268,14 +268,57 @@ Multi-brand export support via YAML configs in `templates/brand-configs/`:
 - `export-branded.py` applies branding to HTML exports
 
 **Dual Trademark System:**
-1. **VC Firm Logo** (Header): Configured in brand YAML, appears at top of every memo
-   - Set via `logo.light_mode` and `logo.dark_mode` in brand config
-   - Displayed in memo header with firm tagline
-2. **Company Trademark** (Content): Configured in company data JSON, inserted into memo body
-   - Set via `trademark_light` and `trademark_dark` in `data/{Company}.json`
-   - Automatically inserted after header metadata by Trademark Enrichment Agent
 
-See `templates/brand-configs/README.md` for complete documentation.
+The system supports logos/trademarks in two distinct locations within exported HTML memos:
+
+1. **VC Firm Logo** (Header): Branding for the firm creating the memo
+   - **Configuration**: Set in brand YAML config file (`templates/brand-configs/brand-{name}-config.yaml`)
+   - **Fields**: `logo.light_mode` and `logo.dark_mode`
+   - **Location**: Appears at the top of every exported HTML memo in the header section
+   - **Display**: Shown with firm name, tagline, and metadata (date, prepared by, status)
+   - **Supports both**:
+     - **Remote URLs**: `https://example.com/logo.svg` (referenced via `<img>` tag)
+     - **Local paths**: `templates/logos/firm-logo.svg` (embedded directly as SVG)
+   - **Example**:
+     ```yaml
+     logo:
+       light_mode: "https://ik.imagekit.io/example/logo-light.svg"
+       dark_mode: "https://ik.imagekit.io/example/logo-dark.svg"
+       width: "180px"
+       height: "60px"
+       alt: "Firm Name"
+     ```
+
+2. **Company/Fund Trademark** (Content): Logo of the company or fund being analyzed
+   - **Configuration**: Set in company data JSON file (`data/{CompanyName}.json`)
+   - **Fields**: `trademark_light` and `trademark_dark`
+   - **Location**: Inserted into memo body content after header metadata, before main content
+   - **Processing**: Automatically inserted by Trademark Enrichment Agent during workflow
+   - **Supports both**:
+     - **Remote URLs**: `https://company.com/trademark.svg`
+     - **Local paths**: `templates/trademarks/company-logo.svg`
+   - **Example**:
+     ```json
+     {
+       "trademark_light": "https://company.com/logo-light.svg",
+       "trademark_dark": "https://company.com/logo-dark.svg"
+     }
+     ```
+
+**HTML Export Logo Handling:**
+
+The `export-branded.py` script automatically detects logo type and handles appropriately:
+- **URLs** (starting with `http://` or `https://`): Referenced via `<img src="URL">` tag
+- **Local paths**: SVG files are embedded directly into HTML for offline viewing
+- **Theme switching**: Light mode exports use `*_light` logos, dark mode uses `*_dark` logos
+- **Validation**: Only local paths are checked for existence; URLs are assumed valid
+
+**Implementation Details:**
+- `export-branded.py:178-196`: Logo detection and embedding logic
+- `src/branding.py:291-310`: Brand config validation (skips URL validation)
+- `src/agents/trademark_enrichment.py`: Company trademark insertion into markdown
+
+See `templates/brand-configs/README.md` for complete brand configuration documentation.
 
 ## Critical Code Locations
 

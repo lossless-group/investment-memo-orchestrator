@@ -220,7 +220,16 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
 
     # Renumber citations globally across all sections
     print(f"\n🔢 Renumbering citations globally across all sections...")
-    enriched_content = f"# Investment Memo: {company_name}\n\n"
+
+    # Check if header.md exists (created by trademark enrichment agent)
+    header_file = output_dir / "header.md"
+    if header_file.exists():
+        with open(header_file) as f:
+            header_content = f.read()
+        enriched_content = header_content + "\n"
+    else:
+        enriched_content = f"# Investment Memo: {company_name}\n\n"
+
     enriched_content += renumber_citations_globally(sections_data)
 
     # Save enriched final draft with globally renumbered citations

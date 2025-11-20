@@ -650,10 +650,13 @@ git describe --tags
 
 ### Remaining Enhancements
 - [ ] Elegant use of Trademarks of both authoring investment firm and target company.
+ - This has been developed but it's still buggy.
 - [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
 - [ ] Specialized section outline per `fund` or `direct` investment type.
 - [ ] Agent that can screenshot the `deck` if provided and include relevant screenshots in relevant sections in the memo.
 - [ ] Ability for users to run a command to improve or enhance a certain section rather than running the whole memo generation orchestration.
+- [ ] Ability for users to run a command that adds or corrects crucial information that influences the entire content of the memo.  
+  Example: the Avalanche memo output says Avalanche is raising a $50M fund, but they were raising a $10M fund. In many different places it discusses the fund size.  Therefore, this correction influences the entire content of the memo.
 
 
 ## Current Capabilities ✅

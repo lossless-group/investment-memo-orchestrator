@@ -51,13 +51,8 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
     trademark_markdown = f'![{company_name} Logo]({trademark_url})\n\n---\n\n'
 
-    # Create header.md with title, date, and trademark
-    current_date = datetime.now().strftime("%B %Y")
-    header_content = f"""# Investment Memo: {company_name}
-
-**Date**: {current_date}
-
-{trademark_markdown}"""
+    # Create header.md with just the trademark (title/date are in memo body)
+    header_content = trademark_markdown
 
     # Save header to file
     header_file = output_dir / "header.md"
