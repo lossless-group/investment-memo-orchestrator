@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Improve or complete a specific section of an investment memo.
+Improve or complete a specific section of an investment memo using Perplexity Sonar Pro.
 
 USAGE: Always run with venv Python:
     .venv/bin/python improve-section.py "Company" "Section Name"
@@ -9,15 +9,26 @@ Or activate venv first:
     source .venv/bin/activate && python improve-section.py "Company" "Section Name"
 
 This script allows targeted improvement of individual memo sections without
-regenerating the entire memo. It can:
-- Complete missing sections
-- Improve existing sections with more research and sources
-- Add citations and enrichment to weak sections
+regenerating the entire memo. It uses Perplexity Sonar Pro for:
+- Real-time research and fact-checking
+- Automatic citation addition (Obsidian-style [^1], [^2])
+- Quality source selection (TechCrunch, Crunchbase, industry reports)
+- Section improvement without separate citation enrichment step
+
+Features:
+- Complete missing sections from scratch
+- Improve existing sections with better data and sources
+- Add inline citations automatically during improvement
+- Automatically reassemble final draft after improvement
 
 Usage:
-    python improve-section.py Bear-AI "Team"
-    python improve-section.py Bear-AI "Technology & Product" --version v0.0.1
-    python improve-section.py output/Bear-AI-v0.0.1 "Market Context"
+    python improve-section.py "Avalanche" "Team"
+    python improve-section.py "Avalanche" "Technology & Product" --version v0.0.1
+    python improve-section.py output/Avalanche-v0.0.1 "Market Context"
+
+Requirements:
+    - PERPLEXITY_API_KEY must be set in .env file
+    - Existing artifact directory with sections
 """
 
 import os
@@ -106,14 +117,14 @@ def load_artifacts(artifact_dir: Path) -> dict:
     return artifacts
 
 
-def improve_section_with_agent(
+def improve_section_with_sonar_pro(
     section_name: str,
     artifacts: dict,
     artifact_dir: Path,
     console: Console
 ) -> str:
-    """Use agents to improve or create a specific section."""
-    from langchain_anthropic import ChatAnthropic
+    """Use Perplexity Sonar Pro to improve section with real-time research and citations."""
+    from openai import OpenAI
 
     # Get the section info
     if section_name not in SECTION_MAP:
@@ -160,14 +171,14 @@ def improve_section_with_agent(
             if filename != section_file:
                 other_sections_context += f"### {filename}\n{content[:500]}...\n\n"
 
-    # Build prompt
+    # Build prompt with citation instructions
     if is_new:
         task_description = f"""Create a comprehensive '{section_name}' section for the investment memo."""
     else:
         task_description = f"""Improve the existing '{section_name}' section by:
-1. Adding more specific details and metrics
-2. Finding and citing authoritative sources
-3. Removing vague or speculative language
+1. Adding more specific details and metrics from authoritative sources
+2. Finding and citing quality sources for all factual claims
+3. Removing vague or speculative language ("could potentially", "might be", etc.)
 4. Strengthening the analysis with concrete evidence
 
 EXISTING SECTION CONTENT:
@@ -175,7 +186,7 @@ EXISTING SECTION CONTENT:
 
 Your task is to significantly improve this section, keeping what's good and fixing what's weak."""
 
-    prompt = f"""You are writing the '{section_name}' section for an investment memo about {company_name}.
+    prompt = f"""You are improving the '{section_name}' section for an investment memo about {company_name}.
 
 INVESTMENT TYPE: {investment_type.upper()}
 MEMO MODE: {memo_mode.upper()} ({'retrospective justification' if memo_mode == 'justify' else 'prospective analysis'})
@@ -196,29 +207,48 @@ TASK:
 
 REQUIREMENTS:
 - Follow the template structure and style guide
-- Use specific metrics and data from the research
-- Include inline citations [^1], [^2] for all factual claims
+- Use specific metrics and data from authoritative sources
+- Add inline citations [^1], [^2], [^3] for ALL factual claims
+- Use Obsidian-style citations with proper spacing
 - Match the tone and depth of high-quality VC memos
 - Be analytical, not promotional or dismissive
 - For {memo_mode} mode: {'justify why we invested (recommendation: COMMIT)' if memo_mode == 'justify' else 'objectively assess whether to invest'}
 
-Write ONLY the section content (no section header, it will be added automatically).
-Include a citation list at the end if you add citations.
+CITATION REQUIREMENTS (CRITICAL):
+- Place citations AFTER punctuation: "text. [^1]" NOT "text[^1]."
+- Always include ONE SPACE before each citation: "text. [^1] [^2]"
+- Use quality sources:
+  * Company websites, blogs, press releases
+  * TechCrunch, The Information, Sifted, Protocol, Axios
+  * Crunchbase, PitchBook (for funding data)
+  * SEC filings, investor letters
+  * Industry analyst reports (Gartner, CB Insights, McKinsey)
+  * Bloomberg, Reuters, WSJ, FT (for news)
+- Include comprehensive Citations section at end
 
-SECTION CONTENT:
+CITATION FORMAT:
+[^1]: YYYY, MMM DD. [Source Title](https://full-url-here.com). Publisher Name. Published: YYYY-MM-DD | Updated: YYYY-MM-DD
+
+Write ONLY the section content (no section header, it will be added automatically).
+Include a complete Citations section at the end with all sources.
+
+IMPROVED SECTION CONTENT:
 """
 
-    # Call Claude
-    console.print("[dim]Calling Claude to improve section...[/dim]")
+    # Call Perplexity Sonar Pro
+    console.print("[dim]Calling Perplexity Sonar Pro for real-time research and citations...[/dim]")
 
-    llm = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        temperature=0.7,
-        max_tokens=16000
+    perplexity_client = OpenAI(
+        api_key=os.getenv("PERPLEXITY_API_KEY"),
+        base_url="https://api.perplexity.ai"
     )
 
-    response = llm.invoke(prompt)
-    improved_content = response.content
+    response = perplexity_client.chat.completions.create(
+        model="sonar-pro",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    improved_content = response.choices[0].message.content
 
     # Save the improved section
     save_section_artifact(artifact_dir, section_num, section_name, improved_content)
@@ -228,6 +258,39 @@ SECTION CONTENT:
     return improved_content
 
 
+def reassemble_final_draft(artifact_dir: Path, console: Console) -> Path:
+    """Reassemble 4-final-draft.md from all section files."""
+    console.print("\n[bold]Reassembling final draft...[/bold]")
+
+    content = ""
+
+    # Load header if exists (contains company trademark)
+    header_file = artifact_dir / "header.md"
+    if header_file.exists():
+        with open(header_file) as f:
+            content = f.read() + "\n"
+        console.print("[dim]  • Included header.md (company trademark)[/dim]")
+
+    # Load sections in order
+    sections_dir = artifact_dir / "2-sections"
+    section_files = sorted(sections_dir.glob("*.md"))
+
+    console.print(f"[dim]  • Loading {len(section_files)} sections...[/dim]")
+
+    for section_file in section_files:
+        with open(section_file) as f:
+            content += f.read() + "\n\n"
+
+    # Save final draft
+    final_draft = artifact_dir / "4-final-draft.md"
+    with open(final_draft, "w") as f:
+        f.write(content.strip())
+
+    console.print(f"[green]✓ Final draft reassembled:[/green] {final_draft}")
+
+    return final_draft
+
+
 def main():
     """Main entry point."""
     console = Console()
@@ -235,8 +298,10 @@ def main():
     # Load environment
     load_dotenv()
 
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        console.print("[bold red]Error:[/bold red] ANTHROPIC_API_KEY not set")
+    if not os.getenv("PERPLEXITY_API_KEY"):
+        console.print("[bold red]Error:[/bold red] PERPLEXITY_API_KEY not set")
+        console.print("[yellow]This script requires Perplexity Sonar Pro for real-time research and citations.[/yellow]")
+        console.print("[yellow]Set PERPLEXITY_API_KEY in your .env file.[/yellow]")
         sys.exit(1)
 
     # Parse arguments
@@ -292,14 +357,17 @@ def main():
     console.print("\n[bold]Loading existing artifacts...[/bold]")
     artifacts = load_artifacts(artifact_dir)
 
-    # Improve section
+    # Improve section with Perplexity Sonar Pro
     console.print()
-    improved_content = improve_section_with_agent(
+    improved_content = improve_section_with_sonar_pro(
         args.section,
         artifacts,
         artifact_dir,
         console
     )
+
+    # Automatically reassemble final draft
+    final_draft = reassemble_final_draft(artifact_dir, console)
 
     # Show preview
     console.print("\n" + "="*80)
@@ -307,10 +375,16 @@ def main():
     console.print("\n[bold]Preview (first 500 chars):[/bold]")
     console.print(improved_content[:500] + "...\n")
 
-    console.print(f"[bold cyan]Next steps:[/bold cyan]")
+    # Count citations
+    import re
+    citation_count = len(re.findall(r'\[\^\d+\]', improved_content))
+    console.print(f"[bold cyan]Citations added:[/bold cyan] {citation_count}")
+
+    console.print(f"\n[bold cyan]Next steps:[/bold cyan]")
     console.print(f"1. Review the improved section in: {artifact_dir}/2-sections/")
-    console.print(f"2. Run validation: python -m src.agents.validator (manual)")
-    console.print(f"3. Or regenerate full memo to see it in context")
+    console.print(f"2. View complete memo: {final_draft}")
+    console.print(f"3. Export to HTML: python export-branded.py {final_draft} --brand hypernova")
+    console.print(f"4. Improve another section: python improve-section.py \"{args.target}\" \"<section name>\"")
 
 
 if __name__ == "__main__":
