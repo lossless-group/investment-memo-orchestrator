@@ -458,6 +458,390 @@ def validate_section_name(section_name: str) -> bool:
 
 ---
 
+### YAML-Based Correction System
+
+#### Rationale
+
+**Why YAML over CLI flags?**
+
+The original design used simple CLI corrections: `--correction "Fund size is $10M, not $50M"`
+
+**Problems with CLI approach:**
+- Can only handle one correction at a time
+- No way to provide source verification
+- Cannot distinguish between inaccurate, incomplete, and narrative guidance
+- Difficult to track/audit corrections
+- Not reusable across memo versions
+
+**YAML Template Benefits:**
+- **Structured corrections**: Explicit categories (inaccurate vs incomplete vs narrative)
+- **Batch corrections**: Multiple corrections in one file
+- **Source references**: Authoritative sources for verification
+- **Auditable**: Corrections file becomes part of project history
+- **Reusable**: Save correction templates for common issues
+- **Version control**: Track changes to correction guidance over time
+- **Rich guidance**: Narrative shaping comments guide tone and framing
+
+---
+
+#### YAML Template Structure
+
+**Template Location**: `data/{CompanyName}-corrections.yaml`
+
+**Schema**:
+```yaml
+# Correction template for investment memo improvements
+company: "Avalanche"
+version: "v0.0.1"  # Which memo version to correct (optional, default: latest)
+date_created: "2025-11-20"
+
+corrections:
+  # Correction Object 1: Inaccurate Information
+  - type: "inaccurate"
+    inaccurate_information: |
+      The memo states that Avalanche VC Fund II is raising $50M, appearing
+      in multiple sections (Fund Strategy, Economics, Portfolio Construction).
+    correct_information: |
+      Avalanche VC Fund II is raising $10M, not $50M. The fund targets
+      $10M with a hard cap at $12M.
+    affected_sections:
+      - "Fund Strategy & Thesis"
+      - "Portfolio Construction"
+      - "Fee Structure & Economics"
+      - "Executive Summary"
+    sources:
+      - "https://avalanche.vc/fund-ii"
+      - "data/Avalanche-v0.0.1/0-deck-analysis.json"
+    narrative_shaping_comments:
+      - "Emphasize that the $10M fund size is intentional for boutique, high-touch approach"
+      - "Connect fund size to check size strategy ($250K-$500K initial)"
+      - "Frame smaller fund as competitive advantage for emerging EdTech companies"
+
+  # Correction Object 2: Incomplete Information
+  - type: "incomplete"
+    incomplete_information: |
+      The Team section mentions Katelyn Donnelly but doesn't specify her
+      previous role at Pearson Ventures or the fund's performance metrics.
+    additional_information: |
+      Katelyn Donnelly was Managing Director at Pearson Ventures, where she
+      oversaw a $65M fund that delivered an 18% IRR. She's also a Kauffman
+      Fellow (Class 21) and was featured on Forbes 30 Under 30 in 2014.
+    affected_sections:
+      - "GP Background & Track Record"
+      - "Executive Summary"
+    sources:
+      - "https://www.linkedin.com/in/katelyndonnelly/"
+      - "https://avalanche.vc/team"
+    narrative_shaping_comments:
+      - "Highlight the 18% IRR as significantly above industry average"
+      - "Connect Pearson Ventures experience to EdTech sector expertise"
+      - "Emphasize operational experience (co-founded Delivery Associates, $40M revenue)"
+
+  # Correction Object 3: Narrative Shaping Only
+  - type: "narrative"
+    section: "Investment Thesis"
+    narrative_shaping_comments:
+      - "Reduce promotional language about 'revolutionary' and 'game-changing'"
+      - "Add more balanced risk discussion alongside opportunity"
+      - "Include specific competitive comparisons (Reach Capital, Learn Capital)"
+      - "Quantify claims wherever possible (e.g., 'market leader' → 'top 3 in sector')"
+    sources:
+      - "https://www.crunchbase.com/organization/reach-capital"
+      - "https://www.crunchbase.com/organization/learn-capital"
+
+  # Correction Object 4: Multiple Facts + Narrative
+  - type: "mixed"
+    inaccurate_information: "Portfolio construction assumes 25 investments"
+    correct_information: "Portfolio will include 15-20 core investments, not 25"
+    incomplete_information: "No mention of reserve strategy for follow-on rounds"
+    additional_information: |
+      The fund reserves 50% of capital for follow-on investments in top performers.
+      Average initial check: $400K. Reserve per company: $300-500K.
+    affected_sections:
+      - "Portfolio Construction"
+      - "Fund Strategy & Thesis"
+    sources:
+      - "data/Avalanche-deck.pdf"
+    narrative_shaping_comments:
+      - "Frame reserve strategy as deliberate capital deployment discipline"
+      - "Compare concentration to industry norms (seed funds typically 30-40 companies)"
+      - "Connect to ownership targets (8-12% initial, 10-15% after reserves)"
+```
+
+---
+
+#### Correction Types
+
+**Type 1: `inaccurate`** - Factual errors that must be corrected
+- Required fields: `inaccurate_information`, `correct_information`, `affected_sections`
+- Optional: `sources`, `narrative_shaping_comments`
+
+**Type 2: `incomplete`** - Missing information that should be added
+- Required fields: `incomplete_information`, `additional_information`, `affected_sections`
+- Optional: `sources`, `narrative_shaping_comments`
+
+**Type 3: `narrative`** - Tone/framing improvements without factual changes
+- Required fields: `section`, `narrative_shaping_comments`
+- Optional: `sources` (for competitive research, benchmarking)
+
+**Type 4: `mixed`** - Combination of inaccurate + incomplete
+- Required fields: All of the above
+- Most comprehensive correction type
+
+---
+
+#### Workflow with YAML Corrections
+
+**Step 1: User Creates Correction File**
+```bash
+# Copy template
+cp templates/corrections-template.yaml data/Avalanche-corrections.yaml
+
+# Edit with corrections
+# User fills in specific corrections based on feedback
+```
+
+**Step 2: Agent Parses YAML**
+```python
+def load_corrections_yaml(corrections_file: Path) -> List[CorrectionObject]:
+    """Load and validate corrections YAML file."""
+    with open(corrections_file) as f:
+        data = yaml.safe_load(f)
+
+    # Validate schema
+    validate_corrections_schema(data)
+
+    # Parse into CorrectionObject list
+    corrections = []
+    for corr in data['corrections']:
+        corrections.append(CorrectionObject(
+            type=corr['type'],
+            inaccurate_info=corr.get('inaccurate_information'),
+            correct_info=corr.get('correct_information'),
+            incomplete_info=corr.get('incomplete_information'),
+            additional_info=corr.get('additional_information'),
+            affected_sections=corr.get('affected_sections', []),
+            sources=corr.get('sources', []),
+            narrative_comments=corr.get('narrative_shaping_comments', [])
+        ))
+
+    return corrections
+```
+
+**Step 3: Source Verification (Optional)**
+```python
+def verify_corrections_with_sources(
+    corrections: List[CorrectionObject],
+    use_sonar_pro: bool = True
+) -> List[VerificationResult]:
+    """
+    Use Perplexity Sonar Pro to verify corrections against provided sources.
+
+    For each correction with sources:
+    1. Fetch source content (if URL)
+    2. Use Sonar Pro to verify correctness
+    3. Return confidence score + evidence
+    """
+
+    if not use_sonar_pro:
+        return [VerificationResult(verified=True, confidence=1.0)]
+
+    results = []
+    for correction in corrections:
+        if not correction.sources:
+            results.append(VerificationResult(verified=True, confidence=0.8,
+                note="No sources provided, assuming user is correct"))
+            continue
+
+        # Build verification prompt
+        prompt = f"""Verify this correction using the provided sources:
+
+CLAIMED INACCURATE INFO: {correction.inaccurate_info}
+CLAIMED CORRECT INFO: {correction.correct_info}
+
+SOURCES TO VERIFY:
+{chr(10).join(correction.sources)}
+
+TASK:
+1. Check if the correction is accurate according to sources
+2. Return confidence score (0.0-1.0)
+3. Provide evidence from sources
+
+Return JSON:
+{{
+    "verified": true/false,
+    "confidence": 0.95,
+    "evidence": "Quote or summary from sources",
+    "concerns": "Any potential issues"
+}}
+"""
+
+        # Call Sonar Pro
+        response = perplexity_client.chat.completions.create(
+            model="sonar-pro",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        result = parse_verification_result(response)
+        results.append(result)
+
+    return results
+```
+
+**Step 4: Apply Corrections Section-by-Section**
+```python
+def apply_correction_to_section(
+    section_file: Path,
+    correction: CorrectionObject,
+    company_name: str
+) -> str:
+    """Apply single correction to section with narrative guidance."""
+
+    with open(section_file) as f:
+        original_content = f.read()
+
+    # Build correction prompt with narrative guidance
+    correction_prompt = f"""You are correcting an investment memo section for {company_name}.
+
+CORRECTION TYPE: {correction.type}
+
+{"INACCURATE INFORMATION: " + correction.inaccurate_info if correction.inaccurate_info else ""}
+{"CORRECT INFORMATION: " + correction.correct_info if correction.correct_info else ""}
+{"INCOMPLETE - MISSING: " + correction.incomplete_info if correction.incomplete_info else ""}
+{"ADDITIONAL INFORMATION: " + correction.additional_info if correction.additional_info else ""}
+
+NARRATIVE SHAPING GUIDANCE:
+{chr(10).join(f"• {comment}" for comment in correction.narrative_comments)}
+
+SOURCES FOR REFERENCE:
+{chr(10).join(correction.sources)}
+
+CURRENT SECTION CONTENT:
+{original_content}
+
+TASK:
+1. Apply factual corrections (inaccurate → correct)
+2. Add missing information (incomplete → additional)
+3. Follow narrative shaping guidance for tone and framing
+4. Preserve ALL existing citations
+5. Add NEW citations for newly added facts (use sources provided)
+6. Maintain formatting and structure
+
+Return ONLY the corrected section content with citations.
+"""
+
+    # Call Claude for correction
+    response = anthropic_client.invoke(correction_prompt)
+    corrected_content = response.content
+
+    return corrected_content
+```
+
+**Step 5: CLI Usage**
+```bash
+# Basic usage: apply corrections from YAML
+python rewrite-key-info.py "Avalanche" --corrections data/Avalanche-corrections.yaml
+
+# With source verification (uses Sonar Pro)
+python rewrite-key-info.py "Avalanche" \
+  --corrections data/Avalanche-corrections.yaml \
+  --verify-sources
+
+# Preview mode (show what would change)
+python rewrite-key-info.py "Avalanche" \
+  --corrections data/Avalanche-corrections.yaml \
+  --preview
+
+# Specific version
+python rewrite-key-info.py "Avalanche" \
+  --corrections data/Avalanche-corrections.yaml \
+  --version v0.0.1
+```
+
+**Step 6: Output**
+```
+📋 Loaded corrections: data/Avalanche-corrections.yaml
+  Company: Avalanche
+  Version: v0.0.1 (latest)
+  Corrections: 4
+
+🔍 Verifying corrections with sources...
+  ✓ Correction 1: Verified (confidence: 0.95) - Fund size $10M confirmed
+  ✓ Correction 2: Verified (confidence: 0.92) - Katelyn's track record confirmed
+  ✓ Correction 3: No verification needed (narrative only)
+  ✓ Correction 4: Verified (confidence: 0.88) - Portfolio construction confirmed
+
+📝 Applying corrections...
+  Correction 1 (inaccurate):
+    ✓ Fund Strategy & Thesis (3 instances corrected)
+    ✓ Portfolio Construction (2 instances corrected)
+    ✓ Fee Structure & Economics (4 instances corrected)
+    ✓ Executive Summary (2 instances corrected)
+
+  Correction 2 (incomplete):
+    ✓ GP Background & Track Record (added Pearson metrics)
+    ✓ Executive Summary (added track record summary)
+
+  Correction 3 (narrative):
+    ✓ Investment Thesis (toned down promotional language, added comparisons)
+
+  Correction 4 (mixed):
+    ✓ Portfolio Construction (corrected count, added reserve strategy)
+    ✓ Fund Strategy & Thesis (added reserve discussion)
+
+✅ Reassembled final draft: output/Avalanche-v0.0.1/4-final-draft.md
+
+📊 Correction Summary:
+  Total corrections: 4
+  Sections modified: 7/10
+  Instances corrected: 15
+  Citations added: 8
+  Narrative improvements: 1 section
+
+📝 Correction log saved: output/Avalanche-v0.0.1/corrections-log.json
+
+Next steps:
+  1. Review corrections: output/Avalanche-v0.0.1/2-sections/
+  2. View final draft: output/Avalanche-v0.0.1/4-final-draft.md
+  3. Export to HTML: python export-branded.py output/Avalanche-v0.0.1/4-final-draft.md
+```
+
+---
+
+#### Benefits of YAML Approach
+
+**1. Comprehensive Corrections**
+- Single file can fix multiple issues across entire memo
+- Supports fact corrections, additions, and narrative guidance
+- Clear categorization of correction types
+
+**2. Source Integration**
+- Reference authoritative sources for verification
+- Automatically verify corrections with Sonar Pro
+- Add citations to newly added facts
+
+**3. Narrative Control**
+- Shape tone and framing with explicit guidance
+- Not just facts—control how facts are presented
+- Maintain analytical rigor vs promotional tone
+
+**4. Audit Trail**
+- Correction YAML files tracked in version control
+- `corrections-log.json` records what was changed
+- Easy to understand what was corrected and why
+
+**5. Reusability**
+- Save correction templates for common issues
+- Apply same corrections to multiple memo versions
+- Share correction patterns across projects
+
+**6. Batch Efficiency**
+- Fix 10+ issues in one run
+- Fewer API calls than iterative corrections
+- Consistent application across all sections
+
+---
+
 ### Architecture Design
 
 **New Agent**: `src/agents/key_info_rewrite.py`
@@ -756,33 +1140,191 @@ Next steps:
 
 ---
 
-### Implementation Steps
+### Implementation Steps (YAML-Based)
 
-#### Step 1: Create Agent Core
+#### Step 0: Create YAML Template
 
-**New File**: `src/agents/key_info_rewrite.py`
+**New File**: `templates/corrections-template.yaml`
+
+**Content**:
+```yaml
+# Investment Memo Correction Template
+# Copy to data/{CompanyName}-corrections.yaml and fill in corrections
+
+company: "CompanyName"
+version: "v0.0.1"  # Optional: Which memo version to correct (default: latest)
+date_created: "YYYY-MM-DD"
+
+corrections:
+  # Example 1: Inaccurate information
+  - type: "inaccurate"
+    inaccurate_information: |
+      Describe what's incorrect in the memo
+    correct_information: |
+      Provide the correct information
+    affected_sections:
+      - "Section Name 1"
+      - "Section Name 2"
+    sources:
+      - "https://source-url.com"
+      - "data/document.pdf"
+    narrative_shaping_comments:
+      - "Guidance on how to frame this correction"
+      - "Additional context or emphasis"
+
+  # Example 2: Incomplete information
+  - type: "incomplete"
+    incomplete_information: |
+      Describe what's missing
+    additional_information: |
+      Provide the missing information
+    affected_sections:
+      - "Section Name"
+    sources:
+      - "https://source-url.com"
+    narrative_shaping_comments:
+      - "How to integrate this information"
+
+  # Example 3: Narrative shaping only
+  - type: "narrative"
+    section: "Section Name"
+    narrative_shaping_comments:
+      - "Remove promotional language"
+      - "Add balanced risk discussion"
+      - "Quantify vague claims"
+    sources:
+      - "https://competitor-comparison.com"
+
+  # Example 4: Mixed correction
+  - type: "mixed"
+    inaccurate_information: "What's wrong"
+    correct_information: "What's correct"
+    incomplete_information: "What's missing"
+    additional_information: "What to add"
+    affected_sections:
+      - "Section 1"
+      - "Section 2"
+    sources:
+      - "https://source.com"
+    narrative_shaping_comments:
+      - "How to present this holistically"
+```
+
+#### Step 1: Create YAML Parser & Schema
+
+**New File**: `src/corrections.py`
 
 **Implement**:
-1. `analyze_correction()` - Parse correction instruction
-2. `identify_affected_sections()` - Scan for errors
-3. `correct_section()` - Apply correction
-4. `reassemble_after_correction()` - Rebuild final draft
-5. `key_information_rewrite_agent()` - Main agent function
+```python
+from dataclasses import dataclass
+from typing import List, Optional
+from pathlib import Path
+import yaml
+
+@dataclass
+class CorrectionObject:
+    """Represents a single correction from YAML."""
+    type: str  # "inaccurate", "incomplete", "narrative", "mixed"
+    inaccurate_info: Optional[str] = None
+    correct_info: Optional[str] = None
+    incomplete_info: Optional[str] = None
+    additional_info: Optional[str] = None
+    affected_sections: List[str] = None
+    section: Optional[str] = None  # For narrative-only corrections
+    sources: List[str] = None
+    narrative_comments: List[str] = None
+
+    def __post_init__(self):
+        if self.affected_sections is None:
+            self.affected_sections = []
+        if self.sources is None:
+            self.sources = []
+        if self.narrative_comments is None:
+            self.narrative_comments = []
+
+def load_corrections_yaml(corrections_file: Path) -> dict:
+    """Load and validate corrections YAML file."""
+    with open(corrections_file) as f:
+        data = yaml.safe_load(f)
+
+    # Validate schema
+    validate_corrections_schema(data)
+
+    return data
+
+def validate_corrections_schema(data: dict) -> None:
+    """Validate YAML structure and required fields."""
+    required_top = ["company", "corrections"]
+    for field in required_top:
+        if field not in data:
+            raise ValueError(f"Missing required field: {field}")
+
+    for i, corr in enumerate(data["corrections"]):
+        if "type" not in corr:
+            raise ValueError(f"Correction {i+1}: Missing 'type' field")
+
+        corr_type = corr["type"]
+
+        if corr_type == "inaccurate":
+            required = ["inaccurate_information", "correct_information", "affected_sections"]
+            for field in required:
+                if field not in corr:
+                    raise ValueError(f"Correction {i+1} (inaccurate): Missing '{field}'")
+
+        elif corr_type == "incomplete":
+            required = ["incomplete_information", "additional_information", "affected_sections"]
+            for field in required:
+                if field not in corr:
+                    raise ValueError(f"Correction {i+1} (incomplete): Missing '{field}'")
+
+        elif corr_type == "narrative":
+            required = ["section", "narrative_shaping_comments"]
+            for field in required:
+                if field not in corr:
+                    raise ValueError(f"Correction {i+1} (narrative): Missing '{field}'")
+
+        elif corr_type == "mixed":
+            required = ["affected_sections"]
+            for field in required:
+                if field not in corr:
+                    raise ValueError(f"Correction {i+1} (mixed): Missing '{field}'")
+
+        else:
+            raise ValueError(f"Correction {i+1}: Invalid type '{corr_type}'")
+
+def parse_corrections(data: dict) -> List[CorrectionObject]:
+    """Parse validated YAML into CorrectionObject list."""
+    corrections = []
+    for corr in data["corrections"]:
+        corrections.append(CorrectionObject(
+            type=corr["type"],
+            inaccurate_info=corr.get("inaccurate_information"),
+            correct_info=corr.get("correct_information"),
+            incomplete_info=corr.get("incomplete_information"),
+            additional_info=corr.get("additional_information"),
+            affected_sections=corr.get("affected_sections", []),
+            section=corr.get("section"),
+            sources=corr.get("sources", []),
+            narrative_comments=corr.get("narrative_shaping_comments", [])
+        ))
+    return corrections
+```
 
 **Testing**:
 ```python
-# Unit test
-def test_analyze_correction():
-    result = analyze_correction(
-        "Fund size is $10M, not $50M",
-        "Avalanche"
-    )
-    assert result.incorrect_info == "$50M"
-    assert result.correct_info == "$10M"
-    assert "fifty million" in result.semantic_variations
+def test_load_corrections_yaml():
+    yaml_content = """
+company: "TestCo"
+corrections:
+  - type: "inaccurate"
+    inaccurate_information: "Wrong info"
+    correct_information: "Right info"
+    affected_sections: ["Team"]
+"""
+    # Test parsing and validation
 ```
 
-#### Step 2: Create CLI Script
+#### Step 2: Create CLI Script with YAML Support
 
 **New File**: `rewrite-key-info.py`
 
@@ -790,30 +1332,63 @@ def test_analyze_correction():
 ```python
 #!/usr/bin/env python3
 """
-Correct crucial information that affects multiple memo sections.
+Correct crucial information in investment memos using YAML correction files.
 
 USAGE:
-    python rewrite-key-info.py "Company" --correction "Fund size is $10M, not $50M"
+    python rewrite-key-info.py "Company" --corrections data/Company-corrections.yaml
+    python rewrite-key-info.py "Company" --corrections data/Company-corrections.yaml --verify-sources
 """
 
 import argparse
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
-from src.agents.key_info_rewrite import key_information_rewrite_agent
+from src.corrections import load_corrections_yaml, parse_corrections
+from src.agents.key_info_rewrite import apply_corrections_to_memo
 from src.utils import get_latest_output_dir
 
 def main():
-    parser = argparse.ArgumentParser(description="Correct key information across memo")
+    parser = argparse.ArgumentParser(
+        description="Apply YAML-based corrections to investment memos"
+    )
     parser.add_argument("target", help="Company name or path to artifact directory")
-    parser.add_argument("--correction", required=True, help="Correction instruction")
+    parser.add_argument("--corrections", required=True, help="Path to corrections YAML file")
     parser.add_argument("--version", help="Specific version (default: latest)")
+    parser.add_argument("--verify-sources", action="store_true",
+                       help="Verify corrections with Perplexity Sonar Pro")
     parser.add_argument("--preview", action="store_true", help="Preview without saving")
-    parser.add_argument("--update-research", action="store_true", help="Update research data too")
 
     args = parser.parse_args()
 
-    # ... implementation ...
+    console = Console()
+
+    # Load corrections YAML
+    corrections_file = Path(args.corrections)
+    if not corrections_file.exists():
+        console.print(f"[red]Error: Corrections file not found:[/red] {corrections_file}")
+        sys.exit(1)
+
+    console.print(f"[bold]Loading corrections:[/bold] {corrections_file}")
+    data = load_corrections_yaml(corrections_file)
+    corrections = parse_corrections(data)
+
+    console.print(f"  Company: {data['company']}")
+    console.print(f"  Corrections: {len(corrections)}")
+
+    # Determine artifact directory
+    # ... (similar to improve-section.py)
+
+    # Apply corrections
+    result = apply_corrections_to_memo(
+        artifact_dir=artifact_dir,
+        corrections=corrections,
+        verify_sources=args.verify_sources,
+        preview=args.preview,
+        console=console
+    )
+
+    # Display summary
+    # ...
 ```
 
 #### Step 3: State Schema Updates
@@ -1091,53 +1666,61 @@ Do NOT use when:
 
 ---
 
-### Step 5: Feature #2 - Agent Core
+### Step 5: Feature #2 - YAML Template & Parser
 
-**Objective**: Create key_info_rewrite agent with correction logic
+**Objective**: Create correction YAML template and parser
 
 **Tasks**:
-- [ ] Create src/agents/key_info_rewrite.py
-- [ ] Implement analyze_correction()
-- [ ] Implement identify_affected_sections()
-- [ ] Implement correct_section()
-- [ ] Write unit tests
+- [ ] Create templates/corrections-template.yaml
+- [ ] Create src/corrections.py with CorrectionObject dataclass
+- [ ] Implement load_corrections_yaml()
+- [ ] Implement validate_corrections_schema()
+- [ ] Implement parse_corrections()
+- [ ] Write unit tests for YAML parsing
 
 **Deliverables**:
-- Working agent module
+- Working YAML template
+- Validated YAML parser
 - Unit tests passing
 
 ---
 
-### Step 6: Feature #2 - CLI Script
+### Step 6: Feature #2 - Agent Core (YAML-Based)
 
-**Objective**: Create standalone CLI for key information corrections
+**Objective**: Create key_info_rewrite agent with YAML corrections support
+
+**Tasks**:
+- [ ] Create src/agents/key_info_rewrite.py
+- [ ] Implement apply_correction_to_section() with narrative guidance
+- [ ] Implement apply_corrections_to_memo() (batch processor)
+- [ ] Optional: Implement verify_corrections_with_sources() (Sonar Pro)
+- [ ] Implement reassemble_after_correction()
+- [ ] Handle all 4 correction types (inaccurate, incomplete, narrative, mixed)
+- [ ] Write unit tests
+
+**Deliverables**:
+- Working agent module
+- Support for all correction types
+- Unit tests passing
+
+---
+
+### Step 7: Feature #2 - CLI Script (YAML-Based)
+
+**Objective**: Create standalone CLI for YAML-based corrections
 
 **Tasks**:
 - [ ] Create rewrite-key-info.py
-- [ ] Implement argument parsing
+- [ ] Implement --corrections flag (required, YAML path)
+- [ ] Implement --verify-sources flag (optional, uses Sonar Pro)
 - [ ] Add preview mode
-- [ ] Implement reassembly
-- [ ] Add rich console output
+- [ ] Implement rich console output with progress
+- [ ] Save corrections-log.json for audit trail
 
 **Deliverables**:
 - Working CLI script
 - Help documentation
-
----
-
-### Step 7: Feature #2 - Research Data Updates
-
-**Objective**: Add deep mode to update research artifacts
-
-**Tasks**:
-- [ ] Implement --update-research flag
-- [ ] Update 1-research.json
-- [ ] Update 1-research.md
-- [ ] Test with research data conflicts
-
-**Deliverables**:
-- Research update feature
-- Conflict detection warnings
+- Example YAML files
 
 ---
 
