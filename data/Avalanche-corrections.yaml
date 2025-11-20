@@ -1,0 +1,79 @@
+# Investment Memo Corrections for Avalanche VC Fund II
+# Edit this file with your desired corrections before running
+
+company: "Avalanche"
+
+# VERSION MANAGEMENT
+source_version: "v0.0.3"  # Edit: Which version to correct (or use "latest")
+output_mode: "new_version"  # "new_version" creates v0.0.2, "in_place" overwrites v0.0.1
+
+date_created: "2025-11-20"
+
+corrections:
+  # Example Correction 1: Fund Size (if this is an issue in your memo)
+  # Uncomment and edit if needed:
+  - type: "inaccurate"
+    inaccurate_information: |
+      The memo states that Avalanche VC Fund II is raising $50M
+    correct_information: |
+      Fund II closed at $4M, and had a target of $5M
+    affected_sections:
+      - "Business Overview"
+      - "Funding & Terms"
+      - "Investment Thesis"
+      - "Executive Summary"
+      - "Recommendation"
+    # sources:
+    #   - "https://avalanche.vc/fund-ii"
+    #   - "data/Avalanche-deck.pdf"
+    narrative_shaping_comments:
+      - "Emphasize that sub ~$10M fund sizes have a higher likelihood of creating outsized multiples"
+      - "Connect fund size to check size strategy ($50K-$200K initial)"
+      - "Frame smaller fund as competitive advantage for emerging EdTech companies and better for LPs"
+
+  # Example Correction 2: Add Missing GP Track Record Details
+  # Uncomment and edit if needed:
+#   - type: "incomplete"
+#     incomplete_information: |
+#       The team page is incomplete relative to other people on the website team page. 
+#     additional_information: |
+#       At Pearson Ventures, Katelyn Donnelly managed a $65M fund that delivered
+#       an 18% IRR over its investment period, significantly outperforming the
+#       venture capital industry median of 12-14% IRR for similar vintage years.
+#     affected_sections:
+#       - "GP Background & Track Record"
+#      - "Executive Summary"
+  #   sources:
+  #     - "https://www.linkedin.com/in/katelyndonnelly/"
+  #     - "data/Avalanche-deck.pdf"
+  #   narrative_shaping_comments:
+  #     - "Highlight the 18% IRR as significantly above industry average"
+  #     - "Connect Pearson Ventures experience to EdTech sector expertise"
+
+  # Example Correction 3: Improve Investment Thesis Tone
+  # Uncomment and edit if needed:
+  # - type: "narrative"
+  #   section: "Investment Thesis"
+  #   narrative_shaping_comments:
+  #     - "Reduce promotional language ('revolutionary', 'game-changing')"
+  #     - "Add more balanced discussion of risks alongside opportunities"
+  #     - "Include specific competitive comparisons (Reach Capital, Learn Capital)"
+  #     - "Quantify claims wherever possible (e.g., 'market leader' → 'top 3 in EdTech seed funds')"
+  #   sources:
+  #     - "https://www.crunchbase.com/organization/reach-capital"
+  #     - "https://www.crunchbase.com/organization/learn-capital"
+
+  # ADD YOUR CORRECTIONS BELOW:
+  # Copy the examples above and customize for your specific needs
+
+# Available Section Names for Fund Memos:
+# - "Executive Summary"
+# - "GP Background & Track Record"
+# - "Fund Strategy & Thesis"
+# - "Portfolio Construction"
+# - "Value Add & Differentiation"
+# - "Track Record Analysis"
+# - "Fee Structure & Economics"
+# - "LP Base & References"
+# - "Risks & Mitigations"
+# - "Recommendation"
