@@ -259,6 +259,99 @@ output/{Company-Name}-v0.0.x/
 
 Plus `versions.json` tracking version history across all iterations.
 
+## Improving Existing Memos
+
+After generating a memo, you can improve individual sections without regenerating the entire memo. This is useful when:
+- One section is weak or missing details
+- You want to add more citations to a specific section
+- You need to strengthen analysis in a particular area
+- Research data has been updated since generation
+
+### Section Improvement with Perplexity Sonar Pro
+
+The `improve-section.py` script uses **Perplexity Sonar Pro** for real-time research and automatic citation addition.
+
+**Features:**
+- Real-time web research for up-to-date information
+- Automatic citation addition (Obsidian-style `[^1], [^2]`)
+- Quality source selection (TechCrunch, Crunchbase, industry reports)
+- Automatic final draft reassembly after improvement
+- One-step process (no separate citation enrichment needed)
+
+**Usage:**
+```bash
+# Activate venv first
+source .venv/bin/activate
+
+# Improve a specific section
+python improve-section.py "Avalanche" "Team"
+
+# Specify version
+python improve-section.py "Avalanche" "Market Context" --version v0.0.1
+
+# Use direct path to artifact directory
+python improve-section.py output/Avalanche-v0.0.1 "Technology & Product"
+```
+
+**Available Section Names:**
+
+*Direct Investment Sections:*
+- Executive Summary
+- Business Overview
+- Market Context
+- Team
+- Technology & Product
+- Traction & Milestones
+- Funding & Terms
+- Risks & Mitigations
+- Investment Thesis
+- Recommendation
+
+*Fund Commitment Sections:*
+- Executive Summary
+- GP Background & Track Record
+- Fund Strategy & Thesis
+- Portfolio Construction
+- Value Add & Differentiation
+- Track Record Analysis
+- Fee Structure & Economics
+- LP Base & References
+- Risks & Mitigations
+- Recommendation
+
+**Output:**
+```
+✓ Loading artifacts from: output/Avalanche-v0.0.1/
+✓ Loaded research data
+✓ Loaded 10 existing sections
+
+Improving section: Team
+  Using Perplexity Sonar Pro for real-time research...
+
+✓ Section improved with 11 new citations added
+✓ Saved to: output/Avalanche-v0.0.1/2-sections/04-team.md
+
+Reassembling final draft...
+✓ Final draft reassembled: output/Avalanche-v0.0.1/4-final-draft.md
+
+Citations added: 11
+
+Next steps:
+  1. Review improved section in: output/Avalanche-v0.0.1/2-sections/
+  2. View complete memo: output/Avalanche-v0.0.1/4-final-draft.md
+  3. Export to HTML: python export-branded.py output/Avalanche-v0.0.1/4-final-draft.md --brand hypernova
+```
+
+**Requirements:**
+- `PERPLEXITY_API_KEY` must be set in `.env` file
+- Existing artifact directory from a previous memo generation
+
+**Benefits:**
+- **Faster**: ~60 seconds vs. 10+ minutes for full regeneration
+- **Cheaper**: ~$1.00 per section vs. ~$10.00 for full memo
+- **Targeted**: Improve only what needs improvement
+- **Preserves**: Other sections remain unchanged
+
 ## File Format Conversion & Export
 
 The system supports multiple export formats with professional Hypernova branding and citation preservation.

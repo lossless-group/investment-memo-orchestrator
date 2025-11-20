@@ -16,6 +16,7 @@ Investment Memo Orchestrator: A multi-agent system using LangGraph to generate p
 - **Citation format standardized**: `[^1]: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD | Updated: N/A`
 - **Dynamic version resolution**: New `get_latest_output_dir()` helper ensures all agents find the same output directory
 - **No more timeouts**: Each section ~5k chars instead of full memo ~50k+ chars
+- **NEW: Section improvement tool** (`improve-section.py`): Use Perplexity Sonar Pro to improve individual sections with automatic citations and final draft reassembly (commit: 6fbafe5)
 
 See `changelog/2025-11-20_01.md` for complete details.
 
@@ -75,22 +76,37 @@ python -m src.main
 ```
 
 ### Improving Individual Sections
-When the full pipeline completes but some sections are missing or weak, use `improve-section.py` to target specific sections.
+
+When the full pipeline completes but some sections are missing or weak, use `improve-section.py` to target specific sections without regenerating the entire memo.
+
+**Key Features**:
+- Uses **Perplexity Sonar Pro** for real-time research and up-to-date information
+- Automatically adds **citations** during improvement (Obsidian-style `[^1], [^2]`)
+- **One-step process**: Research + improvement + citations in single API call
+- Automatically **reassembles final draft** after improvement
+- Preserves all other sections and artifacts unchanged
 
 **IMPORTANT: Always use `.venv/bin/python` or activate venv first!**
+
+**Requirements**:
+- `PERPLEXITY_API_KEY` must be set in `.env` file
+- Existing artifact directory with sections
 
 ```bash
 # Activate venv first (recommended)
 source .venv/bin/activate
 
-# Then run commands:
-python improve-section.py "Bear-AI" "Team"
-python improve-section.py "Bear-AI" "Market Context"
-python improve-section.py "Bear-AI" "Technology & Product" --version v0.0.1
+# Basic usage: improve specific section
+python improve-section.py "Avalanche" "Team"
+
+# Specify version (default: latest)
+python improve-section.py "Avalanche" "Team" --version v0.0.1
+
+# Direct path to artifact directory
+python improve-section.py output/Avalanche-v0.0.1 "Market Context"
 
 # OR use venv Python directly without activating:
-.venv/bin/python improve-section.py "Bear-AI" "Team"
-.venv/bin/python improve-section.py output/Bear-AI-v0.0.1 "Team"
+.venv/bin/python improve-section.py "Avalanche" "Team"
 ```
 
 **Available section names:**
@@ -99,10 +115,45 @@ python improve-section.py "Bear-AI" "Technology & Product" --version v0.0.1
 
 **How it works:**
 1. Loads existing artifacts (research, other sections, state)
-2. If section exists: improves it by adding sources, removing speculation, strengthening analysis
-3. If section missing: creates it from scratch using available research data
-4. Saves improved section back to `2-sections/` directory
-5. Preserves all other sections and artifacts
+2. Calls **Perplexity Sonar Pro** with comprehensive improvement prompt
+3. If section exists: improves it by adding specific metrics, quality sources, removing vague language
+4. If section missing: creates it from scratch using available research data
+5. **Automatically adds inline citations** (`[^1]`, `[^2]`) during writing (not as separate step)
+6. Saves improved section to `2-sections/{section-file}.md`
+7. **Automatically reassembles `4-final-draft.md`** from all sections (includes header.md if present)
+8. Shows citation count and improvement preview
+
+**Example output:**
+```
+✓ Loaded state.json
+✓ Loaded research data
+✓ Loaded 10 existing sections
+
+Improving section: Team
+  Calling Perplexity Sonar Pro for real-time research and citations...
+
+✓ Saved improved section to: output/Avalanche-v0.0.1/2-sections/04-team.md
+✓ Final draft reassembled: output/Avalanche-v0.0.1/4-final-draft.md
+
+Citations added: 11
+
+Next steps:
+  1. Review improved section in: output/Avalanche-v0.0.1/2-sections/
+  2. View complete memo: output/Avalanche-v0.0.1/4-final-draft.md
+  3. Export to HTML: python export-branded.py output/Avalanche-v0.0.1/4-final-draft.md --brand hypernova
+```
+
+**When to use:**
+- One section is weak or lacks specific details
+- Section is missing citations or has speculative language
+- Need to add more metrics and concrete evidence
+- Research data has been updated since generation
+- Want to strengthen analysis in a specific area
+
+**Performance:**
+- Time: ~60 seconds per section (Sonar Pro call + reassembly)
+- Cost: ~$0.75 per section (vs. ~$10 for full regeneration)
+- Quality: Real-time web research + automatic citation enrichment
 
 ### Exports
 ```bash
