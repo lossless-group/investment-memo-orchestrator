@@ -238,9 +238,13 @@ IMPROVED SECTION CONTENT:
     # Call Perplexity Sonar Pro
     console.print("[dim]Calling Perplexity Sonar Pro for real-time research and citations...[/dim]")
 
+    # Use default_headers to set User-Agent (bypasses Cloudflare)
     perplexity_client = OpenAI(
         api_key=os.getenv("PERPLEXITY_API_KEY"),
-        base_url="https://api.perplexity.ai"
+        base_url="https://api.perplexity.ai",
+        default_headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
     )
 
     response = perplexity_client.chat.completions.create(

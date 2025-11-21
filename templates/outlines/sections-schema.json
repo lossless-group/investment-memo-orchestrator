@@ -1,0 +1,332 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://hypernova.capital/schemas/memo-outline-v1.json",
+  "title": "Investment Memo Outline Schema",
+  "description": "Schema for validating investment memo outline YAML files",
+  "type": "object",
+  "required": ["metadata", "vocabulary", "sections"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["outline_type", "version", "description", "compatible_modes"],
+      "properties": {
+        "outline_type": {
+          "type": "string",
+          "enum": ["direct_investment", "fund_commitment"],
+          "description": "Type of investment memo"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version (e.g., 1.0.0)"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Brief description of this outline"
+        },
+        "date_created": {
+          "type": "string",
+          "format": "date",
+          "description": "Date outline was created (YYYY-MM-DD)"
+        },
+        "compatible_modes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["consider", "justify"]
+          },
+          "minItems": 1,
+          "description": "Memo modes compatible with this outline"
+        },
+        "firm": {
+          "type": "string",
+          "description": "Firm name (for custom outlines)"
+        },
+        "extends": {
+          "type": "string",
+          "description": "Path to base outline (for custom outlines)"
+        }
+      }
+    },
+    "vocabulary": {
+      "type": "object",
+      "description": "Global vocabulary rules applying to all sections",
+      "properties": {
+        "style_rules": {
+          "type": "object",
+          "properties": {
+            "tone": {"type": "string"},
+            "voice": {"type": "string"},
+            "tense": {"type": "string"},
+            "numbers": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "abbreviations": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "citations": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Array of section definitions",
+      "items": {
+        "type": "object",
+        "required": ["number", "name", "filename", "target_length", "description", "guiding_questions", "section_vocabulary", "validation_criteria"],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Section number (1-based)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Section name"
+          },
+          "filename": {
+            "type": "string",
+            "pattern": "^\\d{2}-[a-z0-9-]+\\.md$",
+            "description": "Output filename (e.g., 01-executive-summary.md)"
+          },
+          "target_length": {
+            "type": "object",
+            "required": ["min_words", "max_words", "ideal_words"],
+            "properties": {
+              "min_words": {
+                "type": "integer",
+                "minimum": 50
+              },
+              "max_words": {
+                "type": "integer",
+                "minimum": 100
+              },
+              "ideal_words": {
+                "type": "integer",
+                "minimum": 75
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Detailed description of section purpose"
+          },
+          "guiding_questions": {
+            "type": "array",
+            "minItems": 3,
+            "description": "Questions the LLM should address in this section",
+            "items": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "section_vocabulary": {
+            "type": "object",
+            "description": "Vocabulary guidance specific to this section",
+            "properties": {
+              "preferred_terms": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "required_elements": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "avoid": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "structure_template": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "critical_rules": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "required_format": {
+                "type": "object",
+                "additionalProperties": {"type": "string"}
+              }
+            }
+          },
+          "mode_specific": {
+            "type": "object",
+            "description": "Mode-specific guidance (consider vs justify)",
+            "properties": {
+              "consider": {
+                "type": "object",
+                "properties": {
+                  "emphasis": {"type": "string"},
+                  "recommendation_options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["PASS", "CONSIDER", "COMMIT"]
+                    }
+                  },
+                  "tone": {"type": "string"},
+                  "required_elements": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  },
+                  "required_analysis": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  },
+                  "guiding_questions_add": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  },
+                  "guiding_questions_by_recommendation": {
+                    "type": "object",
+                    "properties": {
+                      "pass": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                      },
+                      "consider": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                      },
+                      "commit": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "justify": {
+                "type": "object",
+                "properties": {
+                  "emphasis": {"type": "string"},
+                  "recommendation_options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["COMMIT"]
+                    }
+                  },
+                  "tone": {"type": "string"},
+                  "required_elements": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  },
+                  "required_analysis": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  },
+                  "guiding_questions_add": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                  }
+                }
+              }
+            }
+          },
+          "validation_criteria": {
+            "type": "array",
+            "minItems": 3,
+            "description": "Criteria for validating section quality",
+            "items": {
+              "type": "string",
+              "minLength": 10
+            }
+          }
+        }
+      }
+    },
+    "cross_section_requirements": {
+      "type": "object",
+      "description": "Requirements that apply across all sections",
+      "properties": {
+        "citation_consistency": {
+          "type": "object",
+          "properties": {
+            "description": {"type": "string"},
+            "format": {"type": "string"},
+            "spacing": {"type": "string"},
+            "consolidation": {"type": "string"}
+          }
+        },
+        "length_balance": {
+          "type": "object",
+          "properties": {
+            "description": {"type": "string"},
+            "guideline": {"type": "string"}
+          }
+        },
+        "terminology_consistency": {
+          "type": "object",
+          "properties": {
+            "description": {"type": "string"},
+            "examples": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "narrative_flow": {
+          "type": "object",
+          "properties": {
+            "description": {"type": "string"},
+            "sequence": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "firm_preferences": {
+      "type": "object",
+      "description": "Firm-specific preferences (for custom outlines)",
+      "properties": {
+        "tone": {"type": "string"},
+        "recommendation_philosophy": {"type": "string"},
+        "emphasis": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "critical_questions": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "section_overrides": {
+      "type": "object",
+      "description": "Section-specific overrides (for custom outlines)",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "target_length": {
+            "type": "object",
+            "properties": {
+              "ideal_words": {"type": "integer"}
+            }
+          },
+          "guiding_questions_add": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "emphasis": {"type": "string"},
+          "minimum_risks": {"type": "integer"},
+          "weight": {"type": "number"}
+        }
+      }
+    }
+  }
+}

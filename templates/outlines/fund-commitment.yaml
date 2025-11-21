@@ -1,0 +1,862 @@
+# Fund Commitment Memo Outline
+# Default structure for evaluating LP fund commitments
+
+metadata:
+  outline_type: "fund_commitment"
+  version: "1.0.0"
+  description: "10-section structure for evaluating LP commitments to VC funds"
+  date_created: "2025-11-21"
+  compatible_modes: ["consider", "justify"]
+
+# Global vocabulary (applies to all sections)
+vocabulary:
+  lp_terms:
+    preferred:
+      - term: "general partner (GP)"
+        first_use: "general partner (GP)"
+        subsequent: "GP"
+        definition: "Fund manager responsible for investment decisions"
+
+      - term: "limited partner (LP)"
+        first_use: "limited partner (LP)"
+        subsequent: "LP"
+        definition: "Investor in the fund (passive role)"
+
+      - term: "distributed to paid-in capital (DPI)"
+        first_use: "distributed to paid-in capital (DPI)"
+        subsequent: "DPI"
+        definition: "Cash returned to LPs divided by capital called"
+
+      - term: "total value to paid-in capital (TVPI)"
+        first_use: "total value to paid-in capital (TVPI)"
+        subsequent: "TVPI"
+        definition: "Total value (distributions + NAV) divided by capital called"
+
+      - term: "internal rate of return (IRR)"
+        first_use: "internal rate of return (IRR)"
+        subsequent: "IRR"
+        definition: "Annualized return rate accounting for timing of cash flows"
+
+      - term: "net IRR"
+        usage: "IRR after management fees and carry"
+
+      - term: "carried interest"
+        usage: "GP's share of profits, typically 20%"
+
+    avoid:
+      - term: "returns"
+        instead: "Specify DPI, TVPI, or IRR"
+        reason: "Ambiguous - could mean multiple metrics"
+
+      - term: "performance"
+        instead: "Use specific metrics (DPI, IRR, TVPI)"
+        reason: "Too vague"
+
+  fund_terms:
+    preferred:
+      - term: "fund size"
+        usage: "Total committed capital"
+
+      - term: "vintage year"
+        usage: "Year fund began investing"
+
+      - term: "management fee"
+        usage: "Annual fee as % of committed capital"
+
+      - term: "hurdle rate"
+        usage: "Minimum return before GP receives carry"
+
+      - term: "deployment period"
+        usage: "Timeline for investing committed capital"
+
+    avoid:
+      - term: "fund"
+        instead: "Specify: Fund I, Fund II, current fund"
+        reason: "Unclear which fund when GP has multiple"
+
+  phrases_to_avoid:
+    promotional:
+      - phrase: "top-tier GP"
+        reason: "Subjective, cite specific track record"
+
+      - phrase: "best-in-class"
+        reason: "Use benchmark comparisons instead"
+
+      - phrase: "proven track record"
+        reason: "Show actual DPI, TVPI, IRR numbers"
+
+    vague:
+      - phrase: "strong returns"
+        reason: "Quantify with DPI, TVPI, IRR"
+
+      - phrase: "good performance"
+        reason: "Specify metrics vs benchmarks"
+
+      - phrase: "experienced GP"
+        reason: "State years, prior roles, funds managed"
+
+      - phrase: "significant LP base"
+        reason: "Give number of LPs or re-up rate"
+
+    speculative:
+      - phrase: "should deliver"
+        reason: "Focus on historical performance and current strategy"
+
+      - phrase: "well-positioned to"
+        reason: "State actual advantages, not speculation"
+
+  style_rules:
+    tone: "Professional, analytical, balanced - not promotional"
+    voice: "Active voice preferred"
+    tense: "Present tense for current fund, past tense for prior funds"
+
+    numbers:
+      - "Spell out numbers one through nine"
+      - "Use numerals for 10 and above"
+      - "Use numerals for all metrics and financial figures"
+      - "Use dollar signs: $150M not 150M dollars"
+      - "Use percentages: 25% not twenty-five percent"
+      - "Use 'x' for multiples: 3.2x DPI not 3.2 DPI"
+
+    abbreviations:
+      - "Define LP/GP terms on first use"
+      - "Use acronyms on subsequent uses"
+      - "Exception: Common terms (VC, M&A, IPO) need not be defined"
+
+    citations:
+      - "Obsidian-style: [^1], [^2], [^3]"
+      - "Place after punctuation with space: 'text. [^1]'"
+      - "Format: [^1]: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD"
+
+# Section definitions
+sections:
+  - number: 1
+    name: "Executive Summary"
+    filename: "01-executive-summary.md"
+    target_length:
+      min_words: 150
+      max_words: 250
+      ideal_words: 200
+
+    description: |
+      Concise overview of the LP commitment opportunity, synthesizing
+      GP track record, fund strategy, and recommendation. Should stand
+      alone as complete summary.
+
+    guiding_questions:
+      - "Who is the GP/firm?"
+      - "What is the fund strategy? (sector, stage, geography)"
+      - "What is the track record? (DPI, TVPI, IRR for prior funds)"
+      - "What is the fund size and our proposed commitment?"
+      - "What are the key strengths of this GP?"
+      - "What are the key risks?"
+      - "What is the recommendation (PASS/CONSIDER/COMMIT) and primary rationale?"
+
+    section_vocabulary:
+      required_elements:
+        - GP/firm name
+        - Fund strategy summary (sector, stage, geography)
+        - Prior fund performance (at least DPI or TVPI)
+        - Fund size and our commitment
+        - Clear recommendation with rationale
+        - 2-3 key risks
+
+      preferred_terms:
+        - "track record (not performance alone)"
+        - "fund strategy (not investment approach)"
+        - "LP commitment (not investment in fund)"
+
+      avoid:
+        - "Top-tier GP (without evidence)"
+        - "Strong returns (quantify!)"
+        - "Proven manager (show the proof)"
+        - Vague strategy descriptions
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of GP and fund opportunity"
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+
+      justify:
+        emphasis: "Clear rationale for why commitment was made"
+        recommendation_options: ["COMMIT"]
+
+    validation_criteria:
+      - "GP/firm identified"
+      - "Fund strategy clearly stated"
+      - "Prior fund metrics included (DPI, TVPI, or IRR)"
+      - "Fund size and our commitment specified"
+      - "Clear recommendation (PASS/CONSIDER/COMMIT)"
+      - "2-3 risks identified"
+      - "No promotional language without data"
+
+  - number: 2
+    name: "GP Background & Track Record"
+    filename: "02-gp-background--track-record.md"
+    target_length:
+      min_words: 500
+      max_words: 700
+      ideal_words: 600
+
+    description: |
+      Detailed assessment of the general partner(s), firm history,
+      investment team, and historical track record with specific
+      performance metrics.
+
+    guiding_questions:
+      - "Who are the GPs? (names, backgrounds, prior experience)"
+      - "What is the firm history? (founding story, evolution)"
+      - "How many funds has the GP raised? (list with vintages)"
+      - "What is the track record? (DPI, TVPI, IRR for each prior fund)"
+      - "What notable exits or winners?"
+      - "What is the investment team structure and size?"
+      - "What key hires have been made?"
+      - "What is the investment discipline and decision-making process?"
+      - "How does performance compare to benchmarks?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "general partner (GP) (define on first use)"
+        - "distributed to paid-in capital (DPI) (define)"
+        - "total value to paid-in capital (TVPI) (define)"
+        - "internal rate of return (IRR) (define)"
+        - "net IRR (after fees and carry)"
+        - "vintage year (year fund started investing)"
+
+      required_elements:
+        - GP names with backgrounds
+        - Prior fund performance table (Fund, Vintage, Size, DPI, TVPI, IRR)
+        - Notable exits with entry/exit details
+        - Investment team size and structure
+        - Benchmark comparison
+
+      avoid:
+        - "Strong track record (show the numbers)"
+        - "Proven investor (cite specific wins)"
+        - "Experienced team (state years, funds managed)"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical evaluation of GP capability and track record"
+        required_analysis:
+          - "Performance vs benchmarks (Cambridge Associates, Preqin)"
+          - "Consistency across funds"
+          - "Notable wins and losses"
+          - "Team stability and key person risk"
+
+      justify:
+        emphasis: "GP track record that validated commitment decision"
+        required_analysis:
+          - "Performance that exceeded benchmarks"
+          - "Pattern of success that gave confidence"
+          - "GP capabilities aligned with our LP strategy"
+
+    validation_criteria:
+      - "All GPs named with backgrounds"
+      - "Prior fund performance with DPI, TVPI, IRR"
+      - "At least 2-3 notable exits described"
+      - "Benchmark comparison included"
+      - "Team size and structure stated"
+      - "No promotional language without metrics"
+
+  - number: 3
+    name: "Fund Strategy & Thesis"
+    filename: "03-fund-strategy--thesis.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Overview of the fund's investment focus, criteria, sourcing
+      approach, and competitive positioning within the market.
+
+    guiding_questions:
+      - "What is the investment focus? (sector, stage, geography, themes)"
+      - "What are the check sizes? (initial and follow-on)"
+      - "What are the investment criteria? (what GP looks for)"
+      - "How does GP source deals? (proprietary access, network)"
+      - "What is the competitive positioning vs other funds?"
+      - "How has the strategy evolved from prior funds?"
+      - "What is the investment thesis?"
+      - "What market trends support the strategy?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "investment focus (not investment strategy for sector/stage)"
+        - "check size (not investment size for individual deals)"
+        - "deal sourcing (not deal flow)"
+        - "competitive positioning (vs other GPs in space)"
+
+      required_elements:
+        - Sector focus (specific industries)
+        - Stage focus (seed, early, growth)
+        - Geography (US, global, specific regions)
+        - Check size range (initial and follow-on)
+        - Investment criteria
+        - Deal sourcing approach
+        - Differentiation vs peers
+
+      avoid:
+        - Vague focus: "technology companies"
+        - Unspecified criteria: "strong teams, large markets"
+        - Unsupported claims: "unique access"
+
+    mode_specific:
+      consider:
+        emphasis: "Assessment of strategy clarity and differentiation"
+        required_analysis:
+          - "Strategy fit with market opportunity"
+          - "Competitive advantages in deal access"
+          - "Consistency with prior funds"
+          - "Differentiation from peer funds"
+
+      justify:
+        emphasis: "Strategy that aligned with our LP thesis"
+        required_analysis:
+          - "Why strategy is compelling"
+          - "How strategy fits our portfolio"
+          - "Market trends supporting strategy"
+
+    validation_criteria:
+      - "Sector, stage, geography clearly specified"
+      - "Check sizes stated (initial and follow-on)"
+      - "Investment criteria specific (not generic)"
+      - "Deal sourcing approach described"
+      - "Competitive positioning articulated"
+      - "Strategy evolution from prior funds noted"
+
+  - number: 4
+    name: "Portfolio Construction"
+    filename: "04-portfolio-construction.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Details on target portfolio size, ownership targets, reserve
+      strategy, deployment pace, and diversification approach.
+
+    guiding_questions:
+      - "What is the target portfolio size? (number of companies)"
+      - "What are the ownership targets? (% per company)"
+      - "What is the reserve strategy? (% of fund for follow-ons)"
+      - "What is the pace of deployment? (years to deploy)"
+      - "What diversification guardrails exist? (sector, geography)"
+      - "What is the concentration strategy?"
+      - "How many new investments per year?"
+      - "What is the follow-on discipline?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "portfolio construction (not portfolio strategy)"
+        - "ownership target (not stake size)"
+        - "reserve strategy (for follow-on capital)"
+        - "deployment pace (not investment pace)"
+        - "concentration (for portfolio weighting)"
+
+      required_elements:
+        - Target portfolio size (number)
+        - Ownership target (% range)
+        - Reserve ratio (% of fund)
+        - Deployment timeline (years)
+        - Diversification rules
+
+      avoid:
+        - Vague portfolio size: "focused portfolio"
+        - Unspecified reserves: "flexible approach"
+
+    mode_specific:
+      consider:
+        emphasis: "Assessment of portfolio construction discipline"
+        required_analysis:
+          - "Portfolio size appropriate for fund size and check sizes"
+          - "Reserve strategy alignment with follow-on needs"
+          - "Deployment pace reasonableness"
+          - "Diversification guardrails adequacy"
+
+      justify:
+        emphasis: "Portfolio construction that supports returns"
+        required_analysis:
+          - "How portfolio construction enables fund goals"
+          - "Reserve discipline that protects winners"
+          - "Diversification that manages risk"
+
+    validation_criteria:
+      - "Portfolio size specified (number of companies)"
+      - "Ownership targets stated (% range)"
+      - "Reserve strategy quantified (% of fund)"
+      - "Deployment timeline stated (years)"
+      - "Diversification guardrails described"
+      - "Follow-on discipline explained"
+
+  - number: 5
+    name: "Value Add & Differentiation"
+    filename: "05-value-add--differentiation.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Assessment of GP's unique advantages, network, platform,
+      and operational support capabilities that help portfolio
+      companies succeed.
+
+    guiding_questions:
+      - "What is the unique edge? (access, network, expertise)"
+      - "What network does GP bring? (corporates, LPs, talent)"
+      - "What platform services exist? (recruiting, biz dev, marketing)"
+      - "How does GP help portfolio companies operationally?"
+      - "What is the brand and reputation in market?"
+      - "What do founder references say?"
+      - "What competitive advantages in winning deals?"
+      - "How engaged is GP post-investment?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "value add (not value-add or value added)"
+        - "platform services (not platform alone)"
+        - "operational support (not support alone)"
+        - "founder references (not references alone)"
+
+      required_elements:
+        - Unique edge or advantage
+        - Network description (specific relationships)
+        - Platform services (if any)
+        - Operational support approach
+        - Brand/reputation assessment
+        - Founder reference feedback
+
+      avoid:
+        - Generic claims: "hands-on GP"
+        - Unsubstantiated: "best network in sector"
+        - Vague: "operational expertise"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of actual value add beyond capital"
+        required_analysis:
+          - "Evidence of unique access or advantage"
+          - "Platform services substance vs marketing"
+          - "Founder reference validation"
+          - "Competitive advantages in deal access"
+
+      justify:
+        emphasis: "Value add that differentiated this GP"
+        required_analysis:
+          - "Unique capabilities that justified commitment"
+          - "Network/platform that increases success probability"
+          - "Reputation that provides deal access"
+
+    validation_criteria:
+      - "Unique edge articulated with evidence"
+      - "Network described with specific examples"
+      - "Platform services (if claimed) detailed"
+      - "Founder references included (summary)"
+      - "Brand/reputation assessment based on references"
+      - "No generic claims without substance"
+
+  - number: 6
+    name: "Track Record Analysis"
+    filename: "06-track-record-analysis.md"
+    target_length:
+      min_words: 500
+      max_words: 700
+      ideal_words: 600
+
+    description: |
+      Deep analysis of prior fund performance including top
+      performers, loss ratio, consistency, benchmark comparison,
+      and reference call feedback.
+
+    guiding_questions:
+      - "What is the performance of each prior fund? (DPI, TVPI, IRR)"
+      - "What are the top performers? (entry/exit details)"
+      - "What is the loss ratio? (% of investments failed or impaired)"
+      - "What is the hit rate? (% of companies returning >3x)"
+      - "How consistent is performance across funds?"
+      - "How does performance compare to benchmarks?"
+      - "What do co-investors and LPs say? (references)"
+      - "What explains the performance? (skill, luck, timing)"
+
+    section_vocabulary:
+      preferred_terms:
+        - "track record (not performance alone)"
+        - "loss ratio (% of failed investments)"
+        - "hit rate (% returning >3x or similar threshold)"
+        - "benchmark comparison (vs Cambridge Associates, Preqin)"
+        - "quartile ranking (top quartile, median, etc)"
+
+      required_elements:
+        - Prior fund performance table (DPI, TVPI, IRR)
+        - Top 3-5 performers with details
+        - Loss ratio and hit rate
+        - Benchmark comparison
+        - Reference call summary
+
+      avoid:
+        - "Strong returns (quantify!)"
+        - Cherry-picking winners without loss context
+        - Ignoring underperforming funds
+
+    mode_specific:
+      consider:
+        emphasis: "Rigorous analysis of historical performance"
+        required_analysis:
+          - "Performance consistency across funds"
+          - "Quality of wins (skill vs market timing)"
+          - "Loss ratio and risk management"
+          - "Benchmark comparison (quartile ranking)"
+          - "Reference validation of performance"
+
+      justify:
+        emphasis: "Track record that validated commitment"
+        required_analysis:
+          - "Historical performance that gave confidence"
+          - "Pattern of success across funds"
+          - "Benchmark comparison supporting decision"
+
+    validation_criteria:
+      - "Performance metrics for all prior funds"
+      - "Top performers listed with entry/exit details"
+      - "Loss ratio stated"
+      - "Benchmark comparison included"
+      - "Reference calls summarized"
+      - "Honest assessment including underperformance"
+
+  - number: 7
+    name: "Fee Structure & Economics"
+    filename: "07-fee-structure--economics.md"
+    target_length:
+      min_words: 300
+      max_words: 500
+      ideal_words: 400
+
+    description: |
+      Details on management fee, carried interest, fund size,
+      term, key person provisions, and other LP terms.
+
+    guiding_questions:
+      - "What is the management fee? (% per year, basis, step-downs)"
+      - "What is the carried interest structure? (%, hurdle, catch-up)"
+      - "What is the fund size? (target, hard cap)"
+      - "What is the fund term? (initial term, extensions)"
+      - "What are the key person provisions?"
+      - "What other terms? (co-invest, LPAC, MFN, side letters)"
+      - "How do fees compare to market?"
+      - "What is the GP commitment?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "management fee (% of committed capital)"
+        - "carried interest (not carry on first use)"
+        - "hurdle rate (minimum return before carry)"
+        - "catch-up provision (GP catching up to carry %)"
+        - "key person provision (defines key person events)"
+        - "LPAC (limited partner advisory committee)"
+        - "MFN (most favored nation clause)"
+
+      required_elements:
+        - Management fee (% and basis)
+        - Carried interest (%, hurdle, catch-up)
+        - Fund size (target and hard cap)
+        - Fund term (years plus extensions)
+        - Key person provisions
+        - Other key terms
+
+      avoid:
+        - Vague fee terms: "standard fees"
+        - Missing key details (hurdle, catch-up)
+        - Ignoring fee context (high/low for strategy)
+
+    mode_specific:
+      consider:
+        emphasis: "Assessment of fee structure reasonableness"
+        required_analysis:
+          - "Fee comparison to market for strategy"
+          - "Alignment of fees with LP interests"
+          - "Key person provision adequacy"
+          - "Other terms (co-invest, LPAC) assessment"
+
+      justify:
+        emphasis: "Fee structure that was acceptable"
+        required_analysis:
+          - "Why fee structure was reasonable"
+          - "Alignment of economic terms"
+          - "Key terms that protected LP interests"
+
+    validation_criteria:
+      - "Management fee specified (% and basis)"
+      - "Carried interest detailed (%, hurdle, catch-up)"
+      - "Fund size stated (target and hard cap)"
+      - "Fund term specified"
+      - "Key person provisions described"
+      - "GP commitment noted"
+      - "Fee context provided (vs market)"
+
+  - number: 8
+    name: "LP Base & References"
+    filename: "08-lp-base--references.md"
+    target_length:
+      min_words: 300
+      max_words: 500
+      ideal_words: 400
+
+    description: |
+      Information on anchor LPs, LP composition, re-up rate,
+      our allocation, co-investment rights, and reference
+      call feedback.
+
+    guiding_questions:
+      - "Who are the anchor LPs? (major institutional LPs)"
+      - "What is the LP composition? (institutions, FOs, corporates)"
+      - "What is the re-up rate? (% of LPs from prior fund)"
+      - "What is our allocation? ($ and % of fund)"
+      - "What co-investment rights do we have?"
+      - "What reference calls were completed?"
+      - "What did LP references say?"
+      - "What is the fundraising status? (target, committed)"
+
+    section_vocabulary:
+      preferred_terms:
+        - "anchor LPs (major investors)"
+        - "re-up rate (% of prior LPs committing again)"
+        - "LP composition (mix of investor types)"
+        - "co-investment rights (access to direct investments)"
+
+      required_elements:
+        - Anchor LP names (if public)
+        - LP composition breakdown
+        - Re-up rate (%)
+        - Our commitment ($ and %)
+        - Co-investment rights
+        - Reference call summary
+
+      avoid:
+        - "Strong LP base (quantify re-up rate)"
+        - Vague composition: "institutional investors"
+
+    mode_specific:
+      consider:
+        emphasis: "Assessment of LP base quality and our allocation"
+        required_analysis:
+          - "LP quality and stability"
+          - "Re-up rate as validation signal"
+          - "Our allocation appropriateness"
+          - "Co-investment value"
+          - "Reference validation"
+
+      justify:
+        emphasis: "LP base that validated commitment"
+        required_analysis:
+          - "High-quality LP base"
+          - "Re-up rate confirming GP quality"
+          - "Our allocation sizing rationale"
+
+    validation_criteria:
+      - "Anchor LPs identified (if available)"
+      - "LP composition described"
+      - "Re-up rate stated"
+      - "Our commitment specified ($ and %)"
+      - "Co-investment rights detailed"
+      - "Reference calls summarized"
+
+  - number: 9
+    name: "Risks & Mitigations"
+    filename: "09-risks--mitigations.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Comprehensive identification of LP commitment risks
+      including key person, strategy, fund size, market timing,
+      and other risks with assessment of mitigations.
+
+    guiding_questions:
+      - "What is the key person risk? (GP departure, health)"
+      - "What is the strategy drift risk? (vs prior funds)"
+      - "What is the fund size inflation risk? (impact on returns)"
+      - "What is the market timing risk? (vintage year)"
+      - "What is the execution risk? (for emerging managers)"
+      - "What other risks exist? (geographic, sector, regulatory)"
+      - "For each risk, what mitigations exist?"
+      - "Which risks are most concerning?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "key person risk (GP departure or incapacity)"
+        - "strategy drift (deviation from stated strategy)"
+        - "fund size inflation (larger fund impacting returns)"
+        - "vintage year risk (market timing)"
+        - "emerging manager risk (for first-time or early funds)"
+
+      required_elements:
+        - 5-7 risks across categories
+        - Mitigation for each risk
+        - Assessment of mitigation adequacy
+        - Most critical risk identification
+
+      common_lp_risks:
+        - "Key person risk (GP departure, health, focus)"
+        - "Strategy drift from prior funds"
+        - "Fund size inflation impacting returns"
+        - "Market timing and vintage year risk"
+        - "Emerging manager execution risk"
+        - "Concentration risk in portfolio"
+        - "LP liquidity risk"
+
+      avoid:
+        - Generic risks without specifics
+        - Dismissive language: "risk is minimal"
+        - Missing mitigations
+
+    mode_specific:
+      consider:
+        emphasis: "Balanced risk assessment with critical evaluation"
+        required_analysis:
+          - "Identification of 5-7 key risks"
+          - "Assessment of mitigation adequacy"
+          - "Evaluation of which risks are dealbreakers"
+          - "Honest risk tolerance assessment"
+
+      justify:
+        emphasis: "Risk acknowledgment with mitigation rationale"
+        required_analysis:
+          - "Risks that were considered in decision"
+          - "Mitigations that reduced risk acceptably"
+          - "Risks accepted and why"
+
+    validation_criteria:
+      - "At least 5 specific risks identified"
+      - "Risks span multiple categories"
+      - "Each risk has mitigation statement"
+      - "Mitigations assessed (actual vs aspirational)"
+      - "Most critical risk identified"
+      - "No dismissive language"
+
+  - number: 10
+    name: "Recommendation"
+    filename: "10-recommendation.md"
+    target_length:
+      min_words: 150
+      max_words: 300
+      ideal_words: 200
+
+    description: |
+      Clear LP commitment recommendation with supporting rationale,
+      commitment size, and next steps. Must be decisive.
+
+    guiding_questions:
+      - "What is the recommendation? (PASS/CONSIDER/COMMIT)"
+      - "What is the 1-sentence rationale?"
+      - "What evidence most strongly supports this recommendation?"
+      - "What is the recommended commitment size?"
+      - "What concerns remain?"
+      - "What next steps are required?"
+      - "What is the timeline?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "PASS (all caps)"
+        - "CONSIDER (all caps)"
+        - "COMMIT (all caps)"
+        - "commitment size (not investment amount)"
+        - "due diligence (not DD)"
+
+      required_format:
+        opening: "Recommendation: [PASS/CONSIDER/COMMIT]"
+        commitment: "Commitment Size: [$X million, Y% of fund]"
+        rationale: "[1-2 sentence rationale]"
+        supporting_evidence: "[2-3 paragraphs]"
+        next_steps: "[Bullet list with timeline]"
+
+      critical_rules:
+        - "Recommendation MUST be: PASS, CONSIDER, COMMIT"
+        - "Commitment size MUST be specified for COMMIT"
+        - "Rationale MUST be 1-2 sentences"
+        - "Next steps MUST be specific"
+
+      avoid:
+        - Ambiguous recommendations
+        - Hedging language
+        - Vague next steps
+        - Missing timeline
+
+    mode_specific:
+      consider:
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+
+        pass:
+          rationale_focus: "Critical issues that make commitment unattractive"
+          required_elements:
+            - "Primary reason for pass"
+            - "What would need to change"
+
+        consider:
+          rationale_focus: "Promise and concerns warranting deeper diligence"
+          required_elements:
+            - "What is compelling"
+            - "What needs validation"
+            - "Specific diligence items"
+            - "Timeline for decision"
+
+        commit:
+          rationale_focus: "Strong conviction factors justifying commitment"
+          required_elements:
+            - "Primary drivers of conviction"
+            - "Commitment size and rationale"
+            - "Next steps to close"
+            - "Timeline to close"
+
+      justify:
+        recommendation_options: ["COMMIT"]
+
+        commit:
+          rationale_focus: "Clear explanation of why commitment was made"
+          required_elements:
+            - "Key factors that drove decision"
+            - "Evidence that validated thesis"
+            - "Commitment size and rationale"
+            - "Alignment with LP strategy"
+
+    validation_criteria:
+      - "Recommendation stated explicitly"
+      - "Commitment size specified (for COMMIT)"
+      - "Rationale is 1-2 sentences"
+      - "Supporting evidence specific"
+      - "Next steps actionable with timeline"
+      - "Tone matches recommendation"
+      - "No hedging language"
+
+# Cross-section requirements
+cross_section_requirements:
+  citation_consistency:
+    description: "Citations must follow Obsidian style across all sections"
+    format: "[^1], [^2], [^3]"
+    spacing: "One space before citation after punctuation"
+    consolidation: "All citations renumbered globally and consolidated at end"
+
+  length_balance:
+    description: "Sections should be roughly proportional"
+    guideline: "No section should be 2x length of average section"
+
+  terminology_consistency:
+    description: "Use same terms throughout memo"
+    examples:
+      - "If 'Fund I' in one section, not 'First fund' in another"
+      - "If 'DPI' defined once, use 'DPI' not 'distributed to paid-in' after"
+      - "Consistent GP name throughout"
+
+  narrative_flow:
+    description: "Sections should build on each other logically"
+    sequence:
+      - "Executive Summary references all sections"
+      - "GP Background establishes credibility"
+      - "Strategy/Portfolio/Value Add describe approach"
+      - "Track Record provides evidence"
+      - "Fees/LPs/Risks complete picture"
+      - "Recommendation concludes with clarity"

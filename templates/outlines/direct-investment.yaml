@@ -1,0 +1,1031 @@
+# Direct Investment Memo Outline
+# Default structure for evaluating startup/company investments
+
+metadata:
+  outline_type: "direct_investment"
+  version: "1.0.0"
+  description: "10-section structure for evaluating direct startup investments"
+  date_created: "2025-11-21"
+  compatible_modes: ["consider", "justify"]
+
+# Global vocabulary (applies to all sections)
+vocabulary:
+  financial:
+    preferred:
+      - term: "annual recurring revenue (ARR)"
+        first_use: "annual recurring revenue (ARR)"
+        subsequent: "ARR"
+        definition: "Yearly value of recurring revenue contracts"
+
+      - term: "monthly recurring revenue (MRR)"
+        first_use: "monthly recurring revenue (MRR)"
+        subsequent: "MRR"
+        definition: "Monthly value of recurring revenue contracts"
+
+      - term: "customer acquisition cost (CAC)"
+        first_use: "customer acquisition cost (CAC)"
+        subsequent: "CAC"
+        definition: "Total sales and marketing cost to acquire one customer"
+
+      - term: "lifetime value (LTV)"
+        first_use: "lifetime value (LTV)"
+        subsequent: "LTV"
+        definition: "Total revenue expected from a customer over relationship"
+
+      - term: "gross margin"
+        usage: "Use 'gross margin' not 'gross profit margin' for conciseness"
+
+    avoid:
+      - term: "revenue"
+        instead: "Specify ARR, MRR, or total revenue"
+        reason: "Ambiguous whether recurring or one-time"
+
+      - term: "sales"
+        instead: "Use 'revenue' or 'bookings'"
+        reason: "'Sales' can mean revenue or sales team"
+
+  market:
+    preferred:
+      - term: "total addressable market (TAM)"
+        first_use: "total addressable market (TAM)"
+        subsequent: "TAM"
+        definition: "Total market demand for a product/service"
+
+      - term: "serviceable addressable market (SAM)"
+        first_use: "serviceable addressable market (SAM)"
+        subsequent: "SAM"
+        definition: "Portion of TAM targeted by company's products/services"
+
+      - term: "compound annual growth rate (CAGR)"
+        first_use: "compound annual growth rate (CAGR)"
+        subsequent: "CAGR"
+        definition: "Annual growth rate over multiple years"
+
+      - term: "competitive advantage"
+        usage: "Use 'competitive advantage' not 'moat' unless technical moat"
+
+    avoid:
+      - term: "huge market"
+        instead: "Provide TAM with $ figure and source"
+        reason: "Vague and unprofessional"
+
+      - term: "rapidly growing"
+        instead: "Specify CAGR percentage"
+        reason: "Subjective and imprecise"
+
+      - term: "billion-dollar market"
+        instead: "Specify exact TAM with source"
+        reason: "Lacks precision"
+
+  team:
+    preferred:
+      - term: "founder-market fit"
+        definition: "Alignment between founder background and market opportunity"
+        usage: "Assess whether founders uniquely positioned to solve this problem"
+
+      - term: "domain expertise"
+        usage: "Use when discussing specialized knowledge in industry or technical area"
+
+      - term: "technical depth"
+        usage: "For engineering capabilities"
+
+      - term: "go-to-market expertise"
+        usage: "For sales/marketing capabilities"
+
+    avoid:
+      - term: "rockstar team"
+        instead: "Describe specific credentials and experience"
+        reason: "Promotional and meaningless"
+
+      - term: "world-class"
+        instead: "Cite specific achievements that demonstrate quality"
+        reason: "Overused and subjective"
+
+      - term: "experienced team"
+        instead: "Specify years, previous companies, roles"
+        reason: "Too vague"
+
+  product:
+    preferred:
+      - term: "minimum viable product (MVP)"
+        first_use: "minimum viable product (MVP)"
+        subsequent: "MVP"
+
+      - term: "product-market fit"
+        usage: "Require traction metrics as evidence, not just assertion"
+
+    avoid:
+      - term: "revolutionary"
+        instead: "Describe specific technical innovation"
+        reason: "Promotional, used for everything"
+
+      - term: "game-changing"
+        instead: "Explain impact with evidence"
+        reason: "Hyperbolic without substance"
+
+      - term: "cutting-edge AI"
+        instead: "Specify the AI technique and its advantages"
+        reason: "Vague buzzword"
+
+  recommendation:
+    required_terms:
+      - "PASS"  # Critical issues prevent investment
+      - "CONSIDER"  # Warrants deeper diligence
+      - "COMMIT"  # Conviction to invest
+
+    forbidden_terms:
+      - "Maybe"
+      - "Likely"
+      - "Strong Consider"
+      - "Soft Pass"
+
+  phrases_to_avoid:
+    promotional:
+      - phrase: "unique opportunity"
+        reason: "Overused, everything is called unique"
+
+      - phrase: "disruptive"
+        reason: "Buzzword, define specific disruption"
+
+      - phrase: "thought leader"
+        reason: "Vague, cite specific contributions"
+
+      - phrase: "passionate team"
+        reason: "Expected, focus on competence not passion"
+
+      - phrase: "poised to"
+        reason: "Speculation without evidence"
+
+      - phrase: "positioned to"
+        reason: "Vague, be specific about capabilities"
+
+    vague:
+      - phrase: "significant traction"
+        reason: "Quantify with specific metrics"
+
+      - phrase: "strong growth"
+        reason: "Provide percentage and timeframe"
+
+      - phrase: "large market"
+        reason: "Provide TAM with dollar figure"
+
+      - phrase: "several customers"
+        reason: "Give exact number"
+
+      - phrase: "Fortune 500 customers"
+        reason: "Name them or give count"
+
+    speculative:
+      - phrase: "could potentially"
+        reason: "Anything 'could' happen, state what is likely"
+
+      - phrase: "might be able to"
+        reason: "Hedge language reduces credibility"
+
+      - phrase: "has the potential to"
+        reason: "Focus on what they have achieved"
+
+      - phrase: "if successful"
+        reason: "State actual progress, not hypotheticals"
+
+  style_rules:
+    tone: "Professional, analytical, balanced - not promotional"
+    voice: "Active voice preferred: 'The team built' not 'was built by'"
+    tense: "Present tense for current state, past tense for completed actions"
+
+    numbers:
+      - "Spell out numbers one through nine"
+      - "Use numerals for 10 and above"
+      - "Use numerals for all metrics and financial figures"
+      - "Use dollar signs: $5M not 5M dollars"
+      - "Use percentages: 30% not thirty percent"
+
+    abbreviations:
+      - "Define all acronyms on first use"
+      - "Use acronyms on subsequent uses for conciseness"
+      - "Exception: Very common terms (CEO, IPO, VC) need not be defined"
+
+    citations:
+      - "Obsidian-style: [^1], [^2], [^3]"
+      - "Place after punctuation with space: 'text. [^1]'"
+      - "Multiple citations with spaces: 'text. [^1] [^2]'"
+      - "Format: [^1]: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD"
+
+# Section definitions
+sections:
+  - number: 1
+    name: "Executive Summary"
+    filename: "01-executive-summary.md"
+    target_length:
+      min_words: 150
+      max_words: 250
+      ideal_words: 200
+
+    description: |
+      Concise overview of the investment opportunity, synthesizing key findings
+      from all other sections. Written last, read first. Should stand alone
+      as a complete summary without requiring reader to consult other sections.
+
+    guiding_questions:
+      - "What problem does this company solve?"
+      - "What is the solution and how is it differentiated?"
+      - "Who are the founders and what relevant experience do they have?"
+      - "What traction has been achieved to date? (specific metrics)"
+      - "What are the key risks and why are they manageable?"
+      - "What is the investment recommendation (PASS/CONSIDER/COMMIT) and primary rationale?"
+      - "What is the stage and round size?"
+
+    section_vocabulary:
+      required_elements:
+        - Company name and brief description (one sentence)
+        - Stage (Seed/Series A/B/C)
+        - Investment type and mode
+        - Specific traction metrics (ARR, customers, growth rate)
+        - Clear recommendation with 1-sentence rationale
+        - 2-3 key risks identified
+
+      preferred_terms:
+        - "value proposition (not unique selling point)"
+        - "competitive advantage (not moat unless technical context)"
+        - "go-to-market strategy (not GTM on first use)"
+        - "traction (not progress for metrics)"
+
+      avoid:
+        - "Promotional language: revolutionary, game-changing, disruptive (without evidence)"
+        - "Vague claims: significant traction, strong team (without specifics)"
+        - "Undefined acronyms"
+        - "Speculation: could potentially, might be able to"
+        - "Ranges instead of specifics: $500K-$1M ARR (pick the actual figure)"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of opportunity with balanced risk discussion"
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+        tone: "Analytical, balanced"
+        required_elements:
+          - "Why this is interesting (or not)"
+          - "What needs to be validated"
+
+      justify:
+        emphasis: "Clear rationale for why investment was made with supporting evidence"
+        recommendation_options: ["COMMIT"]
+        tone: "Confident, data-driven"
+        required_elements:
+          - "Why we invested"
+          - "What validated our thesis"
+
+    validation_criteria:
+      - "Length within target range (150-250 words)"
+      - "Contains clear recommendation (PASS/CONSIDER/COMMIT)"
+      - "Includes specific traction metrics (numbers, not adjectives)"
+      - "Mentions founders by name with relevant credentials"
+      - "Identifies 2-3 key risks"
+      - "No promotional or speculative language"
+      - "Reads as standalone summary"
+
+  - number: 2
+    name: "Business Overview"
+    filename: "02-business-overview.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Detailed description of what the company does, the problem it solves,
+      its solution approach, business model, and current operational status.
+      Should be understandable to someone unfamiliar with the industry.
+
+    guiding_questions:
+      - "What does the company do? (in plain language, one sentence)"
+      - "What specific problem are they solving for whom?"
+      - "Why is this problem painful enough that customers will pay to solve it?"
+      - "How does their solution work? (high-level, not deep technical)"
+      - "What is the business model? (how do they make money?)"
+      - "Who pays and why? (customer value proposition)"
+      - "What is the pricing strategy?"
+      - "What is the current operational status? (live, beta, pilots, etc.)"
+      - "What are the unit economics? (CAC, LTV, gross margin if available)"
+      - "How do they acquire customers?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "business model (not revenue model for broader concept)"
+        - "customer acquisition cost (CAC) (define acronym)"
+        - "lifetime value (LTV) (define acronym)"
+        - "gross margin (not gross profit margin)"
+        - "product-market fit (not PMF on first use)"
+        - "customer value proposition (not value prop)"
+
+      required_elements:
+        - Clear problem statement (specific pain point)
+        - Solution description (1-2 paragraphs)
+        - Business model explanation (revenue streams)
+        - Current operational status
+        - Pricing strategy (if known)
+        - Unit economics (if available)
+
+      structure_template:
+        - "What they do: [1 sentence summary]"
+        - "Problem they solve: [1-2 paragraphs with evidence of pain]"
+        - "Solution approach: [2-3 paragraphs]"
+        - "Business model: [How they make money]"
+        - "Current status: [Operational phase]"
+
+      avoid:
+        - "Excessive jargon without explanation"
+        - "Vague claims: innovative solution, unique approach"
+        - "Undefined technical terms"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical evaluation of business model viability and market fit"
+        required_analysis:
+          - "Business model sustainability assessment"
+          - "Customer value proposition strength"
+          - "Unit economics analysis (if data available)"
+          - "Scalability of customer acquisition"
+
+      justify:
+        emphasis: "Clear articulation of why business model is compelling"
+        required_analysis:
+          - "Business model strengths that drove investment decision"
+          - "Customer validation evidence"
+          - "Path to profitability or scale"
+
+    validation_criteria:
+      - "Clear 1-sentence company description"
+      - "Specific problem articulation with evidence of pain"
+      - "Solution explanation understandable to non-technical reader"
+      - "Business model includes who pays and how"
+      - "Operational status explicitly stated"
+      - "No undefined jargon or acronyms"
+      - "If unit economics mentioned, include CAC and LTV"
+
+  - number: 3
+    name: "Market Context"
+    filename: "03-market-context.md"
+    target_length:
+      min_words: 500
+      max_words: 700
+      ideal_words: 600
+
+    description: |
+      Analysis of the total addressable market, market dynamics, competitive
+      landscape, and company positioning within the market. Must include
+      specific market sizing with sources and named competitors.
+
+    guiding_questions:
+      - "What is the total addressable market (TAM)? (with methodology or source)"
+      - "How is the market growing? (CAGR, specific trends, drivers)"
+      - "What are the key market dynamics? (regulatory, technological, behavioral shifts)"
+      - "Who are the direct competitors? (name at least 3-5)"
+      - "Who are the indirect competitors or alternative solutions?"
+      - "How is the company differentiated from competitors? (specific advantages)"
+      - "What market position does the company occupy or target?"
+      - "What are the barriers to entry in this market?"
+      - "Are there network effects or other defensibility factors?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "total addressable market (TAM) (define acronym)"
+        - "serviceable addressable market (SAM) (define acronym)"
+        - "serviceable obtainable market (SOM) (define acronym)"
+        - "compound annual growth rate (CAGR) (define acronym)"
+        - "competitive advantage (not moat unless technical moat)"
+        - "market dynamics (not market forces)"
+        - "barriers to entry (not moats)"
+
+      required_elements:
+        - TAM figure with source or methodology
+        - Market growth rate (CAGR) with timeframe
+        - 3-5 specific competitor names
+        - Clear differentiation statement
+        - Market positioning description
+
+      avoid:
+        - "Vague market sizes: billion-dollar market (without specific figure)"
+        - "Unsupported growth claims: rapidly growing (without CAGR)"
+        - "Generic competitors: large incumbents (without names)"
+        - "Buzzwords: blue ocean, first mover advantage (without analysis)"
+        - "Unsubstantiated claims: no real competition"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of market size, growth, and competitive dynamics"
+        required_analysis:
+          - "TAM calculation with methodology (top-down or bottoms-up)"
+          - "Market growth drivers with evidence"
+          - "Competitive analysis with specific companies"
+          - "Differentiation assessment (is it sustainable?)"
+          - "Barriers to entry evaluation"
+
+      justify:
+        emphasis: "Market opportunity that justified investment with supporting data"
+        required_analysis:
+          - "TAM/SAM size that made market attractive"
+          - "Market tailwinds that increase likelihood of success"
+          - "Competitive advantages that position company for leadership"
+
+    validation_criteria:
+      - "TAM stated with dollar figure and source/methodology"
+      - "Market growth rate quantified (X% CAGR with timeframe)"
+      - "At least 3 specific competitors named"
+      - "Differentiation explained with evidence, not just claims"
+      - "Market dynamics supported by trends/data, not speculation"
+      - "Competitive positioning clear and specific"
+
+  - number: 4
+    name: "Team"
+    filename: "04-team.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Assessment of the founding team, key hires, advisors, investors,
+      and overall team strengths and gaps. Must include specific names,
+      backgrounds, and evidence of relevant experience.
+
+    guiding_questions:
+      - "Who are the founders? (names, titles, current roles)"
+      - "What relevant experience do founders bring? (prior companies, roles)"
+      - "What are their specific accomplishments? (quantified achievements)"
+      - "Have founders worked together before? (history of collaboration)"
+      - "What domain expertise exists on the team?"
+      - "What critical gaps exist in the team?"
+      - "What are the key hires beyond founders?"
+      - "Who are the advisors and what value do they add?"
+      - "Who are the investors and what does their involvement signal?"
+      - "What is the founder equity split and vesting?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "founder-market fit (not founder fit)"
+        - "domain expertise (not industry experience for technical knowledge)"
+        - "technical depth (for engineering capabilities)"
+        - "go-to-market expertise (for sales/marketing capabilities)"
+        - "operational experience (for scaling/management capabilities)"
+
+      required_elements:
+        - Founder names with titles
+        - Previous companies/roles for each founder
+        - Educational background (if relevant: PhD, top school)
+        - LinkedIn profile links (added by enrichment agent)
+        - Specific accomplishments (with numbers)
+        - Key hires with roles
+        - Advisors with credentials
+        - Lead investors with fund names
+
+      structure_template:
+        - "Founders: [Name, title, background for each]"
+        - "Strengths: [3-5 bullet points with specifics]"
+        - "Gaps: [2-3 bullet points]"
+        - "Key Hires: [if any]"
+        - "Advisors: [if any, with value-add]"
+        - "Investors: [if known, with relevance]"
+
+      avoid:
+        - "rockstar, world-class, exceptional (without evidence)"
+        - "Strong team, experienced team (without specifics)"
+        - "Passionate about X (focus on competence)"
+        - "Promotional language without quantified achievements"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of team strengths and gaps relative to opportunity"
+        required_analysis:
+          - "Founder-market fit assessment"
+          - "Team completeness for execution"
+          - "Critical gaps and hiring needs"
+          - "Red flags or concerns about team"
+
+      justify:
+        emphasis: "Team capabilities that gave confidence in investment decision"
+        required_analysis:
+          - "Founder strengths that de-risked investment"
+          - "Relevant experience that increases success probability"
+          - "Team composition that enables execution"
+
+    validation_criteria:
+      - "All founders named with titles"
+      - "Previous experience specified for each founder (company + role)"
+      - "At least 3 specific strengths listed with evidence"
+      - "At least 2 gaps or concerns identified (even in justify mode)"
+      - "LinkedIn links present (added by enrichment agent)"
+      - "No promotional language ('rockstar', 'world-class') without evidence"
+      - "Quantified accomplishments where possible"
+
+  - number: 5
+    name: "Technology & Product"
+    filename: "05-technology--product.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Overview of the product functionality, technology architecture,
+      technical differentiation, and development roadmap. Should be
+      understandable to non-technical readers while still conveying
+      technical depth.
+
+    guiding_questions:
+      - "What does the product do? (features and capabilities)"
+      - "What is the core technology or technical approach?"
+      - "What is technically differentiated or novel?"
+      - "What is the technology stack? (if relevant to defensibility)"
+      - "What IP or proprietary technology exists?"
+      - "What is the product development stage? (MVP, beta, GA, etc.)"
+      - "What is on the product roadmap? (near-term priorities)"
+      - "What are the technical risks or challenges?"
+      - "How scalable is the technology?"
+      - "What technical moats exist?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "product capabilities (not features for strategic description)"
+        - "technology stack (not tech stack)"
+        - "intellectual property (IP) (define acronym)"
+        - "minimum viable product (MVP) (define acronym)"
+        - "generally available (GA) (define acronym)"
+        - "technical moat (acceptable when discussing defensibility)"
+
+      required_elements:
+        - Product description (user-facing capabilities)
+        - Core technology explanation (high-level)
+        - Technical differentiation statement
+        - Development stage (MVP/beta/GA)
+        - Key roadmap items (if known)
+        - Technical risks
+
+      avoid:
+        - "Excessive technical jargon without explanation"
+        - "Claims of AI-powered without explaining the AI"
+        - "Proprietary algorithm without any detail"
+        - "Patent-pending without describing what's novel"
+        - "Cutting-edge without specifics"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of technical feasibility and defensibility"
+        required_analysis:
+          - "Technical differentiation evaluation (is it real?)"
+          - "Technology risk assessment"
+          - "IP/moat analysis"
+          - "Roadmap ambition vs team capability"
+          - "Scalability considerations"
+
+      justify:
+        emphasis: "Technical capabilities that validated investment thesis"
+        required_analysis:
+          - "Technical innovation that creates competitive advantage"
+          - "Product-market fit evidence"
+          - "Technology scalability for growth"
+
+    validation_criteria:
+      - "Product description understandable to non-technical reader"
+      - "Core technology explained at appropriate level"
+      - "Technical differentiation articulated with specifics"
+      - "Development stage explicitly stated"
+      - "Technical claims supported by evidence, not just assertions"
+      - "Roadmap items concrete, not vague aspirations"
+      - "Technical risks identified and assessed"
+
+  - number: 6
+    name: "Traction & Milestones"
+    filename: "06-traction--milestones.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Quantitative evidence of product-market fit, growth metrics,
+      key customer wins, and major milestones achieved. Must include
+      specific numbers, not vague descriptors.
+
+    guiding_questions:
+      - "What revenue has been generated? (ARR, MRR, or total with timeframe)"
+      - "How many customers do they have? (paying vs pilots)"
+      - "What is the customer growth rate? (MoM, YoY with %)"
+      - "Who are the marquee customers? (names/logos)"
+      - "What are the usage metrics? (DAU, MAU, transactions, etc.)"
+      - "What growth has been achieved? (specific % MoM or YoY)"
+      - "What major milestones have been reached? (product launches, partnerships, etc.)"
+      - "What pilots or trials are in progress?"
+      - "What is customer retention/churn?"
+      - "What is the sales pipeline?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "annual recurring revenue (ARR) (define acronym)"
+        - "monthly recurring revenue (MRR) (define acronym)"
+        - "daily active users (DAU) (define acronym)"
+        - "monthly active users (MAU) (define acronym)"
+        - "customer acquisition (not user acquisition for B2B)"
+        - "retention rate (not churn for positive framing)"
+        - "net revenue retention (NRR) (define acronym)"
+
+      required_elements:
+        - Revenue figure (ARR/MRR or total revenue with timeframe)
+        - Customer count (specific number)
+        - Growth rate (MoM or YoY with %)
+        - 2-3 customer logos (if available)
+        - Key milestones with dates
+
+      critical_rules:
+        - "NEVER use vague terms: 'significant traction', 'strong growth'"
+        - "ALWAYS quantify: '$500K ARR', '50 customers', '30% MoM growth'"
+        - "If metrics unavailable, state explicitly: 'Revenue data not available'"
+        - "Distinguish between pilots and paying customers"
+        - "Distinguish between committed pipeline and closed deals"
+
+      avoid:
+        - "Significant traction (quantify!)"
+        - "Strong growth (give %)"
+        - "Several customers (give number)"
+        - "Fortune 500 customers (name them or give count)"
+        - "Ranges instead of actuals: 10-15 customers (what is it really?)"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of traction sufficiency for stage"
+        required_analysis:
+          - "Traction evaluation vs stage expectations"
+          - "Growth rate assessment (accelerating or decelerating?)"
+          - "Customer quality and retention analysis"
+          - "Gaps in traction data and concerns"
+
+      justify:
+        emphasis: "Traction that validated product-market fit and investment decision"
+        required_analysis:
+          - "Traction metrics that exceeded expectations"
+          - "Growth trajectory that indicated scale potential"
+          - "Customer validation that de-risked investment"
+
+    validation_criteria:
+      - "At least one revenue metric (ARR/MRR/total) with dollar amount"
+      - "Customer count specified numerically"
+      - "Growth rate quantified (X% MoM/YoY)"
+      - "At least 2 customer names or logos (if available and appropriate)"
+      - "Milestones include specific dates or quarters"
+      - "NO vague language ('strong traction', 'significant customers')"
+      - "Missing data explicitly stated, not glossed over"
+      - "Pilots clearly distinguished from paying customers"
+
+  - number: 7
+    name: "Funding & Terms"
+    filename: "07-funding--terms.md"
+    target_length:
+      min_words: 300
+      max_words: 500
+      ideal_words: 400
+
+    description: |
+      Details on the current fundraise, valuation, proposed terms,
+      use of funds, and funding history. Must include specific figures
+      and not speculate about unavailable information.
+
+    guiding_questions:
+      - "How much are they raising? (target and committed)"
+      - "At what valuation? (pre-money or post-money - specify)"
+      - "What are the proposed terms? (equity stake, preferences, rights)"
+      - "How will funds be used? (allocation breakdown)"
+      - "What is the funding history? (previous rounds, amounts, investors)"
+      - "How much have they raised to date?"
+      - "What is the current runway? (months)"
+      - "When is the next fundraise expected?"
+      - "What is our proposed investment amount and resulting ownership?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "pre-money valuation (not valuation ambiguously)"
+        - "post-money valuation (specify which)"
+        - "equity stake (not ownership for specific percentage)"
+        - "liquidation preference (not preference alone)"
+        - "pro-rata rights (not pro rata)"
+        - "use of funds (not use of proceeds)"
+
+      required_elements:
+        - Round size (dollar amount)
+        - Valuation (pre or post-money - specify)
+        - Our proposed investment amount
+        - Equity stake we'd receive
+        - Use of funds breakdown
+        - Previous funding rounds summary
+
+      critical_rules:
+        - "If terms not available, state: 'Investment terms not yet available'"
+        - "NEVER include terms that are uncertain or speculative"
+        - "Distinguish between target raise and committed amount"
+        - "Specify pre-money vs post-money valuation"
+
+      avoid:
+        - "Speculation about terms"
+        - "Ranges instead of specifics (when known)"
+        - "Omitting key terms without noting they're unavailable"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of valuation reasonableness and terms"
+        required_analysis:
+          - "Valuation vs comparables and stage"
+          - "Terms assessment (investor-friendly or founder-friendly?)"
+          - "Use of funds alignment with priorities"
+          - "Runway sufficiency to next milestone"
+
+      justify:
+        emphasis: "Investment terms and rationale for participation"
+        required_analysis:
+          - "Valuation rationale (why price was acceptable)"
+          - "Terms that made investment attractive"
+          - "Use of funds that will drive value creation"
+
+    validation_criteria:
+      - "Round size specified in dollars"
+      - "Valuation stated (pre or post-money specified)"
+      - "Proposed investment amount stated"
+      - "Use of funds includes allocation breakdown"
+      - "Previous rounds summarized with amounts and investors"
+      - "Missing information explicitly noted, not implied"
+      - "Current runway mentioned (if known)"
+
+  - number: 8
+    name: "Risks & Mitigations"
+    filename: "08-risks--mitigations.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Comprehensive identification of investment risks with
+      assessment of mitigations, both existing and needed.
+      Must include 5-7 specific risks across multiple categories.
+
+    guiding_questions:
+      - "What are the market risks? (demand, competition, timing)"
+      - "What are the execution risks? (team, product, operations)"
+      - "What are the technical risks? (technology, scalability, security)"
+      - "What are the financial risks? (unit economics, burn rate, fundraising)"
+      - "What are the regulatory or legal risks?"
+      - "For each risk, what mitigations exist or are planned?"
+      - "Which risks are most concerning and why?"
+      - "What would need to be true for this to fail?"
+      - "What is outside the team's control?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "market risk (not market uncertainty)"
+        - "execution risk (not operational risk for pre-scale companies)"
+        - "technical risk (not technology risk)"
+        - "regulatory risk (not compliance risk for future regulations)"
+        - "mitigation (not mitigation strategy for conciseness)"
+
+      required_elements:
+        - 5-7 risks across multiple categories
+        - Mitigation for each risk (even if "None implemented")
+        - Assessment of mitigation adequacy
+        - Identification of most critical risk
+
+      structure_template:
+        - "Market Risks: [2-3 risks with mitigations]"
+        - "Execution Risks: [2-3 risks with mitigations]"
+        - "Technical Risks: [1-2 risks with mitigations]"
+        - "Financial Risks: [1-2 risks with mitigations]"
+        - "Most Critical Risk: [1 risk with detailed assessment]"
+
+      avoid:
+        - "Generic risks: competitive risk (without specifics)"
+        - "Aspirational mitigations: Will hire CFO (when not done)"
+        - "Dismissive language: This risk is unlikely (without evidence)"
+        - "Promotional framing: Risks are minimal"
+        - "Ignoring elephants in the room"
+
+    mode_specific:
+      consider:
+        emphasis: "Balanced risk assessment with critical evaluation of mitigations"
+        required_analysis:
+          - "Identification of 5-7 key risks across categories"
+          - "Assessment of mitigation adequacy (real vs aspirational)"
+          - "Evaluation of which risks are dealbreakers"
+          - "Honest assessment of risk tolerance required"
+
+      justify:
+        emphasis: "Risk acknowledgment with evidence of mitigation or acceptance rationale"
+        required_analysis:
+          - "Key risks that were considered in investment decision"
+          - "Mitigations that reduced risk to acceptable level"
+          - "Risks accepted and why (upside justifies downside)"
+
+    validation_criteria:
+      - "At least 5 specific risks identified"
+      - "Risks span multiple categories (market, execution, technical, financial)"
+      - "Each risk has mitigation statement (even if 'None currently')"
+      - "Mitigations assessed as actual or aspirational"
+      - "Most critical risk explicitly identified"
+      - "No dismissive or promotional language"
+      - "Honest assessment even in justify mode"
+
+  - number: 9
+    name: "Investment Thesis"
+    filename: "09-investment-thesis.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Synthesis of the investment case, articulating why this
+      opportunity is compelling (or not) and the key assumptions
+      underlying the thesis. Must include both bull and bear cases.
+
+    guiding_questions:
+      - "What is the core investment thesis? (1-2 sentences)"
+      - "Why is this opportunity compelling? (bull case)"
+      - "What could go right? (upside scenarios)"
+      - "What are the key risk factors? (bear case)"
+      - "What could go wrong? (downside scenarios)"
+      - "How does this fit our investment strategy?"
+      - "What is the return potential and path to liquidity?"
+      - "Why now? (timing considerations)"
+      - "What are the key assumptions that must hold true?"
+      - "What is the risk/reward profile?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "investment thesis (not investment rationale for core argument)"
+        - "bull case (acceptable for upside scenario)"
+        - "bear case (acceptable for downside scenario)"
+        - "return potential (not return expectations)"
+        - "liquidity path (not exit for M&A or IPO)"
+        - "strategic fit (for portfolio alignment)"
+
+      required_elements:
+        - 1-2 sentence core thesis
+        - Bull case (3-4 points)
+        - Bear case (3-4 points)
+        - Fund strategy fit explanation
+        - Return potential discussion
+        - Key assumptions
+
+      avoid:
+        - "Overly promotional: This will be a category winner"
+        - "Dismissive of risks: Risks are minimal given..."
+        - "Vague thesis: Strong team in large market"
+        - "Missing bear case (even in justify mode)"
+        - "One-sided analysis"
+
+    mode_specific:
+      consider:
+        emphasis: "Balanced investment case with both bull and bear scenarios"
+        required_analysis:
+          - "Clear articulation of investment thesis"
+          - "Bull case with upside scenarios"
+          - "Bear case with downside scenarios"
+          - "Fit with fund strategy assessment"
+          - "Return potential analysis"
+          - "Key assumptions that must hold"
+
+      justify:
+        emphasis: "Investment rationale that drove decision with supporting evidence"
+        required_analysis:
+          - "Thesis that justified investment"
+          - "Why opportunity was too compelling to pass"
+          - "How investment aligns with fund strategy"
+          - "Return potential that made risk acceptable"
+          - "What we believed would happen (and why)"
+
+    validation_criteria:
+      - "Core thesis stated in 1-2 sentences"
+      - "Bull case includes 3+ specific points"
+      - "Bear case includes 3+ specific points (even in justify mode)"
+      - "Fund strategy fit explicitly discussed"
+      - "Return potential addressed"
+      - "Balanced tone (analytical, not promotional)"
+      - "Key assumptions clearly stated"
+
+  - number: 10
+    name: "Recommendation"
+    filename: "10-recommendation.md"
+    target_length:
+      min_words: 150
+      max_words: 300
+      ideal_words: 200
+
+    description: |
+      Clear investment recommendation with supporting rationale
+      and next steps. Must be decisive (PASS/CONSIDER/COMMIT)
+      with specific, actionable next steps.
+
+    guiding_questions:
+      - "What is the recommendation? (PASS/CONSIDER/COMMIT)"
+      - "What is the 1-sentence rationale?"
+      - "What evidence most strongly supports this recommendation?"
+      - "What concerns remain?"
+      - "What next steps are required?"
+      - "What would change the recommendation?"
+      - "What is the timeline for next steps?"
+
+    section_vocabulary:
+      preferred_terms:
+        - "PASS (all caps, not Pass or pass)"
+        - "CONSIDER (all caps)"
+        - "COMMIT (all caps, not Invest or Recommend)"
+        - "rationale (not reasoning for formal recommendation)"
+        - "due diligence (not DD or diligence alone)"
+
+      required_format:
+        opening: "Recommendation: [PASS/CONSIDER/COMMIT]"
+        rationale: "[1-2 sentence rationale]"
+        supporting_evidence: "[2-3 paragraphs with specific points]"
+        next_steps: "[Bullet list of actions with owners/timeline]"
+
+      critical_rules:
+        - "Recommendation MUST be one of: PASS, CONSIDER, COMMIT"
+        - "Rationale MUST be 1-2 sentences max"
+        - "No hedging language: 'probably should', 'might be good to'"
+        - "Next steps MUST be specific and actionable"
+
+      avoid:
+        - "Ambiguous recommendations"
+        - "Hedging language"
+        - "Vague next steps: do more diligence"
+        - "Missing timeline"
+
+    mode_specific:
+      consider:
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+
+        pass:
+          rationale_focus: "Critical issues that make investment unattractive"
+          required_elements:
+            - "Primary reason for pass"
+            - "What would need to change to reconsider"
+
+        consider:
+          rationale_focus: "Promise and concerns that warrant deeper diligence"
+          required_elements:
+            - "What is compelling about opportunity"
+            - "What needs to be validated in next phase"
+            - "Specific diligence questions to answer"
+            - "Timeline for decision"
+
+        commit:
+          rationale_focus: "Strong conviction factors that justify investment"
+          required_elements:
+            - "Primary drivers of conviction"
+            - "Why now is the right time"
+            - "Next steps for closing investment"
+            - "Timeline to close"
+
+      justify:
+        recommendation_options: ["COMMIT"]
+
+        commit:
+          rationale_focus: "Clear explanation of why investment was made"
+          required_elements:
+            - "Key factors that drove decision"
+            - "Evidence that validated thesis"
+            - "Alignment with fund strategy"
+            - "What we expect going forward"
+
+    validation_criteria:
+      - "Recommendation stated explicitly (PASS/CONSIDER/COMMIT)"
+      - "Rationale is 1-2 sentences maximum"
+      - "Supporting evidence includes specific points from memo"
+      - "Next steps are actionable (not vague)"
+      - "Next steps include timeline or owners"
+      - "Tone matches recommendation (PASS = critical, COMMIT = confident)"
+      - "No hedging or ambiguous language"
+
+# Cross-section requirements
+cross_section_requirements:
+  citation_consistency:
+    description: "Citations must follow Obsidian style across all sections"
+    format: "[^1], [^2], [^3]"
+    spacing: "One space before citation after punctuation"
+    consolidation: "All citations renumbered globally and consolidated at end"
+
+  length_balance:
+    description: "Sections should be roughly proportional"
+    guideline: "No section should be 2x length of average section"
+
+  terminology_consistency:
+    description: "Use same terms throughout memo"
+    examples:
+      - "If 'Series A' in one section, not 'Series A round' in another"
+      - "If 'ARR' defined once, use 'ARR' not 'annual recurring revenue' after"
+      - "Consistent company name (not 'Acme' and 'Acme Corp' interchangeably)"
+
+  narrative_flow:
+    description: "Sections should build on each other logically"
+    sequence:
+      - "Executive Summary references all sections"
+      - "Business Overview establishes foundation"
+      - "Market Context expands to broader environment"
+      - "Team/Technology/Traction provide evidence"
+      - "Funding/Risks/Thesis synthesize analysis"
+      - "Recommendation concludes with clarity"

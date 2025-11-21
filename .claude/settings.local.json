@@ -33,7 +33,8 @@
       "Bash(break)",
       "Bash(done)",
       "Bash(ln:*)",
-      "Bash(timeout 300 python:*)"
+      "Bash(timeout 300 python:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

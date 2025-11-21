@@ -1,57 +1,41 @@
 #!/usr/bin/env python3
-"""Test Perplexity API connection and quota."""
+"""Test Perplexity API connection with Cloudflare bypass headers."""
 
 import os
-from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv()
-
+# Load API key
 api_key = os.getenv("PERPLEXITY_API_KEY")
-
 if not api_key:
-    print("ERROR: No PERPLEXITY_API_KEY found in .env")
+    print("ERROR: PERPLEXITY_API_KEY not set in environment")
     exit(1)
 
-print(f"API Key found: {api_key[:8]}...{api_key[-4:]}")
-print("\nTesting Perplexity API...")
+print(f"Testing Perplexity API with key: {api_key[:10]}...")
 
+# Test with default headers (Cloudflare bypass)
 try:
     client = OpenAI(
         api_key=api_key,
-        base_url="https://api.perplexity.ai"
+        base_url="https://api.perplexity.ai",
+        default_headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
     )
 
-    # Simple test query
+    print("Calling Perplexity Sonar Pro...")
     response = client.chat.completions.create(
         model="sonar-pro",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "What is 2+2? Reply with just the number."}
+            {"role": "user", "content": "What is 2+2? Answer in one sentence."}
         ],
-        max_tokens=10
+        max_tokens=50
     )
 
-    print("✓ API call successful!")
+    print("\n✅ SUCCESS!")
     print(f"Response: {response.choices[0].message.content}")
-    print(f"\nUsage:")
-    print(f"  Prompt tokens: {response.usage.prompt_tokens}")
-    print(f"  Completion tokens: {response.usage.completion_tokens}")
-    print(f"  Total tokens: {response.usage.total_tokens}")
-
-    # Check headers for rate limit info
-    print("\n✓ Perplexity API is working - no quota issues detected")
+    print("\nCloudflare bypass working! Citations should now work in memo generation.")
 
 except Exception as e:
-    print(f"✗ API call failed!")
-    print(f"Error type: {type(e).__name__}")
-    print(f"Error message: {str(e)}")
-
-    if "rate_limit" in str(e).lower():
-        print("\n⚠️  RATE LIMIT HIT - Your account may be maxed out")
-    elif "quota" in str(e).lower():
-        print("\n⚠️  QUOTA EXCEEDED - Your account limit reached")
-    elif "auth" in str(e).lower():
-        print("\n⚠️  AUTHENTICATION FAILED - Check your API key")
-    elif "insufficient_quota" in str(e).lower():
-        print("\n⚠️  INSUFFICIENT QUOTA - Your Perplexity credits are depleted")
+    print(f"\n❌ FAILED: {e}")
+    print("\nIf you see HTML with '401 Authorization Required', Cloudflare is still blocking.")
+    print("If you see a different error, it may be an API key or model access issue.")

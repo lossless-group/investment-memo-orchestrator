@@ -9,11 +9,13 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from ..state import MemoState, SectionDraft
 from ..artifacts import sanitize_filename, save_section_artifact
 from ..versioning import VersionManager
+from ..outline_loader import load_outline_for_state
+from ..schemas.outline_schema import OutlineDefinition, SectionDefinition
 import re
 
 
@@ -183,28 +185,24 @@ Return ONLY the section content, no preamble.
 
 
 def write_single_section(
-    section_num: int,
-    section_name: str,
+    section_def: SectionDefinition,
     research: Dict[str, Any],
     company_name: str,
     investment_type: str,
     memo_mode: str,
-    template: str,
     style_guide: str,
     model: ChatAnthropic,
     current_date: str
 ) -> str:
     """
-    Write a single section of the memo.
+    Write a single section of the memo using outline guidance.
 
     Args:
-        section_num: Section number (1-10)
-        section_name: Section name
+        section_def: Section definition from outline (with guiding questions, vocabulary)
         research: Research data
         company_name: Company name
         investment_type: Investment type
         memo_mode: Memo mode
-        template: Template content
         style_guide: Style guide content
         model: LLM model
         current_date: Current date string
@@ -216,8 +214,10 @@ def write_single_section(
 
     research_json = json.dumps(research, indent=2)[:3000]  # Limit research to 3k chars
 
-    # Add memo mode guidance
+    # Get mode-specific guidance from outline
+    mode_specific = section_def.mode_specific.get(memo_mode)
     mode_guidance = ""
+
     if memo_mode == "justify":
         mode_guidance = """
 IMPORTANT - MEMO MODE: JUSTIFY (Retrospective Justification)
@@ -232,24 +232,47 @@ This memo is evaluating a POTENTIAL investment we have not yet made. Your recomm
 PASS, CONSIDER, or COMMIT based on the objective analysis of strengths vs. risks.
 """
 
-    user_prompt = f"""Write ONLY the "{section_name}" section for an investment memo about {company_name}.
+    if mode_specific:
+        mode_guidance += f"\nSection Emphasis: {mode_specific.emphasis}\n"
+
+    # Format guiding questions
+    questions_text = "\n".join(f"- {q}" for q in section_def.guiding_questions)
+
+    # Format vocabulary guidance
+    vocab = section_def.section_vocabulary
+    vocab_text = ""
+    if vocab.preferred_terms:
+        vocab_text += "\nPREFERRED TERMINOLOGY:\n" + "\n".join(f"- {term}" for term in vocab.preferred_terms[:5])
+    if vocab.avoid:
+        vocab_text += "\n\nAVOID:\n" + "\n".join(f"- {term}" for term in vocab.avoid[:5])
+    if vocab.required_elements:
+        vocab_text += "\n\nREQUIRED ELEMENTS:\n" + "\n".join(f"- {elem}" for elem in vocab.required_elements[:5])
+
+    # Target length
+    target_length = section_def.target_length.ideal_words
+
+    user_prompt = f"""Write ONLY the "{section_def.name}" section for an investment memo about {company_name}.
 
 CURRENT DATE: {current_date}
 INVESTMENT TYPE: {investment_type.upper()}
 {mode_guidance}
 
+SECTION GUIDANCE:
+{section_def.description}
+
+GUIDING QUESTIONS (Address these):
+{questions_text}
+{vocab_text}
+
 RESEARCH DATA (summary):
 {research_json}
-
-TEMPLATE GUIDANCE (for this section):
-{template}
 
 STYLE GUIDE:
 {style_guide}
 
 Write ONLY this section's content (no section header, it will be added automatically).
 Be specific, analytical, use metrics from research.
-Target: 300-500 words.
+Target: {target_length} words (min: {section_def.target_length.min_words}, max: {section_def.target_length.max_words}).
 
 SECTION CONTENT:
 """
@@ -262,7 +285,7 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     """
     Writer Agent implementation - ITERATIVE SECTION-BY-SECTION.
 
-    Writes memo one section at a time, saving and stitching progressively.
+    Writes memo one section at a time using YAML outline guidance.
 
     Args:
         state: Current memo state containing research data
@@ -278,8 +301,10 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     investment_type = state.get("investment_type", "direct")
     memo_mode = state.get("memo_mode", "consider")
 
-    # Load appropriate template and style guide
-    template = load_template(investment_type)
+    # Load outline (with terminal output showing which outline is loaded)
+    outline = load_outline_for_state(state)
+
+    # Load style guide (still used for general writing guidance)
     style_guide = load_style_guide()
 
     # Initialize Claude
@@ -298,20 +323,6 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     from datetime import datetime
     current_date = datetime.now().strftime("%B %Y")
 
-    # Define section order
-    section_mapping = [
-        (1, "Executive Summary"),
-        (2, "Business Overview"),
-        (3, "Market Context"),
-        (4, "Team"),
-        (5, "Technology & Product"),
-        (6, "Traction & Milestones"),
-        (7, "Funding & Terms"),
-        (8, "Risks & Mitigations"),
-        (9, "Investment Thesis"),
-        (10, "Recommendation"),
-    ]
-
     # Get version manager and output directory
     version_mgr = VersionManager(Path("output"))
     safe_name = sanitize_filename(company_name)
@@ -319,23 +330,29 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     output_dir = Path("output") / f"{safe_name}-{version}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n📝 Writing memo section-by-section...")
+    print(f"\n📝 Writing memo sections using outline guidance...")
+    print(f"   Outline: {outline.metadata.outline_type} v{outline.metadata.version}")
+    if outline.metadata.firm:
+        print(f"   Firm: {outline.metadata.firm}")
+    print(f"   Sections: {len(outline.sections)}\n")
 
-    # Write each section iteratively
+    # Write each section iteratively using outline definitions
     total_words = 0
 
-    for section_num, section_name in section_mapping:
-        print(f"  Writing section {section_num}/10: {section_name}...")
+    for section_def in outline.sections:
+        section_num = section_def.number
+        section_name = section_def.name
 
-        # Write individual section
+        print(f"  [{section_num}/10] {section_name}")
+        print(f"      Target: {section_def.target_length.ideal_words} words | Questions: {len(section_def.guiding_questions)}")
+
+        # Write individual section using outline guidance
         section_content = write_single_section(
-            section_num=section_num,
-            section_name=section_name,
+            section_def=section_def,
             research=research,
             company_name=company_name,
             investment_type=investment_type,
             memo_mode=memo_mode,
-            template=template,
             style_guide=style_guide,
             model=model,
             current_date=current_date
@@ -343,17 +360,19 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
 
         # Save individual section
         save_section_artifact(output_dir, section_num, section_name, section_content)
-        total_words += len(section_content.split())
+        word_count = len(section_content.split())
+        total_words += word_count
 
-        print(f"  ✓ Section {section_num} saved to file")
+        print(f"      ✓ Saved ({word_count} words)\n")
 
     # Sections saved - enrichment agents will process files directly
-    print(f"✓ All 10 sections written and saved to {output_dir}/2-sections/")
-    print(f"✓ Enrichment agents will process sections individually")
-    print(f"✓ Final assembly will happen after citations are added")
+    print(f"✅ All {len(outline.sections)} sections written using outline: {outline.metadata.outline_type}")
+    print(f"   Total words: {total_words}")
+    print(f"   Saved to: {output_dir}/2-sections/")
+    print(f"   Enrichment agents will process sections individually\n")
 
     # Return minimal state (enrichment agents load from files)
     return {
         "draft_sections": {},  # Enrichment agents load from files, not state
-        "messages": [f"Draft sections completed for {company_name} ({total_words} words total)"]
+        "messages": [f"Draft sections completed for {company_name} ({total_words} words total) using outline: {outline.metadata.outline_type}"]
     }
