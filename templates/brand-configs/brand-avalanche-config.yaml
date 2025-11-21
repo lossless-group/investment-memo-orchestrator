@@ -1,0 +1,27 @@
+# Hypernova Capital Brand Configuration
+# This is the official branding for Hypernova Capital
+
+company:
+  name: "Avalanche"
+  tagline: "Massive Trends | Founder Mission | Market Avalanches"
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  primary: "#1a1a1a"          # Black (headers, logo in light mode, background in dark mode)
+  secondary: "#da291c"        # Vermillion (accents, borders, links, logo highlight)
+  text_dark: "#1a1a1a"        # Almost black (main text)
+  text_light: "#ffffff"       # Gray (metadata, subtle text)
+  background: "#ffffff"       # White (page background in light mode)
+  background_alt: "#1a1a1a"   # Cream (callouts, code blocks)
+
+fonts:
+  family: "Bison"
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  custom_fonts_dir: "templates/fonts"
+
+logo:
+  light_mode: "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Light-Mode.png"
+  dark_mode: "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Dark-Mode.png"
+  width: "180px"
+  height: "60px"
+  alt: "Avalanche"

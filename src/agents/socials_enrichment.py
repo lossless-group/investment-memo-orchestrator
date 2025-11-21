@@ -331,16 +331,47 @@ def socials_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     company_name = state["company_name"]
 
     # Extract team members from research
-    team_data = research.get("team", {}) if research else {}
-    team_members = team_data.get("founders", []) or []
+    # First try structured company.founders (preferred)
+    company_data = research.get("company", {}) if research else {}
+    founders = company_data.get("founders", [])
+
+    team_members = []
+
+    if founders and isinstance(founders[0], dict):
+        # Structured format: [{"name": "...", "title": "...", "background": "..."}]
+        team_members = founders
+    else:
+        # Fallback to team.founders string format: ["Name (Role) - Background..."]
+        team_data = research.get("team", {}) if research else {}
+        founders_str = team_data.get("founders", []) or []
+
+        # Parse string format to extract name and role
+        for founder_str in founders_str:
+            if not isinstance(founder_str, str):
+                continue
+
+            # Extract name (everything before first parenthesis or dash)
+            name_match = re.match(r'^([^()\-]+)', founder_str)
+            if name_match:
+                name = name_match.group(1).strip()
+
+                # Extract role if present in parentheses
+                role_match = re.search(r'\(([^)]+)\)', founder_str)
+                role = role_match.group(1) if role_match else ""
+
+                team_members.append({
+                    "name": name,
+                    "role": role,
+                    "description": founder_str
+                })
 
     # Also check for key hires if available
+    team_data = research.get("team", {}) if research else {}
     key_hires = team_data.get("key_hires", [])
-    if key_hires:
+    if key_hires and key_hires != ["Data not available"]:
         team_members.extend(key_hires)
 
-    # Get company website
-    company_data = research.get("company", {}) if research else {}
+    # Get company website (company_data already defined above)
     company_website = company_data.get("website", "")
 
     # Find company social profiles
