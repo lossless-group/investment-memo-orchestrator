@@ -39,7 +39,9 @@
       "Bash(./test-perplexity-curl.sh)",
       "WebFetch(domain:www.perplexity.ai)",
       "Bash(source .env)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(uv pip freeze:*)",
+      "Bash(requirements.txt)"
     ],
     "deny": [],
     "ask": []
