@@ -9,9 +9,14 @@ Welcome! This guide will walk you through installing and using the Investment Me
 
 1. [What You'll Need](#what-youll-need)
 2. [Understanding the Basics](#understanding-the-basics)
+   - What is a Terminal?
+   - What is Homebrew? (macOS - IMPORTANT!)
+   - What is Git, Python, and uv?
 3. [Step 1: Open Your Terminal](#step-1-open-your-terminal)
 4. [Step 2: Check What You Already Have](#step-2-check-what-you-already-have)
 5. [Step 3: Install Missing Tools](#step-3-install-missing-tools)
+   - **(macOS)** Install Homebrew FIRST!
+   - Install Git, Python 3.11, and uv
 6. [Step 4: Get the Code](#step-4-get-the-code)
 7. [Step 5: Set Up Your Workspace](#step-5-set-up-your-workspace)
 8. [Step 6: Configure Your API Keys](#step-6-configure-your-api-keys)
@@ -273,23 +278,37 @@ You should see a version number!
 
 #### On macOS:
 
-**Option A: Install using Homebrew (recommended)**
+**✨ RECOMMENDED: Install with Homebrew**
 
-First, install Homebrew if you don't have it:
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+If you installed Homebrew in the step above (you did, right?), this is super easy:
 
-Then install Python 3.11:
 ```bash
 brew install python@3.11
 ```
 
-**Option B: Download from Python.org**
+**What to expect:**
+- Homebrew downloads and installs Python 3.11
+- Takes about 2-3 minutes
+- Automatically sets up everything correctly
+- You're done! ✅
+
+**Why Homebrew is better for Python:**
+- ✅ Doesn't conflict with macOS system Python
+- ✅ Easy to update: `brew upgrade python@3.11`
+- ✅ Easy to uninstall: `brew uninstall python@3.11`
+- ✅ Installs pip and other tools automatically
+- ✅ Works perfectly with virtual environments
+
+**Alternative: Download from Python.org (not recommended)**
+
+Only do this if you really don't want to use Homebrew:
 
 1. Go to [python.org/downloads](https://www.python.org/downloads/)
 2. Download the macOS installer for Python 3.11.x
 3. Run the installer (use default settings)
+4. Click through all the installation steps
+
+But seriously, just use Homebrew. It's so much cleaner.
 
 #### On Windows:
 
@@ -317,14 +336,34 @@ You should see `Python 3.11.x`!
 
 ### Install uv
 
-**On macOS and Linux:**
+#### On macOS:
+
+**✨ RECOMMENDED: Install with Homebrew**
+
+Seeing a pattern here?
+```bash
+brew install uv
+```
+
+Done! No scripts to download, no PATH configuration needed.
+
+**Alternative: Install with official script**
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 After installation completes, close and reopen your terminal.
 
-**On Windows:**
+#### On Linux:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+After installation completes, close and reopen your terminal.
+
+#### On Windows:
+
 ```bash
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
@@ -853,6 +892,53 @@ uv pip install -e .
 
 ---
 
+### 5. (macOS Only) Keep Your Tools Updated with Homebrew
+
+**🎉 Mac users: Here's the beauty of Homebrew!**
+
+To update ALL your Homebrew-installed tools (Python, Git, uv, and everything else) in one command:
+
+```bash
+brew update && brew upgrade
+```
+
+**What this does:**
+- `brew update` → Updates Homebrew's list of available software
+- `brew upgrade` → Updates all outdated software to latest versions
+
+**Check what needs updating:**
+```bash
+brew outdated
+```
+
+This shows which tools have new versions available.
+
+**Update specific tools only:**
+```bash
+brew upgrade python@3.11
+brew upgrade git
+brew upgrade uv
+```
+
+**Keep Homebrew itself healthy:**
+```bash
+brew doctor
+```
+
+This checks for any problems with your Homebrew installation and suggests fixes.
+
+**Pro tip:** Run `brew update && brew upgrade` once a month to keep everything current! It takes 2-5 minutes and keeps all your development tools up to date automatically.
+
+**Why this is amazing:**
+- ✅ One command updates Python, Git, uv, and hundreds of other tools
+- ✅ No need to visit websites and download installers
+- ✅ No version conflicts or broken dependencies
+- ✅ Homebrew handles everything safely
+
+This is why we recommended installing Homebrew first! 🚀
+
+---
+
 ## Getting Help
 
 ### Check the documentation
@@ -948,6 +1034,34 @@ python3.11 export-branded.py output/Company-v0.0.1/4-final-draft.md --mode dark
 python3.11 md2docx.py output/Company-v0.0.1/4-final-draft.md
 ```
 
+### Homebrew commands (macOS only):
+
+```bash
+# Update all tools installed via Homebrew
+brew update && brew upgrade
+
+# Check what's outdated
+brew outdated
+
+# Update specific tool
+brew upgrade python@3.11
+
+# Search for available packages
+brew search [package-name]
+
+# Install new tool
+brew install [package-name]
+
+# Uninstall tool
+brew uninstall [package-name]
+
+# Check Homebrew health
+brew doctor
+
+# List all installed packages
+brew list
+```
+
 ---
 
 ## Tips for Success
@@ -984,6 +1098,10 @@ Save as `data/CompanyName.json`
 
 The application automatically versions your memos (v0.0.1, v0.0.2, etc.). Each run creates a new version, so you never lose previous work!
 
+### 6. (macOS) Keep tools updated with Homebrew
+
+Run `brew update && brew upgrade` once a month to keep Python, Git, uv, and all other tools automatically updated. This prevents version conflicts and security issues!
+
 ---
 
 ## Congratulations!
@@ -993,6 +1111,7 @@ You've successfully set up and used the Investment Memo Orchestrator! 🎉
 Remember:
 - ✅ Activate your virtual environment every time: `source .venv/bin/activate`
 - ✅ Always use `uv pip install`, never `pip install`
+- ✅ **(Mac users)** Keep tools updated with `brew update && brew upgrade`
 - ✅ Check the [Common Problems section](#common-problems-and-solutions) if something goes wrong
 - ✅ Bookmark the [Quick Reference Card](#quick-reference-card) for daily use
 

@@ -32,7 +32,8 @@
       "Bash(do echo \"Creating: $section\")",
       "Bash(break)",
       "Bash(done)",
-      "Bash(ln:*)"
+      "Bash(ln:*)",
+      "Bash(timeout 300 python:*)"
     ],
     "deny": [],
     "ask": []
