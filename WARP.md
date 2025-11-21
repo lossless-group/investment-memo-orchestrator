@@ -4,21 +4,55 @@ Quick command reference for generating professional investment memos with AI.
 
 ---
 
-## 🚀 Initial Setup
+## ⚠️ CRITICAL: Use `uv` NOT `pip`
+
+**This project uses `uv` for dependency management. NEVER use `pip` directly.**
 
 ```bash
-# 1. Create virtual environment
+# ❌ WRONG - DO NOT USE
+pip install -r requirements.txt
+
+# ✅ CORRECT - ALWAYS USE
+uv pip install -r requirements.txt
+```
+
+**If you don't have `uv` installed:**
+```bash
+# macOS/Linux (Homebrew)
+brew install uv
+
+# Or install script
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+---
+
+## 🚀 Initial Setup
+
+**IMPORTANT: Follow these steps exactly in order.**
+
+```bash
+# 1. Install uv (if not already installed)
+brew install uv
+
+# 2. Create virtual environment with uv
 uv venv --python python3.11
 
-# 2. Activate environment
+# 3. Activate environment
 source .venv/bin/activate
 
-# 3. Install dependencies
+# 4. Install dependencies with uv (NOT pip!)
 uv pip install -r requirements.txt
 
-# 4. Configure API keys
+# 5. Configure API keys
 cp .env.example .env
 # Edit .env with your keys (required: ANTHROPIC_API_KEY, optional: PERPLEXITY_API_KEY, TAVILY_API_KEY)
+```
+
+**Verify Installation:**
+```bash
+source .venv/bin/activate
+python -m src.main --help
 ```
 
 ---
