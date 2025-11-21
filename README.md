@@ -10,6 +10,11 @@ Sponsored by [Hypernova Capital](https://www.hypernova.capital)
 
 **Major architecture refactor**: The system now processes sections individually throughout the entire pipeline, eliminating API timeout issues and ensuring consistent citation formatting. All enrichment agents work on section files rather than assembled content. See `changelog/2025-11-20_01.md` for complete details.
 
+### Outstanding Issues
+
+  - Ongoing dependency management issues with uv
+  - Ongoing vacillation between `sonar-pro` being effectively used by the research agent with inclusion of citations and sources ON THE FIRST RUN. Why is this important?  Because the first run will create content, add facts, develop insights based on the web research of Perplexity. If the citations are not included on that first run, that means that a retrospective citation improvement process will be plugging in citations that may or may not be the original source.  Improving sections or enhancing citations is supposed to SUPPLEMENT the original research, not mask a bug we have for reasons we don't understand.
+
 ## Overview
 
 This system uses a supervisor pattern with specialized AI agents to generate investment memos that match Hypernova Capital's analytical standards. Instead of a single AI prompt, it coordinates multiple expert agents that research, write, enrich, cite, validate, and iterate on memos using **section-by-section processing** to avoid timeouts and maintain quality.
@@ -741,15 +746,17 @@ git describe --tags
 - [x] Allow arguments for customizing the memo template based on a "Direct Investment" or an "LP Commitment" that leads to changes in the template being generated.
 - [x] Allow arguments for specifying whether the investment has already been decided (even wired already) or is currently being considered.
 
+### Improvements that need more testing
+- [x] Ability for users to run a command to improve or enhance a certain section rather than running the whole memo generation orchestration.
+- [x] Ability for users to run a command that adds or corrects crucial information that influences the entire content of the memo.  
+  Example: the Avalanche memo output says Avalanche is raising a $50M fund, but they were raising a $10M fund. In many different places it discusses the fund size.  Therefore, this correction influences the entire content of the memo.
+
 ### Remaining Enhancements
 - [ ] Elegant use of Trademarks of both authoring investment firm and target company.
  - This has been developed but it's still buggy.
 - [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
 - [ ] Specialized section outline per `fund` or `direct` investment type.
 - [ ] Agent that can screenshot the `deck` if provided and include relevant screenshots in relevant sections in the memo.
-- [ ] Ability for users to run a command to improve or enhance a certain section rather than running the whole memo generation orchestration.
-- [ ] Ability for users to run a command that adds or corrects crucial information that influences the entire content of the memo.  
-  Example: the Avalanche memo output says Avalanche is raising a $50M fund, but they were raising a $10M fund. In many different places it discusses the fund size.  Therefore, this correction influences the entire content of the memo.
 
 
 ## Current Capabilities ✅

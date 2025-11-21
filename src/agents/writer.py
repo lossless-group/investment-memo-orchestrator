@@ -184,6 +184,113 @@ Return ONLY the section content, no preamble.
     return response.content
 
 
+def polish_section_research(
+    section_def: SectionDefinition,
+    research_content: str,
+    company_name: str,
+    memo_mode: str,
+    style_guide: str,
+    model: ChatAnthropic
+) -> str:
+    """
+    Polish Perplexity research into final section while preserving citations.
+
+    This is the NEW approach: take research with citations and polish it.
+
+    Args:
+        section_def: Section definition from outline
+        research_content: Research content with citations from Perplexity
+        company_name: Company name
+        memo_mode: Memo mode
+        style_guide: Style guide content
+        model: LLM model
+
+    Returns:
+        Polished section content with preserved citations
+    """
+    import re
+
+    # Count citations before polishing
+    citations_before = len(set(re.findall(r'\[\^(\d+)\]', research_content)))
+
+    # Build mode guidance
+    mode_guidance = ""
+    if memo_mode == "justify":
+        mode_guidance = "MEMO MODE: Retrospective justification (recommend COMMIT)"
+    else:
+        mode_guidance = "MEMO MODE: Prospective analysis (recommend PASS/CONSIDER/COMMIT)"
+
+    # Get mode-specific emphasis if available
+    mode_specific = section_def.mode_specific.get(memo_mode)
+    if mode_specific:
+        mode_guidance += f"\nSection Emphasis: {mode_specific.emphasis}"
+
+    target_words = section_def.target_length.ideal_words
+
+    polish_prompt = f"""Rewrite the following Perplexity research into a polished "{section_def.name}" section for {company_name}.
+
+PERPLEXITY RESEARCH (with citations):
+{research_content}
+
+SECTION REQUIREMENTS:
+- Target length: {target_words} words
+- Analytical tone (not promotional)
+- Organized with clear subsections
+- Scannable (use bullets where appropriate)
+- {mode_guidance}
+
+CITATION PRESERVATION (CRITICAL - WILL BE VALIDATED):
+- PRESERVE ALL {citations_before} CITATIONS EXACTLY - DO NOT REMOVE ANY
+- Keep citation format: ". [^1]" (space before bracket, after punctuation)
+- Keep ALL citation numbers [^1] through [^{citations_before}]
+- DO NOT consolidate or remove "redundant" citations
+- DO NOT renumber citations
+- If a sentence has multiple citations [^1] [^2], keep ALL of them
+- INCLUDE the complete "### Citations" section at the end
+
+STYLE GUIDANCE:
+{style_guide[:1000]}
+
+WHAT YOU CAN DO:
+- Reorder sentences and paragraphs
+- Improve transitions and flow
+- Add subsection headers
+- Use bullet points for readability
+- Rephrase for clarity
+
+WHAT YOU CANNOT DO:
+- Remove or change citation markers [^N]
+- Remove the "### Citations" section
+- Change citation format or spacing
+- Add new factual claims without citations
+- Change specific numbers or dates
+- Consolidate multiple citations into one
+
+VALIDATION: Your output will be checked to ensure ALL {citations_before} citations are preserved. If any are missing, the output will be rejected.
+
+Output the polished section content (no section header "## {section_def.number}. {section_def.name}") followed by the complete "### Citations" section.
+"""
+
+    response = model.invoke(polish_prompt)
+    polished_content = response.content.strip()
+
+    # Validate citations preserved
+    citations_after = len(set(re.findall(r'\[\^(\d+)\]', polished_content)))
+
+    if citations_before != citations_after:
+        print(f"      ⚠️  WARNING: Citation mismatch! Before: {citations_before}, After: {citations_after}")
+        print(f"      Attempting to use original research content with minimal formatting")
+        # Fall back to original research if citations were lost
+        return research_content
+
+    # Validate citation list exists
+    if "### Citations" not in polished_content:
+        print(f"      ⚠️  WARNING: Citation list missing! Using original research")
+        return research_content
+
+    return polished_content
+
+
 def write_single_section(
     section_def: SectionDefinition,
     research: Dict[str, Any],
@@ -196,6 +303,9 @@ def write_single_section(
 ) -> str:
     """
     Write a single section of the memo using outline guidance.
+
+    NOTE: This is the FALLBACK approach when section research doesn't exist.
+    Prefer polish_section_research() when Perplexity research files are available.
 
     Args:
         section_def: Section definition from outline (with guiding questions, vocabulary)
@@ -336,8 +446,17 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
         print(f"   Firm: {outline.metadata.firm}")
     print(f"   Sections: {len(outline.sections)}\n")
 
+    # Check for research directory with Perplexity section research
+    research_dir = output_dir / "1-research"
+    has_section_research = research_dir.exists()
+
+    if has_section_research:
+        print(f"   ℹ️  Found section research directory - will polish Perplexity research\n")
+
     # Write each section iteratively using outline definitions
     total_words = 0
+    sections_polished = 0
+    sections_written = 0
 
     for section_def in outline.sections:
         section_num = section_def.number
@@ -346,17 +465,38 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
         print(f"  [{section_num}/10] {section_name}")
         print(f"      Target: {section_def.target_length.ideal_words} words | Questions: {len(section_def.guiding_questions)}")
 
-        # Write individual section using outline guidance
-        section_content = write_single_section(
-            section_def=section_def,
-            research=research,
-            company_name=company_name,
-            investment_type=investment_type,
-            memo_mode=memo_mode,
-            style_guide=style_guide,
-            model=model,
-            current_date=current_date
-        )
+        # Check if Perplexity section research exists
+        research_filename = section_def.filename.replace(".md", "-research.md")
+        research_file = research_dir / research_filename if has_section_research else None
+
+        if research_file and research_file.exists():
+            # NEW PATH: Polish Perplexity research with citations
+            print(f"      Found research file - polishing with citation preservation...")
+            research_content = research_file.read_text()
+
+            section_content = polish_section_research(
+                section_def=section_def,
+                research_content=research_content,
+                company_name=company_name,
+                memo_mode=memo_mode,
+                style_guide=style_guide,
+                model=model
+            )
+            sections_polished += 1
+        else:
+            # FALLBACK: Write from scratch using general research
+            print(f"      No research file - writing from general research...")
+            section_content = write_single_section(
+                section_def=section_def,
+                research=research,
+                company_name=company_name,
+                investment_type=investment_type,
+                memo_mode=memo_mode,
+                style_guide=style_guide,
+                model=model,
+                current_date=current_date
+            )
+            sections_written += 1
 
         # Save individual section
         save_section_artifact(output_dir, section_num, section_name, section_content)
@@ -366,13 +506,17 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
         print(f"      ✓ Saved ({word_count} words)\n")
 
     # Sections saved - enrichment agents will process files directly
-    print(f"✅ All {len(outline.sections)} sections written using outline: {outline.metadata.outline_type}")
+    print(f"✅ All {len(outline.sections)} sections complete using outline: {outline.metadata.outline_type}")
     print(f"   Total words: {total_words}")
+    if sections_polished > 0:
+        print(f"   Polished from research: {sections_polished} sections")
+    if sections_written > 0:
+        print(f"   Written from scratch: {sections_written} sections")
     print(f"   Saved to: {output_dir}/2-sections/")
     print(f"   Enrichment agents will process sections individually\n")
 
     # Return minimal state (enrichment agents load from files)
     return {
         "draft_sections": {},  # Enrichment agents load from files, not state
-        "messages": [f"Draft sections completed for {company_name} ({total_words} words total) using outline: {outline.metadata.outline_type}"]
+        "messages": [f"Draft sections completed for {company_name} ({total_words} words total, {sections_polished} polished, {sections_written} written) using outline: {outline.metadata.outline_type}"]
     }

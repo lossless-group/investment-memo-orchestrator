@@ -15,6 +15,11 @@ lede: "An exploration into using AI supervisors and specialized agents to genera
 
 *An exploration into using AI supervisors and specialized agents to generate high-quality investment analysis documents that maintain analytical rigor, structural consistency, and distinctive voice*
 
+# Ongoing Issues
+Perplexity is still not following preferred format for citations `. [^1]`  
+- Must always have a space before the first bracket. 
+- Preference for adding the citation after the punctuation rather than before it.
+
 ## Context
 
 Investment memos at [[moc/Hypernova|Hypernova]] follow a specific analytical format developed through deals like [[client-content/Hypernova/Portfolio/Aalo Atomics|Aalo Atomics]] (Series B, nuclear microreactors) and [[client-content/Hypernova/Portfolio/Star Catcher|Star Catcher]] (Pre-Series A, space power infrastructure). These memos balance:
@@ -549,15 +554,13 @@ class MemoOrchestrator:
 - [x] Create a "trail" of the collected information as structured output or markdown files
 - [x] Assure that citations are retained in the final output with proper attribution
 - [x] Terminal progress indicators and status messages to track workflow
+- [x] Find a way to include direct markdown links to team's LinkedIn profiles
+- [x] Allow arguments for specifying whether the investment has already been decided (even wired already) or is currently being considered.
+    - [x] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
+- [x] Find a way to "add" links to important organizations, such as government bodies, co-investors or previous investors, etc
+- [x] Find a way to include any public charts, graphs, diagrams, or visualizations from the company's website or other sources
 
 ### Remaining Enhancements
-- [x] Find a way to include direct markdown links to team's LinkedIn profiles
-- [ ] Allow arguments for specifying whether the investment has already been decided (even wired already) or is currently being considered.
-    - [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
-- [ ] Find a way to "add" links to important organizations, such as government bodies, co-investors or previous investors, etc
-- [ ] Find a way to include any public charts, graphs, diagrams, or visualizations from the company's website or other sources
-
-
 
 ## **Success criteria**:
 - Generates complete 10-section memo

@@ -34,7 +34,12 @@
       "Bash(done)",
       "Bash(ln:*)",
       "Bash(timeout 300 python:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "WebFetch(domain:docs.perplexity.ai)",
+      "Bash(./test-perplexity-curl.sh)",
+      "WebFetch(domain:www.perplexity.ai)",
+      "Bash(source .env)",
+      "Bash(open:*)"
     ],
     "deny": [],
     "ask": []

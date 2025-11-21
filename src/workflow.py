@@ -14,6 +14,7 @@ from .state import MemoState
 from .agents.researcher import research_agent
 from .agents.research_enhanced import research_agent_enhanced
 from .agents.deck_analyst import deck_analyst_agent
+from .agents.perplexity_section_researcher import perplexity_section_researcher_agent
 from .agents.writer import writer_agent
 from .agents.trademark_enrichment import trademark_enrichment_agent
 from .agents.socials_enrichment import socials_enrichment_agent
@@ -204,6 +205,7 @@ def build_workflow() -> StateGraph:
     # Add agent nodes
     workflow.add_node("deck_analyst", deck_analyst_agent)  # NEW: Deck analyst (always runs, skips if no deck)
     workflow.add_node("research", research_fn)
+    workflow.add_node("section_research", perplexity_section_researcher_agent)  # NEW: Section-specific research with citations
     workflow.add_node("draft", writer_agent)
     workflow.add_node("enrich_trademark", trademark_enrichment_agent)  # NEW: Company trademark insertion
     workflow.add_node("enrich_socials", socials_enrichment_agent)
@@ -219,9 +221,10 @@ def build_workflow() -> StateGraph:
     workflow.set_entry_point("deck_analyst")
 
     # Define edges (workflow sequence)
-    # Deck Analyst → Research → Draft → Socials → Links → Visualizations → Citations → Citation Validator → Validate
+    # Deck Analyst → Research → Section Research (Perplexity) → Draft → Trademark → Socials → Links → Visualizations → Citations → Citation Validator → Validate
     workflow.add_edge("deck_analyst", "research")
-    workflow.add_edge("research", "draft")
+    workflow.add_edge("research", "section_research")  # NEW: Generate section research with citations
+    workflow.add_edge("section_research", "draft")     # Writer polishes section research
     workflow.add_edge("draft", "enrich_trademark")  # NEW: Insert company trademark after drafting
     workflow.add_edge("enrich_trademark", "enrich_socials")
     workflow.add_edge("enrich_socials", "enrich_links")
