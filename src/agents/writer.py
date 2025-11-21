@@ -271,8 +271,32 @@ VALIDATION: Your output will be checked to ensure ALL {citations_before} citatio
 Output the polished section content (no section header "## {section_def.number}. {section_def.name}") followed by the complete "### Citations" section.
 """
 
-    response = model.invoke(polish_prompt)
-    polished_content = response.content.strip()
+    # Invoke with retry logic for transient API errors
+    import time
+    from anthropic import InternalServerError, RateLimitError
+
+    max_retries = 3
+    retry_delay = 2  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            response = model.invoke(polish_prompt)
+            polished_content = response.content.strip()
+            break  # Success, exit retry loop
+        except (InternalServerError, RateLimitError) as e:
+            if attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                print(f"      ⚠️  API error (attempt {attempt + 1}/{max_retries}): {type(e).__name__}")
+                print(f"      Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                print(f"      ❌ API error after {max_retries} attempts: {e}")
+                print(f"      Using original research content without polishing")
+                return research_content  # Fallback to original research
+        except Exception as e:
+            print(f"      ❌ Unexpected error during polishing: {e}")
+            print(f"      Using original research content without polishing")
+            return research_content  # Fallback to original research
 
     # Validate citations preserved
     citations_after = len(set(re.findall(r'\[\^(\d+)\]', polished_content)))
@@ -387,8 +411,29 @@ Target: {target_length} words (min: {section_def.target_length.min_words}, max: 
 SECTION CONTENT:
 """
 
-    response = model.invoke(user_prompt)
-    return response.content.strip()
+    # Invoke with retry logic for transient API errors
+    import time
+    from anthropic import InternalServerError, RateLimitError
+
+    max_retries = 3
+    retry_delay = 2  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            response = model.invoke(user_prompt)
+            return response.content.strip()
+        except (InternalServerError, RateLimitError) as e:
+            if attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                print(f"      ⚠️  API error (attempt {attempt + 1}/{max_retries}): {type(e).__name__}")
+                print(f"      Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                print(f"      ❌ API error after {max_retries} attempts: {e}")
+                raise  # Re-raise after all retries exhausted
+        except Exception as e:
+            print(f"      ❌ Unexpected error during writing: {e}")
+            raise  # Re-raise unexpected errors
 
 
 def writer_agent(state: MemoState) -> Dict[str, Any]:
