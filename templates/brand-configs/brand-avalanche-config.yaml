@@ -15,9 +15,10 @@ colors:
   background_alt: "#1a1a1a"   # Cream (callouts, code blocks)
 
 fonts:
-  family: "Bison"
+  # Use Roboto for body text (legible paragraph font)
+  family: "Roboto"
   fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-  custom_fonts_dir: "templates/fonts"
+  custom_fonts_dir: "templates/fonts/Roboto/static"
 
 logo:
   light_mode: "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Light-Mode.png"
