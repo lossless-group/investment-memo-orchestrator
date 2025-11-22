@@ -152,6 +152,21 @@ sections:
       - "What are the key risks?"
       - "What is the recommendation (PASS/CONSIDER/COMMIT) and primary rationale?"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Fund performance, GP background
+        - "@preqin"         # LP data, fund metrics (if available)
+        - "@cbinsights"     # Fund strategy, market intelligence
+      domains:
+        include:
+          - "pitchbook.com"
+          - "preqin.com"
+          - "cbinsights.com"
+          - "[fund-domain]"
+        exclude:
+          - "*.vc-guide.com"
+          - "*.fundraising-tips.com"
+
     section_vocabulary:
       required_elements:
         - GP/firm name
@@ -213,6 +228,21 @@ sections:
       - "What key hires have been made? (ONLY if publicly announced or disclosed)"
       - "What is the investment discipline and decision-making process? (From fund materials or stated by GP)"
       - "How does performance compare to benchmarks? (ONLY with actual benchmark data. If unavailable, state 'Benchmark comparison not available')"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # GP track record, fund performance
+        - "@linkedin"       # GP backgrounds, team profiles
+        - "@crunchbase"     # Portfolio companies, exits
+      domains:
+        include:
+          - "pitchbook.com"
+          - "linkedin.com"
+          - "crunchbase.com"
+          - "[fund-domain]"
+          - "sec.gov"
+        exclude:
+          - "*.gp-ratings.com"
 
     section_vocabulary:
       preferred_terms:

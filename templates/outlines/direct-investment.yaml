@@ -235,6 +235,23 @@ sections:
       - "What is the investment recommendation (PASS/CONSIDER/COMMIT) and primary rationale?"
       - "What is the stage and round size?"
 
+    # Preferred sources for research quality and consistency
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Company overview, funding, team
+        - "@pitchbook"      # Valuation, deal terms
+        - "@bloomberg"      # Market context, news
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+          - "bloomberg.com"
+          - "techcrunch.com"
+        exclude:
+          - "*.saas-metrics.com"
+          - "*.benchmark.com"
+          - "*.top10.com"
+
     section_vocabulary:
       required_elements:
         - Company name and brief description (one sentence)
@@ -307,6 +324,21 @@ sections:
       - "What is the current operational status? (live, beta, pilots, etc.)"
       - "What are the unit economics? (CAC, LTV, gross margin - ONLY if you have actual data from sources. DO NOT estimate from industry averages. If unavailable, state 'Unit economics not disclosed')"
       - "How do they acquire customers? (ONLY if documented in research. If unknown, describe what is known about go-to-market approach or omit)"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Company description, business model
+        - "@techcrunch"     # Product details, news
+        - "@forbes"         # Business model analysis
+      domains:
+        include:
+          - "[company-domain]"    # Company's own description
+          - "crunchbase.com"
+          - "techcrunch.com"
+          - "forbes.com"
+        exclude:
+          - "*.business-model-guide.com"
+          - "*.startup-tips.com"
 
     section_vocabulary:
       preferred_terms:
@@ -386,6 +418,23 @@ sections:
       - "What are the barriers to entry in this market?"
       - "Are there network effects or other defensibility factors?"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@statista"       # Market size, statistics, forecasts
+        - "@cbinsights"     # Market trends, competitive intelligence
+        - "@pitchbook"      # Market analysis, deal data
+      domains:
+        include:
+          - "statista.com"
+          - "cbinsights.com"
+          - "pitchbook.com"
+          - "gartner.com"
+          - "crunchbase.com"
+        exclude:
+          - "*.top10.com"
+          - "*.saas-metrics.com"
+          - "*.market-guide.com"
+
     section_vocabulary:
       preferred_terms:
         - "total addressable market (TAM) (define acronym)"
@@ -459,6 +508,20 @@ sections:
       - "Who are the advisors and what value do they add?"
       - "Who are the investors and what does their involvement signal?"
       - "What is the founder equity split and vesting?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Team bios, previous companies
+        - "@linkedin"       # Professional backgrounds
+      domains:
+        include:
+          - "linkedin.com"
+          - "crunchbase.com"
+          - "[company-domain]/about"
+          - "[company-domain]/team"
+        exclude:
+          - "*.hiring-tips.com"
+          - "*.team-building.com"
 
     section_vocabulary:
       preferred_terms:
@@ -543,6 +606,21 @@ sections:
       - "How scalable is the technology?"
       - "What technical moats exist?"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@techcrunch"     # Product launches, technology news
+        - "@wired"          # Technology analysis
+      domains:
+        include:
+          - "[company-domain]"
+          - "[company-domain]/product"
+          - "techcrunch.com"
+          - "wired.com"
+          - "producthunt.com"
+        exclude:
+          - "*.product-review.com"
+          - "*.tech-tips.com"
+
     section_vocabulary:
       preferred_terms:
         - "product capabilities (not features for strategic description)"
@@ -617,6 +695,22 @@ sections:
       - "What pilots or trials are in progress? (ONLY if mentioned in research. If unknown, omit)"
       - "What is customer retention/churn? (ONLY if disclosed. If unavailable, state 'Retention data not disclosed')"
       - "What is the sales pipeline? (ONLY if disclosed in research. If unavailable, omit or state 'Pipeline data not available')"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Company metrics, milestones
+        - "@techcrunch"     # Growth announcements, launches
+        - "@bloomberg"      # Financial metrics, news
+      domains:
+        include:
+          - "[company-domain]"
+          - "[company-domain]/blog"
+          - "crunchbase.com"
+          - "techcrunch.com"
+          - "bloomberg.com"
+        exclude:
+          - "*.growth-hacking.com"
+          - "*.startup-metrics.com"
 
     section_vocabulary:
       preferred_terms:
@@ -699,6 +793,22 @@ sections:
       - "When is the next fundraise expected? (ONLY if stated by company. Otherwise omit)"
       - "What is our proposed investment amount and resulting ownership? (ONLY if these terms have been discussed. If not yet determined, state 'Investment terms under discussion')"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Funding history, investors
+        - "@pitchbook"      # Valuations, deal terms
+        - "@sec"            # Regulatory filings (if public)
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+          - "sec.gov"
+          - "bloomberg.com"
+          - "techcrunch.com"
+        exclude:
+          - "*.fundraising-guide.com"
+          - "*.cap-table.com"
+
     section_vocabulary:
       preferred_terms:
         - "pre-money valuation (not valuation ambiguously)"
@@ -775,6 +885,22 @@ sections:
       - "Which risks are most concerning and why?"
       - "What would need to be true for this to fail?"
       - "What is outside the team's control?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@sec"            # Regulatory risks, filings
+        - "@bloomberg"      # Market risks, financial news
+        - "@reuters"        # Breaking news, verified reporting
+      domains:
+        include:
+          - "sec.gov"
+          - "bloomberg.com"
+          - "reuters.com"
+          - "wsj.com"
+          - "techcrunch.com"
+        exclude:
+          - "*.risk-assessment.com"
+          - "*.compliance-guide.com"
 
     section_vocabulary:
       preferred_terms:
@@ -854,6 +980,21 @@ sections:
       - "What are the key assumptions that must hold true?"
       - "What is the risk/reward profile?"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Comparable deals, market analysis
+        - "@statista"       # Market forecasts, trends
+        - "@cbinsights"     # Market intelligence, trends
+      domains:
+        include:
+          - "pitchbook.com"
+          - "statista.com"
+          - "cbinsights.com"
+          - "crunchbase.com"
+        exclude:
+          - "*.investment-advice.com"
+          - "*.vc-guide.com"
+
     section_vocabulary:
       preferred_terms:
         - "investment thesis (not investment rationale for core argument)"
@@ -928,6 +1069,17 @@ sections:
       - "What next steps are required?"
       - "What would change the recommendation?"
       - "What is the timeline for next steps?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Final verification of key facts
+        - "@pitchbook"      # Deal context
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+        # Note: Recommendation synthesizes from all previous sections
+        # Most content comes from analysis, not new research
 
     section_vocabulary:
       preferred_terms:
