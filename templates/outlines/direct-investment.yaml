@@ -303,10 +303,10 @@ sections:
       - "How does their solution work? (high-level, not deep technical)"
       - "What is the business model? (how do they make money?)"
       - "Who pays and why? (customer value proposition)"
-      - "What is the pricing strategy?"
+      - "What is the pricing strategy? (ONLY if publicly disclosed or in pitch deck. If unknown, state 'Pricing not publicly available')"
       - "What is the current operational status? (live, beta, pilots, etc.)"
-      - "What are the unit economics? (CAC, LTV, gross margin if available)"
-      - "How do they acquire customers?"
+      - "What are the unit economics? (CAC, LTV, gross margin - ONLY if you have actual data from sources. DO NOT estimate from industry averages. If unavailable, state 'Unit economics not disclosed')"
+      - "How do they acquire customers? (ONLY if documented in research. If unknown, describe what is known about go-to-market approach or omit)"
 
     section_vocabulary:
       preferred_terms:
@@ -607,16 +607,16 @@ sections:
       specific numbers, not vague descriptors.
 
     guiding_questions:
-      - "What revenue has been generated? (ARR, MRR, or total with timeframe)"
-      - "How many customers do they have? (paying vs pilots)"
-      - "What is the customer growth rate? (MoM, YoY with %)"
-      - "Who are the marquee customers? (names/logos)"
-      - "What are the usage metrics? (DAU, MAU, transactions, etc.)"
-      - "What growth has been achieved? (specific % MoM or YoY)"
-      - "What major milestones have been reached? (product launches, partnerships, etc.)"
-      - "What pilots or trials are in progress?"
-      - "What is customer retention/churn?"
-      - "What is the sales pipeline?"
+      - "What revenue has been generated? (ARR, MRR, or total - ONLY if you have a cited source. Otherwise state 'Revenue data not publicly available')"
+      - "How many customers do they have? (Exact number from sources ONLY. Distinguish paying vs pilots. If unavailable, state 'Customer count not disclosed')"
+      - "What is the customer growth rate? (Specific % MoM or YoY - ONLY with source. If unavailable, state 'Growth rate not disclosed')"
+      - "Who are the marquee customers? (Names/logos ONLY if publicly disclosed or in pitch deck. If confidential, state 'Customer names confidential')"
+      - "What are the usage metrics? (DAU, MAU, transactions - ONLY from sources. If unavailable, state 'Usage metrics not disclosed')"
+      - "What growth has been achieved? (Specific % with timeframe - ONLY from sources. DO NOT estimate. If unavailable, state 'Growth metrics not available')"
+      - "What major milestones have been reached? (Product launches, partnerships with dates - from sources only)"
+      - "What pilots or trials are in progress? (ONLY if mentioned in research. If unknown, omit)"
+      - "What is customer retention/churn? (ONLY if disclosed. If unavailable, state 'Retention data not disclosed')"
+      - "What is the sales pipeline? (ONLY if disclosed in research. If unavailable, omit or state 'Pipeline data not available')"
 
     section_vocabulary:
       preferred_terms:
@@ -629,11 +629,11 @@ sections:
         - "net revenue retention (NRR) (define acronym)"
 
       required_elements:
-        - Revenue figure (ARR/MRR or total revenue with timeframe)
-        - Customer count (specific number)
-        - Growth rate (MoM or YoY with %)
-        - 2-3 customer logos (if available)
-        - Key milestones with dates
+        - Revenue figure (ARR/MRR or total revenue with timeframe) OR explicit statement if unavailable
+        - Customer count (specific number) OR explicit statement if not disclosed
+        - Growth rate (MoM or YoY with %) OR explicit statement if not disclosed
+        - Customer logos (ONLY if publicly available) OR omit if confidential
+        - Key milestones with dates (from verifiable sources)
 
       critical_rules:
         - "NEVER use vague terms: 'significant traction', 'strong growth'"
@@ -689,15 +689,15 @@ sections:
       and not speculate about unavailable information.
 
     guiding_questions:
-      - "How much are they raising? (target and committed)"
-      - "At what valuation? (pre-money or post-money - specify)"
-      - "What are the proposed terms? (equity stake, preferences, rights)"
-      - "How will funds be used? (allocation breakdown)"
-      - "What is the funding history? (previous rounds, amounts, investors)"
-      - "How much have they raised to date?"
-      - "What is the current runway? (months)"
-      - "When is the next fundraise expected?"
-      - "What is our proposed investment amount and resulting ownership?"
+      - "How much are they raising? (Target and committed amounts - ONLY from sources. If not disclosed, state 'Fundraise amount not publicly available')"
+      - "At what valuation? (Pre-money or post-money - ONLY if disclosed. If confidential, state 'Valuation not disclosed')"
+      - "What are the proposed terms? (Equity stake, preferences, rights - ONLY from pitch deck or disclosed sources. If unavailable, state 'Investment terms not yet available')"
+      - "How will funds be used? (Allocation breakdown - ONLY from pitch deck or public sources. If not specified, omit or state 'Use of funds not disclosed')"
+      - "What is the funding history? (Previous rounds, amounts, investors - from verifiable sources like Crunchbase, press releases)"
+      - "How much have they raised to date? (Total funding - ONLY from verifiable sources. If unknown, state 'Total funding not disclosed')"
+      - "What is the current runway? (Months - ONLY if explicitly stated. DO NOT calculate or estimate. If unavailable, omit)"
+      - "When is the next fundraise expected? (ONLY if stated by company. Otherwise omit)"
+      - "What is our proposed investment amount and resulting ownership? (ONLY if these terms have been discussed. If not yet determined, state 'Investment terms under discussion')"
 
     section_vocabulary:
       preferred_terms:
@@ -709,12 +709,12 @@ sections:
         - "use of funds (not use of proceeds)"
 
       required_elements:
-        - Round size (dollar amount)
-        - Valuation (pre or post-money - specify)
-        - Our proposed investment amount
-        - Equity stake we'd receive
-        - Use of funds breakdown
-        - Previous funding rounds summary
+        - Round size (dollar amount) OR explicit statement if not disclosed
+        - Valuation (pre or post-money - specify) OR explicit statement if confidential
+        - Our proposed investment amount OR statement that terms are under discussion
+        - Equity stake we'd receive OR statement that terms are being negotiated
+        - Use of funds breakdown (ONLY if available from pitch deck/sources)
+        - Previous funding rounds summary (from verifiable sources only)
 
       critical_rules:
         - "If terms not available, state: 'Investment terms not yet available'"

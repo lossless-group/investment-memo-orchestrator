@@ -394,8 +394,70 @@ INVESTMENT TYPE: {investment_type.upper()}
 SECTION GUIDANCE:
 {section_def.description}
 
-GUIDING QUESTIONS (Address these):
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ CRITICAL RULES - FAILURE TO FOLLOW = AUTOMATIC REJECTION                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+1. NEVER FABRICATE METRICS
+   - If you don't have revenue data, write "Revenue data not available"
+   - If you don't have pricing, write "Pricing not publicly available"
+   - If you don't have customer count, write "Customer count not disclosed"
+   - If you don't have growth rate, write "Growth metrics not disclosed"
+
+2. CITE OR OMIT
+   - Every specific number (revenue, customers, growth %) must come from research
+   - If research doesn't mention a metric, DO NOT include it
+   - "Estimated", "likely", "approximately", "around" = fabrication in disguise
+
+3. DISTINGUISH FACT FROM INFERENCE
+   - ✓ CORRECT: "The company has 50 customers according to their blog post"
+   - ✗ FORBIDDEN: "As a seed-stage company, they likely have 20-50 customers"
+   - ✗ FORBIDDEN: "Typical SaaS startups at this stage have around 30 customers"
+
+4. INDUSTRY AVERAGES ARE NOT DATA
+   - "Typical SaaS companies charge $99/month" ≠ "This company charges $99/month"
+   - Never use "typical", "standard", "usually", "commonly" for THIS company's metrics
+   - Only state what you can verify about THIS specific company
+
+5. BE HONEST ABOUT GAPS
+   - Investors prefer "Data not available" over guesses
+   - Fabricated numbers destroy trust and credibility
+   - It is ACCEPTABLE and PROFESSIONAL to acknowledge data gaps
+
+VALIDATION PROCESS:
+After you write this section, it will be fact-checked. Every claim will be verified:
+- Does this number appear in the research data?
+- Does this claim have supporting evidence?
+- Is this speculation disguised as fact?
+
+Unsourced metrics trigger automatic section rejection and rewrite.
+Honesty about data gaps is REQUIRED, not optional.
+
+DATA AVAILABILITY ASSESSMENT:
+Before writing, review the research and mark each question below:
+
+✓ = You have specific data from research to answer this
+? = Partial data, can provide limited answer
+✗ = No data available, will state "Data not available" or omit
+
+Questions you mark ✗ should result in explicit "Data not available" statements
+or be omitted from the section entirely. DO NOT invent data for ✗ questions.
+
+GUIDING QUESTIONS (Only answer if you have evidence from research):
 {questions_text}
+
+For EACH question above, you have THREE valid options:
+1. ANSWER with specific data from research (preferred - include details)
+2. STATE EXPLICITLY "Data not available" (acceptable - be honest)
+3. OMIT the question entirely if not relevant (acceptable)
+
+You are FORBIDDEN from:
+- Inferring numbers from industry averages
+- Speculating based on company stage or size
+- Making up pricing, metrics, or financial figures
+- Using hedge phrases like "likely", "estimated", "typically", "around"
+
+IF YOU CANNOT VERIFY A CLAIM FROM THE RESEARCH BELOW, DO NOT MAKE THE CLAIM.
 {vocab_text}
 
 RESEARCH DATA (summary):
@@ -405,7 +467,8 @@ STYLE GUIDE:
 {style_guide}
 
 Write ONLY this section's content (no section header, it will be added automatically).
-Be specific, analytical, use metrics from research.
+Be specific and analytical, but ONLY use metrics and facts that appear in the research.
+When data is unavailable, explicitly state so - this is professional and expected.
 Target: {target_length} words (min: {section_def.target_length.min_words}, max: {section_def.target_length.max_words}).
 
 SECTION CONTENT:

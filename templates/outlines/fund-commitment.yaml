@@ -204,15 +204,15 @@ sections:
       performance metrics.
 
     guiding_questions:
-      - "Who are the GPs? (names, backgrounds, prior experience)"
-      - "What is the firm history? (founding story, evolution)"
-      - "How many funds has the GP raised? (list with vintages)"
-      - "What is the track record? (DPI, TVPI, IRR for each prior fund)"
-      - "What notable exits or winners?"
-      - "What is the investment team structure and size?"
-      - "What key hires have been made?"
-      - "What is the investment discipline and decision-making process?"
-      - "How does performance compare to benchmarks?"
+      - "Who are the GPs? (Names, backgrounds, prior experience - from verifiable sources)"
+      - "What is the firm history? (Founding story, evolution - from public sources or fund materials)"
+      - "How many funds has the GP raised? (List with vintages - ONLY from verifiable sources. If not disclosed, state 'Prior fund count not disclosed')"
+      - "What is the track record? (DPI, TVPI, IRR for each prior fund - ONLY from LP letters, SEC filings, or disclosed sources. If unavailable, state 'Performance data not disclosed')"
+      - "What notable exits or winners? (ONLY from public sources or disclosed portfolio data. If confidential, state 'Portfolio exits confidential')"
+      - "What is the investment team structure and size? (From fund materials or website. If not specified, describe what is known)"
+      - "What key hires have been made? (ONLY if publicly announced or disclosed)"
+      - "What is the investment discipline and decision-making process? (From fund materials or stated by GP)"
+      - "How does performance compare to benchmarks? (ONLY with actual benchmark data. If unavailable, state 'Benchmark comparison not available')"
 
     section_vocabulary:
       preferred_terms:
@@ -472,14 +472,14 @@ sections:
       and reference call feedback.
 
     guiding_questions:
-      - "What is the performance of each prior fund? (DPI, TVPI, IRR)"
-      - "What are the top performers? (entry/exit details)"
-      - "What is the loss ratio? (% of investments failed or impaired)"
-      - "What is the hit rate? (% of companies returning >3x)"
-      - "How consistent is performance across funds?"
-      - "How does performance compare to benchmarks?"
-      - "What do co-investors and LPs say? (references)"
-      - "What explains the performance? (skill, luck, timing)"
+      - "What is the performance of each prior fund? (DPI, TVPI, IRR - ONLY from LP letters, SEC filings, or disclosed sources. If unavailable, state 'Fund performance data not disclosed')"
+      - "What are the top performers? (Entry/exit details - ONLY from verifiable sources. If confidential, state 'Portfolio details confidential')"
+      - "What is the loss ratio? (% of investments failed or impaired - ONLY if disclosed. If unavailable, state 'Loss ratio not disclosed')"
+      - "What is the hit rate? (% of companies returning >3x - ONLY if disclosed. DO NOT estimate. If unavailable, state 'Hit rate not disclosed')"
+      - "How consistent is performance across funds? (ONLY if you have data for multiple funds. If limited data, state what is known)"
+      - "How does performance compare to benchmarks? (ONLY with actual benchmark data. If unavailable, state 'Benchmark comparison not available')"
+      - "What do co-investors and LPs say? (ONLY from actual reference calls completed. If not conducted, state 'Reference calls pending' or omit)"
+      - "What explains the performance? (Skill, luck, timing - ONLY supported by evidence. Avoid speculation)"
 
     section_vocabulary:
       preferred_terms:
@@ -539,14 +539,14 @@ sections:
       term, key person provisions, and other LP terms.
 
     guiding_questions:
-      - "What is the management fee? (% per year, basis, step-downs)"
-      - "What is the carried interest structure? (%, hurdle, catch-up)"
-      - "What is the fund size? (target, hard cap)"
-      - "What is the fund term? (initial term, extensions)"
-      - "What are the key person provisions?"
-      - "What other terms? (co-invest, LPAC, MFN, side letters)"
-      - "How do fees compare to market?"
-      - "What is the GP commitment?"
+      - "What is the management fee? (% per year, basis, step-downs - ONLY from fund documents or disclosed sources. If not available, state 'Fee structure not disclosed')"
+      - "What is the carried interest structure? (%, hurdle, catch-up - ONLY from fund documents. If confidential, state 'Carry structure confidential')"
+      - "What is the fund size? (Target, hard cap - from fund documents or press releases only. If not disclosed, state 'Fund size not disclosed')"
+      - "What is the fund term? (Initial term, extensions - from fund documents only)"
+      - "What are the key person provisions? (ONLY from fund documents. If not available, state 'Key person provisions not disclosed')"
+      - "What other terms? (Co-invest, LPAC, MFN, side letters - ONLY if disclosed in fund documents or term sheet)"
+      - "How do fees compare to market? (ONLY with actual market data for comparable funds. If unavailable, omit comparison)"
+      - "What is the GP commitment? (ONLY if disclosed. If not specified, state 'GP commitment not disclosed')"
 
     section_vocabulary:
       preferred_terms:
