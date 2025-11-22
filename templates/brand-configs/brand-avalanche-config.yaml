@@ -21,8 +21,8 @@ fonts:
   custom_fonts_dir: "templates/fonts/Roboto/static"
 
 logo:
-  light_mode: "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Light-Mode.png"
-  dark_mode: "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Dark-Mode.png"
+  light_mode: "templates/trademarks/trademark__Avalanche--Brand.png"
+  dark_mode: "templates/trademarks/trademark__Avalanche--Dark-Mode.png"
   width: "180px"
   height: "60px"
   alt: "Avalanche"

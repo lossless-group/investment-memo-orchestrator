@@ -219,32 +219,40 @@ def fetch_website(url: str) -> Optional[str]:
         return None
 
 
-def generate_queries_from_deck(company_name: str, deck_data: Dict[str, Any]) -> List[str]:
+def generate_queries_from_deck(company_name: str, deck_data: Dict[str, Any], company_url: Optional[str] = None) -> List[str]:
     """
     Generate targeted search queries based on deck gaps.
 
     Args:
         company_name: Name of the company
         deck_data: Deck analysis data
+        company_url: Company website URL for entity disambiguation
 
     Returns:
         List of search queries tailored to fill gaps
     """
-    queries = [f"{company_name} company overview"]
+    # Extract domain for entity disambiguation
+    domain_hint = ""
+    if company_url:
+        from urllib.parse import urlparse
+        parsed = urlparse(company_url)
+        domain_hint = f"site:{parsed.netloc}" if parsed.netloc else ""
+
+    queries = [f"{company_name} {domain_hint} company overview".strip()]
 
     # Add queries for missing information
     if not deck_data.get("team_members") or deck_data.get("team_members") == "Not mentioned":
-        queries.append(f"{company_name} founders team background LinkedIn")
+        queries.append(f"{company_name} {domain_hint} founders team background LinkedIn".strip())
 
     if not deck_data.get("market_size") or deck_data.get("market_size") == "Not mentioned":
-        queries.append(f"{company_name} market size TAM SAM industry analysis")
+        queries.append(f"{company_name} {domain_hint} market size TAM SAM industry analysis".strip())
 
     if not deck_data.get("traction_metrics") or deck_data.get("traction_metrics") == "Not mentioned":
-        queries.append(f"{company_name} revenue customers traction metrics")
+        queries.append(f"{company_name} {domain_hint} revenue customers traction metrics".strip())
 
     # Always verify claimed traction and get recent news
-    queries.append(f"{company_name} latest news funding announcements 2024")
-    queries.append(f"{company_name} funding investors Crunchbase")
+    queries.append(f"{company_name} {domain_hint} latest news funding announcements 2024".strip())
+    queries.append(f"{company_name} {domain_hint} funding investors Crunchbase".strip())
 
     return queries
 
@@ -345,28 +353,36 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
         # NEW: Generate targeted queries based on deck analysis
         if deck_analysis:
             print(f"Deck analysis available - generating targeted queries to fill gaps...")
-            search_queries = generate_queries_from_deck(company_name, deck_analysis)
+            search_queries = generate_queries_from_deck(company_name, deck_analysis, company_url)
         else:
             # Enhanced queries using company description and research notes
+            # CRITICAL: Include domain/URL for entity disambiguation
+            domain_hint = ""
+            if company_url:
+                # Extract domain from URL (e.g., "savahq.com" from "https://www.savahq.com")
+                from urllib.parse import urlparse
+                parsed = urlparse(company_url)
+                domain_hint = f"site:{parsed.netloc}" if parsed.netloc else ""
+
             search_queries = [
-                f"{company_name} company founders technology product"
+                f"{company_name} {domain_hint} company founders technology product".strip()
             ]
 
             # Add description-based query if available
             if company_description:
                 # Extract key terms from description for better search
-                search_queries.append(f"{company_name} {company_description[:50]}")
+                search_queries.append(f"{company_name} {domain_hint} {company_description[:50]}".strip())
 
             # Standard queries
             search_queries.extend([
-                f"{company_name} funding investors {company_stage or 'Series A seed'} Crunchbase",
-                f"{company_name} founders CEO team LinkedIn background",
-                f"{company_name} news announcement partnership 2024"
+                f"{company_name} {domain_hint} funding investors {company_stage or 'Series A seed'} Crunchbase".strip(),
+                f"{company_name} {domain_hint} founders CEO team LinkedIn background".strip(),
+                f"{company_name} {domain_hint} news announcement partnership 2024".strip()
             ])
 
             # Add research notes focus if provided
             if research_notes:
-                search_queries.append(f"{company_name} {research_notes[:80]}")
+                search_queries.append(f"{company_name} {domain_hint} {research_notes[:80]}".strip())
 
         # Execute searches
         for idx, query in enumerate(search_queries, 1):
@@ -405,6 +421,7 @@ CRITICAL INSTRUCTIONS:
 3. For missing data, explicitly mark as "Data not available" or leave as empty array/object
 4. Include source citations for all claims
 5. Be specific with numbers, dates, and names when available
+6. **ENTITY DISAMBIGUATION**: If a company URL is provided, VERIFY that search results are about the CORRECT company by checking if sources mention or link to that URL/domain. DISCARD results about companies with the same name but different websites
 
 OUTPUT FORMAT: Return structured JSON matching this schema:
 {
@@ -476,7 +493,15 @@ Note any discrepancies between deck claims and external sources.
             company_context += f"Research Focus: {research_notes}\n"
         company_context += "\nUse this context to guide your research synthesis, but verify all claims with search results.\n"
 
+    # Build target company identity section
+    target_identity = f"TARGET COMPANY: {company_name}"
+    if company_url:
+        target_identity += f"\nOFFICIAL WEBSITE: {company_url}"
+        target_identity += f"\n\n**CRITICAL**: Only use search results that are clearly about {company_name} from {company_url}. If sources mention a different company with the same name but a different website, DISCARD those results."
+
     user_prompt = f"""Analyze the following web search results about {company_name} and extract structured company data for investment analysis.
+
+{target_identity}
 
 {company_context}
 {deck_context}

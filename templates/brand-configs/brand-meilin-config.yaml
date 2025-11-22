@@ -1,0 +1,53 @@
+# Meilin Capital Brand Configuration
+# Black, Gold, Yellow, Green luxury color scheme
+
+company:
+  name: "Meilin Capital"
+  tagline: "Strategic capital for transformative growth"
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  # Light mode colors - sophisticated black & gold palette
+  primary: "#1a1a1a"          # Rich black (headers, primary elements in light mode)
+  secondary: "#D4AF37"        # Classic gold (accents, links, highlights)
+  text_dark: "#0a0a0a"        # Near black (main body text in light mode)
+  text_light: "#5c5c5c"       # Warm gray (metadata, secondary text)
+  background: "#fffef8"       # Warm white (page background in light mode)
+  background_alt: "#fff9e6"   # Pale gold (callouts, code blocks, table backgrounds)
+
+  # Dark mode notes:
+  # - Primary (#1a1a1a) becomes page background
+  # - Background (#fffef8) becomes text color
+  # - Secondary gold (#D4AF37) remains visible as accent
+  #
+  # Color scheme inspiration (black-gold-yellow-green):
+  # - Green (#267A48) and yellow (#F9A825) from original palette
+  # - Can be incorporated via custom CSS if needed for charts/visualizations
+
+fonts:
+  family: "Newsreader"
+  fallback: "Georgia, 'Times New Roman', serif"
+  custom_fonts_dir: null      # Set to "templates/fonts/Newsreader" if using custom fonts
+
+  header_family: "Inter"
+  header_fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  header_fonts_dir: null
+
+logo:
+  light_mode: null            # Add logo URL or path: "templates/logos/meilin-light.svg"
+  dark_mode: null             # Add logo URL or path: "templates/logos/meilin-dark.svg"
+  width: "180px"
+  height: "60px"
+  alt: "Meilin Capital"
+
+# Design notes:
+# - Black & gold evoke luxury, sophistication, and premium quality
+# - Warm white background (#fffef8) is easier on eyes than pure white
+# - Gold accents (#D4AF37) provide visual interest without overwhelming
+# - Green (#267A48) adds natural, growth-oriented symbolism
+# - Serif body font (Newsreader) for readability and elegance
+# - Sans-serif headers (Inter) for modern, clean structure
+#
+# To use:
+#   python export-branded.py output/Company-v0.0.1/4-final-draft.md --brand meilin
+#   python export-branded.py output/Company-v0.0.1/4-final-draft.md --brand meilin --mode dark

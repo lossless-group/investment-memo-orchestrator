@@ -322,6 +322,7 @@ def fact_checker_agent(state: MemoState) -> Dict[str, Any]:
     """
     company_name = state["company_name"]
     research_data = state.get("research", {})
+    expected_company_url = state.get("company_url")
 
     print("\n" + "="*70)
     print("🔍 FACT CHECKING MEMO SECTIONS")
@@ -329,22 +330,31 @@ def fact_checker_agent(state: MemoState) -> Dict[str, Any]:
     print("Purpose: Verify all metrics and claims against research sources")
     print("="*70)
 
+    # ENTITY DISAMBIGUATION CHECK
+    # Verify research is about the correct company by comparing URLs
+    entity_mismatch_warning = None
+    if expected_company_url and research_data:
+        research_company_url = research_data.get("company", {}).get("website", "")
+        if research_company_url and expected_company_url.lower() not in research_company_url.lower() and research_company_url.lower() not in expected_company_url.lower():
+            entity_mismatch_warning = f"""
+⚠️  ENTITY MISMATCH DETECTED ⚠️
+Expected company URL: {expected_company_url}
+Research data URL: {research_company_url}
+
+This suggests the research may be about a DIFFERENT company with the same name.
+All sections should be flagged for review.
+"""
+            print(entity_mismatch_warning)
+
     # Get output directory
-    from ..versioning import VersionManager
-    from ..artifacts import sanitize_filename
+    from ..utils import get_latest_output_dir
 
-    version_mgr = VersionManager(Path("output"))
-    safe_name = sanitize_filename(company_name)
-
-    # Get latest version
-    versions = version_mgr.list_versions(safe_name)
-    if not versions:
+    try:
+        output_dir = get_latest_output_dir(company_name)
+        sections_dir = output_dir / "2-sections"
+    except FileNotFoundError:
         print("❌ No output directory found - skipping fact check")
         return {"messages": ["⚠️  Fact checker skipped - no output found"]}
-
-    latest_version = versions[-1]["version"]
-    output_dir = Path("output") / f"{safe_name}-{latest_version}"
-    sections_dir = output_dir / "2-sections"
 
     if not sections_dir.exists():
         print("❌ No sections directory found - skipping fact check")
@@ -403,8 +413,14 @@ def fact_checker_agent(state: MemoState) -> Dict[str, Any]:
     total_verified = sum(r.verified_claims for r in all_results)
     overall_score = total_verified / total_claims if total_claims > 0 else 1.0
 
+    # If entity mismatch detected, flag ALL sections for rewrite
+    if entity_mismatch_warning:
+        sections_to_rewrite = [sf.stem for sf in section_files]
+        overall_score = 0.0  # Force failure
+
     # Save fact-check report
     report = {
+        "entity_mismatch": entity_mismatch_warning if entity_mismatch_warning else None,
         "fact_check_results": [
             {
                 "section": r.section_name,
@@ -448,6 +464,12 @@ def fact_checker_agent(state: MemoState) -> Dict[str, Any]:
     print("="*70)
     print(f"FACT CHECK SUMMARY")
     print("="*70)
+
+    # Show entity mismatch warning first if present
+    if entity_mismatch_warning:
+        print(entity_mismatch_warning)
+        print("="*70)
+
     print(f"Total claims examined: {total_claims}")
     print(f"Verified (with citations): {total_verified} ({overall_score:.0%})")
     print(f"Sections passed: {len(all_results) - len(sections_to_rewrite)}/{len(all_results)}")
@@ -464,10 +486,15 @@ def fact_checker_agent(state: MemoState) -> Dict[str, Any]:
 
     print("="*70 + "\n")
 
+    messages = []
+    if entity_mismatch_warning:
+        messages.append("⚠️  ENTITY MISMATCH DETECTED - Research may be about wrong company!")
+    messages.extend([
+        f"✓ Fact check complete: {total_verified}/{total_claims} claims verified ({overall_score:.0%})",
+        f"  {len(sections_to_rewrite)} sections flagged for review"
+    ])
+
     return {
         "fact_check_results": report,
-        "messages": [
-            f"✓ Fact check complete: {total_verified}/{total_claims} claims verified ({overall_score:.0%})",
-            f"  {len(sections_to_rewrite)} sections flagged for review"
-        ]
+        "messages": messages
     }
