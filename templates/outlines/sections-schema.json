@@ -131,6 +131,40 @@
               "minLength": 10
             }
           },
+          "preferred_sources": {
+            "type": "object",
+            "description": "Preferred data sources for research and citation enrichment",
+            "properties": {
+              "perplexity_at_syntax": {
+                "type": "array",
+                "description": "Perplexity @ syntax sources (e.g., @crunchbase, @pitchbook, @statista)",
+                "items": {
+                  "type": "string",
+                  "pattern": "^@[a-z]+$"
+                }
+              },
+              "domains": {
+                "type": "object",
+                "description": "Domain filtering preferences for research",
+                "properties": {
+                  "include": {
+                    "type": "array",
+                    "description": "Domains to prioritize in research (e.g., crunchbase.com, pitchbook.com)",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "exclude": {
+                    "type": "array",
+                    "description": "Domains to avoid in research (e.g., *.benchmark.com)",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "section_vocabulary": {
             "type": "object",
             "description": "Vocabulary guidance specific to this section",

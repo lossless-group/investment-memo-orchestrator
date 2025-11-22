@@ -534,7 +534,7 @@ sections:
       required_elements:
         - Founder names with titles
         - Previous companies/roles for each founder
-        - Educational background (if relevant: PhD, top school)
+        - "Educational background (if relevant: PhD, top school)"
         - LinkedIn profile links (added by enrichment agent)
         - Specific accomplishments (with numbers)
         - Key hires with roles

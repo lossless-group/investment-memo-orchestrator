@@ -342,9 +342,9 @@ sections:
         - Differentiation vs peers
 
       avoid:
-        - Vague focus: "technology companies"
-        - Unspecified criteria: "strong teams, large markets"
-        - Unsupported claims: "unique access"
+        - "Vague focus: technology companies"
+        - "Unspecified criteria: strong teams, large markets"
+        - "Unsupported claims: unique access"
 
     mode_specific:
       consider:
@@ -420,8 +420,8 @@ sections:
         - Diversification rules
 
       avoid:
-        - Vague portfolio size: "focused portfolio"
-        - Unspecified reserves: "flexible approach"
+        - "Vague portfolio size: focused portfolio"
+        - "Unspecified reserves: flexible approach"
 
     mode_specific:
       consider:
@@ -498,9 +498,9 @@ sections:
         - Founder reference feedback
 
       avoid:
-        - Generic claims: "hands-on GP"
-        - Unsubstantiated: "best network in sector"
-        - Vague: "operational expertise"
+        - "Generic claims: hands-on GP"
+        - "Unsubstantiated: best network in sector"
+        - "Vague: operational expertise"
 
     mode_specific:
       consider:
@@ -548,6 +548,19 @@ sections:
       - "How does performance compare to benchmarks? (ONLY with actual benchmark data. If unavailable, state 'Benchmark comparison not available')"
       - "What do co-investors and LPs say? (ONLY from actual reference calls completed. If not conducted, state 'Reference calls pending' or omit)"
       - "What explains the performance? (Skill, luck, timing - ONLY supported by evidence. Avoid speculation)"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Fund performance, returns
+        - "@crunchbase"     # Portfolio exits, outcomes
+      domains:
+        include:
+          - "pitchbook.com"
+          - "crunchbase.com"
+          - "sec.gov"
+          - "[fund-domain]"
+        exclude:
+          - "*.performance-calc.com"
 
     section_vocabulary:
       preferred_terms:
@@ -616,6 +629,18 @@ sections:
       - "How do fees compare to market? (ONLY with actual market data for comparable funds. If unavailable, omit comparison)"
       - "What is the GP commitment? (ONLY if disclosed. If not specified, state 'GP commitment not disclosed')"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Market fee data, comparables
+        - "@sec"            # Regulatory filings, disclosures
+      domains:
+        include:
+          - "pitchbook.com"
+          - "sec.gov"
+          - "[fund-domain]"
+        exclude:
+          - "*.fee-calculator.com"
+
     section_vocabulary:
       preferred_terms:
         - "management fee (% of committed capital)"
@@ -635,7 +660,7 @@ sections:
         - Other key terms
 
       avoid:
-        - Vague fee terms: "standard fees"
+        - "Vague fee terms: standard fees"
         - Missing key details (hurdle, catch-up)
         - Ignoring fee context (high/low for strategy)
 
@@ -687,6 +712,18 @@ sections:
       - "What did LP references say?"
       - "What is the fundraising status? (target, committed)"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # LP data, fundraising status
+        - "@linkedin"       # LP backgrounds, profiles
+      domains:
+        include:
+          - "pitchbook.com"
+          - "linkedin.com"
+          - "[fund-domain]"
+        exclude:
+          - "*.lp-directory.com"
+
     section_vocabulary:
       preferred_terms:
         - "anchor LPs (major investors)"
@@ -704,7 +741,7 @@ sections:
 
       avoid:
         - "Strong LP base (quantify re-up rate)"
-        - Vague composition: "institutional investors"
+        - "Vague composition: institutional investors"
 
     mode_specific:
       consider:
@@ -754,6 +791,20 @@ sections:
       - "For each risk, what mitigations exist?"
       - "Which risks are most concerning?"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@sec"            # Regulatory risks, filings
+        - "@bloomberg"      # Market risks, financial news
+        - "@reuters"        # Breaking news, verified reporting
+      domains:
+        include:
+          - "sec.gov"
+          - "bloomberg.com"
+          - "reuters.com"
+          - "wsj.com"
+        exclude:
+          - "*.risk-guide.com"
+
     section_vocabulary:
       preferred_terms:
         - "key person risk (GP departure or incapacity)"
@@ -779,7 +830,7 @@ sections:
 
       avoid:
         - Generic risks without specifics
-        - Dismissive language: "risk is minimal"
+        - "Dismissive language: risk is minimal"
         - Missing mitigations
 
     mode_specific:
@@ -826,6 +877,16 @@ sections:
       - "What concerns remain?"
       - "What next steps are required?"
       - "What is the timeline?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Final verification, fund context
+      domains:
+        include:
+          - "pitchbook.com"
+          - "[fund-domain]"
+        # Note: Recommendation synthesizes from all previous sections
+        # Most content comes from analysis, not new research
 
     section_vocabulary:
       preferred_terms:

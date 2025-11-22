@@ -17,6 +17,58 @@ from ..state import MemoState, ResearchData
 from ..artifacts import create_artifact_directory, save_research_artifacts
 from ..versioning import VersionManager
 from pathlib import Path
+import yaml
+
+
+def load_outline_sources(investment_type: str) -> Dict[str, List[str]]:
+    """
+    Load preferred sources from outline YAML files.
+
+    Args:
+        investment_type: "direct" or "fund"
+
+    Returns:
+        Dict mapping section names to list of @source strings
+    """
+    # Map investment type to outline file
+    outline_map = {
+        "direct": "direct-investment.yaml",
+        "fund": "fund-commitment.yaml"
+    }
+
+    outline_file = outline_map.get(investment_type)
+    if not outline_file:
+        print(f"Warning: Unknown investment type '{investment_type}', no sources loaded")
+        return {}
+
+    # Load outline
+    outline_path = Path(__file__).parent.parent.parent / "templates" / "outlines" / outline_file
+
+    if not outline_path.exists():
+        print(f"Warning: Outline file not found: {outline_path}")
+        return {}
+
+    try:
+        with open(outline_path, 'r') as f:
+            outline = yaml.safe_load(f)
+
+        # Extract preferred sources for each section
+        sources_by_section = {}
+
+        for section in outline.get('sections', []):
+            section_name = section.get('name')
+            preferred_sources = section.get('preferred_sources', {})
+            at_syntax = preferred_sources.get('perplexity_at_syntax', [])
+
+            if section_name and at_syntax:
+                sources_by_section[section_name] = at_syntax
+
+        print(f"Loaded preferred sources for {len(sources_by_section)} sections from {outline_file}")
+        return sources_by_section
+
+    except Exception as e:
+        print(f"Error loading outline sources: {e}")
+        return {}
 
 
 class WebSearchProvider:
@@ -38,8 +90,20 @@ class TavilyProvider(WebSearchProvider):
         except ImportError:
             raise ImportError("tavily-python not installed. Run: pip install tavily-python")
 
-    def search(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
-        """Search using Tavily API."""
+    def search(self, query: str, max_results: int = 10, sources: Optional[List[str]] = None) -> List[Dict[str, str]]:
+        """
+        Search using Tavily API.
+
+        Args:
+            query: Search query
+            max_results: Maximum results to return
+            sources: Optional list of @source strings (not used by Tavily, kept for compatibility)
+
+        Returns:
+            List of search results
+        """
+        # Note: Tavily doesn't support @ syntax for source targeting
+        # The sources parameter is kept for API compatibility
         try:
             response = self.client.search(
                 query=query,
@@ -85,14 +149,32 @@ class PerplexityProvider(WebSearchProvider):
         except ImportError:
             raise ImportError("openai not installed. Run: pip install openai")
 
-    def search(self, query: str, max_results: int = 10) -> List[Dict[str, str]]:
-        """Search using Perplexity API."""
+    def search(self, query: str, max_results: int = 10, sources: Optional[List[str]] = None) -> List[Dict[str, str]]:
+        """
+        Search using Perplexity API.
+
+        Args:
+            query: Search query
+            max_results: Maximum results (not used for Perplexity)
+            sources: Optional list of @source strings to append (e.g., ["@crunchbase", "@pitchbook"])
+
+        Returns:
+            List of search results
+        """
         try:
+            # Append sources to query if provided
+            if sources:
+                sources_str = " ".join(sources)
+                enhanced_query = f"{query} {sources_str}"
+                print(f"  Enhanced with sources: {sources_str}")
+            else:
+                enhanced_query = query
+
             response = self.client.chat.completions.create(
                 model="sonar-pro",  # Perplexity Sonar Pro for advanced research with citations
                 messages=[
                     {"role": "system", "content": "You are a research assistant providing detailed, cited information for investment analysis."},
-                    {"role": "user", "content": query}
+                    {"role": "user", "content": enhanced_query}
                 ]
             )
 
@@ -188,6 +270,7 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     """
     company_name = state["company_name"]
     deck_analysis = state.get("deck_analysis")
+    investment_type = state.get("investment_type", "direct")
 
     # NEW: Get company context from state (from JSON input file)
     company_description = state.get("company_description")
@@ -202,6 +285,27 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
         print(f"Using company URL: {company_url}")
     if research_notes:
         print(f"Research focus: {research_notes[:80]}...")
+
+    # NEW: Load preferred sources from outlines
+    print(f"\nLoading preferred sources from {investment_type} investment outline...")
+    outline_sources = load_outline_sources(investment_type)
+
+    # Aggregate sources from key research sections
+    # Research phase is comprehensive, so combine sources from multiple sections
+    aggregated_sources = set()
+    key_sections = ["Executive Summary", "Business Overview", "Market Context", "Team", "Traction & Milestones"]
+
+    for section in key_sections:
+        if section in outline_sources:
+            aggregated_sources.update(outline_sources[section])
+
+    # Convert to list for use in queries
+    research_sources = list(aggregated_sources) if aggregated_sources else None
+
+    if research_sources:
+        print(f"Using aggregated sources: {' '.join(research_sources)}")
+    else:
+        print("No preferred sources loaded - using default queries")
 
     # Get configuration
     provider_name = os.getenv("RESEARCH_PROVIDER", "tavily").lower()
@@ -267,7 +371,13 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
         # Execute searches
         for idx, query in enumerate(search_queries, 1):
             print(f"Search {idx}/{len(search_queries)}: {query}...")
-            results = search_provider.search(query, max_results=5 if idx > 1 else max_results)
+
+            # Pass sources to search provider (only Perplexity supports this currently)
+            if isinstance(search_provider, PerplexityProvider) and research_sources:
+                results = search_provider.search(query, max_results=5 if idx > 1 else max_results, sources=research_sources)
+            else:
+                results = search_provider.search(query, max_results=5 if idx > 1 else max_results)
+
             for r in results:
                 research_context.append(f"Source: {r['title']} ({r['url']})\n{r['content']}\n")
 
