@@ -311,6 +311,20 @@ sections:
       - "What is the investment thesis?"
       - "What market trends support the strategy?"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Fund strategy, market positioning
+        - "@cbinsights"     # Market trends, intelligence
+        - "@statista"       # Market data, forecasts
+      domains:
+        include:
+          - "pitchbook.com"
+          - "cbinsights.com"
+          - "statista.com"
+          - "[fund-domain]"
+        exclude:
+          - "*.vc-strategy.com"
+
     section_vocabulary:
       preferred_terms:
         - "investment focus (not investment strategy for sector/stage)"
@@ -378,6 +392,18 @@ sections:
       - "How many new investments per year?"
       - "What is the follow-on discipline?"
 
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Portfolio construction data
+        - "@crunchbase"     # Portfolio companies
+      domains:
+        include:
+          - "pitchbook.com"
+          - "crunchbase.com"
+          - "[fund-domain]"
+        exclude:
+          - "*.portfolio-guide.com"
+
     section_vocabulary:
       preferred_terms:
         - "portfolio construction (not portfolio strategy)"
@@ -443,6 +469,18 @@ sections:
       - "What do founder references say?"
       - "What competitive advantages in winning deals?"
       - "How engaged is GP post-investment?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # GP differentiation, market position
+        - "@cbinsights"     # Value add services, trends
+      domains:
+        include:
+          - "pitchbook.com"
+          - "cbinsights.com"
+          - "[fund-domain]"
+        exclude:
+          - "*.vc-tips.com"
 
     section_vocabulary:
       preferred_terms:
