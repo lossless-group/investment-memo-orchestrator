@@ -158,7 +158,8 @@ class MemoState(TypedDict):
 
     # Validation phase
     validation_results: Dict[str, ValidationFeedback]
-    citation_validation: Optional[CitationValidation]  # NEW: Citation accuracy validation
+    citation_validation: Optional[CitationValidation]  # Citation accuracy validation
+    fact_check_results: Optional[Dict[str, Any]]  # Fact-checking results (claims vs sources)
     overall_score: float
 
     # Iteration tracking
@@ -217,6 +218,7 @@ def create_initial_state(
         draft_sections={},
         validation_results={},
         citation_validation=None,
+        fact_check_results=None,
         overall_score=0.0,
         revision_count=0,
         final_memo=None,

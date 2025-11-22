@@ -438,6 +438,98 @@ def format_validation_report(validation_data: Dict[str, Any]) -> str:
     return md
 
 
+def save_fact_check_artifacts(output_dir: Path, fact_check_data: Dict[str, Any]) -> None:
+    """
+    Save fact-check artifacts (JSON and markdown report).
+
+    Args:
+        output_dir: Directory to save artifacts
+        fact_check_data: Fact-check data from fact_checker agent
+    """
+    # Save structured JSON
+    with open(output_dir / "5-fact-check.json", "w") as f:
+        json.dump(fact_check_data, f, indent=2, ensure_ascii=False)
+
+    # Save human-readable markdown report
+    report = format_fact_check_report(fact_check_data)
+    with open(output_dir / "5-fact-check.md", "w") as f:
+        f.write(report)
+
+
+def format_fact_check_report(fact_check_data: Dict[str, Any]) -> str:
+    """
+    Format fact-check data as human-readable markdown report.
+
+    Args:
+        fact_check_data: Fact-check data from fact_checker agent
+
+    Returns:
+        Markdown formatted report
+    """
+    md = "# Fact-Check Report\n\n"
+    md += f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+
+    summary = fact_check_data.get("summary", {})
+    overall_score = summary.get("overall_score", 0.0)
+    total_claims = summary.get("total_claims", 0)
+    verified_claims = summary.get("verified_claims", 0)
+    sections_flagged = summary.get("sections_flagged", 0)
+    strictness = summary.get("strictness", "high")
+
+    md += f"## Overall Score: {overall_score:.0%}\n\n"
+    md += f"**Strictness**: {strictness.upper()}\n"
+    md += f"**Total Claims**: {total_claims}\n"
+    md += f"**Verified (with citations)**: {verified_claims}\n"
+    md += f"**Sections Flagged**: {sections_flagged}\n\n"
+
+    # Determine status
+    if fact_check_data.get("overall_pass", False):
+        status = "✅ **PASSED** - All claims sourced"
+    else:
+        status = f"⚠️ **REVIEW REQUIRED** - {sections_flagged} sections need attention"
+
+    md += f"{status}\n\n"
+    md += "---\n\n"
+
+    # Section-by-section results
+    if "fact_check_results" in fact_check_data:
+        md += "## Section Results\n\n"
+        for section_data in fact_check_data.get("fact_check_results", []):
+            section_name = section_data.get("section", "Unknown")
+            total = section_data.get("total_claims", 0)
+            verified = section_data.get("verified_claims", 0)
+            score = section_data.get("score", 0.0)
+            requires_rewrite = section_data.get("requires_rewrite", False)
+
+            status_icon = "❌" if requires_rewrite else "✅"
+            md += f"### {status_icon} {section_name}\n\n"
+            md += f"- **Score**: {score:.0%}\n"
+            md += f"- **Claims**: {verified}/{total} verified\n"
+
+            if requires_rewrite:
+                md += f"- **Status**: ⚠️ Requires review\n"
+
+                critical_issues = section_data.get("critical_issues", [])
+                if critical_issues:
+                    md += f"\n**Critical Issues** ({len(critical_issues)}):\n"
+                    for issue in critical_issues[:5]:  # Show first 5
+                        md += f"- {issue[:150]}...\n"
+
+            md += "\n"
+
+    # Sections to rewrite
+    sections_to_rewrite = fact_check_data.get("sections_to_rewrite", [])
+    if sections_to_rewrite:
+        md += "## Sections Requiring Revision\n\n"
+        for section in sections_to_rewrite:
+            section_display = section.replace('-', ' ').title()
+            md += f"- {section_display}\n"
+        md += "\n"
+        md += "**Recommendation**: Use `improve-section.py` to add citations or remove unsourced claims.\n\n"
+
+    return md
+
+
 def save_final_draft(output_dir: Path, content: str) -> None:
     """
     Save final assembled memo.
