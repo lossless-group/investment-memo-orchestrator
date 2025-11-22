@@ -254,24 +254,80 @@ Every workflow run saves to `output/{Company-Name}-v0.0.x/`:
 
 Functions in `src/artifacts.py` handle all artifact saving.
 
-### Dual-Template System
-The system supports two investment types via template selection:
+### Outline-Based Architecture (Preferred) with Template Fallback
 
-**Direct Investment** (`templates/memo-template-direct.md`):
-- 10 sections for startup analysis
-- Sections: Executive Summary, Business Overview, Market Context, Team, Technology & Product, Traction & Milestones, Funding & Terms, Risks & Mitigations, Investment Thesis, Recommendation
+**IMPORTANT**: This system uses **YAML outlines** for content structure, with markdown templates as fallback.
 
-**Fund Commitment** (`templates/memo-template-fund.md`):
-- 10 sections for LP diligence
-- Sections: Executive Summary, GP Background & Track Record, Fund Strategy & Thesis, Portfolio Construction, Value Add & Differentiation, Track Record Analysis, Fee Structure & Economics, LP Base & References, Risks & Mitigations, Recommendation
+#### Content Structure Hierarchy
 
-Templates are selected in `writer.py` based on `state["investment_type"]`.
+**Preferred: YAML Outlines** (`templates/outlines/`)
+- Structured YAML files defining sections, questions, vocabulary, and preferred sources
+- Self-contained and machine-readable
+- Support inheritance and customization
+- Enable section-specific research source targeting
 
-### Memo Modes
+**Fallback: Markdown Templates** (`templates/`)
+- Legacy markdown templates used if no outline specified
+- Basic section structure only
+- Less flexible than YAML outlines
+
+#### Two Investment Types
+
+**Direct Investment**:
+- **Outline**: `templates/outlines/direct-investment.yaml` (preferred)
+- **Template**: `templates/memo-template-direct.md` (fallback)
+- **10 sections**: Executive Summary, Business Overview, Market Context, Team, Technology & Product, Traction & Milestones, Funding & Terms, Risks & Mitigations, Investment Thesis, Recommendation
+
+**Fund Commitment**:
+- **Outline**: `templates/outlines/fund-commitment.yaml` (preferred)
+- **Template**: `templates/memo-template-fund.md` (fallback)
+- **10 sections**: Executive Summary, GP Background & Track Record, Fund Strategy & Thesis, Portfolio Construction, Value Add & Differentiation, Track Record Analysis, Fee Structure & Economics, LP Base & References, Risks & Mitigations, Recommendation
+
+#### YAML Outline Structure
+
+Each outline contains:
+- **Metadata**: Outline type, version, compatibility
+- **Vocabulary**: Global and section-specific terminology guidance
+- **Sections**: For each section:
+  - Number, name, filename
+  - Target word counts (min/max/ideal)
+  - Guiding questions (what to address)
+  - Section-specific vocabulary
+  - **Preferred sources** (Perplexity @ syntax and domains)
+  - Mode-specific guidance (consider vs justify)
+  - Validation criteria
+
+**Example section structure:**
+```yaml
+sections:
+  - number: 3
+    name: "Market Context"
+    filename: "03-market-context.md"
+    guiding_questions:
+      - "What is the TAM and how is it growing?"
+      - "Who are key competitors?"
+    preferred_sources:
+      perplexity_at_syntax: ["@statista", "@cbinsights", "@pitchbook"]
+      domains:
+        include: ["statista.com", "cbinsights.com", "pitchbook.com"]
+        exclude: ["*.top10.com", "*.saas-metrics.com"]
+```
+
+See `context-vigilance/Format-Memo-According-to-Template-Input.md` for complete architecture documentation.
+
+#### Selection Logic
+
+The writer agent selects content structure based on:
+1. Check for custom outline in company data: `data/{Company}.json` → `"outline": "custom-name"`
+2. Load custom outline from `templates/outlines/custom/{custom-name}.yaml` (if specified)
+3. Otherwise load default outline: `templates/outlines/{investment_type}.yaml`
+4. If outline not found, fallback to markdown template: `templates/memo-template-{type}.md`
+
+#### Memo Modes
 - **consider**: Prospective analysis for potential investments (recommendation: PASS/CONSIDER/COMMIT)
 - **justify**: Retrospective justification for existing investments (recommendation: always COMMIT with rationale)
 
-Mode affects the recommendation section and overall framing.
+Mode affects the recommendation section and overall framing. Outlines include mode-specific guidance for each section.
 
 ## Key Implementation Patterns
 
@@ -311,12 +367,40 @@ def agent_name(state: MemoState) -> dict:
 - Minor/major bumps require manual tagging
 - Git tags control package version (setuptools-scm)
 
-### Brand Configuration System
-Multi-brand export support via YAML configs in `templates/brand-configs/`:
-- Create `brand-{name}-config.yaml` for each VC firm
-- Configure colors, fonts, VC firm logos (header)
+### Brand Configuration System (Separate but Related)
+
+**Important Distinction:**
+- **Outlines** (`templates/outlines/`) = **Content structure** (sections, questions, vocabulary, sources)
+- **Brand Configs** (`templates/brand-configs/`) = **Visual styling** (colors, fonts, logos, CSS)
+
+These are separate systems that work together:
+- **One outline** can be exported with **multiple brand configs** (e.g., Hypernova outline → export as Hypernova brand or Collide brand)
+- **Multiple firms** can each have their own outline AND brand config
+- Outlines control WHAT to write, Brand configs control HOW it looks when exported
+
+**Multi-Brand Export Support:**
+- Create `brand-{name}-config.yaml` for each VC firm in `templates/brand-configs/`
+- Configure colors, fonts, VC firm logos (header), typography, spacing
 - `src/branding.py` loads configs and generates branded CSS
 - `export-branded.py` applies branding to HTML exports
+
+**Example Multi-Firm Setup:**
+```
+templates/
+├── outlines/
+│   ├── direct-investment.yaml          # Default outline
+│   ├── fund-commitment.yaml            # Default outline
+│   └── custom/
+│       ├── hypernova-direct.yaml       # Hypernova's content preferences
+│       └── collide-direct.yaml         # Collide's content preferences
+│
+└── brand-configs/
+    ├── brand-hypernova-config.yaml     # Hypernova's visual branding
+    ├── brand-collide-config.yaml       # Collide's visual branding
+    └── brand-example-config.yaml       # Template for new firms
+```
+
+A firm can customize BOTH content (outline) AND styling (brand config) independently.
 
 **Dual Trademark System:**
 
@@ -396,10 +480,20 @@ See `templates/brand-configs/README.md` for complete brand configuration documen
 - `src/versioning.py` - Version management (VersionManager class)
 - `src/branding.py` - Brand config loading and CSS generation
 
-### Templates
-- `templates/memo-template-direct.md` - Direct investment template
-- `templates/memo-template-fund.md` - Fund commitment template
-- `templates/style-guide.md` - Writing standards and tone
+### Content Structure & Configuration
+- **Outlines** (Preferred):
+  - `templates/outlines/direct-investment.yaml` - Direct investment outline (preferred)
+  - `templates/outlines/fund-commitment.yaml` - Fund commitment outline (preferred)
+  - `templates/outlines/custom/` - Firm-specific outline customizations
+  - `templates/outlines/sections-schema.json` - Validation schema for outlines
+  - `templates/outlines/README.md` - Outline system documentation
+- **Templates** (Fallback):
+  - `templates/memo-template-direct.md` - Direct investment template (fallback)
+  - `templates/memo-template-fund.md` - Fund commitment template (fallback)
+  - `templates/style-guide.md` - Writing standards and tone
+- **Brand Configs** (Visual Styling):
+  - `templates/brand-configs/brand-{firm}-config.yaml` - Per-firm visual branding
+  - `templates/brand-configs/README.md` - Brand configuration documentation
 
 ## Environment Variables
 
@@ -423,6 +517,7 @@ Store company context in `data/{CompanyName}.json`:
 {
   "type": "direct",
   "mode": "justify",
+  "outline": "hypernova-direct",
   "description": "Brief company description for research context",
   "url": "https://company.com",
   "stage": "Series A",
@@ -436,6 +531,7 @@ Store company context in `data/{CompanyName}.json`:
 **Field Descriptions:**
 - `type`: `"direct"` for startup investments, `"fund"` for LP commitments (overrides CLI `--type`)
 - `mode`: `"consider"` for prospective analysis, `"justify"` for retrospective (overrides CLI `--mode`)
+- `outline`: Optional custom outline name (e.g., `"hypernova-direct"` loads `templates/outlines/custom/hypernova-direct.yaml`). If omitted, uses default outline based on type.
 - `description`: Brief company description to guide research
 - `url`: Company website URL
 - `stage`: Investment stage (Seed, Series A, etc.)
@@ -495,16 +591,33 @@ Citations flow through:
 5. Add edge to sequence: `workflow.add_edge("previous_agent", "new_agent")`
 6. Update `MemoState` in `src/state.py` if new state fields needed
 
-### Modifying Template Structure
+### Modifying Content Structure
+
+**Preferred: Edit YAML Outlines**
+1. Edit `templates/outlines/direct-investment.yaml` or `templates/outlines/fund-commitment.yaml`
+2. Modify sections: add/remove/reorder, update guiding questions, vocabulary, preferred sources
+3. Validate against schema: `templates/outlines/sections-schema.json`
+4. Update validation criteria in outline's `validation_criteria` field
+5. No code changes needed - agents read from outlines
+
+**Fallback: Edit Markdown Templates** (if outline loading not yet implemented)
 1. Edit `templates/memo-template-direct.md` or `templates/memo-template-fund.md`
 2. Update section list in `src/agents/writer.py:SECTION_ORDER` if adding/removing sections
 3. Update validation criteria in `src/agents/validator.py` if section evaluation changes
 
-### Adding a New Brand
+### Adding Firm-Specific Customization
+
+**Custom Outline** (content preferences):
+1. Create `templates/outlines/custom/{firm}-{type}.yaml`
+2. Set `extends: "../direct-investment.yaml"` to inherit from default
+3. Override specific sections or add firm vocabulary
+4. Reference in company data: `"outline": "firm-direct"`
+
+**Custom Brand Config** (visual styling):
 1. Copy `templates/brand-configs/brand-config.example.yaml`
-2. Rename to `brand-{yourfirm}-config.yaml`
-3. Customize colors, fonts, logo paths
-4. Export with: `python export-branded.py memo.md --brand yourfirm`
+2. Rename to `brand-{firm}-config.yaml`
+3. Customize colors, fonts, logos
+4. Export with: `python export-branded.py memo.md --brand firm`
 
 ### Debugging Workflow Issues
 1. Check `output/{Company}-v0.0.x/state.json` for full state snapshot
@@ -550,3 +663,23 @@ uv pip install -e .
 - Validation threshold: 8/10 for auto-finalization
 - Version auto-increments on each run (prevents overwrites)
 - Artifact trail enables targeted improvements without full regeneration
+
+## Related Documentation
+
+### Architecture & Design
+- `context-vigilance/Format-Memo-According-to-Template-Input.md` - **Outline-based architecture** (YAML content structure system)
+- `context-vigilance/Multi-Agent-Orchestration-for-Investment-Memo-Generation.md` - Multi-agent workflow design
+- `context-vigilance/Improving-Memo-Output.md` - Section improvement and quality enhancement
+
+### Configuration
+- `templates/outlines/README.md` - **Outline system documentation** (sections, questions, vocabulary, sources)
+- `templates/brand-configs/README.md` - **Brand configuration guide** (visual styling, logos, colors)
+
+### Development
+- `context-vigilance/issue-resolution/Perplexity-Premium-API-Calls-Reference.md` - Premium data sources and @ syntax usage
+- `changelog/` - Version history and feature updates
+
+### Key Distinctions
+- **Outlines** (`templates/outlines/`) = Content structure (what to write, which sources to use)
+- **Brand Configs** (`templates/brand-configs/`) = Visual styling (how it looks when exported)
+- **Templates** (`templates/*.md`) = Fallback for legacy markdown-based structure
