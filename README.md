@@ -171,6 +171,34 @@ Hypernova is a Fund-of-Funds, deploying 40% of capital as LP commitments to solo
 
 ### Installation
 
+#### System Dependencies (Recommended)
+
+While Python dependencies install automatically, certain export features require system-level tools. Install these for the best experience:
+
+**Pandoc** (for Word/HTML exports):
+```bash
+# macOS
+brew install pandoc
+
+# Ubuntu/Debian
+sudo apt install pandoc
+
+# Windows
+choco install pandoc
+```
+*Note: If not installed, `pypandoc` will attempt to auto-download, but brew installation is faster and more reliable.*
+
+**WeasyPrint Dependencies** (for PDF exports):
+```bash
+# macOS
+brew install cairo pango gdk-pixbuf libffi
+
+# Ubuntu/Debian
+sudo apt install libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev
+```
+
+#### Python Dependencies
+
 ```bash
 # Install dependencies with uv (requires Python 3.11+)
 uv pip install -e . --python /path/to/python3.11

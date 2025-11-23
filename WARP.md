@@ -35,19 +35,30 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # 1. Install uv (if not already installed)
 brew install uv
 
-# 2. Create virtual environment with uv
+# 2. Install system dependencies (recommended for exports)
+# macOS
+brew install pandoc cairo pango gdk-pixbuf libffi
+
+# Ubuntu/Debian
+# sudo apt install pandoc libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev
+
+# 3. Create virtual environment with uv
 uv venv --python python3.11
 
-# 3. Activate environment
+# 4. Activate environment
 source .venv/bin/activate
 
-# 4. Install dependencies with uv (NOT pip!)
+# 5. Install dependencies with uv (NOT pip!)
 uv pip install -r requirements.txt
 
-# 5. Configure API keys
+# 6. Configure API keys
 cp .env.example .env
 # Edit .env with your keys (required: ANTHROPIC_API_KEY, optional: PERPLEXITY_API_KEY, TAVILY_API_KEY)
 ```
+
+**What do the system dependencies do?**
+- `pandoc` - Enables Word/HTML exports (auto-downloads if missing, but brew is faster)
+- `cairo, pango, gdk-pixbuf, libffi` - Enables PDF generation via WeasyPrint
 
 **Verify Installation:**
 ```bash
@@ -92,16 +103,16 @@ python -m src.main "Avalanche Fund IV" --type fund --mode justify
 
 ```bash
 # Export with default brand
-python export-branded.py output/Company-v0.0.X/4-final-draft.md
+python cli/export-branded.py output/Company-v0.0.X/4-final-draft.md
 
 # Export with specific brand (dark mode)
-python export-branded.py output/Company-v0.0.X/4-final-draft.md --brand hypernova --mode dark
+python cli/export-branded.py output/Company-v0.0.X/4-final-draft.md --brand hypernova --mode dark
 
 # Export with specific brand (light mode)
-python export-branded.py output/Company-v0.0.X/4-final-draft.md --brand avalanche --mode light
+python cli/export-branded.py output/Company-v0.0.X/4-final-draft.md --brand avalanche --mode light
 
 # Convert HTML to PDF
-./html-to-pdf.sh exports/branded/Company-v0.0.X.html
+./cli/html-to-pdf.sh exports/branded/Company-v0.0.X.html
 ```
 
 ---
@@ -110,10 +121,10 @@ python export-branded.py output/Company-v0.0.X/4-final-draft.md --brand avalanch
 
 ```bash
 # Improve specific section (uses Perplexity Sonar Pro for real-time research)
-python improve-section.py "Avalanche" "Team"
+python cli/improve-section.py "Avalanche" "Team"
 
 # Improve with specific version
-python improve-section.py "Avalanche" "Market Context" --version v0.0.1
+python cli/improve-section.py "Avalanche" "Market Context" --version v0.0.1
 
 # Available sections:
 # - "Executive Summary"
@@ -166,7 +177,7 @@ python -m src.main "CompanyName"
 | `--type` | `direct`, `fund` | `direct` | Investment type |
 | `--mode` | `consider`, `justify` | `consider` | Memo mode |
 
-### Export Command: `python export-branded.py`
+### Export Command: `python cli/export-branded.py`
 
 | Argument | Options | Default | Description |
 |----------|---------|---------|-------------|
@@ -210,6 +221,15 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
+### Export/PDF Generation Issues
+```bash
+# If Word/HTML exports fail, install pandoc
+brew install pandoc
+
+# If PDF generation fails, install WeasyPrint dependencies
+brew install cairo pango gdk-pixbuf libffi
+```
+
 ### API Key Issues
 ```bash
 # Check your .env file has:
@@ -221,9 +241,9 @@ TAVILY_API_KEY=tvly-...               # Optional (for web search)
 ### Permission Errors on Scripts
 ```bash
 # Make scripts executable
-chmod +x html-to-pdf.sh
-chmod +x md-to-pdf.sh
-chmod +x export-all-modes.sh
+chmod +x cli/html-to-pdf.sh
+chmod +x cli/md-to-pdf.sh
+chmod +x cli/export-all-modes.sh
 ```
 
 ### "Module not found" Errors
@@ -246,8 +266,8 @@ source .venv/bin/activate
 python -m src.main "Aalo Atomics" --type direct --mode consider
 
 # 3. Export to HTML/PDF
-python export-branded.py output/Aalo-Atomics-v0.0.1/4-final-draft.md --brand hypernova --mode dark
-./html-to-pdf.sh exports/branded/Aalo-Atomics-v0.0.1.html
+python cli/export-branded.py output/Aalo-Atomics-v0.0.1/4-final-draft.md --brand hypernova --mode dark
+./cli/html-to-pdf.sh exports/branded/Aalo-Atomics-v0.0.1.html
 
 # 4. Open PDF
 open exports/branded/Aalo-Atomics-v0.0.1.pdf
@@ -258,10 +278,10 @@ open exports/branded/Aalo-Atomics-v0.0.1.pdf
 source .venv/bin/activate
 
 # Improve section (adds citations automatically)
-python improve-section.py "Aalo Atomics" "Team"
+python cli/improve-section.py "Aalo Atomics" "Team"
 
 # Re-export with improvements
-python export-branded.py output/Aalo-Atomics-v0.0.1/4-final-draft.md --brand hypernova --mode dark
+python cli/export-branded.py output/Aalo-Atomics-v0.0.1/4-final-draft.md --brand hypernova --mode dark
 ```
 
 ### Batch Export All Memos
@@ -269,7 +289,7 @@ python export-branded.py output/Aalo-Atomics-v0.0.1/4-final-draft.md --brand hyp
 source .venv/bin/activate
 
 # Export all memos in both light and dark modes
-./export-all-modes.sh
+./cli/export-all-modes.sh
 ```
 
 ---
@@ -299,7 +319,7 @@ source .venv/bin/activate
 1. **Always activate venv first**: `source .venv/bin/activate`
 2. **Use company data files**: Pre-configure settings in `data/{Company}.json`
 3. **Check output quality**: Review `3-validation.md` for scores and feedback
-4. **Improve weak sections**: Use `improve-section.py` instead of regenerating entire memo
+4. **Improve weak sections**: Use `cli/improve-section.py` instead of regenerating entire memo
 5. **Set PERPLEXITY_API_KEY**: Dramatically improves citation quality (5-10 sources per section)
 6. **Use dark mode for presentations**: `--mode dark` looks professional on projectors
 

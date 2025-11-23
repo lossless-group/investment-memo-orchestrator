@@ -31,6 +31,20 @@ See `changelog/2025-11-20_01.md` for complete details.
 
 **CRITICAL: This project uses `uv` for dependency management. NEVER use `pip` directly.**
 
+**System Dependencies** (install these first for full functionality):
+
+```bash
+# macOS - Install Pandoc and WeasyPrint dependencies
+brew install pandoc cairo pango gdk-pixbuf libffi
+
+# Ubuntu/Debian
+sudo apt install pandoc libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev
+```
+
+*Note: Pandoc enables Word/HTML exports. WeasyPrint dependencies enable PDF generation. Both are optional but recommended.*
+
+**Python Setup**:
+
 ```bash
 # Create virtual environment with uv (Python 3.11+)
 uv venv --python python3.11

@@ -41,7 +41,11 @@
       "Bash(source .env)",
       "Bash(open:*)",
       "Bash(uv pip freeze:*)",
-      "Bash(requirements.txt)"
+      "Bash(requirements.txt)",
+      "Bash(git mv:*)",
+      "Bash(eza:*)",
+      "Bash(tree:*)",
+      "Bash(/tmp/tree_output.txt)"
     ],
     "deny": [],
     "ask": []
