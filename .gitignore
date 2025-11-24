@@ -49,6 +49,8 @@ checkpoints/
 
 # Generated outputs (memos and state files)
 output/
+output/*
+output/logs/
 
 
 exports/

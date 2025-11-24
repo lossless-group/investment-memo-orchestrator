@@ -72,6 +72,101 @@ def extract_title_from_markdown(md_path: Path) -> tuple[str, str]:
     return title, company
 
 
+def generate_font_face_rules(brand: BrandConfig) -> str:
+    """Generate @font-face rules for brand fonts.
+
+    Args:
+        brand: Brand configuration
+
+    Returns:
+        CSS @font-face declarations
+    """
+    font_faces = []
+
+    # Generate body font @font-face (if custom fonts dir specified)
+    if brand.fonts.custom_fonts_dir:
+        font_dir = Path(brand.fonts.custom_fonts_dir)
+        if font_dir.exists():
+            # Look for font files
+            for font_file in font_dir.glob('*'):
+                if font_file.suffix.lower() in ['.woff2', '.woff', '.ttf', '.otf']:
+                    # Determine font weight and style from filename
+                    name_lower = font_file.stem.lower()
+
+                    # Determine weight
+                    if 'black' in name_lower or 'extrabold' in name_lower:
+                        weight = 900
+                    elif 'bold' in name_lower:
+                        weight = 700
+                    elif 'semibold' in name_lower or 'medium' in name_lower:
+                        weight = 500
+                    elif 'light' in name_lower or 'extralight' in name_lower:
+                        weight = 300
+                    else:
+                        weight = 400
+
+                    # Determine style
+                    style = 'italic' if 'italic' in name_lower else 'normal'
+
+                    # Generate @font-face rule
+                    format_map = {
+                        '.woff2': 'woff2',
+                        '.woff': 'woff',
+                        '.ttf': 'truetype',
+                        '.otf': 'opentype'
+                    }
+                    font_format = format_map.get(font_file.suffix.lower(), 'truetype')
+
+                    font_faces.append(f"""@font-face {{
+    font-family: '{brand.fonts.family}';
+    src: url('{font_file}') format('{font_format}');
+    font-weight: {weight};
+    font-style: {style};
+    font-display: swap;
+}}""")
+
+    # Generate header font @font-face (if different from body font)
+    if brand.fonts.header_family and brand.fonts.header_family != brand.fonts.family:
+        if brand.fonts.header_fonts_dir:
+            font_dir = Path(brand.fonts.header_fonts_dir)
+            if font_dir.exists():
+                for font_file in font_dir.glob('*'):
+                    if font_file.suffix.lower() in ['.woff2', '.woff', '.ttf', '.otf']:
+                        name_lower = font_file.stem.lower()
+
+                        # Determine weight
+                        if 'black' in name_lower or 'extrabold' in name_lower:
+                            weight = 900
+                        elif 'bold' in name_lower:
+                            weight = 700
+                        elif 'semibold' in name_lower or 'medium' in name_lower:
+                            weight = 500
+                        elif 'light' in name_lower or 'extralight' in name_lower:
+                            weight = 300
+                        else:
+                            weight = 400
+
+                        style = 'italic' if 'italic' in name_lower else 'normal'
+
+                        format_map = {
+                            '.woff2': 'woff2',
+                            '.woff': 'woff',
+                            '.ttf': 'truetype',
+                            '.otf': 'opentype'
+                        }
+                        font_format = format_map.get(font_file.suffix.lower(), 'truetype')
+
+                        font_faces.append(f"""@font-face {{
+    font-family: '{brand.fonts.header_family}';
+    src: url('{font_file}') format('{font_format}');
+    font-weight: {weight};
+    font-style: {style};
+    font-display: swap;
+}}""")
+
+    return '\n\n'.join(font_faces)
+
+
 def generate_css_from_brand(brand: BrandConfig, base_css_path: Path, dark_mode: bool = False) -> str:
     """Generate CSS with brand colors and fonts injected.
 
@@ -86,6 +181,20 @@ def generate_css_from_brand(brand: BrandConfig, base_css_path: Path, dark_mode: 
     # Read base CSS
     with open(base_css_path, 'r') as f:
         css_content = f.read()
+
+    # Replace hardcoded Arboria @font-face declarations with brand fonts
+    # Remove all Arboria @font-face blocks using regex
+    css_content = re.sub(
+        r'@font-face\s*\{[^}]*font-family:\s*[\'"]?Arboria[\'"]?[^}]*\}',
+        '',
+        css_content,
+        flags=re.DOTALL
+    )
+
+    # Add brand-specific font-face rules at the beginning
+    brand_font_faces = generate_font_face_rules(brand)
+    if brand_font_faces:
+        css_content = brand_font_faces + '\n\n' + css_content
 
     # Replace color placeholders with brand-specific colors
     css_content = css_content.replace('--brand-primary: #1a3a52;',
@@ -183,15 +292,21 @@ def create_html_template(
         if logo_path_str:
             # Check if it's a URL or local path
             if logo_path_str.startswith(('http://', 'https://')):
-                # Remote URL - use img tag
-                logo_html = f'<img src="{logo_path_str}" alt="{brand.logo.alt or brand.company.name}" style="width: {brand.logo.width}; height: {brand.logo.height}; margin: 0 auto; display: block;" />'
+                # Remote URL - use img tag with preserved aspect ratio
+                logo_html = f'<img src="{logo_path_str}" alt="{brand.logo.alt or brand.company.name}" style="max-width: {brand.logo.width}; height: auto; margin: 0 auto; display: block;" />'
             else:
-                # Local path - embed SVG directly
+                # Local path - check file type
                 logo_path = Path(logo_path_str)
                 if logo_path.exists():
-                    svg_content = embed_svg_logo(logo_path)
-                    if svg_content:
-                        logo_html = f'<div style="width: {brand.logo.width}; height: {brand.logo.height}; margin: 0 auto;">{svg_content}</div>'
+                    # Check file extension
+                    if logo_path.suffix.lower() == '.svg':
+                        # Embed SVG directly with preserved aspect ratio
+                        svg_content = embed_svg_logo(logo_path)
+                        if svg_content:
+                            logo_html = f'<div style="max-width: {brand.logo.width}; height: auto; margin: 0 auto;">{svg_content}</div>'
+                    else:
+                        # Use img tag for PNG, WEBP, JPG, etc. with preserved aspect ratio
+                        logo_html = f'<img src="{logo_path_str}" alt="{brand.logo.alt or brand.company.name}" style="max-width: {brand.logo.width}; height: auto; margin: 0 auto; display: block;" />'
                 else:
                     print(f"Warning: Logo file not found: {logo_path}")
     else:
@@ -199,13 +314,25 @@ def create_html_template(
         if 'hypernova' in brand.company.name.lower():
             logo_html = 'Hypern<span class="memo-logo-accent">o</span>va'
 
+    # Generate Google Fonts links if specified
+    google_fonts_html = ""
+    if brand.fonts.google_fonts_url:
+        google_fonts_html += f'    <link rel="preconnect" href="https://fonts.googleapis.com">\n'
+        google_fonts_html += f'    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+        google_fonts_html += f'    <link href="{brand.fonts.google_fonts_url}" rel="stylesheet">\n'
+    if brand.fonts.header_google_fonts_url and brand.fonts.header_google_fonts_url != brand.fonts.google_fonts_url:
+        if not google_fonts_html:  # Add preconnect if not already added
+            google_fonts_html += f'    <link rel="preconnect" href="https://fonts.googleapis.com">\n'
+            google_fonts_html += f'    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+        google_fonts_html += f'    <link href="{brand.fonts.header_google_fonts_url}" rel="stylesheet">\n'
+
     template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title} | {brand.company.name}</title>
-    <style>
+{google_fonts_html}    <style>
 {css_content}
     </style>
 </head>

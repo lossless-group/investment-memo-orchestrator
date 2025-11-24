@@ -150,9 +150,9 @@ def consolidate_footnotes(html_content: str) -> str:
     # Update canonical entries with multiple back-arrows
     for fn_id, fnref_ids in backref_counts.items():
         if len(fnref_ids) > 1:
-            # Create multiple back-arrows
+            # Create multiple back-arrows (arrow added via CSS ::after)
             back_arrows = ' '.join([
-                f'<a href="#{fnref_id}" class="footnote-back" role="doc-backlink">↩︎</a>'
+                f'<a href="#{fnref_id}" class="footnote-back" role="doc-backlink"></a>'
                 for fnref_id in fnref_ids
             ])
 

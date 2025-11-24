@@ -1,0 +1,32 @@
+# GHC Partners Brand Configuration
+# Official branding for Greenhouse Capital Partners (ghcp.vc)
+
+company:
+  name: "ghc partners"
+  tagline: "Growth Equity. Resilient Capital."
+  confidential_footer: "This document is confidential and proprietary to {company_name}."
+
+colors:
+  primary: "#06382e"          # Teal green (headers in light mode, background in dark mode)
+  secondary: "#0a6654"        # Teal green (accents, borders, links)
+  text_dark: "#1a1a1a"        # Black (main text)
+  text_light: "#ffffff"       # Gray (metadata, subtle text)
+  background: "#ffffff"       # White (page background in light mode)
+  background_alt: "#4e5b59"   # Subtle green (callouts, code blocks - GHC Partners brand color)
+
+fonts:
+  # Body text font (paragraphs, lists, readable content)
+  family: "Work Sans"
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  google_fonts_url: "https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap"
+
+  # Header font (h1, h2, h3 - bold and distinctive)
+  header_family: "Poppins"
+  header_fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+
+logo:
+  light_mode: "templates/trademarks/trademark__GHC-Partners--Light-Mode.webp"
+  dark_mode: "templates/trademarks/trademark__GHC-Partners--Dark-Mode.webp"
+  width: "200px"
+  height: "50px"
+  alt: "ghc partners"

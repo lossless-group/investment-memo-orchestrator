@@ -44,11 +44,13 @@ class BrandFonts:
     family: str
     fallback: str
     custom_fonts_dir: Optional[str] = None
+    google_fonts_url: Optional[str] = None  # Google Fonts link for body font
 
     # Optional: separate font for headers
     header_family: Optional[str] = None
     header_fallback: Optional[str] = None
     header_fonts_dir: Optional[str] = None
+    header_google_fonts_url: Optional[str] = None  # Google Fonts link for header font
 
 
 @dataclass

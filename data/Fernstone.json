@@ -1,0 +1,12 @@
+{
+  "name": "Fernstone",
+  "description": "Al-powered insurance brokerage for businesses.",
+  "stage": "Seed",
+  "type": "direct",
+  "mode": "consider",
+  "url": "https://fernstone.com/",
+  "notes": "A seed-stage VC focused on transformative businesses is massive, core sectors such as HealthCare and Automotive.",
+  "deck": "data/Secure-Inputs/2025-11-23_Fernstone--Seed.pdf",
+  "trademark_light": "data/Secure-Inputs/trademark__Fernstone.png",
+  "trademark_dark": "data/Secure-Inputs/trademark__Fernstone.png"
+}

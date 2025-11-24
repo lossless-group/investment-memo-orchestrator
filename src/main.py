@@ -18,6 +18,8 @@ import json
 
 from .workflow import generate_memo
 from .versioning import VersionManager, format_version_history
+from .utils import get_latest_output_dir
+from .artifacts import sanitize_filename
 
 
 def main():
@@ -56,6 +58,17 @@ def main():
         default="consider",
         help="Memo mode: 'consider' for prospective analysis, 'justify' for retrospective justification (default: consider)"
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from last checkpoint if available (skips completed agents)"
+    )
+    parser.add_argument(
+        "--version",
+        type=str,
+        dest="resume_version",
+        help="Specific version to resume (e.g., v0.0.3). Only used with --resume."
+    )
 
     args = parser.parse_args()
 
@@ -68,6 +81,39 @@ def main():
     if not company_name.strip():
         console.print("[bold red]Error:[/bold red] Company name cannot be empty")
         sys.exit(1)
+
+    # RESUME MODE: If --resume flag is set, use resume workflow
+    if args.resume:
+        from pathlib import Path as PathLib
+
+        # Find output directory
+        try:
+            if args.resume_version:
+                output_dir = PathLib("output") / f"{sanitize_filename(company_name)}-{args.resume_version}"
+            else:
+                output_dir = get_latest_output_dir(company_name)
+
+            if not output_dir or not output_dir.exists():
+                raise FileNotFoundError()
+        except FileNotFoundError:
+            console.print(f"[bold red]Error:[/bold red] No artifacts found for '{company_name}'")
+            console.print(f"\nSearched in: output/{sanitize_filename(company_name)}-*")
+            console.print("\nRun the normal workflow first:")
+            console.print(f"  python -m src.main \"{company_name}\"")
+            sys.exit(1)
+
+        # Delegate to resume script
+        console.print(f"[bold cyan]Resume mode enabled[/bold cyan]")
+        console.print(f"Found artifacts: {output_dir}\n")
+
+        # Import and run resume functions
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "resume-from-last-interruption.py", company_name] +
+            (["--version", args.resume_version] if args.resume_version else []),
+            cwd=Path(__file__).parent.parent
+        )
+        sys.exit(result.returncode)
 
     # NEW: Load company data if exists (check for deck and additional context)
     deck_path = None

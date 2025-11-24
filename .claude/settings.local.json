@@ -45,7 +45,13 @@
       "Bash(git mv:*)",
       "Bash(eza:*)",
       "Bash(tree:*)",
-      "Bash(/tmp/tree_output.txt)"
+      "Bash(/tmp/tree_output.txt)",
+      "Bash(./cli/html-to-pdf.sh:*)",
+      "Bash(../4-final-draft.md)",
+      "Bash(/Users/mpstaton/code/lossless-monorepo/ai-labs/investment-memo-orchestrator/output/Fernstone-v0.0.1/4-final-draft.md)",
+      "Bash(bash cli/html-to-pdf.sh:*)",
+      "Bash(output/Fernstone-v0.0.1/4-final-draft-fixed.md)",
+      "WebFetch(domain:www.ghcp.vc)"
     ],
     "deny": [],
     "ask": []

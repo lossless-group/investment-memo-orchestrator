@@ -15,14 +15,19 @@ colors:
   background_alt: "#1a1a1a"   # Cream (callouts, code blocks)
 
 fonts:
-  # Use Roboto for body text (legible paragraph font)
+  # Body text font (paragraphs, lists, readable content)
   family: "Roboto"
   fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
   custom_fonts_dir: "templates/fonts/Roboto/static"
 
+  # Header font (h1, h2, h3 - bold and distinctive)
+  header_family: "Bison"
+  header_fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+  header_fonts_dir: "templates/fonts/Bison"
+
 logo:
   light_mode: "templates/trademarks/trademark__Avalanche--Brand.png"
-  dark_mode: "templates/trademarks/trademark__Avalanche--Dark-Mode.png"
+  dark_mode: "templates/trademarks/trademark__Avalanche--Dark-Mode.webp"
   width: "180px"
   height: "60px"
   alt: "Avalanche"
