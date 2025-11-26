@@ -23,6 +23,34 @@ Many people may not want to manage using an Open Source library and deal with th
 
 ## Recent Updates
 
+### 2025-11-26: Dataroom Analyzer Agent System
+
+**New multi-agent dataroom analyzer** for processing investment datarooms containing diverse document types (pitch decks, financials, battlecards, etc.). The system scans, classifies, and extracts structured data from dataroom documents.
+
+**Phase 1 - Document Scanning & Classification** ✅
+- Three-stage classification: directory-based → filename pattern → LLM fallback
+- Supports 12+ document types (pitch_deck, cap_table, competitive_analysis, etc.)
+- Confidence scoring with classification reasoning
+
+**Phase 2 - Specialized Extractors** (In Progress)
+- [x] Competitive Extractor - Synthesizes battlecards into unified competitive landscape
+- [ ] Financial Extractor - P&L, projections, key metrics
+- [ ] Cap Table Extractor - Ownership structure
+- [ ] Team Extractor - Team bios and backgrounds
+- [ ] Traction Extractor - Customer/revenue metrics
+
+**Output Structure:**
+```
+output/Company-v0.0.1/
+├── 0-dataroom-inventory.json/md    # Document inventory
+├── 1-competitive-analysis.json/md  # Competitive landscape
+├── (future) 2-financial-analysis.json/md
+├── (future) 3-team-analysis.json/md
+└── (future) 4-traction-analysis.json/md
+```
+
+See `changelog/2025-11-26_01.md` and `changelog/2025-11-26_02.md` for complete details.
+
 ### 2025-11-22: Premium Data Sources Integration
 
 **Perplexity @ Syntax Integration**: Research queries now automatically target premium data sources using Perplexity's `@source` syntax. All 20 outline sections (direct + fund) have section-specific source preferences that ensure high-quality research from authoritative sources like @crunchbase, @pitchbook, @statista, and @cbinsights. This prevents low-quality filler content from generic benchmark sites. See `changelog/2025-11-22_02.md` for complete details.
@@ -710,7 +738,16 @@ investment-memo-orchestrator/
 │   │   ├── writer.py                 # Memo drafting
 │   │   ├── citation_enrichment.py    # Citation addition (Perplexity)
 │   │   ├── citation_validator.py     # Citation accuracy validation
-│   │   └── validator.py              # Quality validation
+│   │   ├── validator.py              # Quality validation
+│   │   └── dataroom/                 # Dataroom Analyzer Agent System
+│   │       ├── __init__.py           # Package exports
+│   │       ├── analyzer.py           # Main orchestrator
+│   │       ├── dataroom_state.py     # TypedDict schemas
+│   │       ├── document_scanner.py   # Directory scanning
+│   │       ├── document_classifier.py # 3-stage classification
+│   │       └── extractors/           # Specialized extractors
+│   │           ├── __init__.py
+│   │           └── competitive_extractor.py  # Battlecard synthesis
 │   ├── state.py                      # TypedDict schemas
 │   ├── workflow.py                   # LangGraph orchestration
 │   ├── artifacts.py                  # Artifact trail system
@@ -915,6 +952,6 @@ Investing in frontier technology companies at the intersection of climate, energ
 
 ---
 
-*Last updated: 2025-11-22*
+*Last updated: 2025-11-26*
 *Version: Automatically derived from git tags (currently v0.1.0)*
 *Status: Git-based versioning with setuptools-scm*
