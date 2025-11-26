@@ -21,6 +21,7 @@ from .agents.socials_enrichment import socials_enrichment_agent
 from .agents.link_enrichment import link_enrichment_agent
 from .agents.visualization_enrichment import visualization_enrichment_agent
 from .agents.citation_enrichment import citation_enrichment_agent
+from .agents.toc_generator import toc_generator_agent
 from .agents.citation_validator import citation_validator_agent
 from .agents.fact_checker import fact_checker_agent
 from .agents.validator import validator_agent
@@ -213,6 +214,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("enrich_links", link_enrichment_agent)
     workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
     workflow.add_node("cite", citation_enrichment_agent)
+    workflow.add_node("toc", toc_generator_agent)  # Generate Table of Contents with anchor links
     workflow.add_node("validate_citations", citation_validator_agent)  # Citation accuracy validator
     workflow.add_node("fact_check", fact_checker_agent)  # NEW: Fact-checking agent (verify claims vs sources)
     workflow.add_node("validate", validator_agent)
@@ -223,7 +225,7 @@ def build_workflow() -> StateGraph:
     workflow.set_entry_point("deck_analyst")
 
     # Define edges (workflow sequence)
-    # Deck Analyst → Research → Section Research (Perplexity) → Draft → Trademark → Socials → Links → Visualizations → Citations → Citation Validator → Fact Check → Validate
+    # Deck Analyst → Research → Section Research → Draft → Trademark → Socials → Links → Visualizations → Citations → TOC → Citation Validator → Fact Check → Validate
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "section_research")  # Generate section research with citations
     workflow.add_edge("section_research", "draft")     # Writer polishes section research
@@ -232,7 +234,8 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("enrich_socials", "enrich_links")
     workflow.add_edge("enrich_links", "enrich_visualizations")
     workflow.add_edge("enrich_visualizations", "cite")
-    workflow.add_edge("cite", "validate_citations")  # Validate citation accuracy after enrichment
+    workflow.add_edge("cite", "toc")  # Generate TOC after citations assembled
+    workflow.add_edge("toc", "validate_citations")  # Validate citation accuracy after TOC
     workflow.add_edge("validate_citations", "fact_check")  # NEW: Fact-check claims against research sources
     workflow.add_edge("fact_check", "validate")
 

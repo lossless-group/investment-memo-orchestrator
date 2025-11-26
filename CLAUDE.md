@@ -236,9 +236,19 @@ The system uses a LangGraph state machine with specialized agents executing in s
    - Renumbers citations globally ([^1][^2][^3]... sequentially across all sections)
    - Consolidates ALL citations into ONE block at the end
    - Assembles final `4-final-draft.md` with globally renumbered citations
-9. **Citation Validator** (`src/agents/citation_validator.py`) - Validates citation accuracy, checks dates, detects duplicates
-10. **Validator** (`src/agents/validator.py`) - Scores quality 0-10, provides specific feedback
-11. **Supervisor** (`src/workflow.py`) - Routes to finalization (score ≥8) or human review (score <8)
+   - Demotes subsection headers (`##` → `###`) for proper hierarchy under numbered section headers
+9. **TOC Generator** (`src/agents/toc_generator.py`) - Generates Table of Contents with anchor links
+   - Extracts all h2 (main sections) and h3 (subsections) headers
+   - Generates markdown TOC with working anchor links
+   - Inserts TOC after logo/header, before first section
+   - Anchor links work in both HTML and PDF exports
+10. **Citation Validator** (`src/agents/citation_validator.py`) - Validates citation accuracy, checks dates, detects duplicates
+11. **Fact Checker** (`src/agents/fact_checker.py`) - Verifies claims against research sources
+    - Identifies unsourced metrics, hallucinated data, speculative statements
+    - Flags sections requiring revision
+    - Implements anti-hallucination defense
+12. **Validator** (`src/agents/validator.py`) - Scores quality 0-10, provides specific feedback
+13. **Supervisor** (`src/workflow.py`) - Routes to finalization (score ≥8) or human review (score <8)
 
 ### Why Section-by-Section Processing?
 LLMs don't have the context window to reliably handle full memos (50k+ chars) in one API call. By processing ONE SECTION AT A TIME:
@@ -486,7 +496,9 @@ See `templates/brand-configs/README.md` for complete brand configuration documen
 - `src/agents/socials_enrichment.py` - LinkedIn profile link insertion
 - `src/agents/link_enrichment.py` - Organization/investor hyperlink enrichment
 - `src/agents/citation_enrichment.py` - Inline citation addition (Perplexity Sonar Pro)
+- `src/agents/toc_generator.py` - Table of Contents generation with anchor links
 - `src/agents/citation_validator.py` - Citation accuracy validation
+- `src/agents/fact_checker.py` - Fact verification against research sources
 - `src/agents/validator.py` - Quality scoring (0-10 scale)
 
 ### Utilities

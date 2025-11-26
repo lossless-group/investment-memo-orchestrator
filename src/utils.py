@@ -20,10 +20,10 @@ def get_latest_output_dir(company_name: str) -> Path:
     safe_name = sanitize_filename(company_name)
     output_base = Path("output")
     
-    # Find all matching directories
-    matching_dirs = list(output_base.glob(f"{safe_name}-v*"))
+    # Find all matching directories (exclude files)
+    matching_dirs = [p for p in output_base.glob(f"{safe_name}-v*") if p.is_dir()]
     if not matching_dirs:
         raise FileNotFoundError(f"No output directory found for {company_name}")
-    
+
     # Get the most recent one (highest version by name)
     return max(matching_dirs, key=lambda p: p.name)

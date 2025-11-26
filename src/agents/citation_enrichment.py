@@ -287,6 +287,14 @@ def renumber_citations_globally(sections_data: list) -> str:
         main_content = parts[0].strip() if parts else section_content.strip()
         citations_section = parts[1].strip() if len(parts) > 1 else ""
 
+        # Strip leading # header from section content (we add our own numbered header)
+        # Matches: "# Section Name" or "# Section Name\n" at the start
+        main_content = re.sub(r'^#\s+[^\n]+\n*', '', main_content, count=1).strip()
+
+        # Demote subsection headers: ## -> ### (since we add ## for main section header)
+        # This ensures proper hierarchy: ## Section Name > ### Subsection
+        main_content = re.sub(r'^## ', '### ', main_content, flags=re.MULTILINE)
+
         # Find all citation numbers in this section's content
         old_citations = set(re.findall(r'\[\^(\d+)\]', main_content))
 

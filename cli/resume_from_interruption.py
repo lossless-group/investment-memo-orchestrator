@@ -5,8 +5,8 @@ This script detects the last successful checkpoint and resumes memo generation
 from that point, avoiding redundant API calls and wasted time.
 
 Usage:
-    python resume-from-last-interruption.py "CompanyName"
-    python resume-from-last-interruption.py "CompanyName" --version v0.0.3
+    python cli/resume_from_interruption.py "CompanyName"
+    python cli/resume_from_interruption.py "CompanyName" --version v0.0.3
 """
 
 import argparse
@@ -14,6 +14,9 @@ import json
 import sys
 from pathlib import Path
 from typing import Optional
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.state import MemoState, create_initial_state
 from src.utils import get_latest_output_dir
@@ -61,13 +64,17 @@ def detect_resume_point(output_dir: Path) -> str:
         except (json.JSONDecodeError, KeyError):
             pass
 
-    # Check citations
+    # Check citations and TOC
     final_draft = output_dir / "4-final-draft.md"
     if final_draft.exists() and final_draft.stat().st_size > 100:
         try:
             content = final_draft.read_text()
             if "[^1]" in content or "## Citations" in content:
-                return "validate_citations"  # Resume at citation validation
+                # Check if TOC exists
+                if "## Table of Contents" in content:
+                    return "validate_citations"  # Resume at citation validation
+                else:
+                    return "toc"  # Resume at TOC generation
         except Exception:
             pass
 
@@ -278,7 +285,9 @@ def execute_from_checkpoint(state: MemoState, resume_from: str) -> MemoState:
     from src.agents.link_enrichment import link_enrichment_agent
     from src.agents.visualization_enrichment import visualization_enrichment_agent
     from src.agents.citation_enrichment import citation_enrichment_agent
+    from src.agents.toc_generator import toc_generator_agent
     from src.agents.citation_validator import citation_validator_agent
+    from src.agents.fact_checker import fact_checker_agent
     from src.agents.validator import validator_agent
     from src.workflow import finalize_memo, human_review
 
@@ -291,7 +300,9 @@ def execute_from_checkpoint(state: MemoState, resume_from: str) -> MemoState:
         ("enrich_links", link_enrichment_agent),
         ("enrich_visualizations", visualization_enrichment_agent),
         ("cite", citation_enrichment_agent),
+        ("toc", toc_generator_agent),
         ("validate_citations", citation_validator_agent),
+        ("fact_check", fact_checker_agent),
         ("validate", validator_agent),
         ("finalize", finalize_memo),
     ]
