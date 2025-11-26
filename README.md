@@ -6,6 +6,21 @@ Multi-agent orchestration system for generating high-quality investment memos us
 
 Sponsored by [Hypernova Capital](https://www.hypernova.capital)
 
+### Similar Services
+Many people may not want to manage using an Open Source library and deal with the command line.  These are services we have found that can provide similar Investment Memo Generation.
+
+#### Dedicated Private Markets AI Platforms
+- [Deck](https://www.hellodeck.ai/)
+- [Deliverables](https://deliverables.ai/)
+- [Blueflame AI](https://www.blueflame.ai/)
+- [Pascal AI](https://www.pascalailabs.com/)
+
+#### General AI Automation Platforms with Blueprints or Templates
+- [Lyzr | Investment Memo Blueprint](https://www.lyzr.ai/blueprints/venture-capital/investment-memo-generator-agent/)
+- [v7 Labs | Investment Memo Automations](https://www.v7labs.com/automations/ai-investment-memo-generation)
+- [Stack AI | Investment Memo Generator Template](https://www.stack-ai.com/blog/how-to-build-an-investment-memo-generator)
+- [Bash | Investment Memo Template](https://www.getbash.com/templates/investment-memo)
+
 ## Recent Updates
 
 ### 2025-11-22: Premium Data Sources Integration
@@ -24,8 +39,7 @@ Sponsored by [Hypernova Capital](https://www.hypernova.capital)
 
 ### Outstanding Issues
 
-  - Ongoing dependency management issues with uv
-  - Ongoing vacillation between `sonar-pro` being effectively used by the research agent with inclusion of citations and sources ON THE FIRST RUN. Why is this important?  Because the first run will create content, add facts, develop insights based on the web research of Perplexity. If the citations are not included on that first run, that means that a retrospective citation improvement process will be plugging in citations that may or may not be the original source.  Improving sections or enhancing citations is supposed to SUPPLEMENT the original research, not mask a bug we have for reasons we don't understand.
+  - Ongoing need for reactivating venv and reinstalling dependencies, despite having done so already.
 
 ## Overview
 

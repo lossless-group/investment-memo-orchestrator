@@ -14,6 +14,8 @@ Perplexity API requests are failing with Cloudflare 401 errors:
 openresty/1.27.4
 ```
 
+We've had ongoing vacillation between `sonar-pro` being effectively used by the research agent with inclusion of citations and sources ON THE FIRST RUN. Why is this important?  Because the first run will create content, add facts, develop insights based on the web research of Perplexity. If the citations are not included on that first run, that means that a retrospective citation improvement process will be plugging in citations that may or may not be the original source.  Improving sections or enhancing citations is supposed to SUPPLEMENT the original research, not mask a bug we have for reasons we don't understand.
+
 ## Root Cause
 
 According to [Perplexity API documentation](https://docs.perplexity.ai/getting-started/api-groups):

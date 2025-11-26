@@ -13,6 +13,7 @@ Supports multiple brand configurations:
 """
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -405,8 +406,36 @@ def convert_to_branded_html(
     with open(input_path, 'r', encoding='utf-8') as f:
         markdown_content = f.read()
 
+    # Load company data to get trademark URLs
+    # Extract company name from path (e.g., "Terrantic-v0.0.1" -> "Terrantic")
+    company_match = re.search(r'([A-Za-z0-9-]+)-v\d+\.\d+\.\d+', str(input_path))
+    if company_match:
+        company_name = company_match.group(1)
+        data_file = Path(__file__).parent.parent / 'data' / f'{company_name}.json'
+
+        if data_file.exists():
+            try:
+                with open(data_file, 'r', encoding='utf-8') as f:
+                    company_data = json.load(f)
+
+                # Get trademark URLs from company data
+                trademark_light = company_data.get('trademark_light')
+                trademark_dark = company_data.get('trademark_dark')
+
+                if trademark_light and trademark_dark:
+                    if dark_mode:
+                        # Swap light mode URL to dark mode URL
+                        markdown_content = markdown_content.replace(trademark_light, trademark_dark)
+                    else:
+                        # Swap dark mode URL to light mode URL
+                        markdown_content = markdown_content.replace(trademark_dark, trademark_light)
+            except Exception as e:
+                # If loading company data fails, continue without URL swapping
+                pass
+
+    # Also handle local file path trademarks (legacy)
     if dark_mode:
-        # Swap light mode trademark URLs to dark mode
+        # Swap light mode trademark paths to dark mode
         markdown_content = markdown_content.replace(
             'trademark__Avalanche--Light-Mode',
             'trademark__Avalanche--Dark-Mode'
@@ -416,7 +445,7 @@ def convert_to_branded_html(
             'trademark__TheoryForge--Dark-Mode'
         )
     else:
-        # Swap dark mode trademark URLs to light mode
+        # Swap dark mode trademark paths to light mode
         markdown_content = markdown_content.replace(
             'trademark__Avalanche--Dark-Mode',
             'trademark__Avalanche--Light-Mode'
@@ -459,7 +488,6 @@ def convert_to_branded_html(
 
         # Post-process: Restore uncited footnotes that Pandoc excluded
         try:
-            from pathlib import Path
             import subprocess
             restore_script = Path(__file__).parent / 'utils' / 'restore_uncited_footnotes.py'
             if restore_script.exists():
