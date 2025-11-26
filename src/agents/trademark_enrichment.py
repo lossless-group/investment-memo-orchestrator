@@ -46,8 +46,21 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     if trademark_path.startswith('http'):
         trademark_url = trademark_path
     else:
-        # Convert local path to relative path from output directory
-        trademark_url = f"../../{trademark_path}"
+        # Handle local paths - convert to relative from output directory
+        path = Path(trademark_path)
+        if path.is_absolute():
+            # Absolute path - try to make relative to project root
+            try:
+                project_root = Path(__file__).parent.parent.parent
+                rel_path = path.relative_to(project_root)
+                trademark_url = f"../../{rel_path}"
+            except ValueError:
+                # Path not under project root, use as-is
+                trademark_url = str(path)
+        else:
+            # Already relative (e.g., "data/Secure-Inputs/logo.svg")
+            # Prepend ../../ to navigate from output/{Company}-vX.X.X/ to project root
+            trademark_url = f"../../{trademark_path}"
 
     trademark_markdown = f'![{company_name} Logo]({trademark_url})\n\n---\n\n'
 

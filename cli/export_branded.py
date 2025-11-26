@@ -691,6 +691,17 @@ Multiple Brands:
 
             html_path = args.output / f"{output_name}.html"
 
+            # Auto-version if file exists (add .1, .2, etc.)
+            if html_path.exists():
+                base_name = output_name
+                version = 1
+                # Check for existing versions like Name-v0.0.2.1.html, Name-v0.0.2.2.html
+                while html_path.exists():
+                    html_path = args.output / f"{base_name}.{version}.html"
+                    version += 1
+                output_name = f"{base_name}.{version - 1}"
+                print(f"  → File exists, using versioned name: {html_path.name}")
+
             # Convert to branded HTML
             convert_to_branded_html(md_file, html_path, brand, css_path, dark_mode)
             size = html_path.stat().st_size / 1024

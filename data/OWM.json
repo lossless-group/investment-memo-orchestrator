@@ -1,0 +1,11 @@
+{
+  "type": "direct",
+  "mode": "consider",
+  "description": "OWM uses AI to generate matches from Influencers to Companies, kind of like a Marketplace",
+  "url": "https://owm.ai",
+  "stage": "Seed",
+  "deck": "data/Secure-Inputs/202511_OWM-Seed-Deck.pdf",
+  "trademark_light": "data/Secure-Inputs/trademark__OWM--Light-Mode.svg",
+  "trademark_dark": "data/Secure-Inputs/trademark__OWM--Dark-Mode.svg",
+  "notes": "Get the creators who influence your customers, invested in your company's success."
+}
