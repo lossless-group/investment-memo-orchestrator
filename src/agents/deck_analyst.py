@@ -393,15 +393,15 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
     """
     drafts = {}
 
-    # Map deck data to sections
+    # Map deck data to sections (filenames must include .md extension)
     section_mapping = {
-        "02-business-overview": ["problem_statement", "solution_description", "product_description"],
-        "03-market-context": ["market_size", "competitive_landscape"],
-        "04-technology-product": ["product_description", "solution_description"],
-        "05-traction-milestones": ["traction_metrics", "milestones"],
-        "06-team": ["team_members"],
-        "07-funding-terms": ["funding_ask", "use_of_funds"],
-        "09-investment-thesis": ["go_to_market", "competitive_landscape"]
+        "02-business-overview.md": ["problem_statement", "solution_description", "product_description"],
+        "03-market-context.md": ["market_size", "competitive_landscape"],
+        "04-technology-product.md": ["product_description", "solution_description"],
+        "05-traction-milestones.md": ["traction_metrics", "milestones"],
+        "06-team.md": ["team_members"],
+        "07-funding-terms.md": ["funding_ask", "use_of_funds"],
+        "09-investment-thesis.md": ["go_to_market", "competitive_landscape"]
     }
 
     for section_key, relevant_fields in section_mapping.items():

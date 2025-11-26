@@ -77,15 +77,16 @@ def save_deck_analysis_artifacts(
     with open(output_dir / "0-deck-analysis.md", "w") as f:
         f.write(summary)
 
-    # Save initial section drafts
-    sections_dir = output_dir / "2-sections"
-    sections_dir.mkdir(exist_ok=True)
+    # Save initial section drafts to 0-deck-sections/ (separate from final 2-sections/)
+    # These will be fed to Perplexity researcher as citable input
+    deck_sections_dir = output_dir / "0-deck-sections"
+    deck_sections_dir.mkdir(exist_ok=True)
 
     for filename, content in section_drafts.items():
-        with open(sections_dir / filename, "w") as f:
-            f.write(f"<!-- DRAFT FROM DECK ANALYSIS -->\n\n{content}")
+        with open(deck_sections_dir / filename, "w") as f:
+            f.write(f"<!-- DRAFT FROM DECK ANALYSIS - Cite as [Company Pitch Deck] -->\n\n{content}")
 
-    print(f"Deck analysis artifacts saved: {len(section_drafts)} initial sections created")
+    print(f"Deck analysis artifacts saved: {len(section_drafts)} initial sections created to 0-deck-sections/")
 
 
 def load_existing_section_drafts(company_name: str) -> Dict[str, str]:

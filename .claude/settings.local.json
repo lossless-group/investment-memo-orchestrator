@@ -51,7 +51,16 @@
       "Bash(/Users/mpstaton/code/lossless-monorepo/ai-labs/investment-memo-orchestrator/output/Fernstone-v0.0.1/4-final-draft.md)",
       "Bash(bash cli/html-to-pdf.sh:*)",
       "Bash(output/Fernstone-v0.0.1/4-final-draft-fixed.md)",
-      "WebFetch(domain:www.ghcp.vc)"
+      "WebFetch(domain:www.ghcp.vc)",
+      "Bash(source:*)",
+      "Bash(cp:*)",
+      "Bash(src/agents/dataroom/analyzer.py )",
+      "Bash(src/agents/dataroom/extractors/__init__.py )",
+      "Bash(src/agents/dataroom/extractors/cap_table_extractor.py )",
+      "Bash(src/agents/dataroom/extractors/financial_extractor.py )",
+      "Bash(changelog/2025-11-26_03.md )",
+      "Bash(README.md)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

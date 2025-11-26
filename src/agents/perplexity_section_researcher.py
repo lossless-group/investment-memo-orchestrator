@@ -38,6 +38,13 @@ CRITICAL REQUIREMENTS:
    - Company filings and press releases
 6. Include dates with all data (e.g., "TAM of $50B in 2024")
 
+DECK ANALYSIS HANDLING:
+- If DECK ANALYSIS content is provided, it contains claims from the company's pitch deck
+- Cite deck claims using [^deck] and verify them with external sources where possible
+- If external verification contradicts the deck, note the discrepancy explicitly
+- If a deck claim cannot be verified externally, include it with "[^deck]" and note "per company deck"
+- Deck is a PRIMARY source for company-specific claims (team, product, funding terms)
+
 CITATION FORMAT (Obsidian-style) - FOLLOW EXACTLY:
 - Place citations AFTER punctuation: "Market size is $50B. [^1]" NOT "size is $50B[^1]."
 - Always include ONE SPACE before each citation marker
@@ -45,11 +52,14 @@ CITATION FORMAT (Obsidian-style) - FOLLOW EXACTLY:
 - Examples:
   CORRECT: "The market reached $50B. [^1]"
   CORRECT: "TAM is $100B. [^1] [^2]"
+  CORRECT: "The team includes 6 engineers. [^deck]"
   WRONG: "The market reached $50B[^1]."
   WRONG: "TAM is $100B.[^1][^2]"
 
 CITATION LIST FORMAT (at end):
 ### Citations
+
+[^deck]: 2025. [Company Pitch Deck](internal-document). Company Materials. Published: 2025 | Updated: N/A
 
 [^1]: YYYY, MMM DD. [Source Title](https://full-url.com). Publisher. Published: YYYY-MM-DD | Updated: N/A
 
@@ -61,8 +71,9 @@ IMPORTANT:
 - ALWAYS include Published and Updated fields
 - Use "Updated: N/A" if no update date available
 - NO SPACE before colon in "[^1]:" in citation list
+- Include [^deck] citation if deck content was used
 
-OUTPUT: Research content with inline citations (with space before bracket, after punctuation), followed by complete Citations section with 5-10 sources."""
+OUTPUT: Research content with inline citations (with space before bracket, after punctuation), followed by complete Citations section with 5-10 sources (plus [^deck] if applicable)."""
 
 
 def build_section_research_query(
@@ -70,7 +81,8 @@ def build_section_research_query(
     company_name: str,
     company_description: str,
     general_research: Dict[str, Any],
-    memo_mode: str
+    memo_mode: str,
+    deck_draft_content: str = ""
 ) -> str:
     """
     Build section-specific research query using outline guidance.
@@ -81,6 +93,7 @@ def build_section_research_query(
         company_description: Brief description
         general_research: General research data from Tavily
         memo_mode: "consider" or "justify"
+        deck_draft_content: Optional draft content from deck analysis to verify/expand
 
     Returns:
         Research query for Perplexity
@@ -103,11 +116,26 @@ def build_section_research_query(
         if funding_data:
             section_context = f"\nPRELIMINARY DATA (verify with current sources):\n{funding_data}"
 
+    # Include deck draft as citable source if available
+    deck_context = ""
+    if deck_draft_content:
+        deck_context = f"""
+DECK ANALYSIS (cite as "[^deck]: Company Pitch Deck" for claims from this source):
+The following was extracted from the company's pitch deck. Use this as primary source material,
+but verify claims with external sources where possible. If a claim cannot be externally verified,
+cite it as "[^deck]" with note "per company pitch deck, unverified externally".
+
+---
+{deck_draft_content}
+---
+"""
+
     query = f"""Research and write comprehensive content for the "{section_def.name}" section of an investment memo about {company_name}.
 
 COMPANY OVERVIEW:
 {company_description}
 {section_context}
+{deck_context}
 
 SECTION GUIDANCE - Address these questions with specific data and citations:
 {questions_text}
@@ -119,6 +147,7 @@ RESEARCH REQUIREMENTS:
 - Include dates with all statistics: "TAM of $X in 2024" not just "$X TAM"
 - Prioritize analyst reports and financial journalism sources
 - MINIMUM 5-10 diverse sources required
+- If deck analysis is provided above, incorporate and cite that information using [^deck]
 
 MEMO MODE: {"This is justifying an EXISTING investment (retrospective)" if memo_mode == "justify" else "This is evaluating a POTENTIAL investment (prospective)"}
 
@@ -183,11 +212,23 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
     research_dir = output_dir / "1-research"
     research_dir.mkdir(exist_ok=True)
 
+    # Load deck section drafts if available (from 0-deck-sections/)
+    deck_sections_dir = output_dir / "0-deck-sections"
+    deck_drafts = {}
+    if deck_sections_dir.exists():
+        for deck_file in deck_sections_dir.glob("*.md"):
+            # Extract section number from filename (e.g., "02-business-overview.md" -> "02")
+            section_num_str = deck_file.stem.split("-")[0]
+            deck_drafts[section_num_str] = deck_file.read_text()
+        if deck_drafts:
+            print(f"📄 Loaded {len(deck_drafts)} deck section drafts for verification")
+
     print(f"\n{'='*70}")
     print(f"🔍 PERPLEXITY SECTION RESEARCH")
     print(f"{'='*70}")
     print(f"Company: {company_name}")
     print(f"Sections: {len(outline.sections)}")
+    print(f"Deck drafts: {len(deck_drafts)} available")
     print(f"Output: {research_dir}")
     print(f"{'='*70}\n")
 
@@ -200,16 +241,23 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
         section_name = section_def.name
         section_filename = section_def.filename.replace(".md", "-research.md")
 
+        # Get deck draft for this section if available
+        section_num_padded = f"{section_num:02d}"
+        deck_draft_content = deck_drafts.get(section_num_padded, "")
+
         print(f"  [{section_num}/10] {section_name}")
         print(f"      Target: {section_def.target_length.ideal_words} words | Questions: {len(section_def.guiding_questions)}")
+        if deck_draft_content:
+            print(f"      📄 Deck draft available ({len(deck_draft_content)} chars)")
 
-        # Build query
+        # Build query with deck draft if available
         query = build_section_research_query(
             section_def=section_def,
             company_name=company_name,
             company_description=company_description,
             general_research=general_research,
-            memo_mode=memo_mode
+            memo_mode=memo_mode,
+            deck_draft_content=deck_draft_content
         )
 
         print(f"      Calling Perplexity Sonar Pro...")
