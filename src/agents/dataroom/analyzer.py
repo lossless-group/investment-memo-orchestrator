@@ -64,10 +64,8 @@ def analyze_dataroom(
     # Step 3: Run extractors on classified documents
     extraction_results = _run_extractors(inventory, use_llm=use_llm)
 
-    # Step 4: Build analysis result
+    # Step 4: Build initial analysis result
     inventory_summary = get_inventory_summary(inventory)
-    end_time = datetime.now()
-    duration = (end_time - start_time).total_seconds()
 
     analysis: DataroomAnalysis = {
         "dataroom_path": str(dataroom_path),
@@ -87,24 +85,38 @@ def analyze_dataroom(
         "competitive": extraction_results.get("competitive"),
         "pitch_deck": extraction_results.get("pitch_deck"),
 
-        # Synthesis (populated in Phase 3)
+        # Synthesis (will be populated below)
         "key_facts": _extract_key_facts(extraction_results),
         "data_gaps": _identify_data_gaps(classification_summary),
         "conflicts": [],
 
         # Metadata
-        "processing_duration_seconds": duration,
+        "processing_duration_seconds": 0,  # Will update at end
         "extraction_notes": [
             f"Scanned {len(inventory)} documents",
             f"Classification sources: {classification_summary['by_source']}",
         ] + extraction_results.get("notes", []),
     }
 
-    # Step 4: Save artifacts
+    # Step 5: Run synthesis (Phase 3 - cross-reference, conflicts, gaps)
+    from .synthesizer import synthesize_dataroom
+    synthesis_results = synthesize_dataroom(analysis)
+
+    # Update analysis with synthesis results
+    analysis["conflicts"] = synthesis_results.get("conflicts", [])
+    analysis["data_gaps"] = synthesis_results.get("gaps", [])
+    analysis["key_facts"]["unified_metrics"] = synthesis_results.get("unified", {}).get("company_metrics", {})
+
+    # Calculate final duration
+    end_time = datetime.now()
+    duration = (end_time - start_time).total_seconds()
+    analysis["processing_duration_seconds"] = duration
+
+    # Step 6: Save artifacts
     if output_dir is None:
         output_dir = _get_or_create_output_dir(company_name)
 
-    save_dataroom_analysis_artifacts(output_dir, analysis, company_name)
+    save_dataroom_analysis_artifacts(output_dir, analysis, company_name, synthesis_results)
 
     print(f"\n{'='*60}")
     print(f"✓ Analysis complete in {duration:.1f}s")
@@ -440,7 +452,8 @@ def _identify_data_gaps(classification_summary: dict) -> list:
 def save_dataroom_analysis_artifacts(
     output_dir: Path,
     analysis: DataroomAnalysis,
-    company_name: str
+    company_name: str,
+    synthesis_results: dict = None
 ) -> None:
     """
     Save dataroom analysis artifacts (JSON and markdown).
@@ -448,14 +461,17 @@ def save_dataroom_analysis_artifacts(
     Each extraction type gets its own numbered artifact files:
     - 0-dataroom-inventory.json/md - Document inventory and classification
     - 1-competitive-analysis.json/md - Competitive landscape data
-    - (future) 2-financial-analysis.json/md
-    - (future) 3-team-analysis.json/md
-    - etc.
+    - 2-cap-table.json/md - Cap table and ownership
+    - 3-financial-analysis.json/md - Financial projections
+    - 4-traction-analysis.json/md - Traction metrics
+    - 5-team-analysis.json/md - Team profiles
+    - 6-synthesis-report.json/md - Cross-reference, conflicts, gaps
 
     Args:
         output_dir: Directory to save artifacts
         analysis: DataroomAnalysis result
         company_name: Company name for report header
+        synthesis_results: Optional synthesis results from synthesize_dataroom()
     """
     # 0. Save document inventory (lightweight, no extracted data)
     inventory_data = {
@@ -543,6 +559,26 @@ def save_dataroom_analysis_artifacts(
         with open(team_md_path, "w") as f:
             f.write(team_report)
         print(f"   📄 Saved: {team_md_path.name}")
+
+    # 6. Save synthesis report (conflicts, gaps, cross-references)
+    if synthesis_results:
+        # Save JSON with structured synthesis data
+        synthesis_json_path = output_dir / "6-synthesis-report.json"
+        synthesis_json_data = {
+            "conflicts": synthesis_results.get("conflicts", []),
+            "gaps": synthesis_results.get("gaps", []),
+            "unified_metrics": synthesis_results.get("unified", {}),
+            "analysis_date": analysis["analysis_date"],
+        }
+        with open(synthesis_json_path, "w") as f:
+            json.dump(synthesis_json_data, f, indent=2, ensure_ascii=False, default=str)
+        print(f"   📄 Saved: {synthesis_json_path.name}")
+
+        # Save markdown report
+        synthesis_md_path = output_dir / "6-synthesis-report.md"
+        with open(synthesis_md_path, "w") as f:
+            f.write(synthesis_results.get("report", "# Synthesis Report\n\nNo synthesis data available."))
+        print(f"   📄 Saved: {synthesis_md_path.name}")
 
 
 def format_inventory_report(inventory_data: dict, company_name: str) -> str:
