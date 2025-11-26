@@ -32,10 +32,10 @@ Many people may not want to manage using an Open Source library and deal with th
 - Supports 12+ document types (pitch_deck, cap_table, competitive_analysis, etc.)
 - Confidence scoring with classification reasoning
 
-**Phase 2 - Specialized Extractors** (In Progress)
+**Phase 2 - Specialized Extractors** (3/5 Complete)
 - [x] Competitive Extractor - Synthesizes battlecards into unified competitive landscape
-- [ ] Financial Extractor - P&L, projections, key metrics
-- [ ] Cap Table Extractor - Ownership structure
+- [x] Cap Table Extractor - Ownership structure, shareholders, option pools
+- [x] Financial Extractor - P&L, projections, key metrics from CSV/Excel
 - [ ] Team Extractor - Team bios and backgrounds
 - [ ] Traction Extractor - Customer/revenue metrics
 
@@ -44,12 +44,13 @@ Many people may not want to manage using an Open Source library and deal with th
 output/Company-v0.0.1/
 ├── 0-dataroom-inventory.json/md    # Document inventory
 ├── 1-competitive-analysis.json/md  # Competitive landscape
-├── (future) 2-financial-analysis.json/md
-├── (future) 3-team-analysis.json/md
-└── (future) 4-traction-analysis.json/md
+├── 2-cap-table.json/md             # Ownership structure
+├── 3-financial-analysis.json/md    # Financial projections
+├── (future) 4-team-analysis.json/md
+└── (future) 5-traction-analysis.json/md
 ```
 
-See `changelog/2025-11-26_01.md` and `changelog/2025-11-26_02.md` for complete details.
+See `changelog/2025-11-26_01.md`, `changelog/2025-11-26_02.md`, and `changelog/2025-11-26_03.md` for complete details.
 
 ### 2025-11-22: Premium Data Sources Integration
 

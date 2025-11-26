@@ -125,7 +125,7 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
     Returns:
         Dict with extraction results by type
     """
-    from .extractors import extract_competitive_data
+    from .extractors import extract_competitive_data, extract_cap_table_data, extract_financial_data
 
     results = {
         "financials": None,
@@ -159,9 +159,49 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
             results["notes"].append(f"Competitive extraction error: {str(e)}")
             print(f"   ✗ Error: {e}")
 
-    # Placeholder for other extractors (Phase 2 continued)
-    # TODO: Add financial_extractor
-    # TODO: Add cap_table_extractor
+    # Run cap table extractor
+    if "cap_table" in docs_by_type:
+        cap_docs = docs_by_type["cap_table"]
+        print(f"📊 Extracting cap table data from {len(cap_docs)} documents...")
+        try:
+            results["cap_table"] = extract_cap_table_data(cap_docs, use_llm=use_llm)
+            if results["cap_table"]:
+                shareholder_count = len(results["cap_table"].get("shareholders", []))
+                results["notes"].append(f"Extracted {shareholder_count} shareholders from cap table")
+                print(f"   ✓ Found {shareholder_count} shareholders")
+            else:
+                print(f"   ⚠️ No cap table data extracted")
+        except Exception as e:
+            results["notes"].append(f"Cap table extraction error: {str(e)}")
+            print(f"   ✗ Error: {e}")
+
+    # Run financial extractor (handles both financial_statements and financial_projections)
+    financial_docs = []
+    for doc_type in ["financial_statements", "financial_projections"]:
+        if doc_type in docs_by_type:
+            financial_docs.extend(docs_by_type[doc_type])
+
+    if financial_docs:
+        print(f"💰 Extracting financial data from {len(financial_docs)} documents...")
+        try:
+            results["financials"] = extract_financial_data(financial_docs, use_llm=use_llm)
+            if results["financials"]:
+                results["notes"].append(f"Extracted financial data from {len(financial_docs)} documents")
+                # Summarize what was found
+                fin = results["financials"]
+                if fin.get("revenue"):
+                    periods = len(fin["revenue"])
+                    print(f"   ✓ Found revenue data for {periods} periods")
+                if fin.get("projections"):
+                    print(f"   ✓ Found financial projections")
+                if fin.get("headcount"):
+                    print(f"   ✓ Found headcount data")
+            else:
+                print(f"   ⚠️ No financial data extracted")
+        except Exception as e:
+            results["notes"].append(f"Financial extraction error: {str(e)}")
+            print(f"   ✗ Error: {e}")
+
     # TODO: Add team_extractor
     # TODO: Add traction_extractor
 
@@ -192,10 +232,51 @@ def _extract_key_facts(extraction_results: dict) -> dict:
                 "key_differentiators_count": len(competitive.get("key_differentiators", [])),
             }
 
-    # Financial facts (placeholder for Phase 2)
-    # TODO: Extract key financial metrics
+    # Cap table facts
+    cap_table = extraction_results.get("cap_table")
+    if cap_table:
+        shareholders = cap_table.get("shareholders", [])
+        key_facts["cap_table"] = {
+            "shareholder_count": len(shareholders),
+            "total_shares": cap_table.get("total_shares_outstanding"),
+            "option_pool_pct": cap_table.get("option_pool_percentage"),
+        }
+        # Extract founder ownership
+        founder_ownership = sum(
+            s.get("ownership_percentage", 0)
+            for s in shareholders
+            if s.get("investor_type") == "Founder"
+        )
+        if founder_ownership > 0:
+            key_facts["cap_table"]["founder_ownership_pct"] = founder_ownership
 
-    # Team facts (placeholder for Phase 2)
+    # Financial facts
+    financials = extraction_results.get("financials")
+    if financials:
+        key_facts["financials"] = {}
+
+        # Latest ARR
+        arr = financials.get("arr")
+        if arr:
+            latest_period = max(arr.keys()) if arr else None
+            if latest_period:
+                key_facts["financials"]["latest_arr"] = arr[latest_period]
+                key_facts["financials"]["latest_arr_period"] = latest_period
+
+        # Burn rate and runway
+        if financials.get("burn_rate"):
+            key_facts["financials"]["monthly_burn"] = financials["burn_rate"]
+        if financials.get("runway_months"):
+            key_facts["financials"]["runway_months"] = financials["runway_months"]
+
+        # Headcount
+        headcount = financials.get("headcount")
+        if headcount:
+            latest_period = max(headcount.keys()) if headcount else None
+            if latest_period:
+                key_facts["financials"]["headcount"] = headcount[latest_period]
+
+    # Team facts (placeholder for future)
     # TODO: Extract team highlights
 
     return key_facts
@@ -293,16 +374,35 @@ def save_dataroom_analysis_artifacts(
             f.write(comp_report)
         print(f"   📄 Saved: {comp_md_path.name}")
 
-    # 2. Save financial analysis (if present) - placeholder for Phase 2
+    # 2. Save cap table analysis (if present)
+    if analysis.get("cap_table"):
+        cap_json_path = output_dir / "2-cap-table.json"
+        with open(cap_json_path, "w") as f:
+            json.dump(analysis["cap_table"], f, indent=2, ensure_ascii=False, default=str)
+        print(f"   📄 Saved: {cap_json_path.name}")
+
+        cap_md_path = output_dir / "2-cap-table.md"
+        cap_report = format_cap_table_report(analysis["cap_table"], company_name)
+        with open(cap_md_path, "w") as f:
+            f.write(cap_report)
+        print(f"   📄 Saved: {cap_md_path.name}")
+
+    # 3. Save financial analysis (if present)
     if analysis.get("financials"):
-        fin_json_path = output_dir / "2-financial-analysis.json"
+        fin_json_path = output_dir / "3-financial-analysis.json"
         with open(fin_json_path, "w") as f:
             json.dump(analysis["financials"], f, indent=2, ensure_ascii=False, default=str)
         print(f"   📄 Saved: {fin_json_path.name}")
 
-    # 3. Save team analysis (if present) - placeholder for Phase 2
+        fin_md_path = output_dir / "3-financial-analysis.md"
+        fin_report = format_financial_report(analysis["financials"], company_name)
+        with open(fin_md_path, "w") as f:
+            f.write(fin_report)
+        print(f"   📄 Saved: {fin_md_path.name}")
+
+    # 4. Save team analysis (if present) - placeholder for future
     if analysis.get("team"):
-        team_json_path = output_dir / "3-team-analysis.json"
+        team_json_path = output_dir / "4-team-analysis.json"
         with open(team_json_path, "w") as f:
             json.dump(analysis["team"], f, indent=2, ensure_ascii=False, default=str)
         print(f"   📄 Saved: {team_json_path.name}")
@@ -500,6 +600,228 @@ def format_competitive_report(competitive_data: dict, company_name: str) -> str:
         md += "## Source Documents\n\n"
         for doc in source_docs:
             md += f"- {doc}\n"
+        md += "\n"
+
+    return md
+
+
+def format_cap_table_report(cap_table_data: dict, company_name: str) -> str:
+    """Format cap table as human-readable markdown report."""
+    md = f"# Cap Table: {company_name}\n\n"
+
+    if cap_table_data.get("as_of_date"):
+        md += f"**As of**: {cap_table_data['as_of_date']}\n\n"
+
+    md += "---\n\n"
+
+    # Ownership Summary
+    md += "## Ownership Summary\n\n"
+
+    if cap_table_data.get("total_shares_outstanding"):
+        md += f"**Total Shares Outstanding**: {cap_table_data['total_shares_outstanding']:,}\n\n"
+
+    if cap_table_data.get("fully_diluted_shares"):
+        md += f"**Fully Diluted Shares**: {cap_table_data['fully_diluted_shares']:,}\n\n"
+
+    # Shareholders Table
+    shareholders = cap_table_data.get("shareholders", [])
+    if shareholders:
+        md += "## Shareholders\n\n"
+        md += "| Shareholder | Shares | Ownership % | Class | Type |\n"
+        md += "|-------------|--------|-------------|-------|------|\n"
+
+        for sh in shareholders:
+            name = sh.get("name", "Unknown")
+            shares = sh.get("shares", 0)
+            pct = sh.get("ownership_percentage", 0)
+            share_class = sh.get("share_class", "Common")
+            inv_type = sh.get("investor_type", "Unknown")
+
+            shares_str = f"{shares:,}" if shares else "-"
+            pct_str = f"{pct:.1f}%" if pct else "-"
+
+            md += f"| {name} | {shares_str} | {pct_str} | {share_class} | {inv_type} |\n"
+
+        md += "\n"
+
+        # Ownership by type summary
+        md += "### Ownership by Type\n\n"
+        by_type = {}
+        for sh in shareholders:
+            inv_type = sh.get("investor_type", "Other")
+            by_type[inv_type] = by_type.get(inv_type, 0) + sh.get("ownership_percentage", 0)
+
+        for inv_type, total_pct in sorted(by_type.items(), key=lambda x: -x[1]):
+            md += f"- **{inv_type}**: {total_pct:.1f}%\n"
+        md += "\n"
+
+    # Option Pool
+    if any(cap_table_data.get(k) for k in ["option_pool_size", "option_pool_percentage", "options_granted", "options_available"]):
+        md += "## Option Pool\n\n"
+
+        if cap_table_data.get("option_pool_size"):
+            md += f"- **Total Pool**: {cap_table_data['option_pool_size']:,} shares\n"
+        if cap_table_data.get("option_pool_percentage"):
+            md += f"- **Pool Percentage**: {cap_table_data['option_pool_percentage']:.1f}%\n"
+        if cap_table_data.get("options_granted"):
+            md += f"- **Issued Options**: {cap_table_data['options_granted']:,}\n"
+        if cap_table_data.get("options_available"):
+            md += f"- **Available Options**: {cap_table_data['options_available']:,}\n"
+        md += "\n"
+
+    # SAFEs
+    safes = cap_table_data.get("safes", [])
+    if safes:
+        md += "## SAFEs\n\n"
+        md += "| Investor | Amount | Valuation Cap | Discount |\n"
+        md += "|----------|--------|---------------|----------|\n"
+        for safe in safes:
+            name = safe.get("investor_name", "Unknown")
+            amount = f"${safe.get('amount_invested', 0):,.0f}"
+            cap = f"${safe.get('valuation_cap', 0):,.0f}" if safe.get("valuation_cap") else "-"
+            discount = f"{safe.get('discount_rate', 0)}%" if safe.get("discount_rate") else "-"
+            md += f"| {name} | {amount} | {cap} | {discount} |\n"
+        md += "\n"
+
+    # Convertible Notes
+    notes = cap_table_data.get("convertible_notes", [])
+    if notes:
+        md += "## Convertible Notes\n\n"
+        md += "| Investor | Principal | Interest Rate | Maturity |\n"
+        md += "|----------|-----------|---------------|----------|\n"
+        for note in notes:
+            name = note.get("investor_name", "Unknown")
+            principal = f"${note.get('principal_amount', 0):,.0f}"
+            rate = f"{note.get('interest_rate', 0)}%"
+            maturity = note.get("maturity_date", "-")
+            md += f"| {name} | {principal} | {rate} | {maturity} |\n"
+        md += "\n"
+
+    # Extraction Notes
+    notes = cap_table_data.get("extraction_notes", [])
+    if notes:
+        md += "## Notes\n\n"
+        for note in notes:
+            md += f"- {note}\n"
+        md += "\n"
+
+    return md
+
+
+def format_financial_report(financial_data: dict, company_name: str) -> str:
+    """Format financial data as human-readable markdown report."""
+    md = f"# Financial Analysis: {company_name}\n\n"
+
+    if financial_data.get("extraction_date"):
+        md += f"**Extracted**: {financial_data['extraction_date']}\n\n"
+
+    md += f"**Currency**: {financial_data.get('currency', 'USD')}\n\n"
+    md += "---\n\n"
+
+    # Key Metrics Summary
+    md += "## Key Metrics\n\n"
+
+    has_metrics = False
+
+    if financial_data.get("burn_rate"):
+        md += f"- **Monthly Burn Rate**: ${financial_data['burn_rate']:,.0f}\n"
+        has_metrics = True
+    if financial_data.get("runway_months"):
+        md += f"- **Runway**: {financial_data['runway_months']:.0f} months\n"
+        has_metrics = True
+    if financial_data.get("cash"):
+        md += f"- **Cash Position**: ${financial_data['cash']:,.0f}\n"
+        has_metrics = True
+    if financial_data.get("ltv_cac_ratio"):
+        md += f"- **LTV/CAC Ratio**: {financial_data['ltv_cac_ratio']:.1f}x\n"
+        has_metrics = True
+
+    if not has_metrics:
+        md += "*No key metrics extracted*\n"
+    md += "\n"
+
+    # Revenue / ARR
+    def format_time_series(data: dict, label: str, is_currency: bool = True) -> str:
+        if not data:
+            return ""
+
+        result = f"## {label}\n\n"
+        result += "| Period | Value |\n"
+        result += "|--------|-------|\n"
+
+        for period in sorted(data.keys()):
+            value = data[period]
+            if is_currency:
+                value_str = f"${value:,.0f}" if value else "-"
+            else:
+                value_str = f"{value:,.0f}" if value else "-"
+            result += f"| {period} | {value_str} |\n"
+
+        result += "\n"
+        return result
+
+    if financial_data.get("arr"):
+        md += format_time_series(financial_data["arr"], "Annual Recurring Revenue (ARR)")
+
+    if financial_data.get("revenue"):
+        md += format_time_series(financial_data["revenue"], "Revenue")
+
+    if financial_data.get("mrr"):
+        md += format_time_series(financial_data["mrr"], "Monthly Recurring Revenue (MRR)")
+
+    # Profitability
+    if financial_data.get("gross_margin"):
+        md += "## Gross Margin\n\n"
+        md += "| Period | Margin % |\n"
+        md += "|--------|----------|\n"
+        for period in sorted(financial_data["gross_margin"].keys()):
+            margin = financial_data["gross_margin"][period]
+            md += f"| {period} | {margin:.1f}% |\n"
+        md += "\n"
+
+    if financial_data.get("ebitda"):
+        md += format_time_series(financial_data["ebitda"], "EBITDA")
+
+    if financial_data.get("net_income"):
+        md += format_time_series(financial_data["net_income"], "Net Income")
+
+    # Operating Expenses
+    if financial_data.get("operating_expenses"):
+        md += format_time_series(financial_data["operating_expenses"], "Operating Expenses")
+
+    # Headcount
+    if financial_data.get("headcount"):
+        md += format_time_series(financial_data["headcount"], "Headcount", is_currency=False)
+
+    if financial_data.get("headcount_by_department"):
+        md += "### Headcount by Department\n\n"
+        for dept, count in financial_data["headcount_by_department"].items():
+            md += f"- **{dept.title()}**: {count}\n"
+        md += "\n"
+
+    # Projections
+    projections = financial_data.get("projections")
+    if projections:
+        md += "## Projections\n\n"
+        md += "*Financial model projections*\n\n"
+
+        for metric, data in projections.items():
+            if data:
+                md += f"### Projected {metric.replace('_', ' ').title()}\n\n"
+                md += "| Period | Value |\n"
+                md += "|--------|-------|\n"
+                for period in sorted(data.keys()):
+                    value = data[period]
+                    value_str = f"${value:,.0f}" if isinstance(value, (int, float)) else str(value)
+                    md += f"| {period} | {value_str} |\n"
+                md += "\n"
+
+    # Extraction Notes
+    notes = financial_data.get("extraction_notes", [])
+    if notes:
+        md += "## Extraction Notes\n\n"
+        for note in notes:
+            md += f"- {note}\n"
         md += "\n"
 
     return md
