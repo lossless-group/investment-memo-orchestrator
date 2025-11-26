@@ -241,6 +241,24 @@ h1, h2, h3, h4, h5, h6,
 """
         css_content += header_font_rule
 
+    # Add font weight rules if specified
+    font_weight = getattr(brand.fonts, 'weight', 400)
+    header_weight = getattr(brand.fonts, 'header_weight', 700)
+
+    font_weight_rule = f"""
+/* Font Weight Override from Brand Config */
+body {{
+    font-weight: {font_weight};
+}}
+p, li, td, blockquote {{
+    font-weight: {font_weight};
+}}
+h1, h2, h3, h4, h5, h6 {{
+    font-weight: {header_weight};
+}}
+"""
+    css_content += font_weight_rule
+
     return css_content
 
 

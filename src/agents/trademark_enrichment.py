@@ -4,6 +4,7 @@ Trademark Enrichment Agent.
 Inserts company trademark/logo images into memo header.
 """
 
+import os
 from typing import Dict, Any
 from pathlib import Path
 from ..utils import get_latest_output_dir
@@ -46,21 +47,28 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     if trademark_path.startswith('http'):
         trademark_url = trademark_path
     else:
-        # Handle local paths - convert to relative from output directory
+        # Handle local paths - use absolute paths so pandoc can find them
+        # regardless of where it's invoked from
         path = Path(trademark_path)
-        if path.is_absolute():
-            # Absolute path - try to make relative to project root
-            try:
-                project_root = Path(__file__).parent.parent.parent
-                rel_path = path.relative_to(project_root)
-                trademark_url = f"../../{rel_path}"
-            except ValueError:
-                # Path not under project root, use as-is
-                trademark_url = str(path)
+
+        # Get project root from PROJECT_PATH env var or fallback to file-based detection
+        project_root = os.getenv("PROJECT_PATH")
+        if project_root:
+            project_root = Path(project_root)
         else:
-            # Already relative (e.g., "data/Secure-Inputs/logo.svg")
-            # Prepend ../../ to navigate from output/{Company}-vX.X.X/ to project root
-            trademark_url = f"../../{trademark_path}"
+            project_root = Path(__file__).parent.parent.parent
+
+        if path.is_absolute():
+            # Already absolute, use as-is
+            trademark_url = str(path)
+        else:
+            # Relative path - convert to absolute from project root
+            abs_path = project_root / trademark_path
+            if abs_path.exists():
+                trademark_url = str(abs_path.resolve())
+            else:
+                # Fallback to relative path if file doesn't exist
+                trademark_url = f"../../{trademark_path}"
 
     trademark_markdown = f'![{company_name} Logo]({trademark_url})\n\n---\n\n'
 

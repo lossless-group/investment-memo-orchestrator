@@ -140,9 +140,73 @@ def reconstruct_state_from_artifacts(
     Returns:
         Reconstructed MemoState ready for resumption
     """
-    # Start with fresh state (loads company data JSON)
+    # Load company data JSON file to get type/mode/context
+    data_file = Path(f"data/{company_name}.json")
+    deck_path = None
+    company_description = None
+    company_url = None
+    company_stage = None
+    research_notes = None
+    company_trademark_light = None
+    company_trademark_dark = None
+
+    # Defaults
+    if investment_type is None:
+        investment_type = "direct"
+    if memo_mode is None:
+        memo_mode = "consider"
+
+    if data_file.exists():
+        try:
+            with open(data_file) as f:
+                company_data = json.load(f)
+
+                # Load deck path
+                deck_path = company_data.get("deck")
+
+                # Load additional company context
+                company_description = company_data.get("description")
+                company_url = company_data.get("url")
+                company_stage = company_data.get("stage")
+                research_notes = company_data.get("notes")
+
+                # Load company trademark paths
+                company_trademark_light = company_data.get("trademark_light")
+                company_trademark_dark = company_data.get("trademark_dark")
+
+                # Read type and mode from JSON if present
+                json_type = company_data.get("type", "").lower()
+                json_mode = company_data.get("mode", "").lower()
+
+                # Map JSON values to internal values
+                if json_type in ["direct", "direct investment"]:
+                    investment_type = "direct"
+                elif json_type in ["fund", "fund commitment"]:
+                    investment_type = "fund"
+
+                if json_mode in ["consider", "prospective"]:
+                    memo_mode = "consider"
+                elif json_mode in ["justify", "retrospective"]:
+                    memo_mode = "justify"
+
+                print(f"Loaded company data: type={investment_type}, mode={memo_mode}")
+        except Exception as e:
+            print(f"Warning: Could not load company data: {e}")
+
+    # Start with fresh state
     print(f"[DEBUG] About to call create_initial_state for {company_name}")
-    state = create_initial_state(company_name, investment_type, memo_mode)
+    state = create_initial_state(
+        company_name=company_name,
+        investment_type=investment_type,
+        memo_mode=memo_mode,
+        deck_path=deck_path,
+        company_description=company_description,
+        company_url=company_url,
+        company_stage=company_stage,
+        research_notes=research_notes,
+        company_trademark_light=company_trademark_light,
+        company_trademark_dark=company_trademark_dark
+    )
     print("[DEBUG] create_initial_state completed")
 
     # Override output directory to use existing one

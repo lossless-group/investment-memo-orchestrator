@@ -45,12 +45,14 @@ class BrandFonts:
     fallback: str
     custom_fonts_dir: Optional[str] = None
     google_fonts_url: Optional[str] = None  # Google Fonts link for body font
+    weight: int = 400  # Default font weight for body text (400=normal, 500=medium, 700=bold)
 
     # Optional: separate font for headers
     header_family: Optional[str] = None
     header_fallback: Optional[str] = None
     header_fonts_dir: Optional[str] = None
     header_google_fonts_url: Optional[str] = None  # Google Fonts link for header font
+    header_weight: int = 700  # Default font weight for headers
 
 
 @dataclass
