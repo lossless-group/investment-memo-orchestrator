@@ -125,7 +125,7 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
     Returns:
         Dict with extraction results by type
     """
-    from .extractors import extract_competitive_data, extract_cap_table_data, extract_financial_data, extract_traction_data
+    from .extractors import extract_competitive_data, extract_cap_table_data, extract_financial_data, extract_traction_data, extract_team_data
 
     results = {
         "financials": None,
@@ -232,7 +232,39 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
             results["notes"].append(f"Traction extraction error: {str(e)}")
             print(f"   ✗ Error: {e}")
 
-    # TODO: Add team_extractor
+    # Run team extractor (handles team_bios and pitch_deck documents)
+    team_docs = []
+    for doc_type in ["team_bios", "pitch_deck"]:
+        if doc_type in docs_by_type:
+            team_docs.extend(docs_by_type[doc_type])
+
+    if team_docs:
+        print(f"👥 Extracting team data from {len(team_docs)} documents...")
+        try:
+            results["team"] = extract_team_data(team_docs, use_llm=use_llm)
+            if results["team"]:
+                founder_count = len(results["team"].get("founders", []))
+                leadership_count = len(results["team"].get("leadership", []))
+                headcount = results["team"].get("total_headcount")
+
+                notes_list = []
+                if founder_count:
+                    notes_list.append(f"{founder_count} founders")
+                if leadership_count:
+                    notes_list.append(f"{leadership_count} leaders")
+                if headcount:
+                    notes_list.append(f"{headcount} total headcount")
+
+                if notes_list:
+                    results["notes"].append(f"Extracted team: {', '.join(notes_list)}")
+                    print(f"   ✓ Found: {', '.join(notes_list)}")
+                else:
+                    print(f"   ✓ Found team data")
+            else:
+                print(f"   ⚠️ No team data extracted")
+        except Exception as e:
+            results["notes"].append(f"Team extraction error: {str(e)}")
+            print(f"   ✗ Error: {e}")
 
     return results
 
@@ -329,8 +361,41 @@ def _extract_key_facts(extraction_results: dict) -> dict:
         if not key_facts["traction"]:
             del key_facts["traction"]
 
-    # Team facts (placeholder for future)
-    # TODO: Extract team highlights
+    # Team facts
+    team = extraction_results.get("team")
+    if team:
+        key_facts["team"] = {}
+
+        founders = team.get("founders", [])
+        if founders:
+            key_facts["team"]["founder_count"] = len(founders)
+            key_facts["team"]["founder_names"] = [f.get("name") for f in founders if f.get("name")]
+
+            # Extract notable backgrounds
+            notable_companies = []
+            for founder in founders:
+                for company in founder.get("previous_companies", []):
+                    if company and company not in notable_companies:
+                        notable_companies.append(company)
+            if notable_companies:
+                key_facts["team"]["notable_prior_companies"] = notable_companies[:5]
+
+        leadership = team.get("leadership", [])
+        if leadership:
+            key_facts["team"]["leadership_count"] = len(leadership)
+
+        if team.get("total_headcount"):
+            key_facts["team"]["total_headcount"] = team["total_headcount"]
+
+        if team.get("advisors"):
+            key_facts["team"]["advisor_count"] = len(team["advisors"])
+
+        if team.get("board_members"):
+            key_facts["team"]["board_size"] = len(team["board_members"])
+
+        # Clean empty team dict
+        if not key_facts["team"]:
+            del key_facts["team"]
 
     return key_facts
 
@@ -466,12 +531,18 @@ def save_dataroom_analysis_artifacts(
             f.write(traction_report)
         print(f"   📄 Saved: {traction_md_path.name}")
 
-    # 5. Save team analysis (if present) - placeholder for future
+    # 5. Save team analysis (if present)
     if analysis.get("team"):
         team_json_path = output_dir / "5-team-analysis.json"
         with open(team_json_path, "w") as f:
             json.dump(analysis["team"], f, indent=2, ensure_ascii=False, default=str)
         print(f"   📄 Saved: {team_json_path.name}")
+
+        team_md_path = output_dir / "5-team-analysis.md"
+        team_report = format_team_report(analysis["team"], company_name)
+        with open(team_md_path, "w") as f:
+            f.write(team_report)
+        print(f"   📄 Saved: {team_md_path.name}")
 
 
 def format_inventory_report(inventory_data: dict, company_name: str) -> str:
@@ -1012,6 +1083,159 @@ def format_traction_report(traction_data: dict, company_name: str) -> str:
 
     # Extraction Notes
     notes = traction_data.get("extraction_notes", [])
+    if notes:
+        md += "## Extraction Notes\n\n"
+        for note in notes:
+            md += f"- {note}\n"
+        md += "\n"
+
+    return md
+
+
+def format_team_report(team_data: dict, company_name: str) -> str:
+    """Format team data as human-readable markdown report."""
+    md = f"# Team Analysis: {company_name}\n\n"
+
+    if team_data.get("document_source"):
+        md += f"**Sources**: {team_data['document_source']}\n\n"
+
+    md += "---\n\n"
+
+    # Founders Section
+    founders = team_data.get("founders", [])
+    if founders:
+        md += "## Founders\n\n"
+
+        for founder in founders:
+            name = founder.get("name", "Unknown")
+            title = founder.get("title", "")
+
+            md += f"### {name}"
+            if title:
+                md += f" - {title}"
+            md += "\n\n"
+
+            # LinkedIn
+            if founder.get("linkedin_url"):
+                md += f"**LinkedIn**: [{founder['linkedin_url']}]({founder['linkedin_url']})\n\n"
+
+            # Background
+            prev_companies = founder.get("previous_companies", [])
+            prev_roles = founder.get("previous_roles", [])
+
+            if prev_companies or prev_roles:
+                md += "**Background:**\n"
+                if prev_companies:
+                    md += f"- Previous Companies: {', '.join(prev_companies)}\n"
+                if prev_roles:
+                    md += f"- Previous Roles: {', '.join(prev_roles)}\n"
+                md += "\n"
+
+            # Education
+            education = founder.get("education", [])
+            if education:
+                md += "**Education:**\n"
+                for edu in education:
+                    md += f"- {edu}\n"
+                md += "\n"
+
+            # Achievements
+            achievements = founder.get("notable_achievements", [])
+            if achievements:
+                md += "**Notable Achievements:**\n"
+                for achievement in achievements:
+                    md += f"- {achievement}\n"
+                md += "\n"
+
+            # Expertise
+            expertise = founder.get("domain_expertise", [])
+            if expertise:
+                md += f"**Domain Expertise:** {', '.join(expertise)}\n\n"
+
+            if founder.get("years_experience"):
+                md += f"**Years of Experience:** {founder['years_experience']}\n\n"
+
+            md += "---\n\n"
+
+    # Leadership Section
+    leadership = team_data.get("leadership", [])
+    if leadership:
+        md += "## Leadership Team\n\n"
+
+        md += "| Name | Title | Background |\n"
+        md += "|------|-------|------------|\n"
+
+        for leader in leadership:
+            name = leader.get("name", "Unknown")
+            title = leader.get("title", "-")
+            prev = leader.get("previous_companies", [])
+            background = ", ".join(prev[:2]) if prev else "-"
+
+            md += f"| {name} | {title} | {background} |\n"
+
+        md += "\n"
+
+        # Detailed leadership profiles if they have rich data
+        for leader in leadership:
+            if leader.get("previous_companies") or leader.get("education"):
+                name = leader.get("name", "Unknown")
+                title = leader.get("title", "")
+
+                md += f"### {name}"
+                if title:
+                    md += f" - {title}"
+                md += "\n\n"
+
+                if leader.get("linkedin_url"):
+                    md += f"**LinkedIn**: [{leader['linkedin_url']}]({leader['linkedin_url']})\n\n"
+
+                prev_companies = leader.get("previous_companies", [])
+                if prev_companies:
+                    md += f"**Previous Companies:** {', '.join(prev_companies)}\n\n"
+
+                education = leader.get("education", [])
+                if education:
+                    md += "**Education:**\n"
+                    for edu in education:
+                        md += f"- {edu}\n"
+                    md += "\n"
+
+    # Organization Overview
+    if team_data.get("total_headcount") or team_data.get("headcount_by_department"):
+        md += "## Organization\n\n"
+
+        if team_data.get("total_headcount"):
+            md += f"**Total Headcount:** {team_data['total_headcount']}\n\n"
+
+        headcount_by_dept = team_data.get("headcount_by_department", {})
+        if headcount_by_dept:
+            md += "### Headcount by Department\n\n"
+            md += "| Department | Count |\n"
+            md += "|------------|-------|\n"
+            # Filter out None values and sort by count descending
+            valid_depts = [(k, v) for k, v in headcount_by_dept.items() if v is not None]
+            for dept, count in sorted(valid_depts, key=lambda x: -x[1]):
+                md += f"| {dept.title()} | {count} |\n"
+            md += "\n"
+
+    # Advisors
+    advisors = team_data.get("advisors", [])
+    if advisors:
+        md += "## Advisors\n\n"
+        for advisor in advisors:
+            md += f"- {advisor}\n"
+        md += "\n"
+
+    # Board Members
+    board = team_data.get("board_members", [])
+    if board:
+        md += "## Board of Directors\n\n"
+        for member in board:
+            md += f"- {member}\n"
+        md += "\n"
+
+    # Extraction Notes
+    notes = team_data.get("extraction_notes", [])
     if notes:
         md += "## Extraction Notes\n\n"
         for note in notes:
