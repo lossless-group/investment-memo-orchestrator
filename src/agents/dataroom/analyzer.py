@@ -125,7 +125,7 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
     Returns:
         Dict with extraction results by type
     """
-    from .extractors import extract_competitive_data, extract_cap_table_data, extract_financial_data
+    from .extractors import extract_competitive_data, extract_cap_table_data, extract_financial_data, extract_traction_data
 
     results = {
         "financials": None,
@@ -202,8 +202,37 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
             results["notes"].append(f"Financial extraction error: {str(e)}")
             print(f"   ✗ Error: {e}")
 
+    # Run traction extractor (handles traction_metrics, customer_list, pipeline_metrics, pitch_deck)
+    traction_docs = []
+    for doc_type in ["traction_metrics", "customer_list", "pipeline_metrics", "pitch_deck"]:
+        if doc_type in docs_by_type:
+            traction_docs.extend(docs_by_type[doc_type])
+
+    if traction_docs:
+        print(f"📈 Extracting traction data from {len(traction_docs)} documents...")
+        try:
+            results["traction"] = extract_traction_data(traction_docs, use_llm=use_llm)
+            if results["traction"]:
+                notes_list = []
+                if results["traction"].get("customer_count"):
+                    notes_list.append(f"{results['traction']['customer_count']} customers")
+                if results["traction"].get("arr"):
+                    notes_list.append(f"${results['traction']['arr']:,.0f} ARR")
+                if results["traction"].get("pipeline_value"):
+                    notes_list.append(f"${results['traction']['pipeline_value']:,.0f} pipeline")
+
+                if notes_list:
+                    results["notes"].append(f"Extracted traction: {', '.join(notes_list)}")
+                    print(f"   ✓ Found: {', '.join(notes_list)}")
+                else:
+                    print(f"   ✓ Found traction data")
+            else:
+                print(f"   ⚠️ No traction data extracted")
+        except Exception as e:
+            results["notes"].append(f"Traction extraction error: {str(e)}")
+            print(f"   ✗ Error: {e}")
+
     # TODO: Add team_extractor
-    # TODO: Add traction_extractor
 
     return results
 
@@ -275,6 +304,30 @@ def _extract_key_facts(extraction_results: dict) -> dict:
             latest_period = max(headcount.keys()) if headcount else None
             if latest_period:
                 key_facts["financials"]["headcount"] = headcount[latest_period]
+
+    # Traction facts
+    traction = extraction_results.get("traction")
+    if traction:
+        key_facts["traction"] = {}
+
+        if traction.get("customer_count"):
+            key_facts["traction"]["customer_count"] = traction["customer_count"]
+        if traction.get("arr"):
+            key_facts["traction"]["arr"] = traction["arr"]
+        if traction.get("mrr"):
+            key_facts["traction"]["mrr"] = traction["mrr"]
+        if traction.get("retention_rate"):
+            key_facts["traction"]["retention_rate"] = traction["retention_rate"]
+        if traction.get("nps_score"):
+            key_facts["traction"]["nps_score"] = traction["nps_score"]
+        if traction.get("pipeline_value"):
+            key_facts["traction"]["pipeline_value"] = traction["pipeline_value"]
+        if traction.get("win_rate"):
+            key_facts["traction"]["win_rate"] = traction["win_rate"]
+
+        # Clean empty traction dict
+        if not key_facts["traction"]:
+            del key_facts["traction"]
 
     # Team facts (placeholder for future)
     # TODO: Extract team highlights
@@ -400,9 +453,22 @@ def save_dataroom_analysis_artifacts(
             f.write(fin_report)
         print(f"   📄 Saved: {fin_md_path.name}")
 
-    # 4. Save team analysis (if present) - placeholder for future
+    # 4. Save traction analysis (if present)
+    if analysis.get("traction"):
+        traction_json_path = output_dir / "4-traction-analysis.json"
+        with open(traction_json_path, "w") as f:
+            json.dump(analysis["traction"], f, indent=2, ensure_ascii=False, default=str)
+        print(f"   📄 Saved: {traction_json_path.name}")
+
+        traction_md_path = output_dir / "4-traction-analysis.md"
+        traction_report = format_traction_report(analysis["traction"], company_name)
+        with open(traction_md_path, "w") as f:
+            f.write(traction_report)
+        print(f"   📄 Saved: {traction_md_path.name}")
+
+    # 5. Save team analysis (if present) - placeholder for future
     if analysis.get("team"):
-        team_json_path = output_dir / "4-team-analysis.json"
+        team_json_path = output_dir / "5-team-analysis.json"
         with open(team_json_path, "w") as f:
             json.dump(analysis["team"], f, indent=2, ensure_ascii=False, default=str)
         print(f"   📄 Saved: {team_json_path.name}")
@@ -818,6 +884,134 @@ def format_financial_report(financial_data: dict, company_name: str) -> str:
 
     # Extraction Notes
     notes = financial_data.get("extraction_notes", [])
+    if notes:
+        md += "## Extraction Notes\n\n"
+        for note in notes:
+            md += f"- {note}\n"
+        md += "\n"
+
+    return md
+
+
+def format_traction_report(traction_data: dict, company_name: str) -> str:
+    """Format traction data as human-readable markdown report."""
+    md = f"# Traction Analysis: {company_name}\n\n"
+
+    if traction_data.get("extraction_date"):
+        md += f"**Extracted**: {traction_data['extraction_date']}\n\n"
+
+    md += "---\n\n"
+
+    # Key Metrics Summary
+    md += "## Key Metrics\n\n"
+
+    has_metrics = False
+
+    if traction_data.get("customer_count"):
+        md += f"- **Total Customers**: {traction_data['customer_count']:,}\n"
+        has_metrics = True
+    if traction_data.get("arr"):
+        md += f"- **ARR**: ${traction_data['arr']:,.0f}\n"
+        has_metrics = True
+    if traction_data.get("mrr"):
+        md += f"- **MRR**: ${traction_data['mrr']:,.0f}\n"
+        has_metrics = True
+    if traction_data.get("revenue_growth"):
+        md += f"- **Revenue Growth**: {traction_data['revenue_growth']:.1f}%\n"
+        has_metrics = True
+    if traction_data.get("retention_rate"):
+        md += f"- **Retention Rate**: {traction_data['retention_rate']:.1f}%\n"
+        has_metrics = True
+    if traction_data.get("churn_rate"):
+        md += f"- **Churn Rate**: {traction_data['churn_rate']:.1f}%\n"
+        has_metrics = True
+    if traction_data.get("nps_score"):
+        md += f"- **NPS Score**: {traction_data['nps_score']}\n"
+        has_metrics = True
+
+    if not has_metrics:
+        md += "*No key metrics extracted*\n"
+    md += "\n"
+
+    # Customer Details
+    customers = traction_data.get("customers", [])
+    if customers:
+        md += "## Customers\n\n"
+        md += f"**{len(customers)} customers identified**\n\n"
+
+        md += "| Customer | Type | Revenue | Status |\n"
+        md += "|----------|------|---------|--------|\n"
+
+        for cust in customers:
+            name = cust.get("name", "Unknown")
+            cust_type = cust.get("type", "-")
+            revenue = cust.get("revenue")
+            revenue_str = f"${revenue:,.0f}" if revenue else "-"
+            status = cust.get("status", "-")
+
+            md += f"| {name} | {cust_type} | {revenue_str} | {status} |\n"
+
+        md += "\n"
+
+        # Customer breakdown by type
+        by_type = {}
+        for cust in customers:
+            cust_type = cust.get("type", "Other")
+            by_type[cust_type] = by_type.get(cust_type, 0) + 1
+
+        if len(by_type) > 1:
+            md += "### Customer Breakdown\n\n"
+            for cust_type, count in sorted(by_type.items(), key=lambda x: -x[1]):
+                pct = count / len(customers) * 100
+                md += f"- **{cust_type}**: {count} ({pct:.0f}%)\n"
+            md += "\n"
+
+    # Pipeline
+    if any(traction_data.get(k) for k in ["pipeline_value", "pipeline_deals", "win_rate", "avg_deal_size", "sales_cycle_days"]):
+        md += "## Sales Pipeline\n\n"
+
+        if traction_data.get("pipeline_value"):
+            md += f"- **Pipeline Value**: ${traction_data['pipeline_value']:,.0f}\n"
+        if traction_data.get("pipeline_deals"):
+            md += f"- **Deals in Pipeline**: {traction_data['pipeline_deals']}\n"
+        if traction_data.get("win_rate"):
+            md += f"- **Win Rate**: {traction_data['win_rate']:.1f}%\n"
+        if traction_data.get("avg_deal_size"):
+            md += f"- **Average Deal Size**: ${traction_data['avg_deal_size']:,.0f}\n"
+        if traction_data.get("sales_cycle_days"):
+            md += f"- **Average Sales Cycle**: {traction_data['sales_cycle_days']} days\n"
+        md += "\n"
+
+    # Revenue by Segment
+    revenue_by_segment = traction_data.get("revenue_by_segment")
+    if revenue_by_segment:
+        md += "## Revenue by Segment\n\n"
+        md += "| Segment | Revenue |\n"
+        md += "|---------|----------|\n"
+        for segment, revenue in sorted(revenue_by_segment.items(), key=lambda x: -x[1]):
+            md += f"| {segment} | ${revenue:,.0f} |\n"
+        md += "\n"
+
+    # Milestones
+    milestones = traction_data.get("milestones", [])
+    if milestones:
+        md += "## Key Milestones\n\n"
+        for milestone in milestones:
+            date = milestone.get("date", "")
+            description = milestone.get("description", "")
+            date_str = f"**{date}**: " if date else "• "
+            md += f"- {date_str}{description}\n"
+        md += "\n"
+
+    # Logos (key customer names)
+    logos = traction_data.get("logos", [])
+    if logos:
+        md += "## Notable Customers\n\n"
+        md += ", ".join(logos)
+        md += "\n\n"
+
+    # Extraction Notes
+    notes = traction_data.get("extraction_notes", [])
     if notes:
         md += "## Extraction Notes\n\n"
         for note in notes:
