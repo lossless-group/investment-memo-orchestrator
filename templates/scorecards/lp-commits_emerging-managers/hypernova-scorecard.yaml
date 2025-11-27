@@ -1,0 +1,462 @@
+# Hypernova Capital - Emerging Manager Scorecard
+# Framework for evaluating LP commitments to emerging VC managers
+# Based on 12-dimension evaluation methodology
+
+metadata:
+  scorecard_id: "hypernova-emerging-manager-v1"
+  name: "Emerging Manager Evaluation Framework"
+  description: "12-dimension framework for evaluating GP/emerging manager fund commitments"
+  version: "1.0.0"
+  firm: "Hypernova Capital"
+  applicable_types: ["fund"]
+  applicable_modes: ["consider", "justify"]
+  date_created: "2025-11-27"
+
+scoring:
+  scale:
+    min: 1
+    max: 5
+    labels:
+      1: "Bottom quartile"
+      2: "Below average"
+      3: "Average"
+      4: "Above average"
+      5: "Exceptional"
+
+  percentile_mapping:
+    5: "Top 2-5%"
+    4: "Top 10-25%"
+    3: "Top 50%"
+    2: "Bottom 50%"
+    1: "Bottom 25%"
+
+dimension_groups:
+  - group_id: "founder_dynamics"
+    name: "Founder & Deal Dynamics"
+    description: "Dimensions evaluating GP's relationship with founders and deal access"
+    placement:
+      section: "executive_summary"
+      position: "after"
+    dimensions:
+      - empathy
+      - theory_of_market
+      - ecosystem_imprint
+      - hustle
+
+  - group_id: "execution_style"
+    name: "Execution & Investment Style"
+    description: "Dimensions evaluating how GP executes on opportunities"
+    placement:
+      section: "fund_strategy_thesis"
+      position: "within"
+      after_paragraph: 1
+    dimensions:
+      - pull_force
+      - pounce
+      - integrity
+      - grip
+
+  - group_id: "portfolio_management"
+    name: "Portfolio Management & Discipline"
+    description: "Dimensions evaluating GP's portfolio construction and management"
+    placement:
+      section: "track_record_analysis"
+      position: "within"
+      after_paragraph: 1
+    dimensions:
+      - judgement
+      - discipline
+      - positioning
+      - prudence
+
+dimensions:
+  empathy:
+    name: "Empathy"
+    short_description: "Insight-driven empathy with founders, management, and operators"
+    full_description: |
+      The ongoing privilege to invest in competitive early-stage deals rests on deep,
+      insight-driven empathy with founders, management, and operators. Reputational
+      feedback loops are tight and have outsized effects.
+    evaluation_guidance:
+      questions:
+        - "How well does the GP understand founder psychology and motivations?"
+        - "What evidence exists of deep relationships with portfolio founders?"
+        - "Do founders seek this GP's advice beyond investment matters?"
+        - "What is the GP's reputation among founders they didn't invest in?"
+      evidence_sources:
+        - "Founder references"
+        - "Portfolio company testimonials"
+        - "GP's founder-facing content and communications"
+        - "Repeat founder relationships"
+      red_flags:
+        - "Transactional relationships with founders"
+        - "Limited follow-on from existing portfolio founders"
+        - "Negative feedback from founders on deals that didn't close"
+    scoring_rubric:
+      5: "Exceptional founder relationships; founders actively seek GP's involvement; strong reputation even among non-portfolio founders"
+      4: "Strong founder empathy; good references; founders recommend GP to others"
+      3: "Adequate relationships; standard investor-founder dynamics"
+      2: "Surface-level relationships; limited founder advocacy"
+      1: "Transactional approach; poor founder feedback"
+
+  theory_of_market:
+    name: "Theory of Market"
+    short_description: "Well-sharpened theory on market evolution and company building"
+    full_description: |
+      The ability to anticipate the performance horizon of companies at the earliest
+      stages looks like intuition and luck, but it's forged from creating a well-sharpened,
+      experience and information rich theory on market evolution and company building.
+    evaluation_guidance:
+      questions:
+        - "Can the GP articulate a clear, differentiated market thesis?"
+        - "How has their thesis evolved with market changes?"
+        - "What evidence supports their market predictions?"
+        - "Do they have unique information advantages in their focus areas?"
+      evidence_sources:
+        - "Written thesis documents"
+        - "Public talks and podcasts"
+        - "Portfolio company selection patterns"
+        - "Timing of investments relative to market trends"
+      red_flags:
+        - "Vague or generic thesis (e.g., 'AI is big')"
+        - "Thesis that doesn't explain portfolio construction"
+        - "No evidence of thesis refinement over time"
+    scoring_rubric:
+      5: "Highly differentiated, proven thesis with clear track record of prescient investments"
+      4: "Clear thesis with supporting evidence; some proven predictions"
+      3: "Articulate thesis but limited differentiation or track record"
+      2: "Generic thesis; hard to distinguish from market consensus"
+      1: "No clear thesis; reactive rather than anticipatory investing"
+
+  ecosystem_imprint:
+    name: "Ecosystem Imprint"
+    short_description: "Memorable presence among founders, brokers, and syndicate investors"
+    full_description: |
+      The first few investment rounds of any company are put together through deeply
+      formed interpersonal relationships and off-the-cuff recommendations. Even good
+      investors can be quickly forgotten and be left out. Outstanding investors are
+      uniquely memorable to a large group of busy, high-velocity founders, relationship
+      brokers, and syndicate investors.
+    evaluation_guidance:
+      questions:
+        - "How well-known is this GP in their target ecosystem?"
+        - "Do other investors proactively share deals with this GP?"
+        - "Is the GP a 'must-have' on cap tables in their space?"
+        - "What is their visibility at key industry events?"
+      evidence_sources:
+        - "Co-investor references"
+        - "Deal flow sources and quality"
+        - "Social media/content presence"
+        - "Speaking engagements and industry recognition"
+      red_flags:
+        - "Unknown to other investors in their stated focus"
+        - "Relies primarily on inbound cold outreach"
+        - "No proactive deal sharing from ecosystem"
+    scoring_rubric:
+      5: "Category-defining presence; automatically included in best deals; 'must-have' investor"
+      4: "Well-known in ecosystem; regularly receives proactive deal flow"
+      3: "Recognized but not top-of-mind; adequate deal access"
+      2: "Limited ecosystem presence; struggles for deal access"
+      1: "Unknown in target ecosystem; relies on cold outreach"
+
+  hustle:
+    name: "Hustle"
+    short_description: "Super-human level of omnipresence and energy"
+    full_description: |
+      Rising above the world of existing early-stage venture firms requires
+      sweat-inducing levels of energy. The methods are myriad, but the result
+      is a super-human level of omnipresence. GPs are somehow at the right events,
+      have met with the right founders, are in the right deals, all before lesser
+      investors even get a strategy together.
+    evaluation_guidance:
+      questions:
+        - "What is the GP's meeting cadence and founder outreach volume?"
+        - "How quickly do they respond to opportunities?"
+        - "Are they consistently present at key ecosystem events?"
+        - "Do they create their own deal flow through proactive outreach?"
+      evidence_sources:
+        - "Meeting and outreach metrics"
+        - "Event attendance and hosting"
+        - "Response time to opportunities"
+        - "Content production and thought leadership"
+      red_flags:
+        - "Passive investment approach"
+        - "Slow response to opportunities"
+        - "Limited proactive founder engagement"
+    scoring_rubric:
+      5: "Exceptional energy; omnipresent in ecosystem; creates own luck through relentless activity"
+      4: "High energy; proactive approach; consistently present"
+      3: "Adequate activity level; standard VC engagement"
+      2: "Below average activity; reactive approach"
+      1: "Passive; minimal proactive engagement"
+
+  pull_force:
+    name: "Pull Force"
+    short_description: "Become the 'go-to' investor for their market thesis"
+    full_description: |
+      As a company becomes a clear breakout opportunity, many founders short-cut
+      running an investment process with the wider venture market. They figure out
+      who the "go-to" investors are, and the rounds are done quickly. Great investors
+      become a "go-to" for their market thesis and investment strategy.
+    evaluation_guidance:
+      questions:
+        - "Do founders specifically seek out this GP?"
+        - "Is the GP's name synonymous with a particular space?"
+        - "How often do they win competitive deals?"
+        - "Are they getting allocation in oversubscribed rounds?"
+      evidence_sources:
+        - "Win rate in competitive deals"
+        - "Allocation in hot rounds"
+        - "Brand recognition in focus area"
+        - "Inbound deal flow quality"
+      red_flags:
+        - "Rarely wins competitive situations"
+        - "Not associated with any particular space"
+        - "Struggles to get allocation"
+    scoring_rubric:
+      5: "Category leader; founders specifically seek them out; wins most competitive deals"
+      4: "Strong pull; recognized expert in space; good win rate"
+      3: "Adequate brand; sometimes wins competitive deals"
+      2: "Limited brand recognition; rarely wins competitive"
+      1: "No pull; unknown or avoided by quality founders"
+
+  pounce:
+    name: "Pounce"
+    short_description: "Move quickly with prepared, built-in due diligence"
+    full_description: |
+      Momentum rounds are circulated and closed in such short-order, the only way
+      to participate is to move quickly, seemingly shortcutting professional process.
+      The due diligence is there, but it's prepared and built into the DNA of the firm.
+    evaluation_guidance:
+      questions:
+        - "How quickly can the GP make investment decisions?"
+        - "Do they have pre-built conviction in their focus areas?"
+        - "Is their diligence process efficient without being shallow?"
+        - "Have they lost deals due to slow process?"
+      evidence_sources:
+        - "Time from first meeting to term sheet"
+        - "Deal velocity metrics"
+        - "Pre-existing research in focus areas"
+        - "References on decision-making speed"
+      red_flags:
+        - "Multi-month decision processes"
+        - "Lost deals due to slow diligence"
+        - "No pre-built conviction or research"
+    scoring_rubric:
+      5: "Lightning fast; pre-built conviction enables rapid decisions; wins on speed"
+      4: "Quick mover; efficient diligence; rarely loses to timing"
+      3: "Standard pace; sometimes misses time-sensitive deals"
+      2: "Slow process; frequently loses to faster investors"
+      1: "Glacial; process prevents competitive participation"
+
+  integrity:
+    name: "Integrity"
+    short_description: "Waver-less integrity in difficult moments"
+    full_description: |
+      At least 40% of partner time deals in drama of some kind. And most report
+      that eventually 60% of all their investments will underperform. Being a
+      shareholder across this recurring drama requires waver-less integrity in
+      moments that may otherwise bring out the worst in lesser stakeholders.
+    evaluation_guidance:
+      questions:
+        - "How does the GP behave when companies struggle?"
+        - "Do they maintain supportive relationships through difficulties?"
+        - "What is their reputation for fair dealing?"
+        - "How do they handle conflicts of interest?"
+      evidence_sources:
+        - "Founder references on difficult situations"
+        - "Co-investor references"
+        - "Handling of failed investments"
+        - "Reputation in legal/restructuring situations"
+      red_flags:
+        - "Adversarial behavior with struggling companies"
+        - "Reputation for sharp dealing"
+        - "Conflicts of interest concerns"
+    scoring_rubric:
+      5: "Impeccable integrity; founders and co-investors trust completely; gold standard"
+      4: "Strong integrity; good reputation; trusted partner"
+      3: "Adequate integrity; no major concerns"
+      2: "Some concerns; mixed references"
+      1: "Poor reputation; integrity issues documented"
+
+  grip:
+    name: "Grip"
+    short_description: "Deep trust enables continued access in growth rounds"
+    full_description: |
+      After companies achieve breakout momentum, growth investors line up and
+      compete to get into tightly controlled rounds. The best early-stage investors
+      have deep trust with founders and board directors, so often get continued
+      access to invest in the company even when others are locked out.
+    evaluation_guidance:
+      questions:
+        - "What is the GP's follow-on investment rate in winners?"
+        - "Do they maintain pro-rata in competitive growth rounds?"
+        - "How strong are board relationships?"
+        - "Do founders want them to continue investing?"
+      evidence_sources:
+        - "Follow-on investment data"
+        - "Pro-rata maintenance in growth rounds"
+        - "Board seat retention"
+        - "Founder references on continued involvement"
+      red_flags:
+        - "Low follow-on rate in winners"
+        - "Lost board seats"
+        - "Squeezed out of growth rounds"
+    scoring_rubric:
+      5: "Exceptional grip; always maintains access; founders insist on continued participation"
+      4: "Strong grip; usually maintains pro-rata; trusted board member"
+      3: "Adequate grip; sometimes maintains access"
+      2: "Weak grip; frequently loses access in growth rounds"
+      1: "No grip; systematically squeezed out"
+
+  judgement:
+    name: "Judgement"
+    short_description: "Codified systems for repeatable deal selection"
+    full_description: |
+      Firms with reputations will find themselves awash in opportunities. The
+      resulting volume is incomprehensible without deliberate systems for repeating
+      and scaling a codified sense of judgement — applied across screening, selecting,
+      and securing access to those deals that best fit the firm and their strategy.
+    evaluation_guidance:
+      questions:
+        - "Does the GP have a systematic investment process?"
+        - "How do they filter high-volume deal flow?"
+        - "Is their selection criteria consistently applied?"
+        - "Can they articulate why they passed on deals?"
+      evidence_sources:
+        - "Investment process documentation"
+        - "Screening criteria and metrics"
+        - "Pattern analysis of investments"
+        - "Pass decisions and rationale"
+      red_flags:
+        - "Ad hoc decision making"
+        - "Inconsistent selection criteria"
+        - "Can't explain passes"
+    scoring_rubric:
+      5: "Highly systematic; repeatable judgement at scale; clear criteria consistently applied"
+      4: "Strong process; good filtering; mostly consistent"
+      3: "Adequate process; some systematization"
+      2: "Inconsistent; ad hoc decisions"
+      1: "No system; chaotic decision making"
+
+  discipline:
+    name: "Discipline"
+    short_description: "Purposeful focus despite distractions and peer pressure"
+    full_description: |
+      VC Firms will see a rise of distractions, hyped opportunities, and implicit
+      peer-pressure. Inclinations to abandon process, retro-fit strategy to mirror
+      haphazard portfolio construction, or neglect the important for the urgent.
+      Firms must be purposeful with their limited focus and capital.
+    evaluation_guidance:
+      questions:
+        - "Does the GP stick to their stated strategy?"
+        - "How do they handle FOMO on hot deals outside their focus?"
+        - "Is portfolio construction consistent with thesis?"
+        - "Have they avoided strategy drift?"
+      evidence_sources:
+        - "Portfolio consistency analysis"
+        - "Strategy drift evidence"
+        - "Deals passed due to discipline"
+        - "Response to market hype cycles"
+      red_flags:
+        - "Portfolio doesn't match thesis"
+        - "Chased hot sectors outside expertise"
+        - "Strategy changed without clear rationale"
+    scoring_rubric:
+      5: "Exceptional discipline; portfolio perfectly matches thesis; resists all distractions"
+      4: "Strong discipline; mostly consistent; occasional strategic expansion"
+      3: "Adequate discipline; some drift"
+      2: "Limited discipline; portfolio inconsistent with thesis"
+      1: "No discipline; chases every opportunity"
+
+  positioning:
+    name: "Positioning"
+    short_description: "Differentiated, unique market position"
+    full_description: |
+      Long-term, multi-fund success requires partnerships to align their combined
+      theses, strategy, and brand to a differentiated, unique positioning in the
+      market. Firm positioning may be difficult to distinguish from an industry outsider,
+      but those with deep context can recall the positioning of dozens of firms from memory.
+    evaluation_guidance:
+      questions:
+        - "What is the GP's unique positioning?"
+        - "How differentiated are they from competitors?"
+        - "Can ecosystem participants articulate their positioning?"
+        - "Is their positioning defensible and authentic?"
+      evidence_sources:
+        - "Brand positioning analysis"
+        - "Ecosystem perception"
+        - "Competitive differentiation"
+        - "Positioning consistency over time"
+      red_flags:
+        - "Generic positioning"
+        - "Indistinguishable from peers"
+        - "Inconsistent positioning"
+    scoring_rubric:
+      5: "Unique, defensible position; immediately recognizable; category-defining"
+      4: "Clear differentiation; well-understood positioning"
+      3: "Some differentiation; adequate positioning"
+      2: "Limited differentiation; hard to distinguish"
+      1: "No clear positioning; generic"
+
+  prudence:
+    name: "Prudence"
+    short_description: "Outstanding prudence with struggling portfolio companies"
+    full_description: |
+      Limited Partner capital is often burned to support portfolio companies that
+      do not fail, but continuously struggle to find breakout growth. The pressures
+      to continue supporting these companies get the best of investors who can't
+      exercise outstanding prudence, often at odds with interest of others around the table.
+    evaluation_guidance:
+      questions:
+        - "How does the GP manage struggling portfolio companies?"
+        - "Do they make rational follow-on decisions?"
+        - "How do they handle sunk cost bias?"
+        - "What is their approach to recycling capital from failures?"
+      evidence_sources:
+        - "Follow-on decision patterns"
+        - "Handling of underperformers"
+        - "Write-off timing"
+        - "Capital recycling practices"
+      red_flags:
+        - "Throwing good money after bad"
+        - "Inability to cut losses"
+        - "Sunk cost bias in decisions"
+    scoring_rubric:
+      5: "Exceptional prudence; rational capital allocation; quick to recognize and act on failures"
+      4: "Strong prudence; mostly rational follow-on decisions"
+      3: "Adequate prudence; some sunk cost bias"
+      2: "Limited prudence; continues supporting losers too long"
+      1: "Poor prudence; systematically overinvests in failures"
+
+output_format:
+  table_style: "markdown"
+  layout: "horizontal"  # dimensions as columns (4 per table)
+  rows:
+    - field: "score"
+      format: "{score}/5"
+    - field: "percentile"
+    - field: "full_description"
+
+agent_context:
+  research_agent:
+    priority_topics:
+      - "Gather evidence for each scoring dimension"
+      - "Find founder references and testimonials"
+      - "Research GP's track record and reputation"
+      - "Look for evidence of the 12 dimensions"
+    search_queries_template:
+      - "{gp_name} founder references testimonials"
+      - "{gp_name} investment thesis philosophy"
+      - "{gp_name} deal flow reputation venture capital"
+      - "{gp_name} portfolio company outcomes exits"
+
+  writer_agent:
+    section_guidance:
+      executive_summary:
+        include: "Brief mention of standout scorecard dimensions"
+        tone: "Highlight exceptional scores (5/5) with supporting rationale"
+      fund_strategy_thesis:
+        include: "Embed execution style scorecard after strategy discussion"
+      track_record_analysis:
+        include: "Embed portfolio management scorecard to contextualize track record"
