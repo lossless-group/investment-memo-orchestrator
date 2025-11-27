@@ -123,6 +123,7 @@ def main():
     research_notes = None
     company_trademark_light = None
     company_trademark_dark = None
+    outline_name = None
     data_file = Path(f"data/{company_name}.json")
 
     # Default to CLI arguments
@@ -146,6 +147,11 @@ def main():
                 # Load company trademark paths (light and dark mode)
                 company_trademark_light = company_data.get("trademark_light")
                 company_trademark_dark = company_data.get("trademark_dark")
+
+                # Load custom outline name if present
+                outline_name = company_data.get("outline")
+                if outline_name:
+                    console.print(f"[bold green]Custom outline:[/bold green] {outline_name}")
 
                 # NEW: Read type and mode from JSON if present
                 json_type = company_data.get("type", "").lower()
@@ -219,7 +225,8 @@ def main():
                 company_stage,
                 research_notes,
                 company_trademark_light,
-                company_trademark_dark
+                company_trademark_dark,
+                outline_name
             )
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")

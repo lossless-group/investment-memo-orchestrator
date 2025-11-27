@@ -8,7 +8,7 @@ Supports custom outlines with inheritance from default outlines.
 import os
 import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from functools import lru_cache
 
 from src.schemas.outline_schema import (
@@ -119,6 +119,31 @@ def parse_mode_specific(mode_data: Dict[str, Any]) -> ModeSpecificGuidance:
     )
 
 
+def flatten_guiding_questions(questions_data: Any) -> List[str]:
+    """
+    Flatten guiding questions from YAML data.
+
+    Handles both flat lists and nested dictionaries with subsections.
+    Examples:
+      Flat: ["Question 1", "Question 2"]
+      Nested: {thesis_and_focus: ["Q1", "Q2"], right_to_win: ["Q3"]}
+    """
+    if isinstance(questions_data, list):
+        # Already a flat list
+        return questions_data
+    elif isinstance(questions_data, dict):
+        # Nested dict with subsections - flatten into single list
+        flat_list = []
+        for subsection, questions in questions_data.items():
+            if isinstance(questions, list):
+                flat_list.extend(questions)
+            elif isinstance(questions, str):
+                flat_list.append(questions)
+        return flat_list
+    else:
+        return []
+
+
 def parse_section(section_data: Dict[str, Any]) -> SectionDefinition:
     """Parse a section definition from YAML data."""
     target_length_data = section_data['target_length']
@@ -134,13 +159,16 @@ def parse_section(section_data: Dict[str, Any]) -> SectionDefinition:
     for mode, mode_data in section_data.get('mode_specific', {}).items():
         mode_specific[mode] = parse_mode_specific(mode_data)
 
+    # Flatten nested guiding questions into a single list
+    guiding_questions = flatten_guiding_questions(section_data.get('guiding_questions', []))
+
     return SectionDefinition(
         number=section_data['number'],
         name=section_data['name'],
         filename=section_data['filename'],
         target_length=target_length,
         description=section_data['description'],
-        guiding_questions=section_data['guiding_questions'],
+        guiding_questions=guiding_questions,
         section_vocabulary=section_vocab,
         mode_specific=mode_specific,
         validation_criteria=section_data.get('validation_criteria', []),
@@ -289,7 +317,7 @@ def load_custom_outline(outline_name: str, investment_type: str) -> OutlineDefin
     Load custom outline with inheritance from base outline.
 
     Args:
-        outline_name: Name of custom outline (e.g., "hypernova-direct-consider")
+        outline_name: Name of custom outline (e.g., "hypernova-direct-consider" or "lpcommit-emerging-manager")
         investment_type: "direct" or "fund" (for loading base outline)
 
     Returns:
@@ -305,13 +333,20 @@ def load_custom_outline(outline_name: str, investment_type: str) -> OutlineDefin
         print(f"✅ Using cached custom outline: {outline_name}")
         return _outline_cache[cache_key]
 
-    # Load custom outline file
+    # Load custom outline file - check both main outlines dir and custom dir
     custom_file = custom_dir / f"{outline_name}.yaml"
+    main_file = templates_dir / f"{outline_name}.yaml"
 
-    if not custom_file.exists():
+    if main_file.exists():
+        custom_file = main_file
+        print(f"📂 Found outline in main templates/outlines/ directory")
+    elif not custom_file.exists():
         raise FileNotFoundError(
-            f"Custom outline not found: {custom_file}\n"
-            f"Available custom outlines: {list(custom_dir.glob('*.yaml'))}"
+            f"Custom outline not found: {outline_name}.yaml\n"
+            f"Searched in:\n"
+            f"  - {main_file}\n"
+            f"  - {custom_file}\n"
+            f"Available outlines: {list(templates_dir.glob('*.yaml'))} + {list(custom_dir.glob('*.yaml'))}"
         )
 
     custom_data = load_yaml_file(custom_file)

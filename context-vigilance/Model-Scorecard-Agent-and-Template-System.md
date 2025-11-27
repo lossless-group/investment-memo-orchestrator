@@ -644,6 +644,17 @@ agent_context:
 
 ## Workflow Integration
 
+### Why Scorecard Runs Late in the Pipeline
+
+The scorecard agent must run **after** the memo content is written and enriched because:
+
+1. **Scoring requires context**: The scorecard evaluates the investment based on synthesized analysis, not raw research data
+2. **Sections contain the evidence**: The written sections (Team, Track Record, Strategy) contain the structured analysis needed to score dimensions accurately
+3. **Citations provide credibility**: Enriched citations give the scorer confidence in the underlying claims
+4. **Holistic assessment**: The scorecard is a final synthesis layer, summarizing the memo's findings into structured scores
+
+**Anti-pattern avoided**: Scoring before writing would force the scorecard agent to duplicate the writer's synthesis work, leading to inconsistency between scores and narrative.
+
 ### Updated Agent Pipeline
 
 ```
@@ -651,37 +662,51 @@ agent_context:
 │                    UPDATED WORKFLOW                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  [Deck Analyst] → [Research Agent*] → [Scorecard Agent] →       │
-│                                           ↓                     │
-│  [Writer Agent*] → [Scorecard Enrichment] → [Trademark] →       │
+│  CONTENT GENERATION PHASE:                                      │
+│  [Deck Analyst] → [Research] → [Writer] → [Trademark] →         │
 │                                                                 │
+│  ENRICHMENT PHASE:                                              │
 │  [Socials] → [Link Enrichment] → [Citation] → [TOC] →          │
 │                                                                 │
+│  SCORING & VALIDATION PHASE:                                    │
+│  [Scorecard Agent] → [Scorecard Enrichment] →                   │
 │  [Citation Validator] → [Fact Checker] → [Validator]           │
-│                                                                 │
-│  * = Modified to receive scorecard context                      │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+**Key insight**: The scorecard runs in the "Scoring & Validation Phase" because it:
+- Reads the completed, enriched memo sections
+- Scores based on the synthesized content (not raw research)
+- Inserts scorecard tables into the already-written sections
+- Acts as a final analytical layer before validation
 
 ### New Agents
 
 #### 1. Scorecard Agent (`src/agents/scorecard_agent.py`)
 
-**Position in Pipeline**: After Research, Before Writer
+**Position in Pipeline**: After TOC, Before Citation Validator (late in pipeline)
+
+**Why this position**:
+- All sections are written and enriched with citations
+- TOC has been generated (section structure is finalized)
+- Scorecard can read the full memo content to generate accurate scores
+- Scorecard tables will be inserted before final validation
 
 **Responsibilities**:
 1. Load appropriate scorecard template based on investment type
-2. Score each dimension based on available research data
-3. Generate rationale for each score
-4. Determine percentile rankings
-5. Save scored scorecard to artifacts
+2. **Read completed memo sections** to evaluate each dimension
+3. Score each dimension based on memo content + research data
+4. Generate rationale that references specific memo content
+5. Determine percentile rankings
+6. Save scored scorecard to artifacts
 
 **Input**:
-- `state["research"]` - Research data
-- `state["deck_analysis"]` - Deck analysis (if available)
+- `state["research"]` - Research data (supplementary)
+- `state["deck_analysis"]` - Deck analysis (supplementary)
 - `state["investment_type"]` - "direct" or "fund"
 - `state["scorecard_template"]` - Optional custom template name
+- **Section files from `2-sections/`** - The actual written memo content
 
 **Output**:
 ```python
@@ -715,31 +740,41 @@ def scorecard_agent(state: MemoState) -> dict:
     """
     Score investment against firm's scorecard template.
 
-    Uses research data and deck analysis to evaluate each dimension.
-    Generates rationale and confidence indicators for each score.
+    IMPORTANT: This agent runs LATE in the pipeline, after all sections
+    are written and enriched. It reads the completed memo content to
+    generate accurate scores based on the synthesized analysis.
     """
     # 1. Load scorecard template
     template = load_scorecard_template(
         state.get("scorecard_template") or get_default_template(state["investment_type"])
     )
 
-    # 2. Prepare context for scoring
+    # 2. Load completed memo sections (the key difference!)
+    output_dir = get_latest_output_dir(state["company_name"])
+    sections_dir = output_dir / "2-sections"
+
+    memo_sections = {}
+    for section_file in sections_dir.glob("*.md"):
+        memo_sections[section_file.stem] = section_file.read_text()
+
+    # 3. Prepare context for scoring - includes WRITTEN CONTENT
     context = {
-        "research": state.get("research", {}),
-        "deck_analysis": state.get("deck_analysis", {}),
+        "memo_sections": memo_sections,  # The written, enriched sections
+        "research": state.get("research", {}),  # Supplementary
+        "deck_analysis": state.get("deck_analysis", {}),  # Supplementary
         "company_name": state["company_name"],
     }
 
-    # 3. Score each dimension
+    # 4. Score each dimension against the memo content
     scores = {}
     for dim_id, dim_def in template["dimensions"].items():
         score_result = score_dimension(dim_id, dim_def, context, template)
         scores[dim_id] = score_result
 
-    # 4. Generate overall assessment
+    # 5. Generate overall assessment
     overall = generate_overall_assessment(scores, template)
 
-    # 5. Save artifacts
+    # 6. Save artifacts
     save_scorecard_artifacts(state["company_name"], scores, template)
 
     return {
@@ -754,11 +789,18 @@ def scorecard_agent(state: MemoState) -> dict:
 
 
 def score_dimension(dim_id: str, dim_def: dict, context: dict, template: dict) -> dict:
-    """Score a single dimension using LLM with structured guidance."""
+    """
+    Score a single dimension using LLM with structured guidance.
 
+    The scorer reads the COMPLETED MEMO SECTIONS to evaluate each dimension,
+    not just raw research data. This ensures scores align with the narrative.
+    """
     llm = ChatAnthropic(model="claude-sonnet-4-5-20250929", temperature=0)
 
-    prompt = f"""You are evaluating an investment against a specific scoring dimension.
+    # Identify which memo sections are most relevant for this dimension
+    relevant_sections = get_relevant_sections_for_dimension(dim_id, context["memo_sections"])
+
+    prompt = f"""You are evaluating an investment based on the COMPLETED MEMO CONTENT.
 
 DIMENSION: {dim_def['name']}
 DESCRIPTION: {dim_def['full_description']}
@@ -780,14 +822,14 @@ SCORING RUBRIC:
 2: {dim_def['scoring_rubric']['2']}
 1: {dim_def['scoring_rubric']['1']}
 
-AVAILABLE DATA:
-{format_context(context)}
+MEMO CONTENT TO EVALUATE:
+{relevant_sections}
 
 TASK:
-1. Score this dimension from 1-5 based on available evidence
-2. Provide a 2-3 sentence rationale explaining the score
-3. Note confidence level (high/medium/low) based on data quality
-4. Identify any red flags observed
+1. Score this dimension from 1-5 based on evidence IN THE MEMO
+2. Provide a 2-3 sentence rationale referencing specific memo content
+3. Note confidence level (high/medium/low) based on how well the memo addresses this dimension
+4. Identify any red flags mentioned or implied in the memo
 
 Return JSON:
 {{
@@ -885,13 +927,18 @@ def format_scorecard_table(group: dict, scores: dict) -> str:
 
 ---
 
-## Research Agent Context Injection
+## Research Agent Context Injection (Optional Enhancement)
+
+### Rationale
+Even though the scorecard is generated **late** in the pipeline (after writing), the **scorecard template** can still guide research **early**. The template defines what dimensions matter to the firm, so the research agent can proactively gather evidence for those dimensions.
+
+This is a "forward-looking" optimization: the template informs research, and then the completed memo content (informed by that research) is scored later.
 
 ### Problem
 The research agent currently doesn't know what the firm cares about. It performs generic research without guidance on what evidence to prioritize.
 
 ### Solution
-Inject scorecard dimensions into research agent prompts to guide evidence collection.
+Inject scorecard **template** dimensions (not scores) into research agent prompts to guide evidence collection.
 
 **Modified Research Agent**:
 
@@ -952,61 +999,37 @@ def generate_scorecard_queries(company_name: str, template: dict) -> List[str]:
 
 ---
 
-## Writer Agent Context Injection
+## Writer Agent Context Injection (NOT Recommended)
 
-### Problem
-The writer agent doesn't know which dimensions are most important or how to frame analysis around firm priorities.
+### Why This Doesn't Work
 
-### Solution
-Inject scorecard context and scored dimensions into writer prompts.
+In the original (incorrect) design, I proposed injecting scorecard scores into the writer prompts. This is **not possible** because:
 
-**Modified Writer Prompt**:
+1. **Scorecard runs after writing**: The scorecard agent needs the completed memo to generate scores
+2. **Circular dependency**: Writer can't use scores that don't exist yet
+3. **Duplication of effort**: If writer had scores, the scorecard agent would be redundant
 
-```python
-def build_section_prompt_with_scorecard(
-    section_def: dict,
-    state: MemoState,
-    scorecard: dict
-) -> str:
-    """Build section prompt incorporating scorecard context."""
+### Alternative: Outline-Based Guidance
 
-    # Get base prompt from outline
-    base_prompt = build_section_prompt(section_def, state)
+Instead of scorecard injection, the writer should receive guidance from the **outline** about what the firm values. The outline's `guiding_questions` and `vocabulary` serve this purpose.
 
-    if not scorecard:
-        return base_prompt
+If a firm wants the writer to emphasize certain dimensions, they should:
+1. Add relevant guiding questions to the outline sections
+2. Include dimension-related vocabulary guidance
+3. NOT try to inject scorecard scores (which don't exist yet)
 
-    # Find relevant dimension group for this section
-    relevant_group = None
-    for group in scorecard["dimension_groups"]:
-        if group["placement"]["section"] == section_def["name"].lower().replace(" ", "_"):
-            relevant_group = group
-            break
+### The Correct Flow
 
-    if not relevant_group:
-        return base_prompt
-
-    # Build scorecard context
-    scorecard_context = f"""
-SCORECARD CONTEXT:
-This section should incorporate findings from our scoring framework.
-Relevant dimensions for this section:
-
-"""
-
-    for dim_id in relevant_group["dimensions"]:
-        dim_score = scorecard["scores"][dim_id]
-        scorecard_context += f"""
-{dim_score['name']}: {dim_score['score']}/5 ({dim_score['percentile']})
-Rationale: {dim_score['rationale']}
-"""
-
-    scorecard_context += """
-Weave these findings naturally into the section narrative.
-Reference specific evidence that supports the scores.
-"""
-
-    return base_prompt + "\n\n" + scorecard_context
+```
+Research (uses template dimensions to guide queries)
+    ↓
+Writer (uses outline guiding questions, NOT scores)
+    ↓
+[Enrichment agents]
+    ↓
+Scorecard Agent (reads completed memo, generates scores)
+    ↓
+Scorecard Enrichment (inserts score tables into sections)
 ```
 
 ---

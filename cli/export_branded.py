@@ -284,7 +284,8 @@ def create_html_template(
     company: str,
     brand: BrandConfig,
     css_path: Path,
-    dark_mode: bool = False
+    dark_mode: bool = False,
+    memo_date: str = None
 ) -> str:
     """Create HTML template with brand configuration.
 
@@ -294,8 +295,28 @@ def create_html_template(
         brand: Brand configuration
         css_path: Path to base CSS file
         dark_mode: If True, apply dark mode styling
+        memo_date: Optional custom date string (e.g., "January 10, 2025").
+                   If None, uses today's date.
     """
-    today = datetime.now().strftime("%B %d, %Y")
+    # Use custom memo_date if provided, otherwise use today's date
+    if memo_date:
+        # Try to parse and reformat the date if it's in a different format
+        try:
+            # Try common date formats
+            for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%B %d, %Y', '%b %d, %Y']:
+                try:
+                    parsed = datetime.strptime(memo_date, fmt)
+                    today = parsed.strftime("%B %d, %Y")
+                    break
+                except ValueError:
+                    continue
+            else:
+                # If no format matched, use the date string as-is
+                today = memo_date
+        except Exception:
+            today = memo_date
+    else:
+        today = datetime.now().strftime("%B %d, %Y")
 
     # Generate CSS with brand colors and dark mode setting
     css_content = generate_css_from_brand(brand, css_path, dark_mode)
@@ -424,8 +445,10 @@ def convert_to_branded_html(
     with open(input_path, 'r', encoding='utf-8') as f:
         markdown_content = f.read()
 
-    # Load company data to get trademark URLs
+    # Load company data to get trademark URLs and memo_date
     # Extract company name from path (e.g., "Terrantic-v0.0.1" -> "Terrantic")
+    company_data = {}
+    memo_date = None
     company_match = re.search(r'([A-Za-z0-9-]+)-v\d+\.\d+\.\d+', str(input_path))
     if company_match:
         company_name = company_match.group(1)
@@ -435,6 +458,11 @@ def convert_to_branded_html(
             try:
                 with open(data_file, 'r', encoding='utf-8') as f:
                     company_data = json.load(f)
+
+                # Get memo_date from company data (if specified)
+                memo_date = company_data.get('memo_date')
+                if memo_date:
+                    print(f"  Using custom memo date: {memo_date}")
 
                 # Get trademark URLs from company data
                 trademark_light = company_data.get('trademark_light')
@@ -481,8 +509,8 @@ def convert_to_branded_html(
     # Extract metadata
     title, company = extract_title_from_markdown(temp_input_path)
 
-    # Create HTML template
-    template = create_html_template(title, company, brand, css_path, dark_mode)
+    # Create HTML template (with optional custom memo_date from company data)
+    template = create_html_template(title, company, brand, css_path, dark_mode, memo_date)
 
     # Save template to temp file
     template_path = output_path.parent / f".temp_template_{output_path.stem}.html"

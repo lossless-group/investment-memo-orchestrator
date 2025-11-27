@@ -18,6 +18,7 @@ from io import BytesIO
 from PIL import Image
 
 from ..state import MemoState, DeckAnalysisData, SectionDraft
+from ..outline_loader import load_outline_for_state
 
 
 def deck_analyst_agent(state: Dict) -> Dict:
@@ -380,7 +381,7 @@ IMPORTANT:
 
 def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnthropic) -> Dict[str, SectionDraft]:
     """
-    Create draft sections based on deck content.
+    Create draft sections based on deck content and outline definition.
     Only creates sections where substantial info exists.
 
     Args:
@@ -393,18 +394,39 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
     """
     drafts = {}
 
-    # Map deck data to sections (filenames must include .md extension)
-    section_mapping = {
-        "02-business-overview.md": ["problem_statement", "solution_description", "product_description"],
-        "03-market-context.md": ["market_size", "competitive_landscape"],
-        "04-technology-product.md": ["product_description", "solution_description"],
-        "05-traction-milestones.md": ["traction_metrics", "milestones"],
-        "06-team.md": ["team_members"],
-        "07-funding-terms.md": ["funding_ask", "use_of_funds"],
-        "09-investment-thesis.md": ["go_to_market", "competitive_landscape"]
+    # Load the appropriate outline for this investment
+    outline = load_outline_for_state(state)
+
+    # Map deck data fields to section concepts (generic mapping)
+    # These map deck_analysis fields to outline section concepts
+    deck_field_to_concept = {
+        "problem_statement": ["business", "overview", "problem"],
+        "solution_description": ["business", "overview", "solution", "product", "technology"],
+        "product_description": ["product", "technology", "business"],
+        "market_size": ["market", "context"],
+        "competitive_landscape": ["market", "competitive", "context"],
+        "traction_metrics": ["traction", "milestones", "signals", "indicators"],
+        "milestones": ["traction", "milestones", "signals"],
+        "team_members": ["team", "gp", "background", "credibility"],
+        "funding_ask": ["funding", "terms", "fee", "economics"],
+        "use_of_funds": ["funding", "terms", "portfolio", "construction"],
+        "go_to_market": ["strategy", "thesis", "investment"],
     }
 
-    for section_key, relevant_fields in section_mapping.items():
+    # For each section in the outline, check if we have relevant deck data
+    for section in outline.sections:
+        section_name = section.name
+        filename = section.filename
+
+        # Find which deck fields might be relevant to this section
+        # by checking if section name keywords match our concept mapping
+        section_name_lower = section_name.lower()
+        relevant_fields = []
+
+        for field, concepts in deck_field_to_concept.items():
+            if any(concept in section_name_lower for concept in concepts):
+                relevant_fields.append(field)
+
         # Check if deck has substantial info for this section
         has_info = any(
             deck_analysis.get(field) and
@@ -415,8 +437,7 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
             for field in relevant_fields
         )
 
-        if has_info:
-            section_name = section_key.replace("-", " ").title()
+        if has_info and relevant_fields:
             content = create_section_draft_from_deck(
                 llm,
                 section_name,
@@ -425,7 +446,7 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
             )
 
             # Create proper SectionDraft object
-            drafts[section_key] = SectionDraft(
+            drafts[filename] = SectionDraft(
                 section_name=section_name,
                 content=content,
                 word_count=len(content.split()),

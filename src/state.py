@@ -145,6 +145,7 @@ class MemoState(TypedDict):
     research_notes: Optional[str]  # Additional research guidance/focus areas
     company_trademark_light: Optional[str]  # Path or URL to light mode company logo/trademark
     company_trademark_dark: Optional[str]  # Path or URL to dark mode company logo/trademark
+    outline_name: Optional[str]  # Custom outline name (e.g., "lpcommit-emerging-manager")
 
     # Deck analysis (NEW)
     deck_path: Optional[str]
@@ -182,7 +183,8 @@ def create_initial_state(
     company_stage: Optional[str] = None,
     research_notes: Optional[str] = None,
     company_trademark_light: Optional[str] = None,
-    company_trademark_dark: Optional[str] = None
+    company_trademark_dark: Optional[str] = None,
+    outline_name: Optional[str] = None
 ) -> MemoState:
     """
     Create initial state for a new memo generation workflow.
@@ -198,6 +200,7 @@ def create_initial_state(
         research_notes: Additional research guidance or focus areas
         company_trademark_light: Path or URL to light mode company logo/trademark
         company_trademark_dark: Path or URL to dark mode company logo/trademark
+        outline_name: Custom outline name (e.g., "lpcommit-emerging-manager")
 
     Returns:
         MemoState with initialized values
@@ -212,6 +215,7 @@ def create_initial_state(
         research_notes=research_notes,
         company_trademark_light=company_trademark_light,
         company_trademark_dark=company_trademark_dark,
+        outline_name=outline_name,
         deck_path=deck_path,
         deck_analysis=None,
         research=None,

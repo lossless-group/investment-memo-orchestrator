@@ -267,7 +267,8 @@ def generate_memo(
     company_stage: str = None,
     research_notes: str = None,
     company_trademark_light: str = None,
-    company_trademark_dark: str = None
+    company_trademark_dark: str = None,
+    outline_name: str = None
 ) -> MemoState:
     """
     Main entry point for generating an investment memo.
@@ -283,6 +284,7 @@ def generate_memo(
         research_notes: Additional research guidance or focus areas
         company_trademark_light: Path or URL to light mode company logo/trademark
         company_trademark_dark: Path or URL to dark mode company logo/trademark
+        outline_name: Custom outline name (e.g., "lpcommit-emerging-manager")
 
     Returns:
         Final state containing research, draft, validation, and final memo
@@ -300,7 +302,8 @@ def generate_memo(
         company_stage,
         research_notes,
         company_trademark_light,
-        company_trademark_dark
+        company_trademark_dark,
+        outline_name
     )
 
     # Build and run workflow
