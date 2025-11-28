@@ -1011,27 +1011,41 @@ sections:
     name: "Portfolio Construction"
     filename: "04-portfolio-construction.md"
     target_length:
-      min_words: 350
-      max_words: 500
-      ideal_words: 400
+      min_words: 400
+      max_words: 100
+      ideal_words: 550
 
     description: |
-      Details on target portfolio size, check sizes, reserve strategy,
-      and deployment approach. For emerging managers, construction is often
-      simpler and more instinct-driven than institutional frameworks suggest.
+      Detailed explanation of some of the following, only where we have information: how the fund will allocate capital across deals,
+      stages, sectors, geographies, and time. For emerging managers, this
+      section should demonstrate discipline, intentionality, and alignment
+      between portfolio construction and stated thesis.
 
     guiding_questions:
-      industry_standard:
-        - "What is the target portfolio size? (number of companies)"
-        - "What are the check sizes? ($50K-$250K typical for emerging)"
-        - "What is the reserve strategy? (% of fund for follow-ons)"
-        - "What is the pace of deployment? (years to deploy)"
-        - "What diversification guardrails exist? (sector, geography)"
+      - "What is the target number of portfolio companies and check sizes?"
+      - "How are reserves allocated (follow-ons vs. new names)?"
+      - "How does sector/stage/geography concentration support the thesis?"
+      - "What is the role of SPVs or opportunity funds (if any)?"
+      - "How does this construction compare to market norms for similar funds?"
+      - "Which portfolio companies are currently in the fund, and how do they map to the stated thesis (by theme, sector, stage)?"
 
-      how_we_think:
-        - "Does the GP follow instincts and pounce in real-time?"
-        - "Ownership targets: Are they flexible given valuation ranges ($5M-$30M)?"
-        - "Higher valuations often signal consensus - does GP recognize this as validation not risk?"
+    section_vocabulary:
+      required_elements:
+        - "Explicit statement of target portfolio size (number of companies) and average / range of initial check sizes"
+        - "Description of reserve strategy (percentage of fund reserved for follow-ons vs. initial checks)"
+        - "Clear explanation of how sector, stage, and geography concentrations align with the fund's thesis"
+        - "Explanation of SPV or opportunity vehicle role (if applicable) and how it interacts with core fund exposure"
+        - "EXHAUSTIVE list of portfolio companies currently in the fund, each with: name, one-line description, thematic fit, stage (if known), and a markdown link to the most relevant URL (company site or portfolio page)"
+
+      preferred_terms:
+        - "portfolio construction discipline"
+        - "reserve strategy"
+        - "concentration vs. diversification"
+        - "opportunity SPVs"  # if applicable
+
+      avoid:
+        - "vague references to 'a number of portfolio companies' without names or descriptions"
+        - "generic claims about diversification without specifying how many companies and what exposures"
         - "Does GP plan to deploy quickly into many deals? (Data shows this can be advantageous)"
         - "Is the GP a non-lead/non-board investor? (Less obligation to 'own' company problems)"
         - "SPV strategy: Will GP raise SPVs for winners rather than reserve from fund?"
@@ -1554,52 +1568,57 @@ sections:
       ideal_words: 400
 
     description: |
-      Key risks of backing an emerging manager, properly weighted.
-      Market timing and thesis validation are highest weight.
-      Some "standard" risks matter less than institutional LPs think.
+      Where the bet can realistically break, and how that interacts with upside.
+      Focus on thesis and execution failure modes, not a generic risk register.
+      Some "standard" institutional concerns matter less than whether the GP can
+      concentrate judgment, win the right deals, and manage the portfolio well.
 
     guiding_questions:
       macro_risks:
-        - "Market timing risk: Is this a good vintage year to deploy? What's the macro environment?"
-        - "Thesis validation risk: Is the GP's thesis correct? Will the market move their direction?"
+        - "Market timing: Are we backing into a regime where this strategy has tailwinds or headwinds?"
+        - "Thesis validity: If the thesis is wrong, how does that show up in portfolio construction and outcomes?"
 
       gp_behavior_risks:
-        - "Scattered/drift: Does the GP stay focused or chase shiny objects? Do they have discipline?"
-        - "Atrophy: Will the GP stay 'in the flow'? Risk of moving to Hawaii and losing edge, network, deal access."
-        - "Over-confidence: Does GP make high-conviction bets then throw good money after bad with delusion? Can they kill their darlings?"
-        - "Inattention: Does GP pay attention to full pipeline AND full portfolio? Risk of missing winners while nursing losers."
+        - "Drift vs. focus: Does the GP stay anchored to a sharp thesis or chase every hot sector?"
+        - "Edge maintenance: Will the GP keep doing the reps (meeting founders, shipping content, showing up) required to stay in the flow?"
+        - "Conviction vs. delusion: Can the GP both swing hard on real outliers and still kill their darlings when evidence turns?"
+        - "Attention allocation: Does the GP spend time on the right mix of sourcing, underwriting, and supporting winners vs. nursing laggards?"
 
       structural_risks:
-        - "Fundraising risk: Will they hit their target?"
-        - "Key person risk: What if the GP gets hit by a bus?"
+        - "Fundraising arc: How does over- or under-shooting target change portfolio shape, ownership, and GP bandwidth?"
+        - "Key person: What happens if the GP steps away or is meaningfully distracted in the next 3–5 years?"
 
       how_we_think:
         scattered_drift: |
-          This is a real risk. Look for evidence of focus and discipline. Do they have a clear thesis
-          they stick to, or do they chase every hot sector? References often surface this.
+          This is a real risk because it directly erodes edge. We care less about generic
+          diversification and more about whether portfolio construction still looks like the
+          thesis after 20–30 bets. References should surface whether the GP keeps showing up in
+          the same lanes where they have insight.
         atrophy: |
-          GPs who stay hungry, stay in the ecosystem, keep showing up - they maintain edge.
-          Watch for lifestyle creep or signals they're "done" building relationships.
+          Edge decays quickly if the GP stops doing the work. We look for evidence they keep
+          meeting founders, cultivating ecosystem, and refining their worldview rather than
+          treating Fund I as a lifestyle asset.
         over_confidence: |
-          The best GPs can admit when they're wrong and cut losses. The worst double down on losers
-          while ignoring portfolio companies that are actually working. Ask about their mistakes.
+          The best GPs can swing hard on outliers and still cut losses quickly when signals turn.
+          We care about how they talk about mistakes and write-offs, not whether they can recite
+          generic risk factors.
         inattention: |
-          With small portfolios, every company matters. Missing a winner because you were focused
-          on a loser is the cardinal sin. How does GP allocate time across portfolio?
+          With concentrated portfolios, missing a breakout because attention is stuck on
+          laggards is the cardinal sin. We want to understand how the GP allocates time across
+          sourcing, underwriting, and supporting winners.
         fundraising_risk: |
-          We don't actually care if they don't meet their target. Most emerging managers don't.
-          Sometimes missing target makes them more deliberate with bets, more hungry to succeed
-          to raise a bigger Fund II.
+          We don't actually care if they don't meet their target in a mechanical sense.
+          What matters is whether the fund size still matches the strategy and the GP's
+          ability to own their best companies.
         key_person_risk: |
-          This is a legal/structural risk and there is insurance. But it's inevitable when a
-          fund has 1-2 people max. To be honest, no one we know of has actually been hit by
-          a bus, so the real-world playbook here is unclear. We accept this as inherent to
-          the emerging manager category.
+          Key-person risk is inherent to solo GPs and small partnerships. Legal docs and
+          insurance exist, but the more important question is whether there is a real bench,
+          ecosystem, or co-GPs who can help the portfolio if something changes.
 
       for_each_risk:
-        - "What is the actual risk? (Be specific)"
-        - "What evidence do we have about this GP? (References, track record, behavior)"
-        - "What mitigation exists? (Or is it just accepted?)"
+        - "What is the specific way this risk could hurt returns or the ability to own winners?"
+        - "What concrete evidence (references, behavior, portfolio choices) do we have for this GP?"
+        - "Is there a real mitigation, or are we accepting this as part of the upside profile?"
 
     preferred_sources:
       perplexity_at_syntax:

@@ -517,6 +517,40 @@ def convert_to_branded_html(
     with open(template_path, 'w', encoding='utf-8') as f:
         f.write(template)
 
+    def _normalize_table_col_widths(html: str) -> str:
+        """Normalize <colgroup> widths so each column shares the width equally.
+
+        This avoids odd, uneven scorecard tables unless a future template
+        explicitly overrides them. For each <colgroup>, we count the <col>
+        elements and assign width = 100 / n % to each.
+        """
+        import re
+
+        def repl(match: re.Match) -> str:
+            colgroup = match.group(0)
+            cols = re.findall(r"<col\b[^>]*>", colgroup)
+            n = len(cols)
+            if n == 0:
+                return colgroup
+            width = 100.0 / n
+            new_cols = []
+            for col in cols:
+                # Remove any existing style="width: ..." fragments
+                col_clean = re.sub(r"style=\"[^\"]*\"", "", col)
+                # Ensure a single style attribute with width percentage
+                if col_clean.endswith("/>"):
+                    col_clean = col_clean[:-2].rstrip()
+                    col_clean += f" style=\"width: {width:.6f}%\" />"
+                elif col_clean.endswith(">"):
+                    col_clean = col_clean[:-1].rstrip()
+                    col_clean += f" style=\"width: {width:.6f}%\">"
+                new_cols.append(col_clean)
+
+            inner = "".join(new_cols)
+            return f"<colgroup>{inner}</colgroup>"
+
+        return re.sub(r"<colgroup>.*?</colgroup>", repl, html, flags=re.DOTALL | re.IGNORECASE)
+
     try:
         # Convert using pypandoc with custom template
         pypandoc.convert_file(
@@ -531,6 +565,14 @@ def convert_to_branded_html(
                 '--toc-depth=3'
             ]
         )
+
+        # Post-process: normalize table column widths so columns are even by default
+        try:
+            html_text = output_path.read_text(encoding='utf-8')
+            normalized_html = _normalize_table_col_widths(html_text)
+            output_path.write_text(normalized_html, encoding='utf-8')
+        except Exception as e:
+            print(f"  Warning: Could not normalize table column widths: {e}")
 
         # Post-process: Restore uncited footnotes that Pandoc excluded
         try:
