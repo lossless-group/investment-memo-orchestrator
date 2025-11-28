@@ -1,0 +1,923 @@
+# Direct Early-Stage Investment Memo Outline
+# 12Ps Framework: 5-Group Narrative Structure with Embedded Scorecards
+# Alternative to traditional 10-section memo format
+
+metadata:
+  outline_type: "direct_early_stage_12Ps"
+  version: "1.0.0"
+  description: "5-group narrative structure for evaluating early-stage direct investments using the 12Ps framework"
+  date_created: "2025-11-28"
+  compatible_modes: ["consider", "justify"]
+  scorecard_integration: "hypernova-early-stage-12Ps"
+
+  philosophy: |
+    The 12Ps framework organizes investment analysis around the customer journey and
+    company capability, not traditional VC memo sections. This creates a more intuitive
+    narrative: Why would anyone care? → How big is this? → Who is building it? →
+    What exactly is it? → Is it worth it?
+
+    Each section concludes with a scorecard table showing the 3 P-dimensions evaluated,
+    providing both narrative depth and structured scoring.
+
+# Global vocabulary (applies to all sections)
+vocabulary:
+  12Ps_framework:
+    preferred:
+      - term: "persona"
+        definition: "Target customer with specific characteristics, story, and current condition"
+        usage: "Use for customer definition, not 'target market' or 'ICP'"
+
+      - term: "pain"
+        definition: "The problem from the customer's point of view, in their language"
+        usage: "Use for problem articulation, not 'pain point' (redundant)"
+
+      - term: "proposition"
+        definition: "The promise and framing of the solution"
+        usage: "Use for value promise, not 'value proposition' (redundant with 'proposition')"
+
+      - term: "problem"
+        definition: "Market-level manifestation of the pain across target personas"
+        usage: "Use for market problem sizing, not 'market opportunity'"
+
+      - term: "possibility"
+        definition: "TAM/SAM/SOM market sizing"
+        usage: "Use alongside traditional market terms"
+
+      - term: "positioning"
+        definition: "Blue Ocean strategy and competitive moats"
+        usage: "Use for differentiation and defensibility discussion"
+
+      - term: "people"
+        definition: "Founders and team with founder-market fit assessment"
+        usage: "Use for team evaluation"
+
+      - term: "process"
+        definition: "Best practices, growth engine, and operational excellence"
+        usage: "Use for operational capability assessment"
+
+      - term: "product"
+        definition: "What is offered and whether it fulfills the proposition"
+        usage: "Use for product-proposition alignment"
+
+      - term: "potential"
+        definition: "Projected growth trajectory based on current metrics"
+        usage: "Use for growth projection discussion"
+
+      - term: "progress"
+        definition: "Hard traction that is indisputable and undeniable"
+        usage: "Use for traction assessment, not 'traction' alone"
+
+      - term: "plan"
+        definition: "Use of proceeds, milestones, and path to next inflection"
+        usage: "Use for capital deployment discussion"
+
+  financial:
+    preferred:
+      - term: "annual recurring revenue (ARR)"
+        first_use: "annual recurring revenue (ARR)"
+        subsequent: "ARR"
+
+      - term: "monthly recurring revenue (MRR)"
+        first_use: "monthly recurring revenue (MRR)"
+        subsequent: "MRR"
+
+      - term: "customer acquisition cost (CAC)"
+        first_use: "customer acquisition cost (CAC)"
+        subsequent: "CAC"
+
+      - term: "lifetime value (LTV)"
+        first_use: "lifetime value (LTV)"
+        subsequent: "LTV"
+
+  market:
+    preferred:
+      - term: "total addressable market (TAM)"
+        first_use: "total addressable market (TAM)"
+        subsequent: "TAM"
+
+      - term: "serviceable addressable market (SAM)"
+        first_use: "serviceable addressable market (SAM)"
+        subsequent: "SAM"
+
+      - term: "serviceable obtainable market (SOM)"
+        first_use: "serviceable obtainable market (SOM)"
+        subsequent: "SOM"
+
+  scoring:
+    scale:
+      1: "Weak / Missing"
+      2: "Below Average"
+      3: "Average"
+      4: "Above Average"
+      5: "Exceptional"
+
+    percentile_mapping:
+      5: "Top 5%"
+      4: "Top 10-25%"
+      3: "Top 50%"
+      2: "Bottom 50%"
+      1: "Bottom 25%"
+
+  phrases_to_avoid:
+    promotional:
+      - "unique opportunity"
+      - "disruptive"
+      - "revolutionary"
+      - "game-changing"
+      - "world-class"
+      - "rockstar team"
+
+    vague:
+      - "significant traction"
+      - "strong growth"
+      - "large market"
+      - "several customers"
+      - "experienced team"
+
+    speculative:
+      - "could potentially"
+      - "might be able to"
+      - "has the potential to"
+      - "poised to"
+
+  style_rules:
+    tone: "Professional, analytical, balanced - not promotional"
+    voice: "Active voice preferred"
+    tense: "Present tense for current state, past tense for completed actions"
+
+    scorecard_format:
+      table_style: "markdown"
+      layout: "horizontal"
+      columns_per_table: 3
+      rows:
+        - "Score (X/5)"
+        - "Percentile"
+        - "Short description with key evidence"
+
+    citations:
+      format: "Obsidian-style: [^1], [^2], [^3]"
+      placement: "After punctuation with space"
+      consolidation: "All citations renumbered globally at end"
+
+# Section definitions following 5-group narrative
+sections:
+  - number: 1
+    name: "Executive Summary"
+    filename: "01-executive-summary.md"
+    group: "preamble"
+    target_length:
+      min_words: 200
+      max_words: 350
+      ideal_words: 275
+
+    description: |
+      Concise overview using 12Ps framework language. Unlike traditional memos,
+      this summary previews the 5-group narrative and overall scorecard results.
+      Should reference the group questions: Why care? How big? Who's building?
+      What is it? Is it worth it?
+
+    guiding_questions:
+      - "Why would anyone care about this company? (Origins summary)"
+      - "How big is the opportunity? (Opening summary)"
+      - "Who is building this and are they the right team? (Organization summary)"
+      - "What exactly is the offering? (Offering summary)"
+      - "Is this worth investing in? (Opportunity summary)"
+      - "What is the overall 12Ps score?"
+      - "What are the standout strengths (4+ scores)?"
+      - "What are the key concerns (1-2 scores)?"
+
+    section_vocabulary:
+      required_elements:
+        - Company name and 1-sentence description
+        - Stage and investment type
+        - Overall 12Ps score (X.X/5)
+        - Standout dimensions (scores of 4+)
+        - Concern dimensions (scores of 1-2)
+        - 5-group narrative preview
+
+    structure_template:
+      - "Opening: Company name and what they do"
+      - "Origins snapshot: Persona, Pain, Proposition summary"
+      - "Opening snapshot: Problem size and Positioning"
+      - "Organization snapshot: Team and Product status"
+      - "Opportunity snapshot: Progress and Plan"
+      - "Overall score and key dimensions"
+
+    validation_criteria:
+      - "Overall 12Ps score stated"
+      - "At least 2 standout strengths identified"
+      - "At least 1 concern identified"
+      - "5-group narrative referenced"
+      - "No promotional language"
+
+  - number: 2
+    name: "Origins"
+    filename: "02-origins.md"
+    group: "origins"
+    group_question: "Why would anyone care about this company?"
+    dimensions: ["persona", "pain", "proposition"]
+    target_length:
+      min_words: 500
+      max_words: 800
+      ideal_words: 650
+
+    description: |
+      The first group answers: "Why would anyone care about you?" This section
+      establishes the customer foundation - who they are, what problem they have,
+      and what transformation the company promises. Ends with Origins scorecard.
+
+    guiding_questions:
+      # Persona (P1)
+      - "Who is the target customer? (specific characteristics, not demographics)"
+      - "Who are the surrounding stakeholders? (users, buyers, influencers)"
+      - "What is their day-in-the-life story?"
+      - "What is their current condition before the solution?"
+
+      # Pain (P2)
+      - "What is the problem from the customer's point of view?"
+      - "How do they articulate it in their own language?"
+      - "How urgent and important is this pain? (hair on fire vs nice to have)"
+      - "What are the consequences of NOT solving this problem?"
+      - "How much time/money are they currently wasting?"
+
+      # Proposition (P3)
+      - "What is the promise to the customer?"
+      - "Can you explain it in one sentence?"
+      - "Does it directly address the identified pain?"
+      - "Is the promise believable and achievable?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"
+        - "@linkedin"
+      domains:
+        include:
+          - "[company-domain]"
+          - "[company-domain]/about"
+          - "crunchbase.com"
+          - "linkedin.com"
+
+    section_vocabulary:
+      required_elements:
+        - Target persona definition with specifics
+        - Pain articulation (ideally in customer language)
+        - Pain urgency assessment (hair on fire / high priority / nice to have)
+        - Value proposition in 1-2 sentences
+        - Evidence for each dimension
+        - Origins scorecard table at end
+
+      structure_template:
+        - "### Persona"
+        - "[2-3 paragraphs on target customer]"
+        - "### Pain"
+        - "[2-3 paragraphs on problem and urgency]"
+        - "### Proposition"
+        - "[1-2 paragraphs on promise and framing]"
+        - "### Origins Scorecard"
+        - "[3-column table: Persona | Pain | Proposition]"
+        - "### What Could Make These Scores Higher"
+        - "[Bullets for each dimension]"
+
+    scorecard_output:
+      placement: "end_of_section"
+      format: |
+        | Persona | Pain | Proposition |
+        |---------|------|-------------|
+        | X/5 | X/5 | X/5 |
+        | [Percentile] | [Percentile] | [Percentile] |
+        | [Key evidence] | [Key evidence] | [Key evidence] |
+
+    validation_criteria:
+      - "Persona defined with specific characteristics"
+      - "Pain articulated from customer perspective"
+      - "Pain urgency explicitly assessed"
+      - "Proposition stated in 1-2 sentences"
+      - "All 3 dimensions scored"
+      - "Scorecard table present at end"
+      - "What could make scores higher section present"
+
+  - number: 3
+    name: "Opening"
+    filename: "03-opening.md"
+    group: "opening"
+    group_question: "How big is this problem, how urgent is it, and how can this company compete?"
+    dimensions: ["problem", "possibility", "positioning"]
+    target_length:
+      min_words: 600
+      max_words: 900
+      ideal_words: 750
+
+    description: |
+      The second group answers: "How big is this problem and how can this company
+      compete?" This section expands from customer pain to market-level problem,
+      sizes the opportunity, and assesses competitive positioning. Ends with
+      Opening scorecard.
+
+    guiding_questions:
+      # Problem (P4)
+      - "How many target customers exist?"
+      - "How is the market experiencing this pain?"
+      - "Is the problem growing or shrinking?"
+      - "What macro trends amplify the problem?"
+
+      # Possibility (P5)
+      - "What is the TAM? (methodology or source)"
+      - "What is the SAM given current capabilities?"
+      - "What is a realistic SOM?"
+      - "Are market sizing assumptions credible?"
+
+      # Positioning (P6)
+      - "What Blue Ocean is the company creating?"
+      - "What are the intended competitive moats?"
+      - "How sustainable are these moats?"
+      - "What is the go-to-market wedge?"
+      - "Who are the direct and indirect competitors?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@statista"
+        - "@cbinsights"
+        - "@pitchbook"
+        - "@gartner"
+      domains:
+        include:
+          - "statista.com"
+          - "cbinsights.com"
+          - "pitchbook.com"
+          - "gartner.com"
+          - "crunchbase.com"
+
+    section_vocabulary:
+      required_elements:
+        - Market size (TAM) with source
+        - SAM/SOM analysis
+        - Market growth rate (CAGR)
+        - 3-5 named competitors
+        - Moat assessment
+        - Opening scorecard table at end
+
+      structure_template:
+        - "### Problem"
+        - "[2-3 paragraphs on market-level problem]"
+        - "### Possibility"
+        - "[2-3 paragraphs on TAM/SAM/SOM]"
+        - "### Positioning"
+        - "[2-3 paragraphs on differentiation and moats]"
+        - "### Opening Scorecard"
+        - "[3-column table: Problem | Possibility | Positioning]"
+        - "### What Could Make These Scores Higher"
+        - "[Bullets for each dimension]"
+
+    scorecard_output:
+      placement: "end_of_section"
+      format: |
+        | Problem | Possibility | Positioning |
+        |---------|-------------|-------------|
+        | X/5 | X/5 | X/5 |
+        | [Percentile] | [Percentile] | [Percentile] |
+        | [Key evidence] | [Key evidence] | [Key evidence] |
+
+    validation_criteria:
+      - "TAM stated with dollar figure and source"
+      - "SAM/SOM analysis present"
+      - "Market growth rate quantified"
+      - "At least 3 competitors named"
+      - "Moat assessment with durability analysis"
+      - "All 3 dimensions scored"
+      - "Scorecard table present at end"
+
+  - number: 4
+    name: "Organization"
+    filename: "04-organization.md"
+    group: "organization"
+    group_question: "Who is this company, and how are they achieving something remarkable?"
+    dimensions: ["people", "process", "product"]
+    target_length:
+      min_words: 600
+      max_words: 900
+      ideal_words: 750
+
+    description: |
+      The third group answers: "Who is this company and how are they building
+      something remarkable?" This section assesses the team, operational
+      processes, and product capabilities. Ends with Organization scorecard.
+
+    guiding_questions:
+      # People (P7)
+      - "Who are the founders? (names, backgrounds)"
+      - "Why do they have founder-market fit?"
+      - "What is their unfair advantage?"
+      - "What is their track record?"
+      - "What critical gaps exist on the team?"
+
+      # Process (P8)
+      - "What best practices are they applying?"
+      - "What growth engine are they building?"
+      - "How do they measure and improve?"
+      - "What is their culture and hiring approach?"
+
+      # Product (P9)
+      - "What exactly is the product?"
+      - "Does it fulfill the proposition (P3)?"
+      - "What do users love about it?"
+      - "What are the priority features?"
+      - "Is it appropriately scoped?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"
+        - "@linkedin"
+        - "@techcrunch"
+      domains:
+        include:
+          - "linkedin.com"
+          - "crunchbase.com"
+          - "[company-domain]/team"
+          - "[company-domain]/about"
+          - "techcrunch.com"
+
+    section_vocabulary:
+      required_elements:
+        - Founder names with titles and backgrounds
+        - Founder-market fit assessment
+        - Team gaps identified
+        - Growth engine description
+        - Product description and stage
+        - Product-proposition alignment assessment
+        - Organization scorecard table at end
+
+      structure_template:
+        - "### People"
+        - "[3-4 paragraphs on team and founder-market fit]"
+        - "### Process"
+        - "[2-3 paragraphs on operational practices]"
+        - "### Product"
+        - "[2-3 paragraphs on product and fit with proposition]"
+        - "### Organization Scorecard"
+        - "[3-column table: People | Process | Product]"
+        - "### What Could Make These Scores Higher"
+        - "[Bullets for each dimension]"
+
+    scorecard_output:
+      placement: "end_of_section"
+      format: |
+        | People | Process | Product |
+        |--------|---------|---------|
+        | X/5 | X/5 | X/5 |
+        | [Percentile] | [Percentile] | [Percentile] |
+        | [Key evidence] | [Key evidence] | [Key evidence] |
+
+    validation_criteria:
+      - "All founders named with backgrounds"
+      - "Founder-market fit explicitly assessed"
+      - "Team gaps identified"
+      - "Growth engine described"
+      - "Product stage stated"
+      - "Product-proposition alignment discussed"
+      - "All 3 dimensions scored"
+      - "Scorecard table present at end"
+
+  - number: 5
+    name: "Offering"
+    filename: "05-offering.md"
+    group: "offering"
+    group_question: "What is it they are specifically building, offering, and serving to the market?"
+    synthesis_of: ["proposition", "positioning", "product"]
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      The fourth group is a SYNTHESIS section. It answers: "What are they
+      specifically building and serving?" by evaluating how Proposition (P3),
+      Positioning (P6), and Product (P9) work TOGETHER as an integrated offering.
+      This is not new dimensions but coherence assessment.
+
+    guiding_questions:
+      - "Does the Proposition align with the Positioning?"
+      - "Does the Product deliver on both?"
+      - "Is there coherence across all three?"
+      - "Would a customer experience a consistent story?"
+      - "Where are the disconnects?"
+      - "What would improve coherence?"
+
+    section_vocabulary:
+      required_elements:
+        - Proposition recap (from P3)
+        - Positioning recap (from P6)
+        - Product recap (from P9)
+        - Coherence assessment
+        - Disconnects identified
+        - Offering synthesis scorecard
+
+      structure_template:
+        - "### The Promise (Proposition)"
+        - "[1 paragraph recap]"
+        - "### The Differentiation (Positioning)"
+        - "[1 paragraph recap]"
+        - "### The Delivery (Product)"
+        - "[1 paragraph recap]"
+        - "### Offering Coherence Assessment"
+        - "[2-3 paragraphs on integration]"
+        - "### Offering Scorecard"
+        - "[3-column synthesis table]"
+        - "### What Could Make These Scores Higher"
+
+    scorecard_output:
+      placement: "end_of_section"
+      note: "This scorecard references dimensions from other groups"
+      format: |
+        | Proposition (P3) | Positioning (P6) | Product (P9) |
+        |------------------|------------------|--------------|
+        | X/5 | X/5 | X/5 |
+        | [Percentile] | [Percentile] | [Percentile] |
+        | **Offering Coherence: X/5** |||
+        | [Assessment of how well the three work together] |||
+
+    validation_criteria:
+      - "All three referenced dimensions summarized"
+      - "Coherence explicitly assessed"
+      - "Disconnects identified (if any)"
+      - "Synthesis scorecard present"
+
+  - number: 6
+    name: "Opportunity"
+    filename: "06-opportunity.md"
+    group: "opportunity"
+    group_question: "Is this worth investing in, relative to our opportunity costs?"
+    dimensions: ["potential", "progress", "plan"]
+    target_length:
+      min_words: 600
+      max_words: 900
+      ideal_words: 750
+
+    description: |
+      The fifth group answers: "Is this worth investing in relative to our
+      opportunity costs?" This section assesses growth trajectory, hard traction,
+      and capital deployment plan. Ends with Opportunity scorecard.
+
+    guiding_questions:
+      # Potential (P10)
+      - "What do current metrics suggest about trajectory?"
+      - "What does the growth rate project to?"
+      - "What comparables achieved similar trajectories?"
+      - "What are the limiting factors?"
+
+      # Progress (P11)
+      - "What hard traction is indisputable?"
+      - "How far along are they toward something remarkable?"
+      - "What are their KPIs and North Stars?"
+      - "How does progress compare to stage benchmarks?"
+
+      # Plan (P12)
+      - "What is the use of proceeds?"
+      - "What milestones will funding achieve?"
+      - "What is needed for next raise?"
+      - "Is there a path to breakeven?"
+      - "What is the runway?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"
+        - "@pitchbook"
+        - "@techcrunch"
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+          - "techcrunch.com"
+          - "[company-domain]"
+
+    section_vocabulary:
+      required_elements:
+        - Current metrics (ARR, customers, growth rate)
+        - Growth trajectory analysis
+        - Traction evidence (indisputable)
+        - Use of proceeds breakdown
+        - Milestones tied to funding
+        - Runway analysis (if available)
+        - Opportunity scorecard table at end
+
+      critical_rules:
+        - "Traction must be quantified, not described"
+        - "If metrics unavailable, state explicitly"
+        - "Distinguish pilots from paying customers"
+        - "Distinguish pipeline from closed"
+
+      structure_template:
+        - "### Potential"
+        - "[2-3 paragraphs on growth trajectory]"
+        - "### Progress"
+        - "[2-3 paragraphs on hard traction]"
+        - "### Plan"
+        - "[2-3 paragraphs on capital deployment]"
+        - "### Opportunity Scorecard"
+        - "[3-column table: Potential | Progress | Plan]"
+        - "### What Could Make These Scores Higher"
+        - "[Bullets for each dimension]"
+
+    scorecard_output:
+      placement: "end_of_section"
+      format: |
+        | Potential | Progress | Plan |
+        |-----------|----------|------|
+        | X/5 | X/5 | X/5 |
+        | [Percentile] | [Percentile] | [Percentile] |
+        | [Key evidence] | [Key evidence] | [Key evidence] |
+
+    validation_criteria:
+      - "Current metrics stated (or explicit 'not disclosed')"
+      - "Growth trajectory analyzed"
+      - "Traction quantified (not described)"
+      - "Use of proceeds present (or 'not disclosed')"
+      - "Milestones tied to funding"
+      - "All 3 dimensions scored"
+      - "Scorecard table present at end"
+
+  - number: 7
+    name: "Risks & What Could Go Wrong"
+    filename: "07-risks.md"
+    group: "analysis"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Risk analysis section that identifies what could go wrong for each
+      dimension group. Unlike traditional risk sections, this is organized
+      by the 5 groups to maintain narrative coherence.
+
+    guiding_questions:
+      - "What could go wrong with Origins? (wrong persona, pain not urgent, proposition unclear)"
+      - "What could go wrong with Opening? (market smaller, competition fierce, moats weak)"
+      - "What could go wrong with Organization? (team gaps, process immature, product fails)"
+      - "What could go wrong with Offering? (incoherent story, delivery doesn't match promise)"
+      - "What could go wrong with Opportunity? (trajectory stalls, traction evaporates, plan fails)"
+
+    section_vocabulary:
+      required_elements:
+        - 1-2 risks per group (5-10 total)
+        - Assessment of likelihood and impact
+        - Existing mitigations (if any)
+        - What would make risks less concerning
+
+      structure_template:
+        - "### Origins Risks"
+        - "[1-2 risks with mitigations]"
+        - "### Opening Risks"
+        - "[1-2 risks with mitigations]"
+        - "### Organization Risks"
+        - "[1-2 risks with mitigations]"
+        - "### Offering Risks"
+        - "[1-2 risks with mitigations]"
+        - "### Opportunity Risks"
+        - "[1-2 risks with mitigations]"
+        - "### Most Critical Risk"
+        - "[1 risk with detailed assessment]"
+
+    validation_criteria:
+      - "At least 5 risks identified across groups"
+      - "Risks tied to specific dimensions"
+      - "Mitigations noted (even if 'none')"
+      - "Most critical risk identified"
+
+  - number: 8
+    name: "12Ps Scorecard Summary"
+    filename: "08-scorecard-summary.md"
+    group: "synthesis"
+    target_length:
+      min_words: 200
+      max_words: 400
+      ideal_words: 300
+
+    description: |
+      Consolidated view of all 12 dimension scores with overall assessment.
+      This section provides the complete scorecard in one place for reference.
+
+    section_vocabulary:
+      required_elements:
+        - All 12 dimension scores
+        - Group averages
+        - Overall score
+        - Standout strengths (4+)
+        - Key concerns (1-2)
+        - Critical questions for diligence
+
+      structure_template:
+        - "### Complete 12Ps Scorecard"
+        - "[Full scorecard table]"
+        - "### Standout Strengths"
+        - "[Dimensions scoring 4+]"
+        - "### Areas of Concern"
+        - "[Dimensions scoring 1-2]"
+        - "### Critical Questions for Diligence"
+        - "[5-7 questions derived from low scores]"
+
+    scorecard_output:
+      placement: "within_section"
+      format: |
+        | Group | Dimensions | Avg Score |
+        |-------|-----------|-----------|
+        | 1. Origins | Persona, Pain, Proposition | X.X/5 |
+        | 2. Opening | Problem, Possibility, Positioning | X.X/5 |
+        | 3. Organization | People, Process, Product | X.X/5 |
+        | 4. Offering | Synthesis (P3+P6+P9) | X.X/5 |
+        | 5. Opportunity | Potential, Progress, Plan | X.X/5 |
+
+        **Overall Score: X.X/5**
+
+        | # | Dimension | Score | Key Finding |
+        |---|-----------|-------|-------------|
+        | 1 | Persona | X/5 | [1-sentence summary] |
+        | 2 | Pain | X/5 | [1-sentence summary] |
+        | 3 | Proposition | X/5 | [1-sentence summary] |
+        | 4 | Problem | X/5 | [1-sentence summary] |
+        | 5 | Possibility | X/5 | [1-sentence summary] |
+        | 6 | Positioning | X/5 | [1-sentence summary] |
+        | 7 | People | X/5 | [1-sentence summary] |
+        | 8 | Process | X/5 | [1-sentence summary] |
+        | 9 | Product | X/5 | [1-sentence summary] |
+        | 10 | Potential | X/5 | [1-sentence summary] |
+        | 11 | Progress | X/5 | [1-sentence summary] |
+        | 12 | Plan | X/5 | [1-sentence summary] |
+
+    validation_criteria:
+      - "All 12 dimensions scored"
+      - "Group averages calculated"
+      - "Overall score stated"
+      - "Standout strengths listed"
+      - "Concerns listed"
+      - "Diligence questions present"
+
+  - number: 9
+    name: "Funding & Terms"
+    filename: "09-funding-terms.md"
+    group: "analysis"
+    target_length:
+      min_words: 250
+      max_words: 400
+      ideal_words: 325
+
+    description: |
+      Deal-specific information on current fundraise, terms, and history.
+      Separated from the 12Ps framework as it's transaction-specific.
+
+    guiding_questions:
+      - "How much are they raising?"
+      - "At what valuation? (pre or post)"
+      - "What are the proposed terms?"
+      - "What is the funding history?"
+      - "How will funds be used?"
+      - "What is the runway?"
+
+    section_vocabulary:
+      required_elements:
+        - Round size (or 'not disclosed')
+        - Valuation (specify pre/post, or 'not disclosed')
+        - Key terms (or 'not available')
+        - Previous rounds summary
+        - Use of funds (or 'not disclosed')
+
+    validation_criteria:
+      - "Round size stated or explicitly noted as unavailable"
+      - "Valuation stated with pre/post specification"
+      - "Previous funding summarized"
+      - "Missing info explicitly noted"
+
+  - number: 10
+    name: "Closing Assessment"
+    filename: "10-closing-assessment.md"
+    group: "synthesis"
+    target_length:
+      min_words: 150
+      max_words: 300
+      ideal_words: 200
+
+    description: |
+      Final synthesis answering the core question: Based on the 12Ps analysis,
+      what is the overall assessment of this opportunity? Note: This section
+      does NOT make investment recommendations - that's the reader's decision.
+
+    guiding_questions:
+      - "What is the overall 12Ps assessment?"
+      - "What are the 2-3 strongest dimensions and why do they matter?"
+      - "What are the 1-2 weakest dimensions and what would change them?"
+      - "What key questions remain unanswered?"
+      - "What developments would materially change the assessment?"
+
+    section_vocabulary:
+      required_elements:
+        - Overall score recap
+        - Top 2-3 strengths with significance
+        - Key 1-2 concerns with what would address them
+        - Unanswered questions
+        - Developments that would change assessment
+
+      structure_template:
+        - "### Overall Assessment"
+        - "[1-2 paragraphs on overall 12Ps evaluation]"
+        - "### Key Strengths"
+        - "[2-3 bullets on strongest dimensions]"
+        - "### Key Concerns"
+        - "[1-2 bullets on weakest dimensions]"
+        - "### What Would Change This Assessment"
+        - "[Bullets on developments that would shift scores]"
+
+      avoid:
+        - "Investment recommendations (PASS/CONSIDER/COMMIT)"
+        - "Prescriptive guidance on what to do"
+        - "Definitive statements about investment worthiness"
+
+    validation_criteria:
+      - "Overall score restated"
+      - "Strengths explained with significance"
+      - "Concerns explained with what would address"
+      - "No investment recommendation made"
+      - "Developments that would change assessment listed"
+
+# Cross-section requirements
+cross_section_requirements:
+  scorecard_consistency:
+    description: "Scores must be consistent across sections"
+    rules:
+      - "Score given in section must match summary scorecard"
+      - "All 12 dimensions must be scored"
+      - "Group averages must be calculated correctly"
+
+  citation_consistency:
+    format: "[^1], [^2], [^3]"
+    consolidation: "All citations renumbered globally at end"
+
+  narrative_flow:
+    description: "Sections follow the 5-group narrative"
+    sequence:
+      - "Executive Summary previews all groups"
+      - "Origins establishes customer foundation"
+      - "Opening expands to market context"
+      - "Organization assesses who is building"
+      - "Offering synthesizes the complete package"
+      - "Opportunity evaluates investment worthiness"
+      - "Risks organized by group"
+      - "Scorecard Summary consolidates all scores"
+      - "Funding covers deal specifics"
+      - "Closing Assessment synthesizes without recommending"
+
+# Agent context for system integration
+agent_context:
+  research_agent:
+    priority_topics:
+      - "Gather evidence for each of the 12Ps dimensions"
+      - "Find customer testimonials and persona evidence"
+      - "Research founders' backgrounds and track records"
+      - "Analyze market sizing and competitive positioning"
+      - "Look for traction metrics and growth evidence"
+
+    search_queries_template:
+      - "{company_name} target customer persona"
+      - "{company_name} problem solving pain point"
+      - "{company_name} value proposition"
+      - "{company_name} market size TAM"
+      - "{company_name} competitors competitive landscape"
+      - "{company_name} founder background"
+      - "{company_name} funding revenue traction"
+      - "{company_name} product features"
+
+  writer_agent:
+    section_guidance:
+      executive_summary:
+        include: "Preview of all 5 groups with overall score"
+      origins:
+        include: "Scorecard table at end"
+        focus: "Customer perspective, not company perspective"
+      opening:
+        include: "Scorecard table at end"
+        focus: "Market evidence with sources"
+      organization:
+        include: "Scorecard table at end"
+        focus: "Team gaps as well as strengths"
+      offering:
+        include: "Synthesis scorecard at end"
+        focus: "Coherence assessment across three dimensions"
+      opportunity:
+        include: "Scorecard table at end"
+        focus: "Quantified traction, not descriptions"
+      risks:
+        include: "Organized by 5 groups"
+        focus: "Specific to dimension weaknesses"
+      scorecard_summary:
+        include: "Complete 12-dimension table"
+        focus: "Consolidation and key questions"
+      closing_assessment:
+        include: "Overall synthesis"
+        avoid: "Investment recommendations"
+
+  scorer_agent:
+    instructions: |
+      For each dimension, evaluate against the scoring rubric in the
+      hypernova-early-stage-12Ps scorecard. Provide:
+      - Score (1-5)
+      - Percentile mapping
+      - Key evidence supporting score
+      - What could make the score higher
