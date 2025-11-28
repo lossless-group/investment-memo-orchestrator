@@ -1,12 +1,10 @@
 {
   "name": "Andela",
-  "description": "",
-  "stage": "Pre-Seed",
+  "description": "Hypernova invested in Andela almost 10 years ago, so this is a small investment that is worth about 40x what we paid for it then.  However, this was rolled into the fund by one of our cofounders, so the transaction was made recently. We are looking for both how the company has done since inception and what the company's prospects are these days.",
   "type": "direct",
   "mode": "justify",
   "url": "https://andela.com/",
   "notes": "Talent network for technology and systems integration consulting, leveraging potential talent everywhere.",
-  "deck": "/Users/mpstaton/code/lossless-monorepo/ai-labs/investment-memo-orchestrator/data/Avalanche Fund II.pdf",
-  "trademark_light": "/trademarks/trademark__Andela--Light-Mode.svg",
-  "trademark_dark": "/trademarks/trademark__Andela--Dark-Mode.svg"
+  "trademark_light": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Andela--Dark-Mode.svg?updatedAt=1764269133759",
+  "trademark_dark": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Andela--Light-Mode.svg?updatedAt=1764269133920"
 }
