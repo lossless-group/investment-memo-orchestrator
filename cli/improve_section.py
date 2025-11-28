@@ -121,7 +121,8 @@ def improve_section_with_sonar_pro(
     section_name: str,
     artifacts: dict,
     artifact_dir: Path,
-    console: Console
+    console: Console,
+    custom_instructions: str = ""
 ) -> str:
     """Use Perplexity Sonar Pro to improve section with real-time research and citations."""
     from openai import OpenAI
@@ -237,7 +238,10 @@ RESEARCH DATA AVAILABLE:
 
 TASK:
 {task_description}
-
+{f'''
+CUSTOM INSTRUCTIONS FROM USER:
+{custom_instructions}
+''' if custom_instructions else ''}
 REQUIREMENTS:
 - Follow the template structure and style guide
 - Use specific metrics and data from authoritative sources
@@ -357,6 +361,10 @@ def main():
         "--version",
         help="Specific version (e.g., 'v0.0.1'). If not specified, uses latest."
     )
+    parser.add_argument(
+        "--message", "-m",
+        help="Custom instructions to pass to the improvement agent (e.g., 'Reference the deck sections and cite them')"
+    )
 
     args = parser.parse_args()
 
@@ -394,13 +402,18 @@ def main():
     console.print("\n[bold]Loading existing artifacts...[/bold]")
     artifacts = load_artifacts(artifact_dir)
 
+    # Show custom message if provided
+    if args.message:
+        console.print(f"\n[bold yellow]Custom instructions:[/bold yellow] {args.message}")
+
     # Improve section with Perplexity Sonar Pro
     console.print()
     improved_content = improve_section_with_sonar_pro(
         args.section,
         artifacts,
         artifact_dir,
-        console
+        console,
+        custom_instructions=args.message or ""
     )
 
     # Automatically reassemble final draft
