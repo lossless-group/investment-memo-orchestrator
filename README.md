@@ -83,32 +83,15 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 
 ## Key Features
 
-### Core Commands
+### Core Command
 ```bash
-python3.11 -m src.main "Class5 Global" --type fund --mode justify
+python -m src.main "Company Name" --type direct --mode consider
 ```
 
-### Multi-Agent Architecture (Section-by-Section Processing)
-- **Deck Analyst Agent**: Extracts key information from pitch deck PDFs (team, metrics, market sizing) and creates initial section drafts
-- **Research Agent**: Actively searches the web (Tavily/Perplexity) for company information, funding data, team backgrounds, and market context
-- **Writer Agent**: Writes 10 sections individually, saving each to `2-sections/` directory (~5k chars per section instead of 50k+ char full memo)
-- **Trademark Enrichment**: Creates header file with company logo/trademark (if provided)
-- **Socials Enrichment**: Adds LinkedIn profile links to team members in Team section file
-- **Link Enrichment**: Processes each section file to add organization/entity hyperlinks
-- **Citation-Enrichment Agent**: Loads each section file, enriches with Perplexity Sonar Pro citations, renumbers globally, consolidates into ONE citation block
-- **Citation Validator Agent**: Validates citation accuracy, checking dates, duplicates, broken links
-- **Validator Agent**: Rigorously evaluates quality (0-10 scale) with specific, actionable feedback
-- **Supervisor**: Orchestrates workflow, manages state, routes to revision or finalization
+### Multi-Agent Pipeline
+The system coordinates 11+ specialized agents: research, writing, enrichment (trademarks, socials, links, citations), validation, and fact-checking. All agents process sections individually to avoid API timeouts.
 
-**Standalone Agents (CLI Tools):**
-- **Scorecard Agent**: Generates structured scorecards from YAML templates that codify your firm's proprietary evaluation criteria
-- **Portfolio Listing Agent**: Extracts and describes portfolio companies from fund memos
-- **Assemble Draft** (`cli/assemble_draft.py`): Canonical tool for rebuilding `4-final-draft.md` from sections with citation renumbering and TOC generation
-- **Improve Section** (`cli/improve_section.py`): Improve individual sections with Perplexity Sonar Pro research
-- **Improve Team Section** (`cli/improve_team_section.py`): Sequential team research (LinkedIn → Website → Individual deep dives)
-- **Key Info Rewrite** (`cli/rewrite_key_info.py`): Apply YAML-based corrections to update facts across multiple sections
-
-**Key Architecture Change**: All enrichment agents now process individual section files rather than the full assembled memo, eliminating API timeout issues and ensuring consistent citation formatting.
+See [Pipeline Agents Reference](#pipeline-agents-reference) and [CLI Tools Reference](#cli-tools-reference) for complete listings.
 
 ### Web Search Integration with Premium Source Targeting
 - **Premium data sources**: Research queries enhanced with Perplexity `@source` syntax (@crunchbase, @pitchbook, @statista, @cbinsights)
@@ -470,31 +453,7 @@ python improve-section.py "Avalanche" "Market Context" --version v0.0.1
 python improve-section.py output/Avalanche-v0.0.1 "Technology & Product"
 ```
 
-**Available Section Names:**
-
-*Direct Investment Sections:*
-- Executive Summary
-- Business Overview
-- Market Context
-- Team
-- Technology & Product
-- Traction & Milestones
-- Funding & Terms
-- Risks & Mitigations
-- Investment Thesis
-- Recommendation
-
-*Fund Commitment Sections:*
-- Executive Summary
-- GP Background & Track Record
-- Fund Strategy & Thesis
-- Portfolio Construction
-- Value Add & Differentiation
-- Track Record Analysis
-- Fee Structure & Economics
-- LP Base & References
-- Risks & Mitigations
-- Recommendation
+**Section Names:** Use the section names as they appear in `2-sections/` for the memo you're improving (e.g., "Team", "Market Context"). Section names are defined by your outline/template configuration.
 
 **Output:**
 ```
@@ -546,221 +505,23 @@ This ensures:
 
 All section improvement tools automatically call this after their changes.
 
-## File Format Conversion & Export
+## Export
 
-The system supports multiple export formats with professional Hypernova branding and citation preservation.
+The system supports multiple export formats with branding and citation preservation.
 
-### Overview of Export Tools
+| Tool | Format | Command |
+|------|--------|---------|
+| `md2docx.py` | Word (.docx) | `python md2docx.py output/Company-v0.0.1/4-final-draft.md` |
+| `export-branded.py` | HTML (light) | `python export-branded.py output/Company-v0.0.1/4-final-draft.md` |
+| `export-branded.py` | HTML (dark) | `python export-branded.py output/Company-v0.0.1/4-final-draft.md --mode dark` |
+| `export-branded.py` | PDF | `python export-branded.py output/Company-v0.0.1/4-final-draft.md --pdf` |
+| `export-all-modes.sh` | Batch (all memos) | `./export-all-modes.sh` |
 
-1. **`md2docx.py`** - Basic Word (.docx) conversion
-2. **`export-branded.py`** - Branded HTML exports with light/dark modes
-3. **`export-all-modes.sh`** - Batch export of all memos in both color modes
+All exports preserve inline citations, footnotes, and markdown formatting.
 
-All exports preserve:
-- ✅ Inline citations `[^1], [^2], [^3]` with proper spacing
-- ✅ Complete footnote sections with URLs and publication dates
-- ✅ Markdown formatting (headers, lists, tables, blockquotes)
-- ✅ Proper typography and professional styling
-
----
-
-### 1. Word (.docx) Export
-
-Convert markdown memos to Microsoft Word format for traditional sharing:
-
-```bash
-# Activate virtual environment first
-source .venv/bin/activate
-
-# Convert a single memo
-python md2docx.py output/Aalo-Atomics-v0.0.5/4-final-draft.md
-
-# Convert with custom output location
-python md2docx.py output/Aalo-Atomics-v0.0.5/4-final-draft.md -o exports/
-
-# Convert all memos in a directory
-python md2docx.py output/Aalo-Atomics-v0.0.5/2-sections/ -o exports/
-
-# Add table of contents
-python md2docx.py output/memo.md --toc
-```
-
-**Features:**
-- Automatically downloads pandoc if needed
-- Maintains all formatting from markdown source
-- Preserves footnotes (visible in Microsoft Word, not Google Docs/Preview)
-
-**Note:** Citations only render properly in Microsoft Word. For better citation visibility, use HTML exports.
-
----
-
-### 2. Branded HTML Export (Light Mode)
-
-Export with full Hypernova Capital branding in light mode (default):
-
-```bash
-source .venv/bin/activate
-
-# Export single memo (light mode - default)
-python export-branded.py output/Aalo-Atomics-v0.0.5/4-final-draft.md
-
-# Export with custom output directory
-python export-branded.py output/Aalo-Atomics-v0.0.5/4-final-draft.md -o exports/light/
-
-# Export all memos in a directory
-python export-branded.py output/ --all -o exports/light/
-```
-
-**Features:**
-- **Hypernova branding**: Logo, colors (#1a3a52 navy, #1dd3d3 cyan), Arboria font
-- **Improved citation spacing**: `[1], [2], [3]` instead of `[1][2][3]`
-- **Clickable footnotes**: Citations link to source list at bottom
-- **Professional header/footer**: Company branding and metadata
-- **Self-contained HTML**: Includes all CSS and fonts (no external dependencies)
-- **Print-optimized**: Ready for PDF conversion via browser print
-
----
-
-### 3. Branded HTML Export (Dark Mode)
-
-Export with dark theme optimized for screen reading:
-
-```bash
-source .venv/bin/activate
-
-# Export single memo in dark mode
-python export-branded.py output/Aalo-Atomics-v0.0.5/4-final-draft.md --mode dark
-
-# Export all memos in dark mode
-python export-branded.py output/ --all --mode dark -o exports/dark/
-```
-
-**Dark Mode Colors:**
-- Background: Dark navy (#1a3a52)
-- Text: White (#ffffff)
-- Accents: Cyan (#1dd3d3)
-- Perfect for: Screen reading, presentations, reducing eye strain
-
----
-
-### 4. Batch Export (Both Light & Dark Modes)
-
-Export all memos in both color modes at once:
-
-```bash
-source .venv/bin/activate
-
-# Export everything
-./export-all-modes.sh
-```
-
-**Output structure:**
-```
-exports/
-├── light/  # 📄 Light mode HTML (white background)
-│   ├── Aalo-Atomics-v0.0.5.html
-│   ├── DayOne-v0.0.3.html
-│   └── ... (all memos)
-└── dark/   # 🌙 Dark mode HTML (navy background)
-    ├── Aalo-Atomics-v0.0.5.html
-    ├── DayOne-v0.0.3.html
-    └── ... (all memos)
-```
-
-This creates **267+ HTML files** per mode with the latest citation improvements.
-
----
-
-### 5. PDF Export (via HTML)
-
-Convert branded HTML to PDF using your browser or command-line tools:
-
-**Option A: Browser Print to PDF**
-```bash
-# 1. Generate HTML export
-python export-branded.py output/Company/4-final-draft.md --mode light
-
-# 2. Open in browser
-open exports/branded/Company.html
-
-# 3. Print to PDF (Cmd+P on Mac, Ctrl+P on Windows)
-# - Enable "Background graphics" for full styling
-# - Save as PDF
-```
-
-**Option B: Command-line with wkhtmltopdf** (if installed)
-```bash
-# Export with PDF generation
-python export-branded.py output/Company/4-final-draft.md --mode light --pdf
-```
-
----
-
-### Citation Improvements (All Export Formats)
-
-All exports include **improved citation spacing** for better readability:
-
-**Before:**
-```
-The company raised $100M[1][2][3][4][5] in funding.
-```
-Visual: **[1][2][3][4][5]** (cramped, hard to read)
-
-**After:**
-```
-The company raised $100M[^1], [^2], [^3], [^4], [^5] in funding.
-```
-Visual: **[1], [2], [3], [4], [5]** (clear, professional)
-
-**Technical Implementation:**
-- **0.15em margins** around each citation
-- **Automatic comma separators** between consecutive citations
-- **Gray commas** for subtlety (adapts to dark mode)
-- **Academic formatting** following IEEE/ACM standards
-
----
-
-### Export Format Comparison
-
-| Format | Best For | Citations Visible | Branding | Editable |
-|--------|----------|-------------------|----------|----------|
-| **Word (.docx)** | Offline editing, track changes | ⚠️ MS Word only | ❌ Plain | ✅ Yes |
-| **HTML (Light)** | Printing, email attachments, bright environments | ✅ Always | ✅ Full | ⚠️ Via code |
-| **HTML (Dark)** | Screen reading, presentations, night reading | ✅ Always | ✅ Full | ⚠️ Via code |
-| **PDF (from HTML)** | Distribution, archival, compliance | ✅ Always | ✅ Full | ❌ No |
-
----
-
-### Quick Reference Commands
-
-```bash
-# Activate environment
-source .venv/bin/activate
-
-# Word export (single memo)
-python md2docx.py output/Company/4-final-draft.md
-
-# HTML light mode (single memo)
-python export-branded.py output/Company/4-final-draft.md
-
-# HTML dark mode (single memo)
-python export-branded.py output/Company/4-final-draft.md --mode dark
-
-# Batch export all memos (both modes)
-./export-all-modes.sh
-
-# HTML with PDF generation
-python export-branded.py output/Company/4-final-draft.md --pdf
-```
-
----
-
-### Documentation
-
-For more details, see:
+For detailed export options, custom branding, and troubleshooting, see:
 - `exports/EXPORT-GUIDE.md` - Comprehensive export documentation
-- `exports/DARK-MODE-GUIDE.md` - Light vs. dark mode usage guide
-- `exports/CITATION-IMPROVEMENTS.md` - Citation spacing implementation details
+- `docs/CUSTOM-BRANDING.md` - Multi-brand configuration guide
 
 ## Architecture
 
@@ -867,6 +628,58 @@ investment-memo-orchestrator/
 └── tests/                            # Unit tests (TODO)
 ```
 
+## CLI Tools Reference
+
+Standalone tools for post-generation improvements and exports.
+
+| Tool | Purpose | Usage |
+|------|---------|-------|
+| `cli/improve_section.py` | Improve a section with Perplexity research | `python -m cli.improve_section "Company" "Team"` |
+| `cli/improve_team_section.py` | Deep team research (LinkedIn + web) | `python -m cli.improve_team_section "Company"` |
+| `cli/assemble_draft.py` | Rebuild final draft from sections | `python -m cli.assemble_draft "Company"` |
+| `cli/rewrite_key_info.py` | Apply YAML corrections across sections | `python -m cli.rewrite_key_info "Company" corrections.yaml` |
+| `cli/generate_scorecard.py` | Generate scorecard from template | `python -m cli.generate_scorecard "Company"` |
+| `cli/evaluate_memo.py` | Re-run validation on existing memo | `python -m cli.evaluate_memo "Company"` |
+| `cli/refocus_section.py` | Refocus section with new guidance | `python -m cli.refocus_section "Company" "Section"` |
+| `cli/export_branded.py` | Export to branded HTML | `python export-branded.py memo.md --brand hypernova` |
+| `cli/md2docx.py` | Export to Word (.docx) | `python md2docx.py memo.md` |
+| `cli/markdown_to_pdf.py` | Export to PDF | `python -m cli.markdown_to_pdf memo.md` |
+
+## Pipeline Agents Reference
+
+Agents that run as part of the main memo generation workflow (`python -m src.main`).
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| Deck Analyst | `deck_analyst.py` | Extract info from pitch deck PDFs |
+| Research | `research_enhanced.py` | Web search via Tavily/Perplexity |
+| Writer | `writer.py` | Draft sections from outline/template |
+| Trademark Enrichment | `trademark_enrichment.py` | Insert company logo into header |
+| Socials Enrichment | `socials_enrichment.py` | Add LinkedIn links to team members |
+| Link Enrichment | `link_enrichment.py` | Add hyperlinks to organizations/entities |
+| Citation Enrichment | `citation_enrichment.py` | Add inline citations via Perplexity |
+| TOC Generator | `toc_generator.py` | Generate Table of Contents |
+| Citation Validator | `citation_validator.py` | Validate citation accuracy and dates |
+| Fact Checker | `fact_checker.py` | Verify claims against research sources |
+| Validator | `validator.py` | Score memo quality (0-10 scale) |
+
+## Standalone Agents Reference
+
+Agents with their own CLI entry points for specialized tasks.
+
+| Agent | File | Purpose |
+|-------|------|---------|
+| Scorecard Agent | `scorecard_agent.py` | Generate scorecards from YAML templates |
+| Portfolio Listing | `portfolio_listing_agent.py` | Extract portfolio companies from fund memos |
+| Key Info Rewrite | `key_info_rewrite.py` | Propagate fact corrections across sections |
+| Dataroom Analyzer | `dataroom/analyzer.py` | Scan and extract data from dataroom documents |
+
+For detailed documentation, see:
+- `docs/COMMANDS_CHEAT_SHEET.md` - **Complete CLI reference with all options and examples**
+- `docs/CASUAL_USER_GUIDE.md` - Comprehensive usage guide
+- `docs/SETUP.md` - Installation and configuration
+- `docs/TROUBLESHOOTING.md` - Common issues and solutions
+
 ## Versioning & Releases
 
 This project uses **git-based semantic versioning** with `setuptools-scm`:
@@ -909,34 +722,9 @@ python -c "from src import __version__; print(__version__)"
 git describe --tags
 ```
 
-## Testing
+## Status
 
-### POC Test Results (Aalo Atomics)
-
-**Without Web Search** (v0.0.0 equivalent):
-- Score: 3.5/10
-- Issues: 90% placeholders, no actual company data
-- Output: Framework memo showing what should be evaluated
-
-**With Web Search** (v0.0.1-v0.0.4):
-- Score: 7.5-8.5/10
-- Real Data Found:
-  - Founders: Matt Loszak (CEO), Yasir Arafat (CTO, ex-INL)
-  - Funding: $136M total (Seed $6.3M, Series A $27M, Series B $100M)
-  - Investors: Valor Equity Partners, NRG Energy, Hitachi Ventures
-  - Location: Austin, Texas
-  - Technology: 50 MWe modular reactors for AI data centers
-- Issues: Source citations were missing
-
-**With Citation-Enrichment Agent** (v0.0.5):
-- Score: 8.5/10
-- **Citations Added**: 8 inline citations with full source attribution
-- **Citation Format**: `[^1]: YYYY, MMM DD. [Source Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD`
-- **Sources Used**: TechCrunch, Business Insider, PowerMag, World Nuclear News, company blog
-- **Artifact Trail**: 16 files saved (research, sections, validation, final draft, state)
-- Issues: Some data gaps, market sizing lacks specifics (expected for pre-commercial company)
-
-### Completed Improvements ✅
+### Completed ✅
 - [x] Create a "trail" of the collected information as structured output or markdown files
 - [x] Assure that citations are retained in the final output with proper attribution
 - [x] Terminal progress indicators and status messages to track workflow
@@ -976,61 +764,10 @@ git describe --tags
 
 ## Roadmap
 
-### Week 2: MCP Server Integration
-- [ ] Build Portfolio Data MCP server
-- [ ] Crunchbase/PitchBook API integration via MCP
-- [ ] Template serving via MCP (version-controlled)
-- [ ] Validation criteria as MCP resources
-
-### Week 3: Revision Loop
-- [ ] Implement Revision Agent
-- [ ] Iterative improvement until score >= 8
-- [ ] Specialized section writers (Market, Technical, Risk)
-- [ ] Parallel section generation
-
-### Week 4: Production Features
+- [ ] LangGraph checkpointing (resume from failures)
 - [ ] Web UI (Streamlit/Gradio)
 - [ ] Human-in-the-loop checkpoints
-- [ ] PDF export with branding
-- [ ] Version comparison view
-- [ ] Manual version promotion (v0.0.x → v0.1.0)
-
-### Future Enhancements
-- [ ] LangGraph checkpointing (resume from failures)
-- [ ] Multi-model orchestration (GPT-4 for data, Claude for writing)
-- [ ] Fine-tuned validation models
-- [ ] Integration with pitch decks and financial models
 - [ ] Batch processing for portfolio analysis
-- [ ] A/B testing different agent configurations
-
-## Configuration Options
-
-### Environment Variables
-
-```bash
-# Required
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Web Search (recommended: both for best results)
-TAVILY_API_KEY=tvly-...         # For research phase (fast, reliable)
-PERPLEXITY_API_KEY=pplx-...     # For citation enrichment + premium source targeting (sonar-pro model)
-
-# Optional
-OPENAI_API_KEY=sk-...           # For future multi-model support
-
-# Settings
-USE_WEB_SEARCH=true             # Enable/disable web search
-RESEARCH_PROVIDER=tavily        # tavily, perplexity, or claude (for research)
-MAX_SEARCH_RESULTS=10           # Results per query
-DEFAULT_MODEL=claude-sonnet-4-5-20250929
-```
-
-**Note**: For full citation support with premium sources, both `TAVILY_API_KEY` (research) and `PERPLEXITY_API_KEY` (citations + source targeting) are recommended.
-
-- **With PERPLEXITY_API_KEY**: Research queries automatically enhanced with `@crunchbase`, `@pitchbook`, `@statista`, and other premium sources
-- **Without PERPLEXITY_API_KEY**: Generic web search (no source targeting), Citation-Enrichment Agent skipped
-
-See `docs/WEB_SEARCH_SETUP.md` for detailed provider comparison and `changelog/2025-11-22_02.md` for premium sources implementation details.
 
 ## Contributing
 
