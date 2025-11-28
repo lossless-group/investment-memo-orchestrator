@@ -5,8 +5,10 @@
   "type": "fund",
   "mode": "justify",
   "url": "https://avalanche.vc/",
+  "outline": "lpcommit-emerging-manager",
   "notes": "A seed-stage VC focused on the future of how people Learn, Earn, and Own. Research about Katelyn Donnelly, the founder Managing Partner and her backgorund and track record.",
   "deck": "/Users/mpstaton/code/lossless-monorepo/ai-labs/investment-memo-orchestrator/data/Secure-Inputs/Avalanche Fund II.pdf",
   "trademark_light": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Light-Mode.png",
-  "trademark_dark": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Dark-Mode.png"
+  "trademark_dark": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__Avalanche--Dark-Mode.png",
+  "memo_date": "March 05, 2025"
 }

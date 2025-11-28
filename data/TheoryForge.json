@@ -4,7 +4,10 @@
   "description": "Theory Forge Ventures is a $10M AI-focused pre-seed and seed stage fund managed by Ben Parr and Matt Schlicht",
   "url": "https://theoryforge.vc",
   "stage": "Fund I",
-  "trademark_light": "https://theoryforge.vc/wp-content/uploads/2023/12/theoryforge-logo.svg",
-  "trademark_dark": "https://theoryforge.vc/wp-content/uploads/2023/12/theoryforge-logo.svg",
+  "memo_date": "May 02, 2025",
+  "outline": "lpcommit-emerging-manager",
+  "deck": "data/Secure-Inputs/2025_Theory Forge Final Close Deck.pdf",
+  "trademark_light": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__TheoryForge--Light-Mode.png",
+  "trademark_dark": "https://ik.imagekit.io/xvpgfijuw/Hypernova-Embeds/trademark__TheoryForge--Dark-Mode.webp",
   "notes": "Focus on: GP track record, fund strategy, portfolio construction, early performance metrics. Ben Parr: ex-Mashable, Octane AI co-founder. Matt Schlicht: Octane AI CEO, Y Combinator alum."
 }
