@@ -1,0 +1,100 @@
+# Investment Memo Corrections for Sava (Trust Administration Platform)
+# This file adds key business model information received from the company
+
+company: "Sava"
+
+# VERSION MANAGEMENT
+source_version: "latest"  # Use latest version
+output_mode: "new_version"  # Create v0.0.2 with corrections
+
+date_created: "2025-11-28"
+
+corrections:
+  # Correction 1: Add Business Model Pricing Details
+  - type: "incomplete"
+    incomplete_information: |
+      The memo lacks specific pricing model details for Sava's trust administration services.
+      Current sections discuss market opportunity and TAM calculations but don't specify
+      the company's intended pricing structure.
+    additional_information: |
+      Sava's intended business model is a flat annual fee of $3,000-$5,000 per trust
+      for administration services. The fee varies based on:
+      - Jurisdiction (state trust law complexity)
+      - Type of trust (directed vs. discretionary, revocable vs. irrevocable)
+
+      This flat-fee model represents a significant departure from traditional trust company
+      pricing, which typically charges:
+      - 0.5%-1.0% of assets under management annually, PLUS
+      - $3,000-$10,000 in administrative fees
+
+      For a $1M trust, traditional pricing would be $8,000-$20,000/year vs. Sava's
+      $3,000-$5,000 flat fee. This represents 50-75% cost savings for customers and
+      positions Sava to expand the addressable market to smaller trusts that were
+      previously uneconomical to administer professionally.
+    affected_sections:
+      - "Business Overview"
+      - "Market Context"
+      - "Traction & Milestones"
+      - "Investment Thesis"
+    sources:
+      - "Company management (November 2025)"
+    narrative_shaping_comments:
+      - "Frame the flat-fee model as a key competitive differentiator and market expansion enabler"
+      - "Emphasize the unit economics advantage: predictable revenue per trust, not AUM-dependent"
+      - "Connect to market expansion thesis: enables professional trust administration for $500K-$2M trusts that were previously uneconomical"
+      - "Note that flat-fee model de-risks revenue from market volatility (AUM-based fees decline in down markets)"
+
+  # Correction 2: Clarify Company Positioning
+  - type: "inaccurate"
+    inaccurate_information: |
+      References to Sava as a "SaaS provider", "software company", "fintech platform", or
+      "recurring software fees" without clarifying the core business model
+    correct_information: |
+      Sava is a scalable, AI-native trust administration company. It operates as a licensed
+      trust company (pending charter approval) that uses AI to automate trust administration
+      workflows. Sava is the fiduciary - it IS the trust company, not a software vendor
+      selling to trust companies.
+
+      The company charges a flat annual trust administration fee of $3,000-$5,000 per trust,
+      not a software subscription fee. Revenue comes from being the trustee, not from
+      licensing software.
+    affected_sections:
+      - "Executive Summary"
+      - "Business Overview"
+      - "Technology & Product"
+    sources:
+      - "Company management (November 2025)"
+    narrative_shaping_comments:
+      - "Position as 'scalable, AI-native trust administration company' throughout"
+      - "Clarify Sava is a trust company with AI, not an AI company selling to trust companies"
+      - "The distinction matters for regulatory positioning and competitive moat"
+      - "AI enables scalability - traditional trust companies need 1 trust officer per ~50-100 trusts"
+
+  # Correction 3: Add Deal Terms
+  - type: "incomplete"
+    incomplete_information: |
+      The Funding & Terms section lacks specific deal structure and valuation details.
+    additional_information: |
+      Sava is raising on a SAFE note with a $50M valuation cap.
+
+      Deal structure:
+      - Instrument: Post-money SAFE
+      - Valuation cap: $50,000,000
+    affected_sections:
+      - "Funding & Terms"
+    sources:
+      - "Company management (November 2025)"
+    narrative_shaping_comments:
+      - "State the terms factually without excessive valuation commentary"
+
+# Available Section Names for Direct Investment Memos:
+# - "Executive Summary"
+# - "Business Overview"
+# - "Market Context"
+# - "Team"
+# - "Technology & Product"
+# - "Traction & Milestones"
+# - "Funding & Terms"
+# - "Risks & Mitigations"
+# - "Investment Thesis"
+# - "Recommendation"

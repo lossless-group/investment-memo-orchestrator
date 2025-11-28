@@ -300,36 +300,17 @@ IMPROVED SECTION CONTENT:
 
 
 def reassemble_final_draft(artifact_dir: Path, console: Console) -> Path:
-    """Reassemble 4-final-draft.md from all section files."""
+    """
+    Reassemble 4-final-draft.md using the canonical assembly tool.
+
+    Delegates to cli.assemble_draft which handles:
+    - Citation renumbering and consolidation
+    - Table of Contents generation
+    """
+    from cli.assemble_draft import assemble_final_draft as canonical_assemble
+
     console.print("\n[bold]Reassembling final draft...[/bold]")
-
-    content = ""
-
-    # Load header if exists (contains company trademark)
-    header_file = artifact_dir / "header.md"
-    if header_file.exists():
-        with open(header_file) as f:
-            content = f.read() + "\n"
-        console.print("[dim]  • Included header.md (company trademark)[/dim]")
-
-    # Load sections in order
-    sections_dir = artifact_dir / "2-sections"
-    section_files = sorted(sections_dir.glob("*.md"))
-
-    console.print(f"[dim]  • Loading {len(section_files)} sections...[/dim]")
-
-    for section_file in section_files:
-        with open(section_file) as f:
-            content += f.read() + "\n\n"
-
-    # Save final draft
-    final_draft = artifact_dir / "4-final-draft.md"
-    with open(final_draft, "w") as f:
-        f.write(content.strip())
-
-    console.print(f"[green]✓ Final draft reassembled:[/green] {final_draft}")
-
-    return final_draft
+    return canonical_assemble(artifact_dir, console)
 
 
 def main():

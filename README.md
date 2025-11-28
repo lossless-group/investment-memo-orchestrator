@@ -101,8 +101,12 @@ python3.11 -m src.main "Class5 Global" --type fund --mode justify
 - **Supervisor**: Orchestrates workflow, manages state, routes to revision or finalization
 
 **Standalone Agents (CLI Tools):**
-- **Scorecard Agent**: Generates structured scorecards from YAML templates that codify your firm's proprietary evaluation criteria. Create custom scorecard templates with any number of dimensions, groups, and scoring rubrics to ensure AI-generated analysis reflects your firm's actual thinking rather than generic LLM output.
-- **Portfolio Listing Agent**: Extracts and describes portfolio companies from fund memos, with batch research capabilities via Perplexity
+- **Scorecard Agent**: Generates structured scorecards from YAML templates that codify your firm's proprietary evaluation criteria
+- **Portfolio Listing Agent**: Extracts and describes portfolio companies from fund memos
+- **Assemble Draft** (`cli/assemble_draft.py`): Canonical tool for rebuilding `4-final-draft.md` from sections with citation renumbering and TOC generation
+- **Improve Section** (`cli/improve_section.py`): Improve individual sections with Perplexity Sonar Pro research
+- **Improve Team Section** (`cli/improve_team_section.py`): Sequential team research (LinkedIn → Website → Individual deep dives)
+- **Key Info Rewrite** (`cli/rewrite_key_info.py`): Apply YAML-based corrections to update facts across multiple sections
 
 **Key Architecture Change**: All enrichment agents now process individual section files rather than the full assembled memo, eliminating API timeout issues and ensuring consistent citation formatting.
 
@@ -524,6 +528,23 @@ Next steps:
 - **Cheaper**: ~$1.00 per section vs. ~$10.00 for full memo
 - **Targeted**: Improve only what needs improvement
 - **Preserves**: Other sections remain unchanged
+
+### Reassembling Final Draft
+
+If the final draft gets corrupted or you need to manually reassemble after editing section files:
+
+```bash
+# Reassemble with citation renumbering and TOC generation
+python -m cli.assemble_draft "Sava"
+python -m cli.assemble_draft "Sava" --version v0.0.2
+```
+
+This ensures:
+- Citations renumbered globally (no collisions)
+- All citation references consolidated at document end
+- Table of Contents is present and accurate
+
+All section improvement tools automatically call this after their changes.
 
 ## File Format Conversion & Export
 

@@ -355,14 +355,11 @@ def find_section_file(sections_dir: Path, section_name: str) -> Path | None:
 
 def reassemble_final_draft(artifact_dir: Path, console: Console) -> Path:
     """
-    Reassemble 4-final-draft.md from all section files with citation consolidation.
+    Reassemble 4-final-draft.md using the canonical assembly tool.
 
-    This function:
-    1. Loads header (company trademark) if exists
-    2. Loads all sections
-    3. Renumbers citations globally ([^1], [^2]... sequentially)
-    4. Consolidates all Citations sections into ONE block at the end
-    5. Saves final draft
+    Delegates to cli.assemble_draft which handles:
+    - Citation renumbering and consolidation
+    - Table of Contents generation
 
     Args:
         artifact_dir: Artifact directory
@@ -371,54 +368,9 @@ def reassemble_final_draft(artifact_dir: Path, console: Console) -> Path:
     Returns:
         Path to final draft file
     """
-    from src.agents.citation_enrichment import renumber_citations_globally
+    from cli.assemble_draft import assemble_final_draft as canonical_assemble
 
-    content = ""
-
-    # Load header if exists (contains company trademark)
-    header_file = artifact_dir / "header.md"
-    header_content = ""
-    if header_file.exists():
-        with open(header_file) as f:
-            header_content = f.read() + "\n"
-        console.print("  [dim]• Included header.md (company trademark)[/dim]")
-
-    # Load sections in order
-    sections_dir = artifact_dir / "2-sections"
-    section_files = sorted(sections_dir.glob("*.md"))
-
-    console.print(f"  [dim]• Loading {len(section_files)} sections...[/dim]")
-
-    # Build sections_data list for citation consolidation
-    sections_data = []
-    for section_file in section_files:
-        # Extract section number and name from filename
-        # Format: 01-executive-summary.md → (1, "Executive Summary")
-        filename = section_file.stem  # Remove .md
-        parts = filename.split("-", 1)
-        section_num = int(parts[0])
-        section_name = parts[1].replace("--", " & ").replace("-", " ").title()
-
-        with open(section_file) as f:
-            section_content = f.read()
-
-        sections_data.append((section_num, section_name, section_content))
-
-    # Renumber citations globally and consolidate into ONE block
-    console.print("  [dim]• Renumbering citations globally and consolidating...[/dim]")
-    consolidated_content = renumber_citations_globally(sections_data)
-
-    # Combine header + consolidated content
-    content = header_content + consolidated_content
-
-    # Save final draft
-    final_draft = artifact_dir / "4-final-draft.md"
-    with open(final_draft, "w") as f:
-        f.write(content.strip())
-
-    console.print(f"[green]✓ Final draft reassembled with consolidated citations:[/green] {final_draft}")
-
-    return final_draft
+    return canonical_assemble(artifact_dir, console)
 
 
 def save_corrections_log(
