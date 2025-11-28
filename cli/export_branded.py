@@ -55,20 +55,46 @@ def ensure_pandoc_installed():
 
 
 def extract_title_from_markdown(md_path: Path) -> tuple[str, str]:
-    """Extract title and company name from markdown file."""
+    """Extract title and company name from markdown file.
+
+    Priority order for company name:
+    1. Directory name pattern: {Company}-v{version}/4-final-draft.md
+    2. Explicit "Investment Memo: Company" at start of file (first 500 chars)
+    3. First H1 header (# Title)
+    4. Filename stem as fallback
+    """
     with open(md_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Look for first H1
-    title_match = re.search(r'^# (.+)$', content, re.MULTILINE)
-    title = title_match.group(1) if title_match else md_path.stem
+    # Priority 1: Extract from parent directory name (most reliable for our output structure)
+    # Pattern: output/Company-Name-v0.0.1/4-final-draft.md -> "Company Name"
+    parent_dir = md_path.parent.name
+    dir_match = re.match(r'^(.+?)-v\d+\.\d+\.\d+$', parent_dir)
+    if dir_match:
+        company = dir_match.group(1).replace('-', ' ')
+        title = f"{company} - Investment Memo"
+        return title, company
 
-    # Try to extract company name
-    company_match = re.search(r'Investment Memo[:\s]+(.+?)(?:\n|$)', content, re.IGNORECASE)
-    if not company_match:
-        company_match = re.search(r'# (.+?)(?:\s+[-–—]\s+|\n)', content)
+    # Priority 2: Look for "Investment Memo" pattern at START of file only (first 500 chars)
+    # This avoids matching text in the middle of the document
+    first_500 = content[:500]
+    company_match = re.search(r'^Investment Memo[:\s]+(.+?)(?:\n|$)', first_500, re.MULTILINE | re.IGNORECASE)
+    if company_match:
+        company = company_match.group(1).strip()
+        return f"{company} - Investment Memo", company
 
-    company = company_match.group(1) if company_match else title
+    # Priority 3: First H1 header in first 1000 chars (avoid section headers later in doc)
+    first_1000 = content[:1000]
+    title_match = re.search(r'^# (.+)$', first_1000, re.MULTILINE)
+    if title_match:
+        title = title_match.group(1)
+        # Clean up company name from title
+        company = re.sub(r'\s*[-–—]\s*Investment Memo.*$', '', title, flags=re.IGNORECASE)
+        return title, company
+
+    # Priority 4: Fallback to filename
+    title = md_path.stem
+    company = title.replace('-', ' ').replace('_', ' ')
 
     return title, company
 
