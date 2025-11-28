@@ -82,7 +82,9 @@ def build_section_research_query(
     company_description: str,
     general_research: Dict[str, Any],
     memo_mode: str,
-    deck_draft_content: str = ""
+    deck_draft_content: str = "",
+    company_url: str = "",
+    research_notes: str = ""
 ) -> str:
     """
     Build section-specific research query using outline guidance.
@@ -94,6 +96,8 @@ def build_section_research_query(
         general_research: General research data from Tavily
         memo_mode: "consider" or "justify"
         deck_draft_content: Optional draft content from deck analysis to verify/expand
+        company_url: Company website URL for disambiguation
+        research_notes: Additional research notes (may contain disambiguation hints)
 
     Returns:
         Research query for Perplexity
@@ -130,8 +134,28 @@ cite it as "[^deck]" with note "per company pitch deck, unverified externally".
 ---
 """
 
-    query = f"""Research and write comprehensive content for the "{section_def.name}" section of an investment memo about {company_name}.
+    # Build disambiguation block if we have identifying info
+    disambiguation_block = ""
+    if company_url or research_notes:
+        disambiguation_block = f"""
+CRITICAL - ENTITY DISAMBIGUATION:
+There may be multiple companies named "{company_name}". You MUST research the CORRECT company:
+- Company website: {company_url or 'See description'}
+- Description: {company_description}
+"""
+        if research_notes:
+            disambiguation_block += f"- Research notes: {research_notes}\n"
 
+        disambiguation_block += """
+DISAMBIGUATION RULES:
+1. ONLY use sources that reference THIS specific company
+2. If you find funding/revenue data for a DIFFERENT company with the same name, DISCARD IT
+3. Cross-reference company website to verify you have the correct entity
+4. If unsure, state "Data not verified for this entity" rather than include wrong data
+"""
+
+    query = f"""Research and write comprehensive content for the "{section_def.name}" section of an investment memo about {company_name}.
+{disambiguation_block}
 COMPANY OVERVIEW:
 {company_description}
 {section_context}
@@ -174,6 +198,8 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
     """
     company_name = state["company_name"]
     company_description = state.get("company_description", "")
+    company_url = state.get("company_url", "")
+    research_notes = state.get("research_notes", "")
     general_research = state.get("research", {})
     memo_mode = state.get("memo_mode", "consider")
 
@@ -257,7 +283,9 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
             company_description=company_description,
             general_research=general_research,
             memo_mode=memo_mode,
-            deck_draft_content=deck_draft_content
+            deck_draft_content=deck_draft_content,
+            company_url=company_url,
+            research_notes=research_notes
         )
 
         print(f"      Calling Perplexity Sonar Pro...")

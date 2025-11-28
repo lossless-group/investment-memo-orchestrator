@@ -131,7 +131,13 @@ class PerplexityProvider(WebSearchProvider):
         except ImportError:
             raise ImportError("openai not installed. Run: pip install openai")
 
-    def search(self, query: str, max_results: int = 10, sources: Optional[List[str]] = None) -> List[Dict[str, str]]:
+    def search(
+        self,
+        query: str,
+        max_results: int = 10,
+        sources: Optional[List[str]] = None,
+        disambiguation_context: Optional[str] = None
+    ) -> List[Dict[str, str]]:
         """
         Search using Perplexity API.
 
@@ -139,6 +145,7 @@ class PerplexityProvider(WebSearchProvider):
             query: Search query
             max_results: Maximum results (not used for Perplexity)
             sources: Optional list of @source strings to append (e.g., ["@crunchbase", "@pitchbook"])
+            disambiguation_context: Optional context to help disambiguate between companies with similar names
 
         Returns:
             List of search results
@@ -152,10 +159,15 @@ class PerplexityProvider(WebSearchProvider):
             else:
                 enhanced_query = query
 
+            # Build system prompt with disambiguation if provided
+            system_prompt = "You are a research assistant providing detailed, cited information for investment analysis."
+            if disambiguation_context:
+                system_prompt += f"\n\nCRITICAL DISAMBIGUATION:\n{disambiguation_context}\n\nONLY return information about the CORRECT company. If search results contain data about a DIFFERENT company with a similar name, DISCARD that data and state that you could not find information for the correct entity."
+
             response = self.client.chat.completions.create(
                 model="sonar-pro",  # Perplexity Sonar Pro for advanced research with citations
                 messages=[
-                    {"role": "system", "content": "You are a research assistant providing detailed, cited information for investment analysis."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": enhanced_query}
                 ]
             )
@@ -276,6 +288,24 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     if research_notes:
         print(f"Research focus: {research_notes[:80]}...")
 
+    # Build disambiguation context for Perplexity searches
+    # This helps prevent confusion with similarly-named companies
+    disambiguation_context = None
+    if company_description or company_url:
+        disambiguation_parts = [f"Target company: {company_name}"]
+        if company_description:
+            disambiguation_parts.append(f"Description: {company_description}")
+        if company_url:
+            parsed = urlparse(company_url)
+            domain = parsed.netloc if parsed.netloc else company_url
+            disambiguation_parts.append(f"Website: {company_url}")
+            disambiguation_parts.append(f"Domain: {domain}")
+        if research_notes:
+            disambiguation_parts.append(f"Notes: {research_notes}")
+
+        disambiguation_context = "\n".join(disambiguation_parts)
+        print(f"Disambiguation context built for entity verification")
+
     # NEW: Load preferred sources from outlines (respects custom outline_name from state)
     print(f"\nLoading preferred sources from {investment_type} investment outline...")
     outline_sources = load_outline_sources_from_state(state)
@@ -370,9 +400,14 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
         for idx, query in enumerate(search_queries, 1):
             print(f"Search {idx}/{len(search_queries)}: {query}...")
 
-            # Pass sources to search provider (only Perplexity supports this currently)
-            if isinstance(search_provider, PerplexityProvider) and research_sources:
-                results = search_provider.search(query, max_results=5 if idx > 1 else max_results, sources=research_sources)
+            # Pass sources and disambiguation to search provider (only Perplexity supports these currently)
+            if isinstance(search_provider, PerplexityProvider):
+                results = search_provider.search(
+                    query,
+                    max_results=5 if idx > 1 else max_results,
+                    sources=research_sources,
+                    disambiguation_context=disambiguation_context
+                )
             else:
                 results = search_provider.search(query, max_results=5 if idx > 1 else max_results)
 

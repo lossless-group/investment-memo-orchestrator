@@ -8,6 +8,7 @@
   - [ ] Brand Configs
 - [ ] Examples and a Generator script are provided for each firm
 - [ ] Viable refactor of current IO system for painless migration with few bugs.
+- [ ] converge 4-final-draft.md and the higher level draft.
 
 ## Overview
 

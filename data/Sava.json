@@ -1,8 +1,9 @@
 {
   "type": "direct",
   "mode": "consider",
-  "description": "Sava is a financial technology platform",
+  "description": "Sava is a financial and legal technology platform specialized in quickly setting up and managing Trusts (the legal entities)",
   "url": "https://www.savahq.com",
   "stage": "Series A",
+  "deck": "data/Secure-Inputs/2025-11_Sava-Fundraising-Deck--Series-A.pdf",
   "notes": "Focus on team backgrounds, technology platform, and market positioning. Ensure research is about SavaHQ (savahq.com), NOT other companies named Sava."
 }

@@ -150,6 +150,38 @@ def improve_section_with_sonar_pro(
     memo_mode = state.get("memo_mode", "consider")
     research_data = artifacts.get("research", {})
 
+    # Get disambiguation context from state (loaded from company data file)
+    company_description = state.get("company_description", "")
+    company_url = state.get("company_url", "")
+    research_notes = state.get("research_notes", "")
+
+    # Build disambiguation block if we have identifying info
+    disambiguation_context = ""
+    if company_description or company_url:
+        disambiguation_context = f"""
+CRITICAL - ENTITY DISAMBIGUATION:
+There may be multiple companies named "{company_name}". You MUST research the CORRECT company:
+
+"""
+        if company_description:
+            disambiguation_context += f"COMPANY DESCRIPTION: {company_description}\n"
+        if company_url:
+            # Extract domain for easier matching
+            domain = company_url.replace("https://", "").replace("http://", "").replace("www.", "").split("/")[0]
+            disambiguation_context += f"OFFICIAL WEBSITE: {company_url}\n"
+            disambiguation_context += f"DOMAIN TO MATCH: {domain}\n"
+        if research_notes:
+            disambiguation_context += f"RESEARCH NOTES: {research_notes}\n"
+
+        disambiguation_context += f"""
+DISAMBIGUATION RULES:
+1. ONLY use sources that reference THIS specific company (website: {company_url or 'see description'})
+2. If you find data for a DIFFERENT company with the same name, DISCARD IT
+3. When citing funding/revenue/metrics, verify the source mentions the correct company
+4. If unsure whether data is about the right company, state "Data not verified for this entity"
+5. Cross-reference with company website ({company_url}) to confirm you have the right entity
+"""
+
     # Load template
     if investment_type == "fund":
         template_file = Path("templates/memo-template-fund.md")
@@ -190,6 +222,7 @@ Your task is to significantly improve this section, keeping what's good and fixi
 
 INVESTMENT TYPE: {investment_type.upper()}
 MEMO MODE: {memo_mode.upper()} ({'retrospective justification' if memo_mode == 'justify' else 'prospective analysis'})
+{disambiguation_context}
 
 TEMPLATE GUIDANCE:
 {template_content}
