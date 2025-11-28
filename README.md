@@ -100,6 +100,10 @@ python3.11 -m src.main "Class5 Global" --type fund --mode justify
 - **Validator Agent**: Rigorously evaluates quality (0-10 scale) with specific, actionable feedback
 - **Supervisor**: Orchestrates workflow, manages state, routes to revision or finalization
 
+**Standalone Agents (CLI Tools):**
+- **Scorecard Agent**: Generates structured scorecards from YAML templates that codify your firm's proprietary evaluation criteria. Create custom scorecard templates with any number of dimensions, groups, and scoring rubrics to ensure AI-generated analysis reflects your firm's actual thinking rather than generic LLM output.
+- **Portfolio Listing Agent**: Extracts and describes portfolio companies from fund memos, with batch research capabilities via Perplexity
+
 **Key Architecture Change**: All enrichment agents now process individual section files rather than the full assembled memo, eliminating API timeout issues and ensuring consistent citation formatting.
 
 ### Web Search Integration with Premium Source Targeting
@@ -207,6 +211,69 @@ Hypernova is a Fund-of-Funds, deploying 40% of capital as LP commitments to solo
 **Memo Modes**:
 - **Justify mode**: Retrospective analysis for existing investments - recommendation is always "COMMIT" with rationale explaining the investment decision
 - **Consider mode**: Prospective analysis for potential investments - recommendation is "PASS/CONSIDER/COMMIT" based on objective analysis
+
+### Scorecard Template System
+
+Scorecards codify your firm's proprietary evaluation criteria into structured YAML templates. This ensures AI-generated analysis reflects your actual investment thinking rather than generic LLM output.
+
+**Why Scorecards Matter:**
+- Generic AI output lacks firm-specific perspective
+- Experienced investors have mental models they apply consistently
+- Scorecards make implicit evaluation criteria explicit and repeatable
+- Teams can align on what matters before AI generates content
+
+**Create Your Own Scorecard:**
+
+```yaml
+# templates/scorecards/your-firm/your-scorecard.yaml
+metadata:
+  scorecard_id: "your-firm-evaluation-v1"
+  name: "Your Evaluation Framework"
+  applicable_types: ["direct", "fund"]  # or just one
+
+scoring:
+  scale:
+    min: 1
+    max: 5  # or 10, or any range
+
+dimension_groups:
+  - group_id: "team_quality"
+    name: "Team Assessment"
+    dimensions: [founder_market_fit, technical_depth, execution_speed]
+
+dimensions:
+  founder_market_fit:
+    name: "Founder-Market Fit"
+    short_description: "How well founders understand the problem space"
+    evaluation_guidance:
+      questions:
+        - "Have founders experienced this problem firsthand?"
+        - "Do they have unfair insight into the market?"
+      red_flags:
+        - "No domain experience"
+        - "Thesis based on market reports, not lived experience"
+    scoring_rubric:
+      5: "Deep personal experience with problem; unique insight"
+      3: "Relevant adjacent experience"
+      1: "No connection to problem space"
+```
+
+**Using Scorecards:**
+
+```bash
+# Generate scorecard for a memo
+python cli/generate_scorecard.py "CompanyName"
+
+# Output: scorecard.md in artifact directory with scored dimensions
+```
+
+**Scorecard Structure:**
+- **Dimensions**: Individual criteria you evaluate (any number)
+- **Groups**: Logical groupings of related dimensions (any number)
+- **Scoring rubrics**: What each score level means for your firm
+- **Evaluation guidance**: Questions to ask, evidence to seek, red flags to watch
+
+See `templates/scorecards/lp-commits_emerging-managers/hypernova-scorecard.yaml` for a complete example with 12 dimensions across 3 groups.
 
 ## Tech Stack
 
@@ -747,6 +814,8 @@ investment-memo-orchestrator/
 │   │   ├── citation_enrichment.py    # Citation addition (Perplexity)
 │   │   ├── citation_validator.py     # Citation accuracy validation
 │   │   ├── validator.py              # Quality validation
+│   │   ├── scorecard_agent.py        # 12-dimension emerging manager scorecard
+│   │   ├── portfolio_listing_agent.py # Portfolio company extraction
 │   │   └── dataroom/                 # Dataroom Analyzer Agent System
 │   │       ├── __init__.py           # Package exports
 │   │       ├── analyzer.py           # Main orchestrator
@@ -960,6 +1029,6 @@ Investing in frontier technology companies at the intersection of climate, energ
 
 ---
 
-*Last updated: 2025-11-26*
+*Last updated: 2025-11-28*
 *Version: Automatically derived from git tags (currently v0.1.0)*
 *Status: Git-based versioning with setuptools-scm*
