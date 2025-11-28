@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 import json
 import os
 from typing import Dict, Any, List, Optional
+from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 
@@ -228,7 +229,6 @@ def generate_queries_from_deck(company_name: str, deck_data: Dict[str, Any], com
     # Extract domain for entity disambiguation
     domain_hint = ""
     if company_url:
-        from urllib.parse import urlparse
         parsed = urlparse(company_url)
         domain_hint = f"site:{parsed.netloc}" if parsed.netloc else ""
 
@@ -372,7 +372,6 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
             domain_hint = ""
             if company_url:
                 # Extract domain from URL (e.g., "savahq.com" from "https://www.savahq.com")
-                from urllib.parse import urlparse
                 parsed = urlparse(company_url)
                 domain_hint = f"site:{parsed.netloc}" if parsed.netloc else ""
 

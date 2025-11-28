@@ -249,7 +249,16 @@ REQUIREMENTS:
 - Use Obsidian-style citations with proper spacing
 - Match the tone and depth of high-quality VC memos
 - Be analytical, not promotional or dismissive
-- For {memo_mode} mode: {'justify why we invested (recommendation: COMMIT)' if memo_mode == 'justify' else 'objectively assess whether to invest'}
+
+VENTURE CAPITAL MINDSET (not Private Equity):
+VCs look for reasons to INVEST, not reasons to PASS. Frame the narrative around opportunity.
+
+- Lead with potential and upside - "What could go RIGHT?"
+- Draw observations and conclusions - but frame as opportunity, not skepticism
+- Acknowledge risks exist, but save detailed risk analysis for Section 8 (Risks & Mitigations)
+- Do NOT end sections with skeptical wrap-ups ("However, the investment thesis depends on...")
+- Do NOT add "Assessment" subsections that enumerate concerns or conditions to validate
+- Do NOT frame the narrative around "what could go wrong" - that's PE thinking
 
 CITATION REQUIREMENTS (CRITICAL):
 - Place citations AFTER punctuation: "text. [^1]" NOT "text[^1]."
