@@ -1,14 +1,62 @@
 # Firm and Deal-Based File Organization System
 
-## Needs Thinking
+## Implementation Progress
 
-- [ ] Custom Configs are loaded from `io/{firm}/config/*'
+**Last Updated**: 2025-11-30
+
+### Completed
+
+- [x] **Git submodule created**: `io/hypernova` linked to private repository (commit: 9216a84)
+- [x] **Versioning system refactored**: `src/versioning.py` supports firm-scoped and legacy modes
+- [x] **Migration CLI created**: `cli/migrate_versions.py` for migrating version history
+- [x] **17 deals migrated to `io/hypernova/deals/`**:
+  - Aalo, Aito, Andela, Avalanche, BlueLayer, Bruin, Class5-Global
+  - DontQuitVentures, Harmonic, KearnyJackson, Ontra, Star-Catcher
+  - TheoryForge, Thinking-Machines, Trela, WatershedVC, Yassir
+- [x] **Firm versions.json populated**: `io/hypernova/versions.json` with 15 deals tracked
+- [x] **Legacy data files moved**: 14 `data/*.json` files moved to submodule
+
+### In Progress (Uncommitted Changes)
+
+- [ ] Commit current changes to main repo
+- [ ] Commit changes to hypernova submodule
+
+### Remaining Work
+
+#### Phase 1: Path Resolution (High Priority)
+- [ ] Create `src/paths.py` - Centralized path resolution utilities
+- [ ] Update `src/main.py` - Add `--firm` and `--deal` CLI flags
+- [ ] Update `src/workflow.py` - Use new path resolution
+- [ ] Update `src/artifacts.py` - Save to deal-specific outputs/
+
+#### Phase 2: CLI Updates
+- [ ] `cli/improve-section.py` - Add firm/deal resolution
+- [ ] `cli/export_branded.py` - Add firm/deal resolution
+- [ ] `cli/score_memo.py` - Add firm/deal resolution
+- [ ] `cli/refocus_section.py` - Add firm/deal resolution
+- [ ] `cli/recompile_memo.py` - Add firm/deal resolution
+
+#### Phase 3: Dual-Mode & Environment
+- [ ] Implement dual-mode operation (io/ first, legacy fallback)
+- [ ] Add `MEMO_DEFAULT_FIRM` environment variable
+- [ ] Add `MEMO_IO_ROOT` environment variable
+- [ ] Add deprecation warnings for legacy paths
+
+#### Phase 4: Documentation
+- [ ] Update `README.md` with new structure
+- [ ] Create `io/README.md` with setup instructions
+- [ ] Update `CLAUDE.md` with new paths
+
+### Needs Thinking
+
+- [ ] Custom Configs loaded from `io/{firm}/configs/*`
   - [ ] Outlines
   - [ ] Scorecards
   - [ ] Brand Configs
 - [ ] Examples and a Generator script are provided for each firm
-- [ ] Viable refactor of current IO system for painless migration with few bugs.
-- [ ] converge 4-final-draft.md and the higher level draft.
+- [ ] Converge 4-final-draft.md and the higher level draft
+
+---
 
 ## Overview
 
@@ -312,24 +360,32 @@ During migration, the system should:
 3. Log deprecation warning when using legacy paths
 4. Allow `--legacy` flag to force old behavior
 
-## Questions to Resolve
+## Design Decisions (Resolved)
 
 1. **Version tracking**: Per-deal `versions.json` or per-firm `versions.json`?
-   - Recommendation: Per-firm, with deal name as key
+   - **Decision**: Per-firm, with deal name as key
+   - **Implemented**: `io/hypernova/versions.json` contains all 15 deals
 
 2. **Brand configs**: Stay in `templates/brand-configs/` or move to `io/{firm}/`?
-   - Recommendation: Stay in templates (shared resource), firm-config.yaml references by name
+   - **Decision**: Stay in templates (shared resource), firm-config.yaml references by name
+   - **Rationale**: Brand configs are visual styling, not sensitive data
 
 3. **Scorecards**: Stay in `templates/scorecards/` or allow firm-specific?
-   - Recommendation: Both - templates/ for shared, io/{firm}/scorecards/ for firm-specific
+   - **Decision**: Both - templates/ for shared, io/{firm}/configs/scorecards/ for firm-specific
+   - **Status**: Not yet implemented
 
 4. **Default firm**: Set via `.env`, CLI flag, or interactive prompt?
-   - Recommendation: All three, with precedence: CLI > .env > prompt
+   - **Decision**: All three, with precedence: CLI > .env > prompt
+   - **Status**: Not yet implemented
+
+5. **Directory naming**: `Deals/` vs `deals/`?
+   - **Decision**: Lowercase `deals/` for consistency
+   - **Implemented**: `io/hypernova/deals/`
 
 ## Success Criteria
 
-- [ ] Firms can maintain private repos for their IO data
-- [ ] Clear separation between orchestrator code and firm data
+- [x] Firms can maintain private repos for their IO data (submodule working)
+- [x] Clear separation between orchestrator code and firm data (io/ structure)
 - [ ] Easy navigation at scale (100+ deals across 5+ firms)
 - [ ] Backward compatible during migration period
 - [ ] Submodule workflow documented and tested
