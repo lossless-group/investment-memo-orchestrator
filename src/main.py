@@ -104,12 +104,12 @@ def main():
     if args.resume:
         from pathlib import Path as PathLib
 
-        # Find output directory
+        # Find output directory (firm-aware)
         try:
             if args.resume_version:
                 output_dir = PathLib("output") / f"{sanitize_filename(company_name)}-{args.resume_version}"
             else:
-                output_dir = get_latest_output_dir(company_name)
+                output_dir = get_latest_output_dir(company_name, firm=firm)
 
             if not output_dir or not output_dir.exists():
                 raise FileNotFoundError()
@@ -256,20 +256,21 @@ def main():
         ) as progress:
             task = progress.add_task("Generating investment memo...", total=None)
 
-            # Generate memo (pass all company context)
+            # Generate memo (pass all company context including firm)
             final_state = generate_memo(
                 company_name,
                 investment_type,
                 memo_mode,
-                deck_path,
-                company_description,
-                company_url,
-                company_stage,
-                research_notes,
-                company_trademark_light,
-                company_trademark_dark,
-                outline_name,
-                scorecard_name
+                firm=firm,
+                deck_path=deck_path,
+                company_description=company_description,
+                company_url=company_url,
+                company_stage=company_stage,
+                research_notes=research_notes,
+                company_trademark_light=company_trademark_light,
+                company_trademark_dark=company_trademark_dark,
+                outline_name=outline_name,
+                scorecard_name=scorecard_name
             )
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")

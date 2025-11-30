@@ -418,6 +418,7 @@ def scorecard_evaluator_agent(state: MemoState) -> Dict[str, Any]:
         Updated state with scorecard_results populated
     """
     company_name = state["company_name"]
+    firm = state.get("firm")
     scorecard_name = state.get("scorecard_name")
 
     # Skip if no scorecard specified
@@ -439,9 +440,9 @@ def scorecard_evaluator_agent(state: MemoState) -> Dict[str, Any]:
             "messages": [f"Scorecard evaluation failed: {e}"]
         }
 
-    # Find output directory
+    # Find output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
     except FileNotFoundError as e:
         print(f"   ❌ Output directory not found: {e}")
         return {

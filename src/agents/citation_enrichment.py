@@ -145,6 +145,7 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
         Updated state with citation-enriched sections
     """
     company_name = state["company_name"]
+    firm = state.get("firm")
 
     # Check if Perplexity is configured
     perplexity_key = os.getenv("PERPLEXITY_API_KEY")
@@ -174,9 +175,9 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
             "messages": ["Citation enrichment skipped - openai package not installed"]
         }
 
-    # Get output directory
+    # Get output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
         sections_dir = output_dir / "2-sections"
     except FileNotFoundError:
         print("Warning: No output directory found, skipping citation enrichment")

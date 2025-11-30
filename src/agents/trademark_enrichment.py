@@ -25,6 +25,7 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         Updated state message
     """
     company_name = state["company_name"]
+    firm = state.get("firm")
     company_trademark_light = state.get("company_trademark_light")
     company_trademark_dark = state.get("company_trademark_dark")
 
@@ -33,9 +34,9 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         print("⊘ Trademark enrichment skipped - no trademark paths provided")
         return {"messages": ["Trademark enrichment skipped - no trademark paths provided"]}
 
-    # Get output directory
+    # Get output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
     except FileNotFoundError:
         print(f"⊘ Trademark enrichment skipped - no output directory found for {company_name}")
         return {"messages": ["Trademark enrichment skipped - no output directory"]}

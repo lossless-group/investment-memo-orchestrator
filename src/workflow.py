@@ -68,10 +68,11 @@ def finalize_memo(state: MemoState) -> dict:
     from .utils import get_latest_output_dir
 
     company_name = state["company_name"]
+    firm = state.get("firm")
 
-    # Get artifact directory (most recent)
+    # Get artifact directory (most recent) - firm-aware
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
         final_draft_path = output_dir / "4-final-draft.md"
     except FileNotFoundError:
         raise FileNotFoundError(f"No output directory found for {company_name}")
@@ -264,6 +265,7 @@ def generate_memo(
     company_name: str,
     investment_type: LiteralType["direct", "fund"] = "direct",
     memo_mode: LiteralType["consider", "justify"] = "consider",
+    firm: str = None,
     deck_path: str = None,
     company_description: str = None,
     company_url: str = None,
@@ -281,6 +283,7 @@ def generate_memo(
         company_name: Name of the company to analyze
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
+        firm: Firm name for firm-scoped IO (e.g., "hypernova")
         deck_path: Optional path to pitch deck PDF
         company_description: Brief description of what the company does
         company_url: Company website URL
@@ -301,15 +304,16 @@ def generate_memo(
         company_name,
         investment_type,
         memo_mode,
-        deck_path,
-        company_description,
-        company_url,
-        company_stage,
-        research_notes,
-        company_trademark_light,
-        company_trademark_dark,
-        outline_name,
-        scorecard_name
+        firm=firm,
+        deck_path=deck_path,
+        company_description=company_description,
+        company_url=company_url,
+        company_stage=company_stage,
+        research_notes=research_notes,
+        company_trademark_light=company_trademark_light,
+        company_trademark_dark=company_trademark_dark,
+        outline_name=outline_name,
+        scorecard_name=scorecard_name
     )
 
     # Build and run workflow

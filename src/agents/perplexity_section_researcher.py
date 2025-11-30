@@ -207,6 +207,7 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
         Updated state with section research completed
     """
     company_name = state["company_name"]
+    firm = state.get("firm")
     company_description = state.get("company_description", "")
     company_url = state.get("company_url", "")
     research_notes = state.get("research_notes", "")
@@ -233,9 +234,9 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
         }
     )
 
-    # Get output directory
+    # Get output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
     except FileNotFoundError:
         # Create new version if no existing output
         version_mgr = VersionManager(Path("output"))

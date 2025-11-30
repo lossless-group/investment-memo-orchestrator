@@ -120,10 +120,11 @@ def portfolio_listing_agent(state: MemoState) -> Dict[str, Any]:
     """
 
     company_name = state["company_name"]
+    firm = state.get("firm")
 
-    # Determine latest output directory
+    # Determine latest output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
     except FileNotFoundError:
         print(f"⊘ Portfolio listing skipped - no output directory for {company_name}")
         return {"messages": ["Portfolio listing skipped - no output directory"]}

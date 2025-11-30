@@ -155,6 +155,7 @@ OUTPUT FORMAT (MARKDOWN ONLY):
 
 def scorecard_agent(state: MemoState) -> Dict[str, Any]:
     company_name = state["company_name"]
+    firm = state.get("firm")
     outline_name = state.get("outline_name")
     investment_type = state.get("investment_type", "direct")
 
@@ -164,8 +165,9 @@ def scorecard_agent(state: MemoState) -> Dict[str, Any]:
     if outline_name != "lpcommit-emerging-manager":
         return {"messages": ["Scorecard agent skipped - outline is not lpcommit-emerging-manager"]}
 
+    # Get output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
     except FileNotFoundError:
         return {"messages": ["Scorecard agent skipped - no output directory found"]}
 

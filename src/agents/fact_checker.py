@@ -321,6 +321,7 @@ def fact_checker_agent(state: MemoState) -> Dict[str, Any]:
         State updates with fact_check_results and sections_to_rewrite
     """
     company_name = state["company_name"]
+    firm = state.get("firm")
     research_data = state.get("research", {})
     expected_company_url = state.get("company_url")
 
@@ -346,11 +347,11 @@ All sections should be flagged for review.
 """
             print(entity_mismatch_warning)
 
-    # Get output directory
+    # Get output directory (firm-aware)
     from ..utils import get_latest_output_dir
 
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
         sections_dir = output_dir / "2-sections"
     except FileNotFoundError:
         print("❌ No output directory found - skipping fact check")

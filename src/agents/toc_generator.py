@@ -175,10 +175,11 @@ def toc_generator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         Updated state with TOC added to final draft
     """
     company_name = state["company_name"]
+    firm = state.get("firm")
 
-    # Get output directory
+    # Get output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
     except FileNotFoundError:
         print("⊘ TOC generation skipped - no output directory found")
         return {"messages": ["TOC generation skipped - no output directory"]}

@@ -369,6 +369,7 @@ def socials_enrichment_agent(state: MemoState) -> Dict[str, Any]:
 
     research = state.get("research", {})
     company_name = state["company_name"]
+    firm = state.get("firm")
 
     # Extract team members from research
     # First try structured company.founders (preferred)
@@ -424,9 +425,9 @@ def socials_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     if team_members:
         team_profiles = find_team_linkedin_profiles(team_members, company_name)
 
-    # Get output directory
+    # Get output directory (firm-aware)
     try:
-        output_dir = get_latest_output_dir(company_name)
+        output_dir = get_latest_output_dir(company_name, firm=firm)
         sections_dir = output_dir / "2-sections"
     except FileNotFoundError:
         print(f"⊘ Socials enrichment skipped - no output directory found")
