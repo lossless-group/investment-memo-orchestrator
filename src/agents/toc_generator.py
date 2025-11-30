@@ -68,20 +68,24 @@ def extract_headers(content: str) -> List[Tuple[int, str, str]]:
     in_citations = False
 
     for line in content.split('\n'):
-        # Check if we've entered citations section
+        # Match h2 headers (## Header) - these reset the in_citations flag
+        h2_match = re.match(r'^##\s+(.+)$', line)
+        if h2_match:
+            header_text = h2_match.group(1).strip()
+            # Skip "Table of Contents" header
+            if header_text.lower() == 'table of contents':
+                continue
+            slug = slugify(header_text)
+            headers.append((2, header_text, slug))
+            in_citations = False  # Reset when entering new main section
+            continue
+
+        # Check if we've entered a citations subsection (within a section)
         if re.match(r'^###?\s*Citations?\s*$', line, re.IGNORECASE):
             in_citations = True
             continue
 
         if in_citations:
-            continue
-
-        # Match h2 headers (## Header)
-        h2_match = re.match(r'^##\s+(.+)$', line)
-        if h2_match:
-            header_text = h2_match.group(1).strip()
-            slug = slugify(header_text)
-            headers.append((2, header_text, slug))
             continue
 
         # Match h3 headers (### Header)
