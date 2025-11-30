@@ -60,7 +60,9 @@
       "Bash(src/agents/dataroom/extractors/financial_extractor.py )",
       "Bash(changelog/2025-11-26_03.md )",
       "Bash(README.md)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(git submodule:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": []
