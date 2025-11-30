@@ -16,18 +16,28 @@
 - [x] **Firm versions.json populated**: `io/hypernova/versions.json` with 15 deals tracked
 - [x] **Legacy data files moved**: 14 `data/*.json` files moved to submodule
 
-### In Progress (Uncommitted Changes)
+#### Phase 1: Path Resolution ✅ COMPLETED
+- [x] **`src/paths.py` created** - Centralized path resolution with `DealContext` dataclass
+  - `resolve_deal_context()` - Resolves firm and deal paths with priority system
+  - `get_latest_output_dir_for_deal()` - Gets latest versioned output directory
+  - Priority: explicit firm → MEMO_DEFAULT_FIRM env → auto-detect from io/ → legacy fallback
+- [x] **`src/utils.py` updated** - `get_latest_output_dir()` now supports `firm` parameter
+- [x] **`src/main.py` updated** - Added `--firm` and `--deal` CLI flags
+- [x] **`src/workflow.py` updated** - `generate_memo()` accepts and passes `firm` parameter
+- [x] **`src/artifacts.py` updated** - `create_artifact_directory()` supports firm-scoped outputs
+- [x] **`src/state.py` updated** - Added `firm: Optional[str]` to `MemoState`
+- [x] **All 10 agents updated** to extract `firm` from state and pass to `get_latest_output_dir()`:
+  - citation_enrichment.py, fact_checker.py, link_enrichment.py
+  - perplexity_section_researcher.py, portfolio_listing_agent.py
+  - scorecard_agent.py, scorecard_evaluator.py, socials_enrichment.py
+  - toc_generator.py, trademark_enrichment.py
 
-- [ ] Commit current changes to main repo
-- [ ] Commit changes to hypernova submodule
+#### Phase 3: Dual-Mode & Environment ✅ COMPLETED
+- [x] **Dual-mode operation implemented**: Checks io/{firm}/deals/{deal}/ first, falls back to legacy
+- [x] **MEMO_DEFAULT_FIRM environment variable**: Supported in path resolution
+- [x] **Auto-detection**: Can find firm from io/ directory when deal exists
 
 ### Remaining Work
-
-#### Phase 1: Path Resolution (High Priority)
-- [ ] Create `src/paths.py` - Centralized path resolution utilities
-- [ ] Update `src/main.py` - Add `--firm` and `--deal` CLI flags
-- [ ] Update `src/workflow.py` - Use new path resolution
-- [ ] Update `src/artifacts.py` - Save to deal-specific outputs/
 
 #### Phase 2: CLI Updates
 - [ ] `cli/improve-section.py` - Add firm/deal resolution
@@ -35,12 +45,6 @@
 - [ ] `cli/score_memo.py` - Add firm/deal resolution
 - [ ] `cli/refocus_section.py` - Add firm/deal resolution
 - [ ] `cli/recompile_memo.py` - Add firm/deal resolution
-
-#### Phase 3: Dual-Mode & Environment
-- [ ] Implement dual-mode operation (io/ first, legacy fallback)
-- [ ] Add `MEMO_DEFAULT_FIRM` environment variable
-- [ ] Add `MEMO_IO_ROOT` environment variable
-- [ ] Add deprecation warnings for legacy paths
 
 #### Phase 4: Documentation
 - [ ] Update `README.md` with new structure
