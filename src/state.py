@@ -126,6 +126,25 @@ class CitationValidation(TypedDict, total=False):
     warnings: List[str]     # Duplicate URLs, old sources, etc.
 
 
+class DimensionScore(TypedDict, total=False):
+    """Score for a single scorecard dimension."""
+    score: int              # 1-5 scale
+    percentile: str         # e.g., "Top 10-25%"
+    evidence: str           # Key evidence supporting the score
+    improvements: List[str] # What would make this score higher
+
+
+class ScorecardResults(TypedDict, total=False):
+    """Complete scorecard evaluation results."""
+    scorecard_name: str
+    overall_score: float
+    dimensions: Dict[str, DimensionScore]
+    groups: Dict[str, float]  # Group average scores
+    strengths: List[str]      # Dimension IDs with scores >= 4
+    concerns: List[str]       # Dimension IDs with scores <= 2
+    diligence_questions: List[str]  # Questions derived from low scores
+
+
 class MemoState(TypedDict):
     """
     Main state object for the investment memo workflow.
@@ -146,6 +165,7 @@ class MemoState(TypedDict):
     company_trademark_light: Optional[str]  # Path or URL to light mode company logo/trademark
     company_trademark_dark: Optional[str]  # Path or URL to dark mode company logo/trademark
     outline_name: Optional[str]  # Custom outline name (e.g., "lpcommit-emerging-manager")
+    scorecard_name: Optional[str]  # Scorecard name (e.g., "hypernova-early-stage-12Ps")
 
     # Deck analysis (NEW)
     deck_path: Optional[str]
@@ -162,6 +182,9 @@ class MemoState(TypedDict):
     citation_validation: Optional[CitationValidation]  # Citation accuracy validation
     fact_check_results: Optional[Dict[str, Any]]  # Fact-checking results (claims vs sources)
     overall_score: float
+
+    # Scorecard evaluation (12Ps)
+    scorecard_results: Optional[ScorecardResults]  # Dimension scores and analysis
 
     # Iteration tracking
     revision_count: int
@@ -184,7 +207,8 @@ def create_initial_state(
     research_notes: Optional[str] = None,
     company_trademark_light: Optional[str] = None,
     company_trademark_dark: Optional[str] = None,
-    outline_name: Optional[str] = None
+    outline_name: Optional[str] = None,
+    scorecard_name: Optional[str] = None
 ) -> MemoState:
     """
     Create initial state for a new memo generation workflow.
@@ -201,6 +225,7 @@ def create_initial_state(
         company_trademark_light: Path or URL to light mode company logo/trademark
         company_trademark_dark: Path or URL to dark mode company logo/trademark
         outline_name: Custom outline name (e.g., "lpcommit-emerging-manager")
+        scorecard_name: Scorecard name (e.g., "hypernova-early-stage-12Ps")
 
     Returns:
         MemoState with initialized values
@@ -216,6 +241,7 @@ def create_initial_state(
         company_trademark_light=company_trademark_light,
         company_trademark_dark=company_trademark_dark,
         outline_name=outline_name,
+        scorecard_name=scorecard_name,
         deck_path=deck_path,
         deck_analysis=None,
         research=None,
@@ -224,6 +250,7 @@ def create_initial_state(
         citation_validation=None,
         fact_check_results=None,
         overall_score=0.0,
+        scorecard_results=None,
         revision_count=0,
         final_memo=None,
         messages=[]

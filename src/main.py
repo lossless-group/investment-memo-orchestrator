@@ -124,6 +124,7 @@ def main():
     company_trademark_light = None
     company_trademark_dark = None
     outline_name = None
+    scorecard_name = None
     data_file = Path(f"data/{company_name}.json")
 
     # Default to CLI arguments
@@ -152,6 +153,11 @@ def main():
                 outline_name = company_data.get("outline")
                 if outline_name:
                     console.print(f"[bold green]Custom outline:[/bold green] {outline_name}")
+
+                # Load scorecard name if present
+                scorecard_name = company_data.get("scorecard")
+                if scorecard_name:
+                    console.print(f"[bold green]Scorecard:[/bold green] {scorecard_name}")
 
                 # NEW: Read type and mode from JSON if present
                 json_type = company_data.get("type", "").lower()
@@ -226,7 +232,8 @@ def main():
                 research_notes,
                 company_trademark_light,
                 company_trademark_dark,
-                outline_name
+                outline_name,
+                scorecard_name
             )
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")
@@ -244,6 +251,15 @@ def main():
         score = final_state.get("overall_score", 0.0)
         score_color = "green" if score >= 8 else "yellow" if score >= 6 else "red"
         console.print(f"\n[bold]Validation Score:[/bold] [{score_color}]{score}/10[/{score_color}]")
+
+        # Show scorecard results if available
+        scorecard_results = final_state.get("scorecard_results")
+        if scorecard_results:
+            sc_score = scorecard_results.get("overall_score", 0)
+            sc_strengths = len(scorecard_results.get("strengths", []))
+            sc_concerns = len(scorecard_results.get("concerns", []))
+            sc_color = "green" if sc_score >= 4 else "yellow" if sc_score >= 3 else "red"
+            console.print(f"[bold]Scorecard Score:[/bold] [{sc_color}]{sc_score:.1f}/5[/{sc_color}] ({sc_strengths} strengths, {sc_concerns} concerns)")
 
         # Show validation feedback if available
         validation = final_state.get("validation_results", {}).get("full_memo", {})

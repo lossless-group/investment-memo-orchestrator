@@ -25,6 +25,7 @@ from .agents.toc_generator import toc_generator_agent
 from .agents.citation_validator import citation_validator_agent
 from .agents.fact_checker import fact_checker_agent
 from .agents.validator import validator_agent
+from .agents.scorecard_evaluator import scorecard_evaluator_agent
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
 from .versioning import VersionManager
 
@@ -218,6 +219,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("validate_citations", citation_validator_agent)  # Citation accuracy validator
     workflow.add_node("fact_check", fact_checker_agent)  # NEW: Fact-checking agent (verify claims vs sources)
     workflow.add_node("validate", validator_agent)
+    workflow.add_node("scorecard", scorecard_evaluator_agent)  # NEW: 12Ps scorecard evaluation
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
@@ -238,10 +240,11 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("toc", "validate_citations")  # Validate citation accuracy after TOC
     workflow.add_edge("validate_citations", "fact_check")  # NEW: Fact-check claims against research sources
     workflow.add_edge("fact_check", "validate")
+    workflow.add_edge("validate", "scorecard")  # NEW: Run scorecard evaluation after validation
 
-    # Conditional edge after validation
+    # Conditional edge after scorecard evaluation
     workflow.add_conditional_edges(
-        "validate",
+        "scorecard",
         should_continue,
         {
             "finalize": "finalize",
@@ -268,7 +271,8 @@ def generate_memo(
     research_notes: str = None,
     company_trademark_light: str = None,
     company_trademark_dark: str = None,
-    outline_name: str = None
+    outline_name: str = None,
+    scorecard_name: str = None
 ) -> MemoState:
     """
     Main entry point for generating an investment memo.
@@ -285,9 +289,10 @@ def generate_memo(
         company_trademark_light: Path or URL to light mode company logo/trademark
         company_trademark_dark: Path or URL to dark mode company logo/trademark
         outline_name: Custom outline name (e.g., "lpcommit-emerging-manager")
+        scorecard_name: Scorecard name for evaluation (e.g., "hypernova-early-stage-12Ps")
 
     Returns:
-        Final state containing research, draft, validation, and final memo
+        Final state containing research, draft, validation, scorecard evaluation, and final memo
     """
     from .state import create_initial_state
 
@@ -303,7 +308,8 @@ def generate_memo(
         research_notes,
         company_trademark_light,
         company_trademark_dark,
-        outline_name
+        outline_name,
+        scorecard_name
     )
 
     # Build and run workflow
