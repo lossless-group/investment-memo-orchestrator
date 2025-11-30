@@ -2,3 +2,6 @@
 	path = io/hypernova
 	url = https://github.com/lossless-group/hypernova-secure-data.git
 	branch = main
+[submodule "io/avalanche"]
+	path = io/avalanche
+	url = https://github.com/lossless-group/avalanche-secure-data.git
