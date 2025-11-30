@@ -1,0 +1,4 @@
+[submodule "io/hypernova"]
+	path = io/hypernova
+	url = https://github.com/lossless-group/hypernova-secure-data.git
+	branch = main
