@@ -2249,6 +2249,182 @@ CONTENT_SIGNALS = {
 
 ---
 
+---
+
+## Known Issues & Troubleshooting
+
+### Issue #1: Large Dataroom Performance - PDF Page Count Extraction (2025-11-30)
+
+**Status**: Open - Needs Fix
+**Severity**: High
+**Discovered**: 2025-11-30 during Star-Catcher dataroom analysis
+
+#### Problem Description
+
+When processing large datarooms (100+ files, especially with many PDFs), the analyzer becomes extremely slow during the initial **scan phase**. The root cause is that `_get_page_count()` is called synchronously for every PDF file during inventory building.
+
+**Observed behavior with Star-Catcher dataroom:**
+- 218 total files (152 PDFs, 10 Excel files)
+- Scanner opens every PDF with `pypdf.PdfReader` just to count pages
+- Malformed PDFs trigger hundreds of `"Ignoring wrong pointing object"` warnings
+- Each PDF open/parse adds latency
+- Total scan time: Several minutes for just the inventory phase
+
+#### Root Cause Analysis
+
+**File**: `src/agents/dataroom/document_scanner.py:105`
+
+```python
+# Line 105 - PROBLEMATIC CODE
+item: DocumentInventoryItem = {
+    # ...
+    "page_count": _get_page_count(file_path) if extension == ".pdf" else None,
+    # ...
+}
+```
+
+**File**: `src/agents/dataroom/document_scanner.py:213-220`
+
+```python
+def _get_page_count(pdf_path: Path) -> Optional[int]:
+    """Get page count from PDF."""
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(str(pdf_path))  # Opens and parses entire PDF
+        return len(reader.pages)
+    except Exception:
+        return None
+```
+
+For each of the 152 PDFs:
+1. `PdfReader` is instantiated (parses PDF structure)
+2. Malformed object references trigger warnings (not silenced)
+3. Page count is extracted
+4. This happens synchronously, blocking the main thread
+
+#### Impact
+
+- Dataroom analysis becomes impractical for large datarooms (100+ files)
+- Users see walls of `"Ignoring wrong pointing object"` warnings
+- No progress indication during slow scan phase
+- May timeout before reaching classification/extraction phases
+
+#### Proposed Solutions
+
+**Option 1: Lazy Page Counting (Recommended)**
+Defer page count to extraction phase when the PDF is actually needed:
+
+```python
+# In scan_dataroom():
+item: DocumentInventoryItem = {
+    # ...
+    "page_count": None,  # Defer to extraction phase
+    # ...
+}
+
+# In extractor (when PDF is actually processed):
+if item["page_count"] is None and item["extension"] == ".pdf":
+    item["page_count"] = _get_page_count(item["file_path"])
+```
+
+**Option 2: Add `--fast` / `--skip-page-count` Flag**
+Allow users to skip page counting for quick inventory:
+
+```python
+def scan_dataroom(dataroom_path: str, skip_page_count: bool = False) -> List[DocumentInventoryItem]:
+    # ...
+    "page_count": None if skip_page_count else _get_page_count(file_path),
+```
+
+**Option 3: Suppress pypdf Warnings**
+At minimum, suppress the noisy warnings:
+
+```python
+import warnings
+import logging
+
+# Suppress pypdf warnings during scan
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", message="Ignoring wrong pointing object")
+```
+
+**Option 4: Parallel PDF Processing**
+Use `concurrent.futures` to parallelize page counting:
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def scan_dataroom_parallel(dataroom_path: str) -> List[DocumentInventoryItem]:
+    # First pass: create inventory without page counts
+    inventory = [create_item_no_pagecount(f) for f in files]
+
+    # Second pass: parallel page count for PDFs
+    pdf_items = [i for i in inventory if i["extension"] == ".pdf"]
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {
+            executor.submit(_get_page_count, i["file_path"]): i
+            for i in pdf_items
+        }
+        for future in as_completed(futures):
+            item = futures[future]
+            item["page_count"] = future.result()
+
+    return inventory
+```
+
+**Option 5: Category-Based Analysis**
+Add ability to analyze specific subfolders:
+
+```bash
+python -m src.agents.dataroom.analyzer "dataroom/Financials" "Company" --category financials
+```
+
+#### Recommended Implementation Priority
+
+1. **Immediate**: Add warning suppression (Option 3) - minimal effort, reduces noise
+2. **Short-term**: Implement lazy page counting (Option 1) - eliminates root cause
+3. **Medium-term**: Add `--fast` flag (Option 2) - user control
+4. **Future**: Parallel processing (Option 4) - optimization for very large datarooms
+
+#### Workaround Until Fixed
+
+For large datarooms, users should point directly to the pitch deck instead:
+
+```json
+// data/Company.json
+{
+  "deck": "data/Secure-Inputs/Dataroom/Star Catcher Deck vF 2024.pdf"
+}
+```
+
+Then run standard memo generation without the dataroom:
+
+```bash
+python -m src.main "Star-Catcher"
+```
+
+This bypasses the dataroom analyzer entirely and uses the existing `deck_analyst.py` for the single pitch deck.
+
+#### Test Case
+
+```bash
+# This command triggered the issue:
+source .venv/bin/activate && python -m src.agents.dataroom.analyzer \
+    "data/Secure-Inputs/2024_Star-Catcher-Dataroom" \
+    "Star-Catcher"
+
+# Expected: Quick scan with progress, then classification
+# Actual: Minutes of "Ignoring wrong pointing object" warnings before any progress
+```
+
+#### Related Files
+
+- `src/agents/dataroom/document_scanner.py` - Contains `_get_page_count()` function
+- `src/agents/dataroom/analyzer.py` - Main entry point, calls `scan_dataroom()`
+
+---
+
 ## References
 
 - Existing `deck_analyst.py` implementation

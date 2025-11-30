@@ -101,8 +101,9 @@ See [Pipeline Agents Reference](#pipeline-agents-reference) and [CLI Tools Refer
 - **Automatic aggregation**: 8 premium sources aggregated from 5 key sections for comprehensive coverage
 - **Quality control**: Prevents low-quality filler from benchmark sites and SEO spam
 - **Multi-query strategy**: Company overview, funding, team, news with targeted source selection
-- **Real-time research**: Tavily API or Perplexity Sonar Pro API
-- **Fallback mode**: Claude-only mode (no API keys required for testing)
+- **Multiple providers**: Tavily API (preferred), Perplexity Sonar Pro API, or DuckDuckGo (free fallback)
+- **Automatic fallback**: If Tavily unavailable, falls back to Perplexity → DuckDuckGo
+- **Free option**: Set `RESEARCH_PROVIDER=duckduckgo` for free web search (no API key required)
 
 ### Artifact Trail System
 - **Complete transparency**: Every workflow step saves artifacts to output directory
@@ -268,7 +269,7 @@ See `templates/scorecards/lp-commits_emerging-managers/hypernova-scorecard.yaml`
 
 - **Orchestration**: LangGraph (Python) for multi-agent coordination
 - **LLM**: Anthropic Claude Sonnet 4.5 for analysis and writing
-- **Web Search**: Tavily API (recommended) or [Perplexity Sonar Pro](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) API for research
+- **Web Search**: Tavily API (preferred), [Perplexity Sonar Pro](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api), or DuckDuckGo (free fallback)
 - **Web Scraping**: httpx + BeautifulSoup for website parsing
 - **CLI**: Rich for beautiful terminal output with progress indicators
 - **State Management**: TypedDict schemas with LangGraph state graphs
@@ -324,12 +325,26 @@ cp .env.example .env
 ANTHROPIC_API_KEY=your-claude-key
 
 # Optional (for web search - highly recommended):
-TAVILY_API_KEY=your-tavily-key
-# or
-PERPLEXITY_API_KEY=your-perplexity-key
+TAVILY_API_KEY=your-tavily-key        # Preferred - has domain filtering
+PERPLEXITY_API_KEY=your-perplexity-key # Also used for citation enrichment
+
+# Research provider selection (default: tavily)
+RESEARCH_PROVIDER=tavily     # Options: tavily, perplexity, duckduckgo
 ```
 
-Get a free Tavily API key at [tavily.com](https://tavily.com) (1,000 searches/month free tier).
+**Research Provider Options:**
+
+| Provider | API Key Required | Best For |
+|----------|-----------------|----------|
+| `tavily` | Yes (`TAVILY_API_KEY`) | General research, domain filtering |
+| `perplexity` | Yes (`PERPLEXITY_API_KEY`) | Deep research with citations |
+| `duckduckgo` | No (free!) | Free fallback, no API key needed |
+
+**Automatic Fallback:** If your configured provider's API key is missing, the system automatically tries: Tavily → Perplexity → DuckDuckGo.
+
+Get API keys:
+- Tavily: [tavily.com](https://tavily.com) (1,000 searches/month free tier)
+- Perplexity: [perplexity.ai](https://www.perplexity.ai/settings/api) (pay-as-you-go)
 
 ### Usage
 

@@ -19,7 +19,7 @@ import re
 
 def search_for_social_profile(query: str, platform: str) -> Optional[str]:
     """
-    Search for a social media profile using Tavily.
+    Search for a social media profile using Tavily (preferred) or DuckDuckGo (fallback).
 
     Args:
         query: Search query (e.g., "John Doe LinkedIn" or "Acme Corp GitHub")
@@ -30,33 +30,73 @@ def search_for_social_profile(query: str, platform: str) -> Optional[str]:
     """
     tavily_api_key = os.getenv("TAVILY_API_KEY")
 
-    if not tavily_api_key:
-        print("Warning: TAVILY_API_KEY not set, skipping social profile search")
+    # Try Tavily first (preferred - has domain filtering)
+    if tavily_api_key:
+        try:
+            from tavily import TavilyClient
+            client = TavilyClient(api_key=tavily_api_key)
+
+            # Search for the profile
+            response = client.search(
+                query=query,
+                max_results=5,
+                include_domains=[get_platform_domain(platform)]
+            )
+
+            results = response.get("results", [])
+
+            # Find the best matching URL
+            for result in results:
+                url = result.get("url", "")
+                if is_valid_profile_url(url, platform):
+                    return url
+
+            return None
+
+        except Exception as e:
+            print(f"Warning: Tavily search failed: {e}, trying DuckDuckGo fallback...")
+
+    # Fallback to DuckDuckGo (free, no API key)
+    return _search_with_duckduckgo(query, platform)
+
+
+def _search_with_duckduckgo(query: str, platform: str) -> Optional[str]:
+    """
+    Search for a social profile using DuckDuckGo (free fallback).
+
+    Args:
+        query: Search query
+        platform: Platform name
+
+    Returns:
+        URL of the profile if found, None otherwise
+    """
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError:
+        print("Warning: duckduckgo-search not installed, skipping social profile search")
+        print("  Install with: uv pip install duckduckgo-search")
         return None
 
     try:
-        from tavily import TavilyClient
-        client = TavilyClient(api_key=tavily_api_key)
+        ddgs = DDGS()
 
-        # Search for the profile
-        response = client.search(
-            query=query,
-            max_results=5,
-            include_domains=[get_platform_domain(platform)]
-        )
+        # Add site: filter to query for domain targeting
+        domain = get_platform_domain(platform)
+        enhanced_query = f"site:{domain} {query}"
 
-        results = response.get("results", [])
+        results = ddgs.text(enhanced_query, max_results=5)
 
         # Find the best matching URL
         for result in results:
-            url = result.get("url", "")
+            url = result.get("href", "")
             if is_valid_profile_url(url, platform):
                 return url
 
         return None
 
     except Exception as e:
-        print(f"Warning: Could not search for {platform} profile: {e}")
+        print(f"Warning: DuckDuckGo search failed for {platform}: {e}")
         return None
 
 

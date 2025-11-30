@@ -2604,4 +2604,226 @@ For organizations producing structured analytical documents at scale—whether i
 
 ---
 
+## Dataroom Integration Architecture (2025-11-30)
+
+### Overview
+
+The system includes a comprehensive **Dataroom Analyzer** designed to process entire investment datarooms (not just pitch decks). This enables extraction of structured data from multiple document types before memo generation begins.
+
+### Current Implementation Status
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| Document Scanner | ✅ Complete | Recursive directory walk, file inventory, PDF page counts |
+| Document Classifier | ✅ Complete | Three-stage classification (directory → filename → LLM content) |
+| Financial Extractor | ✅ Complete | Excel/CSV P&L, balance sheets, projections, burn rate |
+| Cap Table Extractor | ✅ Complete | Ownership, shareholders, option pools, SAFEs |
+| Team Extractor | ✅ Complete | Founder bios, backgrounds, LinkedIn URLs |
+| Traction Extractor | ✅ Complete | Customer lists, ARR/MRR, retention rates |
+| Competitive Extractor | ✅ Complete | Multi-battlecard synthesis, feature matrices |
+| Synthesis Engine | ⚠️ Partial | Basic merging, conflict detection needs work |
+| **Workflow Integration** | ❌ Missing | **Not connected to main memo pipeline** |
+| **State Management** | ❌ Missing | No `dataroom_path`/`dataroom_analysis` in MemoState |
+| **CLI Arguments** | ❌ Missing | No `--dataroom` flag in main.py |
+| **JSON Config Loading** | ⚠️ Partial | Field exists in data/*.json but not loaded |
+
+### Dataroom Analyzer Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     DATAROOM ANALYZER (STANDALONE)                   │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+    ┌──────────────────────────────┼──────────────────────────────────┐
+    │                              │                                   │
+    ▼                              ▼                                   ▼
+┌─────────────┐           ┌─────────────┐                    ┌─────────────┐
+│  Phase 1:   │           │  Phase 2:   │                    │  Phase 3:   │
+│  Discovery  │           │  Extraction │                    │  Synthesis  │
+└─────────────┘           └─────────────┘                    └─────────────┘
+    │                              │                                   │
+    ├─ Scan directory              ├─ Financial Extractor              ├─ Merge data
+    ├─ Inventory files             ├─ Cap Table Extractor              ├─ Deduplicate
+    └─ Classify documents          ├─ Team Extractor                   ├─ Resolve conflicts
+                                   ├─ Traction Extractor               └─ Identify gaps
+                                   └─ Competitive Extractor
+                                              │
+                                              ▼
+                               ┌─────────────────────────────┐
+                               │   ARTIFACTS (output/)       │
+                               │   0-dataroom-inventory.*    │
+                               │   1-competitive-analysis.*  │
+                               │   2-cap-table.*             │
+                               │   3-financial-analysis.*    │
+                               │   4-traction-analysis.*     │
+                               │   5-team-analysis.*         │
+                               │   6-synthesis-report.*      │
+                               └─────────────────────────────┘
+```
+
+### Integration Gap Analysis
+
+**Current Workflow (Without Dataroom)**:
+```
+[Deck Analyst] → [Research] → [Writer] → [Enrichment Agents] → [Validation] → [Scorecard] → [Finalize]
+```
+
+**Target Workflow (With Dataroom)**:
+```
+[Dataroom Orchestrator] → [Route Decision] → [Deck Analyst?] → [Research*] → [Writer*] → ... → [Finalize]
+                              │
+                              ├─ If dataroom contains pitch deck: Skip Deck Analyst
+                              ├─ If no dataroom: Continue to Deck Analyst (if deck_path)
+                              │
+                              ▼
+                         [Research Agent*]
+                              │
+                              ├─ Check dataroom_analysis for existing data
+                              ├─ Skip researching fields already extracted (financials, team, etc.)
+                              └─ Focus on gap areas identified by synthesis
+
+* = Modified to consume dataroom data
+```
+
+### Missing Integration Points
+
+#### 1. State Schema (`src/state.py`)
+
+Need to add:
+```python
+class MemoState(TypedDict):
+    # ... existing fields ...
+    dataroom_path: Optional[str]           # Path to dataroom directory
+    dataroom_analysis: Optional[DataroomAnalysis]  # Full structured analysis
+```
+
+#### 2. Workflow Node (`src/workflow.py`)
+
+Need to add:
+```python
+def dataroom_orchestrator_agent(state: MemoState) -> dict:
+    """Wrapper around analyze_dataroom() for LangGraph integration."""
+    from src.agents.dataroom.analyzer import analyze_dataroom
+
+    dataroom_path = state.get("dataroom_path")
+    if not dataroom_path:
+        return {"messages": ["No dataroom specified, skipping"]}
+
+    analysis = analyze_dataroom(dataroom_path, state["company_name"])
+    return {
+        "dataroom_analysis": analysis,
+        "messages": [f"Dataroom analysis complete: {analysis['document_count']} docs processed"]
+    }
+```
+
+#### 3. CLI Integration (`src/main.py`)
+
+Need to add:
+```python
+# Load dataroom path from company JSON
+dataroom_path = company_data.get("dataroom")
+if dataroom_path:
+    console.print(f"[bold green]Dataroom:[/bold green] {dataroom_path}")
+
+# Pass to generate_memo()
+generate_memo(..., dataroom_path=dataroom_path)
+```
+
+#### 4. Research Agent Integration
+
+Need to modify research agent to:
+1. Check if `dataroom_analysis` exists in state
+2. Skip researching fields already extracted (financials, team, traction)
+3. Use dataroom data to generate more targeted search queries
+4. Merge dataroom findings with web research
+
+### Configuration Example (Star-Catcher)
+
+The `data/Star-Catcher.json` file is **already configured** with a dataroom reference:
+
+```json
+{
+  "type": "direct",
+  "mode": "justify",
+  "outline": "direct-early-stage-12Ps",
+  "scorecard": "hypernova-early-stage-12Ps",
+  "dataroom": "data/Secure-Inputs/2024_Star-Catcher-Dataroom",
+  "description": "Using optical power beaming...",
+  "url": "https://www.star-catcher.com/",
+  "stage": "Series Seed. Bridge to Series A",
+  "notes": "The company's dataroom is very substantial..."
+}
+```
+
+However, `main.py` **does not load** this `dataroom` field, so it's currently ignored.
+
+### Current Standalone Usage
+
+The dataroom analyzer works as a CLI tool but is not integrated into the memo workflow:
+
+```bash
+# Standalone dataroom analysis (works)
+source .venv/bin/activate
+python -m src.agents.dataroom.analyzer "data/Secure-Inputs/2024_Star-Catcher-Dataroom" "Star-Catcher"
+
+# Memo generation (ignores dataroom)
+python -m src.main "Star-Catcher"  # Does NOT use dataroom data
+```
+
+### Integration Roadmap
+
+**Phase 1: State & CLI** (1-2 hours)
+1. Add `dataroom_path` and `dataroom_analysis` to `MemoState`
+2. Update `create_initial_state()` to accept dataroom_path
+3. Load `dataroom` from company JSON in `main.py`
+4. Add `--dataroom` CLI argument
+
+**Phase 2: Workflow Integration** (2-3 hours)
+1. Create `dataroom_orchestrator_agent()` wrapper function
+2. Add dataroom node to workflow graph
+3. Add conditional routing: dataroom → research (skipping deck if found)
+4. Save dataroom artifacts with memo versioning
+
+**Phase 3: Research Integration** (2-3 hours)
+1. Modify Research Agent to check for existing dataroom data
+2. Skip fields already extracted (financials, team, etc.)
+3. Generate gap-focused search queries
+4. Merge dataroom + web research into unified state
+
+**Phase 4: Writer Integration** (2-3 hours)
+1. Update Writer Agent to access dataroom_analysis
+2. Pre-populate section placeholders with extracted facts
+3. Use dataroom facts as primary evidence/citations
+4. Enhance with web research only where gaps exist
+
+### Potential Issues for Star-Catcher
+
+1. **Large Dataroom**: Star-Catcher's dataroom is "very substantial" per the notes. Processing time may be significant (10-30 minutes for full extraction).
+
+2. **API Rate Limits**: LLM-based classification for many documents may hit rate limits. Current implementation has basic retry logic but may need enhancement.
+
+3. **Memory Usage**: Loading many PDFs simultaneously could cause memory issues. Current implementation processes sequentially.
+
+4. **Conflict Resolution**: If dataroom has conflicting data (e.g., different revenue figures in different documents), synthesis engine may not resolve correctly.
+
+5. **Integration Testing**: Full pipeline (dataroom → research → writer → enrichment → validation) has not been tested end-to-end.
+
+### Recommended Approach for Star-Catcher
+
+**Option A: Two-Step Process** (Safer)
+1. Run standalone dataroom analysis first
+2. Manually review artifacts
+3. Run memo generation without dataroom (let research agent do web search)
+4. Manually incorporate key dataroom findings
+
+**Option B: Integration Sprint** (Complete workflow)
+1. Implement Phase 1-2 integration (~3-4 hours)
+2. Test with Star-Catcher dataroom
+3. Iterate on issues
+4. Complete Phase 3-4 if time permits
+
+**Recommendation**: Start with **Option A** to generate the memo quickly, then use learnings to inform **Option B** implementation for future companies.
+
+---
+
 *This exploration synthesizes current best practices in multi-agent systems (as of November 2024) with practical requirements for venture capital document generation. Recommendations are based on real investment memo structures from Hypernova's portfolio analysis workflows.*

@@ -10,6 +10,7 @@ charset-normalizer==3.4.4
 cssselect2==0.8.0
 distro==1.9.0
 docstring-parser==0.17.0
+duckduckgo-search==8.1.1
 fonttools==4.60.1
 google-api-core==2.28.1
 google-api-python-client==2.187.0

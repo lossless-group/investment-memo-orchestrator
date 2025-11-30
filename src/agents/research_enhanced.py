@@ -118,6 +118,45 @@ class TavilyProvider(WebSearchProvider):
             return []
 
 
+class DuckDuckGoProvider(WebSearchProvider):
+    """DuckDuckGo web search provider (free, no API key required)."""
+
+    def __init__(self):
+        try:
+            from duckduckgo_search import DDGS
+            self.ddgs = DDGS()
+        except ImportError:
+            raise ImportError("duckduckgo-search not installed. Run: uv pip install duckduckgo-search")
+
+    def search(self, query: str, max_results: int = 10, sources: Optional[List[str]] = None) -> List[Dict[str, str]]:
+        """
+        Search using DuckDuckGo (free, no API key).
+
+        Args:
+            query: Search query
+            max_results: Maximum results to return
+            sources: Optional list of @source strings (not used by DuckDuckGo)
+
+        Returns:
+            List of search results
+        """
+        try:
+            results = []
+            ddg_results = self.ddgs.text(query, max_results=max_results)
+
+            for result in ddg_results:
+                results.append({
+                    'title': result.get('title', ''),
+                    'url': result.get('href', ''),
+                    'content': result.get('body', '')
+                })
+
+            return results
+        except Exception as e:
+            print(f"DuckDuckGo search error: {e}")
+            return []
+
+
 class PerplexityProvider(WebSearchProvider):
     """Perplexity API provider (excellent for research)."""
 
@@ -339,14 +378,41 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
         if tavily_key:
             search_provider = TavilyProvider(tavily_key)
         else:
-            print("Warning: TAVILY_API_KEY not set, falling back to Claude-only research")
+            print("Warning: TAVILY_API_KEY not set, trying fallback providers...")
+            # Try Perplexity as first fallback
+            perplexity_key = os.getenv("PERPLEXITY_API_KEY")
+            if perplexity_key:
+                print("  Using Perplexity as fallback")
+                search_provider = PerplexityProvider(perplexity_key)
+            else:
+                # Try DuckDuckGo as free fallback (no API key needed)
+                try:
+                    print("  Using DuckDuckGo as free fallback (no API key required)")
+                    search_provider = DuckDuckGoProvider()
+                except ImportError:
+                    print("  DuckDuckGo not available. Install with: uv pip install duckduckgo-search")
+                    print("  Falling back to Claude-only research")
 
     elif provider_name == "perplexity":
         perplexity_key = os.getenv("PERPLEXITY_API_KEY")
         if perplexity_key:
             search_provider = PerplexityProvider(perplexity_key)
         else:
-            print("Warning: PERPLEXITY_API_KEY not set, falling back to Claude-only research")
+            print("Warning: PERPLEXITY_API_KEY not set, trying DuckDuckGo fallback...")
+            try:
+                search_provider = DuckDuckGoProvider()
+                print("  Using DuckDuckGo as free fallback")
+            except ImportError:
+                print("  DuckDuckGo not available, falling back to Claude-only research")
+
+    elif provider_name == "duckduckgo":
+        # Explicit DuckDuckGo selection (free, no API key)
+        try:
+            search_provider = DuckDuckGoProvider()
+            print("Using DuckDuckGo search (free, no API key required)")
+        except ImportError:
+            print("Warning: duckduckgo-search not installed. Run: uv pip install duckduckgo-search")
+            print("Falling back to Claude-only research")
 
     # Gather research from multiple sources
     research_context = []
