@@ -69,18 +69,36 @@ def main():
         dest="resume_version",
         help="Specific version to resume (e.g., v0.0.3). Only used with --resume."
     )
+    parser.add_argument(
+        "--firm",
+        type=str,
+        help="Firm name for firm-scoped IO (e.g., 'hypernova'). Uses io/{firm}/deals/{deal}/ structure."
+    )
+    parser.add_argument(
+        "--deal",
+        type=str,
+        help="Deal name (alternative to positional company_name argument)"
+    )
 
     args = parser.parse_args()
 
-    # Get company name from args or prompt
-    if args.company_name:
+    # Get company/deal name from args or prompt
+    # Priority: --deal flag > positional argument > prompt
+    if args.deal:
+        company_name = args.deal
+    elif args.company_name:
         company_name = args.company_name
     else:
-        company_name = console.input("\n[bold cyan]Enter company name:[/bold cyan] ")
+        company_name = console.input("\n[bold cyan]Enter company/deal name:[/bold cyan] ")
 
     if not company_name.strip():
-        console.print("[bold red]Error:[/bold red] Company name cannot be empty")
+        console.print("[bold red]Error:[/bold red] Company/deal name cannot be empty")
         sys.exit(1)
+
+    # Get firm from args or environment
+    firm = args.firm
+    if not firm:
+        firm = os.getenv("MEMO_DEFAULT_FIRM")
 
     # RESUME MODE: If --resume flag is set, use resume workflow
     if args.resume:
@@ -115,7 +133,27 @@ def main():
         )
         sys.exit(result.returncode)
 
-    # NEW: Load company data if exists (check for deck and additional context)
+    # Load company/deal data using new path resolution
+    # Priority: io/{firm}/deals/{deal}/ > data/{deal}.json
+    from .paths import resolve_deal_context, load_deal_config
+
+    deal_ctx = resolve_deal_context(company_name, firm=firm)
+
+    # Display path resolution result
+    if not deal_ctx.is_legacy:
+        console.print(f"[bold green]Using firm-scoped IO:[/bold green] {deal_ctx.firm}")
+        console.print(f"[dim]Deal directory: {deal_ctx.deal_dir}[/dim]")
+        # Update firm variable if it was auto-detected
+        if not firm:
+            firm = deal_ctx.firm
+    else:
+        if firm:
+            console.print(f"[bold yellow]Warning:[/bold yellow] Firm '{firm}' specified but deal not found in io/{firm}/deals/")
+            console.print(f"[dim]Falling back to legacy: data/{company_name}.json[/dim]")
+        else:
+            console.print(f"[dim]Using legacy paths: data/{company_name}.json[/dim]")
+
+    # Initialize company data variables
     deck_path = None
     company_description = None
     company_url = None
@@ -125,80 +163,78 @@ def main():
     company_trademark_dark = None
     outline_name = None
     scorecard_name = None
-    data_file = Path(f"data/{company_name}.json")
 
     # Default to CLI arguments
     investment_type = args.investment_type
     memo_mode = args.memo_mode
 
-    if data_file.exists():
+    if deal_ctx.exists():
         try:
-            with open(data_file) as f:
-                company_data = json.load(f)
+            company_data = load_deal_config(deal_ctx)
 
-                # Load deck path
-                deck_path = company_data.get("deck")
+            # Load deck path
+            deck_path = company_data.get("deck")
 
-                # Load additional company context
-                company_description = company_data.get("description")
-                company_url = company_data.get("url")
-                company_stage = company_data.get("stage")
-                research_notes = company_data.get("notes")
+            # Load additional company context
+            company_description = company_data.get("description")
+            company_url = company_data.get("url")
+            company_stage = company_data.get("stage")
+            research_notes = company_data.get("notes")
 
-                # Load company trademark paths (light and dark mode)
-                company_trademark_light = company_data.get("trademark_light")
-                company_trademark_dark = company_data.get("trademark_dark")
+            # Load company trademark paths (light and dark mode)
+            company_trademark_light = company_data.get("trademark_light")
+            company_trademark_dark = company_data.get("trademark_dark")
 
-                # Load custom outline name if present
-                outline_name = company_data.get("outline")
-                if outline_name:
-                    console.print(f"[bold green]Custom outline:[/bold green] {outline_name}")
+            # Load custom outline name if present
+            outline_name = company_data.get("outline")
+            if outline_name:
+                console.print(f"[bold green]Custom outline:[/bold green] {outline_name}")
 
-                # Load scorecard name if present
-                scorecard_name = company_data.get("scorecard")
-                if scorecard_name:
-                    console.print(f"[bold green]Scorecard:[/bold green] {scorecard_name}")
+            # Load scorecard name if present
+            scorecard_name = company_data.get("scorecard")
+            if scorecard_name:
+                console.print(f"[bold green]Scorecard:[/bold green] {scorecard_name}")
 
-                # NEW: Read type and mode from JSON if present
-                json_type = company_data.get("type", "").lower()
-                json_mode = company_data.get("mode", "").lower()
+            # Read type and mode from JSON if present
+            json_type = company_data.get("type", "").lower()
+            json_mode = company_data.get("mode", "").lower()
 
-                # Map JSON values to internal values
-                if json_type in ["direct", "direct investment"]:
-                    investment_type = "direct"
-                    console.print(f"[bold cyan]Investment type from JSON:[/bold cyan] Direct Investment")
-                elif json_type in ["fund", "lp", "fund commitment", "lp commitment"]:
-                    investment_type = "fund"
-                    console.print(f"[bold cyan]Investment type from JSON:[/bold cyan] Fund Commitment")
+            # Map JSON values to internal values
+            if json_type in ["direct", "direct investment"]:
+                investment_type = "direct"
+                console.print(f"[bold cyan]Investment type from config:[/bold cyan] Direct Investment")
+            elif json_type in ["fund", "lp", "fund commitment", "lp commitment"]:
+                investment_type = "fund"
+                console.print(f"[bold cyan]Investment type from config:[/bold cyan] Fund Commitment")
 
-                if json_mode in ["consider", "prospective"]:
-                    memo_mode = "consider"
-                    console.print(f"[bold cyan]Memo mode from JSON:[/bold cyan] Prospective Analysis")
-                elif json_mode in ["justify", "retrospective"]:
-                    memo_mode = "justify"
-                    console.print(f"[bold cyan]Memo mode from JSON:[/bold cyan] Retrospective Justification")
+            if json_mode in ["consider", "prospective"]:
+                memo_mode = "consider"
+                console.print(f"[bold cyan]Memo mode from config:[/bold cyan] Prospective Analysis")
+            elif json_mode in ["justify", "retrospective"]:
+                memo_mode = "justify"
+                console.print(f"[bold cyan]Memo mode from config:[/bold cyan] Retrospective Justification")
 
-                # Validate deck path
-                if deck_path:
-                    deck_file = Path(deck_path)
-                    if deck_file.exists():
-                        console.print(f"[bold green]Found pitch deck:[/bold green] {deck_file.name}")
-                    else:
-                        console.print(f"[bold yellow]Warning:[/bold yellow] Deck specified but not found: {deck_path}")
-                        deck_path = None
+            # Validate deck path
+            if deck_path:
+                deck_file = Path(deck_path)
+                if deck_file.exists():
+                    console.print(f"[bold green]Found pitch deck:[/bold green] {deck_file.name}")
+                else:
+                    console.print(f"[bold yellow]Warning:[/bold yellow] Deck specified but not found: {deck_path}")
+                    deck_path = None
 
-                # Display loaded context
-                if company_description:
-                    console.print(f"[bold green]Company context:[/bold green] {company_description[:80]}...")
-                if company_url:
-                    console.print(f"[bold green]Company URL:[/bold green] {company_url}")
-                if company_stage:
-                    console.print(f"[bold green]Stage:[/bold green] {company_stage}")
-                if research_notes:
-                    console.print(f"[bold green]Research focus:[/bold green] {research_notes[:80]}...")
+            # Display loaded context
+            if company_description:
+                console.print(f"[bold green]Company context:[/bold green] {company_description[:80]}...")
+            if company_url:
+                console.print(f"[bold green]Company URL:[/bold green] {company_url}")
+            if company_stage:
+                console.print(f"[bold green]Stage:[/bold green] {company_stage}")
+            if research_notes:
+                console.print(f"[bold green]Research focus:[/bold green] {research_notes[:80]}...")
 
         except Exception as e:
-            console.print(f"[bold yellow]Warning:[/bold yellow] Could not load company data file: {e}")
+            console.print(f"[bold yellow]Warning:[/bold yellow] Could not load deal config: {e}")
 
     # Display configuration
     type_label = "Direct Investment" if investment_type == "direct" else "Fund Commitment"
@@ -282,16 +318,18 @@ def main():
         draft_sections = final_state.get("draft_sections", {})
         memo_content = final_memo or draft_sections.get("full_memo", {}).get("content")
 
-        # Save to file regardless of validation status
-        output_dir = Path("output")
-        output_dir.mkdir(exist_ok=True)
-
         # Sanitize filename
-        safe_name = "".join(c for c in company_name if c.isalnum() or c in (' ', '-', '_')).strip()
-        safe_name = safe_name.replace(' ', '-')
+        safe_name = sanitize_filename(company_name)
 
-        # Initialize version manager
-        version_mgr = VersionManager(output_dir)
+        # Initialize version manager (firm-scoped or legacy)
+        if firm and not deal_ctx.is_legacy:
+            version_mgr = VersionManager(firm=firm)
+            output_base = deal_ctx.outputs_dir
+        else:
+            output_base = Path("output")
+            version_mgr = VersionManager(output_dir=output_base)
+
+        output_base.mkdir(parents=True, exist_ok=True)
 
         # Get next version number
         version = version_mgr.get_next_version(safe_name)
@@ -300,17 +338,23 @@ def main():
             # Determine file suffix based on status
             is_finalized = final_memo is not None
             file_suffix = "memo" if is_finalized else "draft"
-            output_file = output_dir / f"{safe_name}-{version}-{file_suffix}.md"
+
+            # Get version output directory
+            version_output_dir = deal_ctx.get_version_output_dir(str(version)) if not deal_ctx.is_legacy else output_base / f"{safe_name}-{version}"
+            version_output_dir.mkdir(parents=True, exist_ok=True)
+
+            output_file = version_output_dir / f"{safe_name}-{version}-{file_suffix}.md"
 
             with open(output_file, "w") as f:
                 f.write(memo_content)
 
-            # Record version
+            # Record version with relative path
+            relative_path = version_mgr.get_relative_file_path(safe_name, version, f"{safe_name}-{version}-{file_suffix}.md")
             version_mgr.record_version(
                 safe_name,
                 version,
                 score,
-                str(output_file),
+                relative_path,
                 is_finalized=is_finalized
             )
 
@@ -327,7 +371,7 @@ def main():
             console.print(f"\n[bold green]✓ {status_msg}:[/bold green] {output_file}")
 
             # Save full state as JSON for debugging
-            state_file = output_dir / f"{safe_name}-{version}-state.json"
+            state_file = version_output_dir / f"{safe_name}-{version}-state.json"
             with open(state_file, "w") as f:
                 # Convert state to serializable format
                 serializable_state = {

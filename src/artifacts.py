@@ -25,17 +25,36 @@ def sanitize_filename(name: str) -> str:
     return safe_name.replace(' ', '-')
 
 
-def create_artifact_directory(company_name: str, version: str) -> Path:
+def create_artifact_directory(
+    company_name: str,
+    version: str,
+    firm: str = None,
+    io_root: Path = None
+) -> Path:
     """
     Create artifact trail directory structure.
+
+    Supports both firm-scoped and legacy directory structures:
+    - Firm-scoped: io/{firm}/deals/{company}/outputs/{company}-{version}/
+    - Legacy: output/{company}-{version}/
 
     Args:
         company_name: Name of the company
         version: Version string (e.g., "v0.0.1")
+        firm: Optional firm name for firm-scoped outputs
+        io_root: Optional IO root directory override
 
     Returns:
         Path to the artifact directory
     """
+    from .paths import resolve_deal_context, create_output_dir_for_deal
+
+    # If firm is provided, use firm-scoped structure
+    if firm:
+        ctx = resolve_deal_context(company_name, firm=firm, io_root=io_root)
+        return create_output_dir_for_deal(ctx, version)
+
+    # Legacy structure
     safe_name = sanitize_filename(company_name)
     output_dir = Path("output") / f"{safe_name}-{version}"
     output_dir.mkdir(parents=True, exist_ok=True)
