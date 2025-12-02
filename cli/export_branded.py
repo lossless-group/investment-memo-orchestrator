@@ -23,6 +23,7 @@ Usage:
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -798,6 +799,10 @@ Multiple Brands:
     )
 
     args = parser.parse_args()
+
+    # Check for MEMO_DEFAULT_FIRM environment variable if --firm not provided
+    if not args.firm:
+        args.firm = os.environ.get("MEMO_DEFAULT_FIRM")
 
     # Validate arguments
     # --deal is only required when --firm is provided AND no input file is given

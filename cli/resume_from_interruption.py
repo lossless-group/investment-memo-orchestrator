@@ -5,6 +5,11 @@ This script detects the last successful checkpoint and resumes memo generation
 from that point, avoiding redundant API calls and wasted time.
 
 Usage:
+    # Firm-scoped (recommended):
+    python cli/resume_from_interruption.py --firm emerge --deal CoachCube
+    python cli/resume_from_interruption.py --firm hypernova --deal Blinka --version v0.0.3
+
+    # Legacy (direct path):
     python cli/resume_from_interruption.py "CompanyName"
     python cli/resume_from_interruption.py "CompanyName" --version v0.0.3
 """
@@ -21,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.state import MemoState, create_initial_state
 from src.utils import get_latest_output_dir
 from src.artifacts import sanitize_filename
+from src.paths import resolve_deal_context, get_latest_output_dir_for_deal, load_deal_config, DealContext
 
 
 def detect_resume_point(output_dir: Path) -> str:
@@ -83,9 +89,9 @@ def detect_resume_point(output_dir: Path) -> str:
     if sections_dir.exists():
         sections = list(sections_dir.glob("*.md"))
         if len(sections) >= 10:  # All sections exist
-            # Check link enrichment (look for markdown links in sections)
-            sample_sections = [sections_dir / "03-market-context.md",
-                             sections_dir / "02-business-overview.md"]
+            # Check link enrichment (look for markdown links in ANY section)
+            # Try various section name patterns for different outlines
+            sample_sections = list(sections_dir.glob("0[2-6]*.md"))  # Any section 02-06
             has_links = False
             for section_file in sample_sections:
                 if section_file.exists():
@@ -98,12 +104,14 @@ def detect_resume_point(output_dir: Path) -> str:
             if has_links:
                 return "cite"  # Resume at citation enrichment
 
-            # Check for socials enrichment
-            team_section = sections_dir / "04-team.md"
-            if team_section.exists():
-                content = team_section.read_text()
-                if "linkedin.com/in/" in content:
-                    return "enrich_links"  # Resume at link enrichment
+            # Check for socials enrichment - look for team/organization section
+            # Try multiple patterns: 04-team.md (default) or 04-organization.md (12Ps)
+            team_sections = list(sections_dir.glob("04-*.md"))
+            for team_section in team_sections:
+                if team_section.exists():
+                    content = team_section.read_text()
+                    if "linkedin.com/in/" in content:
+                        return "enrich_links"  # Resume at link enrichment
 
             # Check for trademark
             header = output_dir / "header.md"
@@ -133,7 +141,8 @@ def reconstruct_state_from_artifacts(
     company_name: str,
     output_dir: Path,
     investment_type: Optional[str] = None,
-    memo_mode: Optional[str] = None
+    memo_mode: Optional[str] = None,
+    ctx: Optional[DealContext] = None
 ) -> MemoState:
     """
     Rebuild MemoState from saved artifacts.
@@ -143,12 +152,11 @@ def reconstruct_state_from_artifacts(
         output_dir: Path to artifact directory
         investment_type: Override investment type (optional)
         memo_mode: Override memo mode (optional)
+        ctx: DealContext for firm-scoped path resolution (optional)
 
     Returns:
         Reconstructed MemoState ready for resumption
     """
-    # Load company data JSON file to get type/mode/context
-    data_file = Path(f"data/{company_name}.json")
     deck_path = None
     company_description = None
     company_url = None
@@ -156,6 +164,8 @@ def reconstruct_state_from_artifacts(
     research_notes = None
     company_trademark_light = None
     company_trademark_dark = None
+    outline_name = None
+    scorecard_name = None
 
     # Defaults
     if investment_type is None:
@@ -163,42 +173,67 @@ def reconstruct_state_from_artifacts(
     if memo_mode is None:
         memo_mode = "consider"
 
-    if data_file.exists():
+    # Load deal config - use firm-scoped path if context available
+    company_data = None
+    if ctx and ctx.exists():
         try:
-            with open(data_file) as f:
-                company_data = json.load(f)
-
-                # Load deck path
-                deck_path = company_data.get("deck")
-
-                # Load additional company context
-                company_description = company_data.get("description")
-                company_url = company_data.get("url")
-                company_stage = company_data.get("stage")
-                research_notes = company_data.get("notes")
-
-                # Load company trademark paths
-                company_trademark_light = company_data.get("trademark_light")
-                company_trademark_dark = company_data.get("trademark_dark")
-
-                # Read type and mode from JSON if present
-                json_type = company_data.get("type", "").lower()
-                json_mode = company_data.get("mode", "").lower()
-
-                # Map JSON values to internal values
-                if json_type in ["direct", "direct investment"]:
-                    investment_type = "direct"
-                elif json_type in ["fund", "fund commitment"]:
-                    investment_type = "fund"
-
-                if json_mode in ["consider", "prospective"]:
-                    memo_mode = "consider"
-                elif json_mode in ["justify", "retrospective"]:
-                    memo_mode = "justify"
-
-                print(f"Loaded company data: type={investment_type}, mode={memo_mode}")
+            company_data = load_deal_config(ctx)
+            print(f"Loaded deal config from: {ctx.deal_json_path}")
         except Exception as e:
-            print(f"Warning: Could not load company data: {e}")
+            print(f"Warning: Could not load deal config from {ctx.deal_json_path}: {e}")
+
+    # Fall back to legacy path
+    if company_data is None:
+        data_file = Path(f"data/{company_name}.json")
+        if data_file.exists():
+            try:
+                with open(data_file) as f:
+                    company_data = json.load(f)
+                print(f"Loaded deal config from: {data_file}")
+            except Exception as e:
+                print(f"Warning: Could not load company data: {e}")
+
+    if company_data:
+        # Load deck path
+        deck_path = company_data.get("deck")
+
+        # For firm-scoped, resolve deck path relative to deal directory
+        if ctx and ctx.deal_dir and deck_path:
+            # Check if it's relative to deal dir
+            full_deck_path = ctx.deal_dir / deck_path
+            if full_deck_path.exists():
+                deck_path = str(full_deck_path)
+
+        # Load additional company context
+        company_description = company_data.get("description")
+        company_url = company_data.get("url")
+        company_stage = company_data.get("stage")
+        research_notes = company_data.get("notes")
+
+        # Load company trademark paths
+        company_trademark_light = company_data.get("trademark_light")
+        company_trademark_dark = company_data.get("trademark_dark")
+
+        # Load outline and scorecard names
+        outline_name = company_data.get("outline")
+        scorecard_name = company_data.get("scorecard")
+
+        # Read type and mode from JSON if present
+        json_type = company_data.get("type", "").lower()
+        json_mode = company_data.get("mode", "").lower()
+
+        # Map JSON values to internal values
+        if json_type in ["direct", "direct investment"]:
+            investment_type = "direct"
+        elif json_type in ["fund", "fund commitment"]:
+            investment_type = "fund"
+
+        if json_mode in ["consider", "prospective"]:
+            memo_mode = "consider"
+        elif json_mode in ["justify", "retrospective"]:
+            memo_mode = "justify"
+
+        print(f"Loaded company data: type={investment_type}, mode={memo_mode}")
 
     # Start with fresh state
     print(f"[DEBUG] About to call create_initial_state for {company_name}")
@@ -372,7 +407,18 @@ def main():
     )
     parser.add_argument(
         "company_name",
-        help="Company name (must match existing artifacts)"
+        nargs="?",
+        help="Company name (legacy mode, or omit if using --firm/--deal)"
+    )
+    parser.add_argument(
+        "--firm",
+        type=str,
+        help="Firm name (e.g., 'emerge', 'hypernova')"
+    )
+    parser.add_argument(
+        "--deal",
+        type=str,
+        help="Deal name (e.g., 'CoachCube', 'Blinka')"
     )
     parser.add_argument(
         "--version",
@@ -382,18 +428,70 @@ def main():
 
     args = parser.parse_args()
 
-    # Find output directory
-    if args.version:
-        output_dir = Path("output") / f"{sanitize_filename(args.company_name)}-{args.version}"
+    # Determine deal name and context
+    ctx = None
+    company_name = None
+
+    if args.firm and args.deal:
+        # Firm-scoped mode
+        company_name = args.deal
+        ctx = resolve_deal_context(args.deal, firm=args.firm)
+        print(f"Using firm-scoped IO: {args.firm}")
+        print(f"Deal: {args.deal}")
+
+        if not ctx.exists():
+            print(f"❌ Deal config not found: {ctx.deal_json_path}")
+            sys.exit(1)
+
+        # Find output directory
+        if args.version:
+            output_dir = ctx.get_version_output_dir(args.version)
+        else:
+            try:
+                output_dir = get_latest_output_dir_for_deal(ctx)
+            except FileNotFoundError as e:
+                print(f"❌ {e}")
+                print(f"\nRun the normal workflow first:")
+                print(f"  python -m src.main \"{args.deal}\" --firm {args.firm}")
+                sys.exit(1)
+
+    elif args.company_name:
+        # Legacy mode
+        company_name = args.company_name
+
+        # Try to auto-detect firm
+        ctx = resolve_deal_context(args.company_name)
+        if ctx.firm:
+            print(f"Auto-detected firm: {ctx.firm}")
+
+        # Find output directory
+        if args.version:
+            if ctx and ctx.firm:
+                output_dir = ctx.get_version_output_dir(args.version)
+            else:
+                output_dir = Path("output") / f"{sanitize_filename(args.company_name)}-{args.version}"
+        else:
+            if ctx and ctx.firm:
+                try:
+                    output_dir = get_latest_output_dir_for_deal(ctx)
+                except FileNotFoundError:
+                    output_dir = get_latest_output_dir(args.company_name)
+            else:
+                output_dir = get_latest_output_dir(args.company_name)
     else:
-        # Find latest version
-        output_dir = get_latest_output_dir(args.company_name)
+        parser.error("Please provide either --firm/--deal or company_name")
+        sys.exit(1)
 
     if not output_dir or not output_dir.exists():
-        print(f"❌ No artifacts found for '{args.company_name}'")
-        print(f"\nSearched in: output/{sanitize_filename(args.company_name)}-*")
-        print("\nRun the normal workflow first:")
-        print(f"  python -m src.main \"{args.company_name}\"")
+        print(f"❌ No artifacts found for '{company_name}'")
+        if ctx and ctx.firm:
+            print(f"\nSearched in: {ctx.outputs_dir}/{sanitize_filename(company_name)}-*")
+            print("\nRun the normal workflow first:")
+            print(f"  python -m src.main \"{company_name}\" --firm {ctx.firm}")
+        else:
+            print(f"\nSearched in: output/{sanitize_filename(company_name)}-*")
+            print("\nRun the normal workflow first:")
+            print(f"  python -m src.main \"{company_name}\"")
         sys.exit(1)
 
     print(f"Found artifact directory: {output_dir}")
@@ -411,7 +509,10 @@ def main():
     if resume_from == "start":
         print(f"\n⚠️  No valid checkpoints found in {output_dir}")
         print("\nStarting from scratch instead. Use:")
-        print(f"  python -m src.main \"{args.company_name}\"")
+        if ctx and ctx.firm:
+            print(f"  python -m src.main \"{company_name}\" --firm {ctx.firm}")
+        else:
+            print(f"  python -m src.main \"{company_name}\"")
         sys.exit(1)
 
     print(f"\n✓ Resuming from checkpoint: {resume_from}")
@@ -424,11 +525,14 @@ def main():
         elif artifact.is_dir() and artifact.name == "2-sections":
             section_count = len(list(artifact.glob("*.md")))
             print(f"  ✓ {artifact.name}/ ({section_count} sections)")
+        elif artifact.is_dir() and artifact.name == "1-research":
+            research_count = len(list(artifact.glob("*.md")))
+            print(f"  ✓ {artifact.name}/ ({research_count} research files)")
 
     # Reconstruct state
     print(f"\nReconstructing state from artifacts...")
-    print(f"Loading company data for: {args.company_name}")
-    state = reconstruct_state_from_artifacts(args.company_name, output_dir)
+    print(f"Loading company data for: {company_name}")
+    state = reconstruct_state_from_artifacts(company_name, output_dir, ctx=ctx)
     print(f"State reconstructed successfully")
 
     # Execute from checkpoint

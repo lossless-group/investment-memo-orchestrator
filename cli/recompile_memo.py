@@ -129,6 +129,13 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    # Check for MEMO_DEFAULT_FIRM environment variable if --firm not provided
+    if not args.firm:
+        import os
+        args.firm = os.environ.get("MEMO_DEFAULT_FIRM")
+        if args.firm:
+            print(f"Using MEMO_DEFAULT_FIRM: {args.firm}")
+
     # Validate arguments
     if args.firm and not args.deal:
         print("Error: --deal is required when --firm is provided")
