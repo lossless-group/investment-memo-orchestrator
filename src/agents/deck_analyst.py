@@ -136,10 +136,13 @@ IMPORTANT:
     print("Saving deck analysis artifacts...")
     # Extract just the content strings for artifact saving
     section_drafts_for_disk = {k: v["content"] for k, v in section_drafts.items()}
+    # Pass firm from state for firm-scoped output paths
+    firm = state.get("firm")
     save_deck_analysis_artifacts(
         state["company_name"],
         deck_analysis,
-        section_drafts_for_disk
+        section_drafts_for_disk,
+        firm=firm
     )
 
     return {
@@ -359,10 +362,13 @@ IMPORTANT:
         print("Saving deck analysis artifacts...", flush=True)
         # Extract just the content strings for artifact saving
         section_drafts_for_disk = {k: v["content"] for k, v in section_drafts.items()}
+        # Pass firm from state for firm-scoped output paths
+        firm = state.get("firm")
         save_deck_analysis_artifacts(
             state["company_name"],
             deck_analysis,
-            section_drafts_for_disk
+            section_drafts_for_disk,
+            firm=firm
         )
 
         return {

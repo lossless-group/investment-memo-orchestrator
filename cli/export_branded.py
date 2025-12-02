@@ -10,6 +10,15 @@ Exports investment memos with customizable branding to:
 Supports multiple brand configurations:
 - brand-config.yaml (default)
 - brand-<name>-config.yaml (e.g., brand-accel-config.yaml)
+
+Usage:
+    # Firm-scoped (recommended):
+    python cli/export_branded.py --firm hypernova --deal Aalo
+    python cli/export_branded.py --firm hypernova --deal Aalo --version v0.0.5 --mode dark
+
+    # Legacy (direct path):
+    python cli/export_branded.py output/Fernstone-v0.0.1/4-final-draft.md
+    python cli/export_branded.py output/Fernstone-v0.0.1/4-final-draft.md --brand hypernova --mode light
 """
 
 import argparse
@@ -35,6 +44,13 @@ try:
 except ImportError:
     print("Error: Could not import branding module.")
     print("Make sure src/branding.py exists.")
+    sys.exit(1)
+
+try:
+    from src.paths import resolve_deal_context, get_latest_output_dir_for_deal, DealContext
+except ImportError:
+    print("Error: Could not import paths module.")
+    print("Make sure src/paths.py exists.")
     sys.exit(1)
 
 
@@ -478,9 +494,33 @@ def convert_to_branded_html(
     company_match = re.search(r'([A-Za-z0-9-]+)-v\d+\.\d+\.\d+', str(input_path))
     if company_match:
         company_name = company_match.group(1)
-        data_file = Path(__file__).parent.parent / 'data' / f'{company_name}.json'
 
-        if data_file.exists():
+        # Try firm-scoped path first, then legacy
+        data_file = None
+
+        # Check if input is in io/{firm}/deals/{deal}/outputs/
+        # Path like: io/hypernova/deals/Aalo/outputs/Aalo-Atomics-v0.0.5/4-final-draft.md
+        io_match = re.search(r'io/([^/]+)/deals/([^/]+)/outputs/', str(input_path))
+        if io_match:
+            firm_name = io_match.group(1)
+            deal_name = io_match.group(2)
+            # Try io/{firm}/deals/{deal}/inputs/deal.json
+            firm_data_file = Path(__file__).parent.parent / 'io' / firm_name / 'deals' / deal_name / 'inputs' / 'deal.json'
+            if firm_data_file.exists():
+                data_file = firm_data_file
+            else:
+                # Try io/{firm}/deals/{deal}/{deal}.json
+                firm_data_file = Path(__file__).parent.parent / 'io' / firm_name / 'deals' / deal_name / f'{deal_name}.json'
+                if firm_data_file.exists():
+                    data_file = firm_data_file
+
+        # Fall back to legacy data/ directory
+        if not data_file:
+            legacy_data_file = Path(__file__).parent.parent / 'data' / f'{company_name}.json'
+            if legacy_data_file.exists():
+                data_file = legacy_data_file
+
+        if data_file:
             try:
                 with open(data_file, 'r', encoding='utf-8') as f:
                     company_data = json.load(f)
@@ -676,6 +716,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Firm-scoped (recommended):
+  %(prog)s --firm hypernova --deal Aalo     # Export latest version
+  %(prog)s --firm hypernova --deal Aalo --version v0.0.5  # Specific version
+
+  # Legacy (direct path):
   %(prog)s memo.md                          # Export to dark mode HTML (default brand)
   %(prog)s memo.md --brand accel            # Use brand-accel-config.yaml
   %(prog)s memo.md --mode light             # Export to light mode HTML
@@ -697,7 +742,26 @@ Multiple Brands:
     parser.add_argument(
         'input',
         type=Path,
-        help='Input markdown file or directory'
+        nargs='?',
+        help='Input markdown file or directory. Optional if --firm and --deal are provided.'
+    )
+
+    parser.add_argument(
+        '--firm',
+        type=str,
+        help='Firm name for firm-scoped IO (e.g., "hypernova"). Uses io/{firm}/deals/{deal}/'
+    )
+
+    parser.add_argument(
+        '--deal',
+        type=str,
+        help='Deal name when using --firm. Required if --firm is provided.'
+    )
+
+    parser.add_argument(
+        '--version',
+        type=str,
+        help='Specific version (e.g., "v0.0.1"). If not specified, uses latest.'
     )
 
     parser.add_argument(
@@ -735,13 +799,86 @@ Multiple Brands:
 
     args = parser.parse_args()
 
+    # Validate arguments
+    # --deal is only required when --firm is provided AND no input file is given
+    if args.firm and not args.deal and not args.input:
+        print("Error: --deal is required when --firm is provided without an input path")
+        sys.exit(1)
+
+    if not args.input and not (args.firm and args.deal):
+        print("Error: Either provide an input path or use --firm and --deal")
+        sys.exit(1)
+
+    # Resolve input file from firm/deal if provided (only if no direct input)
+    deal_context = None
+    if args.firm and args.deal:
+        deal_context = resolve_deal_context(args.deal, firm=args.firm)
+
+        if not deal_context.outputs_dir or not deal_context.outputs_dir.exists():
+            print(f"Error: Outputs directory not found for {args.firm}/{args.deal}")
+            print(f"  Expected: {deal_context.outputs_dir}")
+            sys.exit(1)
+
+        if args.version:
+            artifact_dir = deal_context.get_version_output_dir(args.version)
+        else:
+            try:
+                artifact_dir = get_latest_output_dir_for_deal(deal_context)
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
+        if not artifact_dir.exists():
+            print(f"Error: Artifact directory not found: {artifact_dir}")
+            sys.exit(1)
+
+        # Set input to the final draft in the artifact directory
+        args.input = artifact_dir / "4-final-draft.md"
+        if not args.input.exists():
+            # Try alternative memo filename
+            memo_files = list(artifact_dir.glob("*-memo.md"))
+            if memo_files:
+                args.input = memo_files[0]
+            else:
+                print(f"Error: No memo file found in {artifact_dir}")
+                print("  Expected: 4-final-draft.md or *-memo.md")
+                sys.exit(1)
+
+        print(f"Resolved: {args.input}")
+
+        # Set default output to firm-scoped exports directory if not specified
+        if args.output == Path('exports/branded'):
+            args.output = deal_context.exports_dir / args.mode
+            args.output.mkdir(parents=True, exist_ok=True)
+
+    # Auto-detect firm-scoped paths from input file when --firm not explicitly provided
+    # Pattern: io/{firm}/deals/{deal}/outputs/... or io/{firm}/deals/{deal}/...
+    elif args.input and args.output == Path('exports/branded'):
+        input_str = str(args.input.absolute())
+        io_match = re.search(r'/io/([^/]+)/deals/([^/]+)/', input_str)
+        if io_match:
+            detected_firm = io_match.group(1)
+            detected_deal = io_match.group(2)
+
+            # Set firm if not already set (for brand config lookup)
+            if not args.firm:
+                args.firm = detected_firm
+
+            # Create firm-scoped exports directory
+            exports_dir = Path('io') / detected_firm / 'deals' / detected_deal / 'exports' / args.mode
+            exports_dir.mkdir(parents=True, exist_ok=True)
+            args.output = exports_dir
+            print(f"Auto-detected firm-scoped path: {detected_firm}/{detected_deal}")
+            print(f"  Exporting to: {args.output}")
+
     # Load brand configuration
     print(f"\n{'='*60}")
     print("BRANDED MEMO EXPORTER")
     print(f"{'='*60}\n")
 
     try:
-        brand = BrandConfig.load(brand_name=args.brand)
+        # Pass firm to BrandConfig.load for firm-scoped config lookup
+        brand = BrandConfig.load(brand_name=args.brand, firm=args.firm)
         print(f"✓ Brand: {brand.company.name}")
 
         # Validate configuration

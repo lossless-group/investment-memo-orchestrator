@@ -639,14 +639,23 @@ Return valid JSON only."""
 
     # Save research artifacts
     try:
-        # Get version manager
-        version_mgr = VersionManager(Path("output"))
         from ..artifacts import sanitize_filename
+        from ..paths import resolve_deal_context
+
+        firm = state.get("firm")
         safe_name = sanitize_filename(company_name)
+
+        # Get version manager - firm-aware
+        if firm:
+            ctx = resolve_deal_context(company_name, firm=firm)
+            version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+        else:
+            version_mgr = VersionManager(Path("output"))
+
         version = version_mgr.get_next_version(safe_name)
 
-        # Create artifact directory
-        output_dir = create_artifact_directory(company_name, str(version))
+        # Create artifact directory - firm-aware
+        output_dir = create_artifact_directory(company_name, str(version), firm=firm)
 
         # Save research artifacts
         save_research_artifacts(output_dir, research_data)

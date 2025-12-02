@@ -2,7 +2,7 @@
 
 ## Implementation Progress
 
-**Last Updated**: 2025-11-30
+**Last Updated**: 2025-12-02
 
 ### Completed
 
@@ -37,14 +37,33 @@
 - [x] **MEMO_DEFAULT_FIRM environment variable**: Supported in path resolution
 - [x] **Auto-detection**: Can find firm from io/ directory when deal exists
 
+#### Phase 2: CLI Updates ✅ COMPLETED
+- [x] `cli/improve_section.py` - Added `--firm` and `--deal` flags, auto-detection, firm-scoped path resolution
+- [x] `cli/export_branded.py` - Added `--firm`, `--deal`, and `--version` flags, exports to firm-scoped `exports/` directory
+- [x] `cli/score_memo.py` - Added `--firm` and `--deal` flags with auto-detection fallback
+- [x] `cli/refocus_section.py` - Added `--firm` and `--deal` flags with full path resolution
+- [x] `cli/recompile_memo.py` - Added `--firm` and `--deal` flags with auto-detection
+
 ### Remaining Work
 
-#### Phase 2: CLI Updates
-- [ ] `cli/improve-section.py` - Add firm/deal resolution
-- [ ] `cli/export_branded.py` - Add firm/deal resolution
-- [ ] `cli/score_memo.py` - Add firm/deal resolution
-- [ ] `cli/refocus_section.py` - Add firm/deal resolution
-- [ ] `cli/recompile_memo.py` - Add firm/deal resolution
+#### Phase 4: Documentation
+- [ ] Update `README.md` with new structure
+- [ ] Create `io/README.md` with setup instructions
+- [ ] Update `CLAUDE.md` with new paths
+
+#### Phase 5: Firm-Specific Templates ✅ COMPLETED
+- [x] **Firm templates structure**: `io/{firm}/templates/` for firm-specific content structure
+  - `io/{firm}/templates/outlines/` - Firm-specific outlines (e.g., `direct-early-stage-12Ps.yaml`)
+  - `io/{firm}/templates/scorecards/` - Firm-specific scorecards
+- [x] **Firm configs structure**: `io/{firm}/configs/` for runtime settings
+  - `io/{firm}/configs/brand-{firm}-config.yaml` - Brand styling
+
+### Remaining Work
+
+#### Phase 6: Template Loading
+- [ ] Update `src/outline_loader.py` to check `io/{firm}/templates/outlines/` first
+- [ ] Update `src/scorecard_loader.py` to check `io/{firm}/templates/scorecards/` first
+- [ ] Fallback to shared `templates/` if not found in firm directory
 
 #### Phase 4: Documentation
 - [ ] Update `README.md` with new structure
@@ -53,10 +72,6 @@
 
 ### Needs Thinking
 
-- [ ] Custom Configs loaded from `io/{firm}/configs/*`
-  - [ ] Outlines
-  - [ ] Scorecards
-  - [ ] Brand Configs
 - [ ] Examples and a Generator script are provided for each firm
 - [ ] Converge 4-final-draft.md and the higher level draft
 
@@ -99,66 +114,66 @@ investment-memo-orchestrator/
 
 ```
 investment-memo-orchestrator/
-├── io/                                    # NEW: All firm IO in one place
+├── io/                                    # All firm IO in one place
 │   ├── .gitignore                         # Ignore all firm dirs by default
 │   ├── README.md                          # Instructions for setting up firm dirs
 │   │
-│   ├── Hypernova-Capital/                 # Firm directory (example 1)
-│   │   ├── firm-config.yaml               # Firm-level settings, brand reference
-│   │   ├── Deals/
+│   ├── hypernova/                         # Firm directory (example - git submodule)
+│   │   ├── templates/                     # Firm-specific content structure
+│   │   │   ├── outlines/                  # Firm-specific outlines
+│   │   │   │   ├── direct-early-stage-12Ps.yaml
+│   │   │   │   └── lpcommit-emerging-manager.yaml
+│   │   │   └── scorecards/                # Firm-specific scorecards
+│   │   │       ├── direct-early-stage-12Ps/
+│   │   │       └── lp-commits_emerging-managers/
+│   │   │
+│   │   ├── configs/                       # Firm runtime settings
+│   │   │   └── brand-hypernova-config.yaml
+│   │   │
+│   │   ├── deals/                         # All deals for this firm
 │   │   │   ├── Ontra/                     # Deal directory
-│   │   │   │   ├── inputs/                # Source materials
-│   │   │   │   │   ├── deal.json          # Deal metadata (replaces data/*.json)
+│   │   │   │   ├── inputs/                # Source materials (optional)
+│   │   │   │   │   ├── deal.json          # Deal metadata
 │   │   │   │   │   ├── deck.pdf           # Pitch deck
 │   │   │   │   │   └── dataroom/          # Dataroom documents
 │   │   │   │   ├── outputs/               # Generated artifacts (versioned)
-│   │   │   │   │   ├── v0.0.1/
+│   │   │   │   │   ├── Ontra-v0.0.1/
 │   │   │   │   │   │   ├── 0-deck-analysis.json
 │   │   │   │   │   │   ├── 1-research.json
 │   │   │   │   │   │   ├── 2-sections/
 │   │   │   │   │   │   ├── 3-validation.json
 │   │   │   │   │   │   ├── 4-final-draft.md
-│   │   │   │   │   │   ├── scorecard.md
 │   │   │   │   │   │   └── state.json
-│   │   │   │   │   └── v0.0.2/
-│   │   │   │   └── exports/               # Exported formats
-│   │   │   │       ├── light/
-│   │   │   │       │   └── Ontra-v0.0.2.html
-│   │   │   │       └── dark/
-│   │   │   │           └── Ontra-v0.0.2.html
+│   │   │   │   │   └── Ontra-v0.0.2/
+│   │   │   │   ├── exports/               # Exported formats
+│   │   │   │   │   ├── light/
+│   │   │   │   │   └── dark/
+│   │   │   │   └── Ontra.json             # Deal config (alternative location)
 │   │   │   │
 │   │   │   ├── Aito/
-│   │   │   │   ├── inputs/
-│   │   │   │   ├── outputs/
-│   │   │   │   └── exports/
-│   │   │   │
 │   │   │   └── TheoryForge/
-│   │   │       ├── inputs/
-│   │   │       ├── outputs/
-│   │   │       └── exports/
 │   │   │
 │   │   └── versions.json                  # Firm-level version tracking
 │   │
-│   └── Avalanche-VC/                      # Firm directory (example 2)
-│       ├── firm-config.yaml
-│       ├── Deals/
-│       │   ├── Hydden/
-│       │   │   ├── inputs/
-│       │   │   ├── outputs/
-│       │   │   └── exports/
-│       │   └── SomeOtherDeal/
-│       │       ├── inputs/
-│       │       ├── outputs/
-│       │       └── exports/
+│   └── avalanche/                         # Another firm (example)
+│       ├── templates/
+│       ├── configs/
+│       ├── deals/
 │       └── versions.json
 │
-├── templates/                             # UNCHANGED: Shared templates
+├── templates/                             # Shared/default templates (fallback)
 │   ├── outlines/
 │   ├── scorecards/
 │   └── brand-configs/
 │
-└── src/                                   # UNCHANGED: Core code
+└── src/                                   # Core code
 ```
+
+**Key Design Decisions:**
+- **`templates/`** in firm directory = content structure (outlines, scorecards) - what to write
+- **`configs/`** in firm directory = runtime settings (brand styling) - how it looks
+- Firm-specific templates override shared `templates/` when present
+- Deal config can be at `deals/{Deal}/{Deal}.json` or `deals/{Deal}/inputs/deal.json`
 
 ## Git Submodule Strategy
 
@@ -371,18 +386,25 @@ During migration, the system should:
    - **Implemented**: `io/hypernova/versions.json` contains all 15 deals
 
 2. **Brand configs**: Stay in `templates/brand-configs/` or move to `io/{firm}/`?
-   - **Decision**: Stay in templates (shared resource), firm-config.yaml references by name
-   - **Rationale**: Brand configs are visual styling, not sensitive data
+   - **Decision**: Move to `io/{firm}/configs/` for firm-specific branding
+   - **Implemented**: `io/hypernova/configs/brand-hypernova-config.yaml`
+   - **Rationale**: Keeps all firm customization in one submodule
 
-3. **Scorecards**: Stay in `templates/scorecards/` or allow firm-specific?
-   - **Decision**: Both - templates/ for shared, io/{firm}/configs/scorecards/ for firm-specific
-   - **Status**: Not yet implemented
+3. **Outlines and Scorecards**: Stay in `templates/` or allow firm-specific?
+   - **Decision**: Both - shared `templates/` as fallback, `io/{firm}/templates/` takes precedence
+   - **Implemented**: `io/hypernova/templates/outlines/` and `io/hypernova/templates/scorecards/`
+   - **Rationale**: `templates/` is intuitive naming for content structure files
 
-4. **Default firm**: Set via `.env`, CLI flag, or interactive prompt?
+4. **templates/ vs configs/ split**:
+   - **`io/{firm}/templates/`** = Content structure (outlines, scorecards) - *what* to write
+   - **`io/{firm}/configs/`** = Runtime settings (brand styling) - *how* it looks
+   - **Rationale**: Clear semantic separation; templates is universally understood
+
+5. **Default firm**: Set via `.env`, CLI flag, or interactive prompt?
    - **Decision**: All three, with precedence: CLI > .env > prompt
-   - **Status**: Not yet implemented
+   - **Implemented**: `MEMO_DEFAULT_FIRM` env var supported in `src/paths.py`
 
-5. **Directory naming**: `Deals/` vs `deals/`?
+6. **Directory naming**: `Deals/` vs `deals/`?
    - **Decision**: Lowercase `deals/` for consistency
    - **Implemented**: `io/hypernova/deals/`
 

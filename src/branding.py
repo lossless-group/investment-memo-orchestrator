@@ -85,34 +85,58 @@ class BrandConfig:
     def load(
         cls,
         brand_name: Optional[str] = None,
-        config_path: Optional[Path] = None
+        config_path: Optional[Path] = None,
+        firm: Optional[str] = None
     ) -> 'BrandConfig':
         """Load brand configuration from YAML file.
 
         Args:
             brand_name: Name of brand (loads brand-{name}-config.yaml)
             config_path: Direct path to config file (overrides brand_name)
+            firm: Firm name to check io/{firm}/configs/ for brand configs
 
         Returns:
             BrandConfig instance
 
         Priority:
             1. config_path if provided
-            2. brand-{brand_name}-config.yaml if brand_name provided
-            3. brand-config.yaml (default)
-            4. Hypernova defaults (if no config found)
+            2. io/{firm}/configs/brand-{brand_name}-config.yaml (if firm provided)
+            3. templates/brand-configs/brand-{brand_name}-config.yaml
+            4. brand-{brand_name}-config.yaml (root directory)
+            5. brand-config.yaml (default)
+            6. Hypernova defaults (if no config found)
 
         Examples:
             >>> BrandConfig.load()  # Uses brand-config.yaml or defaults
             >>> BrandConfig.load(brand_name="accel")  # Uses brand-accel-config.yaml
+            >>> BrandConfig.load(brand_name="hypernova", firm="hypernova")  # Checks io/hypernova/configs/ first
             >>> BrandConfig.load(config_path=Path("custom.yaml"))
         """
         if config_path is None:
             if brand_name:
-                # Look in templates/brand-configs/ first, then root directory
-                config_path = Path(f"templates/brand-configs/brand-{brand_name}-config.yaml")
-                if not config_path.exists():
-                    config_path = Path(f"brand-{brand_name}-config.yaml")
+                # Priority order for brand-specific configs:
+                # 1. Firm-scoped: io/{firm}/configs/brand-{name}-config.yaml
+                # 2. Templates: templates/brand-configs/brand-{name}-config.yaml
+                # 3. Root: brand-{name}-config.yaml
+                search_paths = []
+
+                if firm:
+                    firm_config = Path(f"io/{firm}/configs/brand-{brand_name}-config.yaml")
+                    search_paths.append(firm_config)
+
+                search_paths.append(Path(f"templates/brand-configs/brand-{brand_name}-config.yaml"))
+                search_paths.append(Path(f"brand-{brand_name}-config.yaml"))
+
+                # Find first existing config
+                config_path = None
+                for path in search_paths:
+                    if path.exists():
+                        config_path = path
+                        break
+
+                # If none found, use last path for error message
+                if config_path is None:
+                    config_path = search_paths[-1]
             else:
                 # Look for default config in templates/brand-configs/ first
                 config_path = Path("templates/brand-configs/brand-config.yaml")
@@ -190,22 +214,34 @@ class BrandConfig:
             )
         )
 
-    def list_available_brands(self) -> list[str]:
+    def list_available_brands(self, firm: Optional[str] = None) -> list[str]:
         """List all available brand configurations.
 
-        Looks in templates/brand-configs/ directory first, then root directory.
+        Looks in firm-scoped configs, templates/brand-configs/, then root directory.
+
+        Args:
+            firm: Optional firm name to check io/{firm}/configs/ for brand configs
 
         Returns:
             List of brand names (without 'brand-' prefix and '-config.yaml' suffix)
         """
         brands = []
 
+        # Check firm-scoped configs first (highest priority)
+        if firm:
+            firm_configs_dir = Path(f"io/{firm}/configs")
+            if firm_configs_dir.exists():
+                for config in firm_configs_dir.glob("brand-*-config.yaml"):
+                    name = config.name.replace("brand-", "").replace("-config.yaml", "")
+                    brands.append(name)
+
         # Check templates/brand-configs/ directory
         brand_configs_dir = Path("templates/brand-configs")
         if brand_configs_dir.exists():
             for config in brand_configs_dir.glob("brand-*-config.yaml"):
                 name = config.name.replace("brand-", "").replace("-config.yaml", "")
-                brands.append(name)
+                if name not in brands:  # Avoid duplicates
+                    brands.append(name)
 
         # Check root directory (for backward compatibility)
         for config in Path(".").glob("brand-*-config.yaml"):

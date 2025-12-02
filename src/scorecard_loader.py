@@ -90,8 +90,22 @@ class ScorecardDefinition:
 _scorecard_cache: Dict[str, ScorecardDefinition] = {}
 
 
-def get_scorecards_dir() -> Path:
-    """Get the scorecards directory path."""
+def get_scorecards_dir(firm: Optional[str] = None) -> Path:
+    """Get the scorecards directory path.
+
+    Args:
+        firm: Optional firm name to check io/{firm}/templates/scorecards/ first
+
+    Returns:
+        Path to scorecards directory (firm-scoped if exists, else default)
+    """
+    # Check firm-scoped templates first
+    if firm:
+        firm_scorecards = Path("io") / firm / "templates" / "scorecards"
+        if firm_scorecards.exists():
+            return firm_scorecards
+
+    # Default to project templates
     current_file = Path(__file__).resolve()
     project_root = current_file.parent.parent
     return project_root / "templates" / "scorecards"
@@ -187,64 +201,86 @@ def parse_scorecard_data(data: Dict[str, Any]) -> ScorecardDefinition:
     )
 
 
-def find_scorecard_file(scorecard_name: str) -> Path:
+def find_scorecard_file(scorecard_name: str, firm: Optional[str] = None) -> Path:
     """
     Find scorecard file by name.
 
-    Searches in:
-    1. templates/scorecards/{scorecard_name}/{scorecard_name}.yaml
-    2. templates/scorecards/{type}/{scorecard_name}.yaml (for type-specific)
+    Searches in (priority order):
+    1. io/{firm}/templates/scorecards/ (if firm provided)
+    2. templates/scorecards/{scorecard_name}/{scorecard_name}.yaml
+    3. templates/scorecards/{type}/{scorecard_name}.yaml (for type-specific)
     """
-    scorecards_dir = get_scorecards_dir()
+    # Search directories in priority order
+    search_dirs = []
 
-    # Try direct match in subdirectory
-    # e.g., "hypernova-early-stage-12Ps" -> "direct-early-stage-12Ps/hypernova-early-stage-12Ps.yaml"
-    for subdir in scorecards_dir.iterdir():
-        if subdir.is_dir():
-            potential_file = subdir / f"{scorecard_name}.yaml"
-            if potential_file.exists():
-                return potential_file
+    if firm:
+        firm_scorecards = Path("io") / firm / "templates" / "scorecards"
+        if firm_scorecards.exists():
+            search_dirs.append(firm_scorecards)
 
-    # Try matching directory name pattern
-    # e.g., "hypernova-early-stage-12Ps" might be in "direct-early-stage-12Ps/"
-    for subdir in scorecards_dir.iterdir():
-        if subdir.is_dir():
-            # Check all YAML files in directory
-            for yaml_file in subdir.glob("*.yaml"):
-                if scorecard_name in yaml_file.stem:
-                    return yaml_file
+    search_dirs.append(get_scorecards_dir())
+
+    for scorecards_dir in search_dirs:
+        # Try direct match in subdirectory
+        # e.g., "hypernova-early-stage-12Ps" -> "direct-early-stage-12Ps/hypernova-early-stage-12Ps.yaml"
+        for subdir in scorecards_dir.iterdir():
+            if subdir.is_dir():
+                potential_file = subdir / f"{scorecard_name}.yaml"
+                if potential_file.exists():
+                    if firm:
+                        print(f"📂 Found scorecard in: {scorecards_dir}")
+                    return potential_file
+
+        # Try matching directory name pattern
+        # e.g., "hypernova-early-stage-12Ps" might be in "direct-early-stage-12Ps/"
+        for subdir in scorecards_dir.iterdir():
+            if subdir.is_dir():
+                # Check all YAML files in directory
+                for yaml_file in subdir.glob("*.yaml"):
+                    if scorecard_name in yaml_file.stem:
+                        if firm:
+                            print(f"📂 Found scorecard in: {scorecards_dir}")
+                        return yaml_file
+
+    # Build error message with all searched paths
+    searched_paths = "\n".join(f"  - {d}" for d in search_dirs)
+    all_available = []
+    for d in search_dirs:
+        all_available.extend(d.glob('*/*.yaml'))
 
     raise FileNotFoundError(
         f"Scorecard not found: {scorecard_name}\n"
-        f"Searched in: {scorecards_dir}\n"
-        f"Available: {list(scorecards_dir.glob('*/*.yaml'))}"
+        f"Searched in:\n{searched_paths}\n"
+        f"Available: {all_available}"
     )
 
 
-def load_scorecard(scorecard_name: str) -> ScorecardDefinition:
+def load_scorecard(scorecard_name: str, firm: Optional[str] = None) -> ScorecardDefinition:
     """
     Load scorecard by name.
 
     Args:
         scorecard_name: Name of the scorecard (e.g., "hypernova-early-stage-12Ps")
+        firm: Optional firm name to check io/{firm}/templates/scorecards/ first
 
     Returns:
         ScorecardDefinition instance
     """
-    # Check cache
-    if scorecard_name in _scorecard_cache:
+    # Check cache (include firm in cache key)
+    cache_key = f"{scorecard_name}_{firm or 'default'}"
+    if cache_key in _scorecard_cache:
         print(f"✅ Using cached scorecard: {scorecard_name}")
-        return _scorecard_cache[scorecard_name]
+        return _scorecard_cache[cache_key]
 
     # Find and load file
-    file_path = find_scorecard_file(scorecard_name)
+    file_path = find_scorecard_file(scorecard_name, firm=firm)
     print(f"📊 Loading scorecard from: {file_path.name}")
 
     data = load_yaml_file(file_path)
     scorecard = parse_scorecard_data(data)
 
     # Cache it
-    _scorecard_cache[scorecard_name] = scorecard
+    _scorecard_cache[cache_key] = scorecard
 
     print(f"✅ Loaded scorecard: {scorecard.metadata.name} (v{scorecard.metadata.version})")
     print(f"   📋 {len(scorecard.dimensions)} dimensions in {len(scorecard.dimension_groups)} groups")
@@ -344,12 +380,13 @@ def load_scorecard_for_state(state: Dict[str, Any]) -> Optional[ScorecardDefinit
     Load scorecard based on state configuration.
 
     Args:
-        state: MemoState dict with optional scorecard_name
+        state: MemoState dict with optional scorecard_name and firm
 
     Returns:
         ScorecardDefinition if scorecard specified, None otherwise
     """
     scorecard_name = state.get("scorecard_name")
+    firm = state.get("firm")
 
     if not scorecard_name:
         return None
@@ -358,9 +395,11 @@ def load_scorecard_for_state(state: Dict[str, Any]) -> Optional[ScorecardDefinit
     print("📊 LOADING SCORECARD")
     print("="*60)
     print(f"Scorecard: {scorecard_name}")
+    if firm:
+        print(f"Firm: {firm}")
     print("-"*60)
 
-    scorecard = load_scorecard(scorecard_name)
+    scorecard = load_scorecard(scorecard_name, firm=firm)
 
     print("="*60 + "\n")
 

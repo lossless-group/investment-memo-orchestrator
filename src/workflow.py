@@ -111,21 +111,35 @@ def human_review(state: MemoState) -> dict:
     Returns:
         Updated state with messages for human reviewer
     """
+    from .utils import get_latest_output_dir
+    from .paths import resolve_deal_context
+
     validation = state.get("validation_results", {}).get("full_memo", {})
     score = state.get("overall_score", 0.0)
     issues = validation.get("issues", [])
     suggestions = validation.get("suggestions", [])
     company_name = state["company_name"]
+    firm = state.get("firm")
 
     # Save draft artifacts even when it needs review
     try:
-        # Get version manager
-        version_mgr = VersionManager(Path("output"))
+        # Get version manager - firm-aware
+        if firm:
+            ctx = resolve_deal_context(company_name, firm=firm)
+            version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+        else:
+            version_mgr = VersionManager(Path("output"))
+
         safe_name = sanitize_filename(company_name)
         version = version_mgr.get_next_version(safe_name)
 
-        # Get artifact directory
-        output_dir = Path("output") / f"{safe_name}-{version}"
+        # Get artifact directory - firm-aware
+        if firm:
+            output_dir = ctx.get_version_output_dir(str(version))
+        else:
+            output_dir = Path("output") / f"{safe_name}-{version}"
+
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         # Get draft content
         draft = state.get("draft_sections", {}).get("full_memo", {})

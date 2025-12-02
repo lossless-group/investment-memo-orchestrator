@@ -3,13 +3,13 @@
 
 Usage examples:
 
-    # Recompile latest version for Aito
+    # Firm-scoped (recommended):
+    python cli/recompile_memo.py --firm hypernova --deal Aito
+    python cli/recompile_memo.py --firm hypernova --deal Aito --version v0.0.2
+
+    # Legacy:
     python cli/recompile_memo.py "Aito"
-
-    # Recompile a specific version
     python cli/recompile_memo.py "Aito" --version v0.0.2
-
-    # Recompile using an explicit artifact directory
     python cli/recompile_memo.py output/Aito-v0.0.2
 """
 
@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.artifacts import sanitize_filename
 from src.versioning import VersionManager
+from src.paths import resolve_deal_context, get_latest_output_dir_for_deal, DealContext
 
 
 def resolve_artifact_dir(target: str, version: Optional[str]) -> Path:
@@ -107,10 +108,19 @@ def main() -> None:
 
     parser.add_argument(
         "target",
+        nargs="?",
         help=(
             "Company name (e.g., 'Aito') or path to artifact directory "
-            "(e.g., output/Aito-v0.0.2)"
+            "(e.g., output/Aito-v0.0.2). Optional if --firm and --deal are provided."
         ),
+    )
+    parser.add_argument(
+        "--firm",
+        help="Firm name for firm-scoped IO (e.g., 'hypernova'). Uses io/{firm}/deals/{deal}/"
+    )
+    parser.add_argument(
+        "--deal",
+        help="Deal name when using --firm. Required if --firm is provided."
     )
     parser.add_argument(
         "--version",
@@ -119,10 +129,62 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    try:
-        artifact_dir = resolve_artifact_dir(args.target, args.version)
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
+    # Validate arguments
+    if args.firm and not args.deal:
+        print("Error: --deal is required when --firm is provided")
+        sys.exit(1)
+
+    if not args.firm and not args.target:
+        print("Error: Either provide a target (company name or path) or use --firm and --deal")
+        sys.exit(1)
+
+    # Determine artifact directory
+    artifact_dir = None
+    deal_name = args.deal or args.target
+
+    if args.firm:
+        # Firm-scoped path resolution
+        ctx = resolve_deal_context(deal_name, firm=args.firm)
+
+        if not ctx.outputs_dir or not ctx.outputs_dir.exists():
+            print(f"Error: Outputs directory not found for {args.firm}/{deal_name}")
+            print(f"  Expected: {ctx.outputs_dir}")
+            sys.exit(1)
+
+        if args.version:
+            artifact_dir = ctx.get_version_output_dir(args.version)
+        else:
+            try:
+                artifact_dir = get_latest_output_dir_for_deal(ctx)
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
+    elif args.target:
+        # Try firm-scoped auto-detection first
+        ctx = resolve_deal_context(args.target)
+
+        if not ctx.is_legacy and ctx.outputs_dir and ctx.outputs_dir.exists():
+            # Found in io/{firm}/deals/{deal}/
+            print(f"Auto-detected firm: {ctx.firm}")
+            if args.version:
+                artifact_dir = ctx.get_version_output_dir(args.version)
+            else:
+                try:
+                    artifact_dir = get_latest_output_dir_for_deal(ctx)
+                except FileNotFoundError:
+                    print(f"Error: No output versions found for {args.target}")
+                    sys.exit(1)
+        else:
+            # Fall back to legacy resolution
+            try:
+                artifact_dir = resolve_artifact_dir(args.target, args.version)
+            except FileNotFoundError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
+    if not artifact_dir or not artifact_dir.exists():
+        print(f"Error: Artifact directory not found: {artifact_dir}")
         sys.exit(1)
 
     print(f"Artifact directory: {artifact_dir}")

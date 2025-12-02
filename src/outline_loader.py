@@ -312,13 +312,14 @@ def load_outline(investment_type: str, mode: Optional[str] = None) -> OutlineDef
     return outline
 
 
-def load_custom_outline(outline_name: str, investment_type: str) -> OutlineDefinition:
+def load_custom_outline(outline_name: str, investment_type: str, firm: str = None) -> OutlineDefinition:
     """
     Load custom outline with inheritance from base outline.
 
     Args:
         outline_name: Name of custom outline (e.g., "hypernova-direct-consider" or "lpcommit-emerging-manager")
         investment_type: "direct" or "fund" (for loading base outline)
+        firm: Optional firm name to check io/{firm}/templates/outlines/ first
 
     Returns:
         OutlineDefinition instance with overrides applied
@@ -326,28 +327,53 @@ def load_custom_outline(outline_name: str, investment_type: str) -> OutlineDefin
     templates_dir = get_templates_dir()
     custom_dir = templates_dir / "custom"
 
-    cache_key = f"custom_{outline_name}"
+    cache_key = f"custom_{outline_name}_{firm or 'default'}"
 
     # Check cache
     if cache_key in _outline_cache:
         print(f"✅ Using cached custom outline: {outline_name}")
         return _outline_cache[cache_key]
 
-    # Load custom outline file - check both main outlines dir and custom dir
-    custom_file = custom_dir / f"{outline_name}.yaml"
-    main_file = templates_dir / f"{outline_name}.yaml"
+    # Build list of paths to check (priority order)
+    search_paths = []
 
-    if main_file.exists():
-        custom_file = main_file
-        print(f"📂 Found outline in main templates/outlines/ directory")
-    elif not custom_file.exists():
+    # 1. Firm-scoped templates (highest priority)
+    if firm:
+        firm_templates_dir = Path("io") / firm / "templates" / "outlines"
+        firm_outline = firm_templates_dir / f"{outline_name}.yaml"
+        search_paths.append(firm_outline)
+
+    # 2. Main templates/outlines/ directory
+    main_file = templates_dir / f"{outline_name}.yaml"
+    search_paths.append(main_file)
+
+    # 3. templates/outlines/custom/ directory
+    custom_file = custom_dir / f"{outline_name}.yaml"
+    search_paths.append(custom_file)
+
+    # Find first existing file
+    found_file = None
+    for path in search_paths:
+        if path.exists():
+            found_file = path
+            if firm and str(path).startswith("io/"):
+                print(f"📂 Found outline in firm-scoped templates: io/{firm}/templates/outlines/")
+            elif path == main_file:
+                print(f"📂 Found outline in main templates/outlines/ directory")
+            else:
+                print(f"📂 Found outline in templates/outlines/custom/ directory")
+            break
+
+    if not found_file:
+        searched_str = "\n".join(f"  - {p}" for p in search_paths)
+        available = list(templates_dir.glob('*.yaml')) + list(custom_dir.glob('*.yaml'))
         raise FileNotFoundError(
             f"Custom outline not found: {outline_name}.yaml\n"
-            f"Searched in:\n"
-            f"  - {main_file}\n"
-            f"  - {custom_file}\n"
-            f"Available outlines: {list(templates_dir.glob('*.yaml'))} + {list(custom_dir.glob('*.yaml'))}"
+            f"Searched in:\n{searched_str}\n"
+            f"Available outlines: {available}"
         )
+
+    custom_file = found_file
 
     custom_data = load_yaml_file(custom_file)
     custom_outline = parse_outline_data(custom_data)
@@ -389,17 +415,20 @@ def load_outline_for_state(state: Dict[str, Any]) -> OutlineDefinition:
     investment_type = state.get("investment_type", "direct")
     mode = state.get("memo_mode", "consider")
     custom_outline = state.get("outline_name")  # From company data or CLI
+    firm = state.get("firm")  # Firm for firm-scoped template lookup
 
     print("\n" + "="*60)
     print("📚 LOADING MEMO OUTLINE")
     print("="*60)
     print(f"Investment Type: {investment_type}")
     print(f"Mode: {mode}")
+    if firm:
+        print(f"Firm: {firm}")
 
     if custom_outline:
         print(f"Custom Outline: {custom_outline}")
         print("-"*60)
-        outline = load_custom_outline(custom_outline, investment_type)
+        outline = load_custom_outline(custom_outline, investment_type, firm=firm)
     else:
         print("Using: Default outline")
         print("-"*60)

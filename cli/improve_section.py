@@ -3,10 +3,10 @@
 Improve or complete a specific section of an investment memo using Perplexity Sonar Pro.
 
 USAGE: Always run with venv Python:
-    .venv/bin/python improve-section.py "Company" "Section Name"
+    .venv/bin/python cli/improve_section.py "Company" "Section Name"
 
 Or activate venv first:
-    source .venv/bin/activate && python improve-section.py "Company" "Section Name"
+    source .venv/bin/activate && python cli/improve_section.py "Company" "Section Name"
 
 This script allows targeted improvement of individual memo sections without
 regenerating the entire memo. It uses Perplexity Sonar Pro for:
@@ -22,9 +22,14 @@ Features:
 - Automatically reassemble final draft after improvement
 
 Usage:
-    python improve-section.py "Avalanche" "Team"
-    python improve-section.py "Avalanche" "Technology & Product" --version v0.0.1
-    python improve-section.py output/Avalanche-v0.0.1 "Market Context"
+    # Firm-scoped (recommended):
+    python cli/improve_section.py --firm hypernova --deal Aalo "Team"
+    python cli/improve_section.py --firm hypernova --deal Aalo "Market Context" --version v0.0.1
+
+    # Legacy (auto-detects firm or uses output/):
+    python cli/improve_section.py "Avalanche" "Team"
+    python cli/improve_section.py "Avalanche" "Technology & Product" --version v0.0.1
+    python cli/improve_section.py output/Avalanche-v0.0.1 "Market Context"
 
 Requirements:
     - PERPLEXITY_API_KEY must be set in .env file
@@ -43,6 +48,7 @@ from rich.panel import Panel
 from src.state import MemoState
 from src.artifacts import sanitize_filename, save_section_artifact
 from src.versioning import VersionManager
+from src.paths import resolve_deal_context, get_latest_output_dir_for_deal, DealContext
 
 
 # Section mappings (name -> file number and filename)
@@ -341,11 +347,20 @@ def main():
     )
     parser.add_argument(
         "target",
-        help="Company name (e.g., 'Bear-AI') or path to artifact directory"
+        nargs="?",
+        help="Company/deal name (e.g., 'Bear-AI') or path to artifact directory. Optional if --firm and --deal are provided."
     )
     parser.add_argument(
         "section",
         help="Section name (e.g., 'Team', 'Market Context', 'Technology & Product')"
+    )
+    parser.add_argument(
+        "--firm",
+        help="Firm name for firm-scoped IO (e.g., 'hypernova'). Uses io/{firm}/deals/{deal}/"
+    )
+    parser.add_argument(
+        "--deal",
+        help="Deal name when using --firm. Required if --firm is provided."
     )
     parser.add_argument(
         "--version",
@@ -358,30 +373,77 @@ def main():
 
     args = parser.parse_args()
 
-    # Determine artifact directory
-    target_path = Path(args.target)
+    # Validate arguments
+    if args.firm and not args.deal:
+        console.print("[red]Error: --deal is required when --firm is provided[/red]")
+        sys.exit(1)
 
-    if target_path.exists() and target_path.is_dir():
-        # Direct path to artifact directory
-        artifact_dir = target_path
-    else:
-        # Company name - find latest version
-        safe_name = sanitize_filename(args.target)
-        output_dir = Path("output")
+    if not args.firm and not args.target:
+        console.print("[red]Error: Either provide a target (company name or path) or use --firm and --deal[/red]")
+        sys.exit(1)
+
+    # Determine artifact directory
+    artifact_dir = None
+    deal_name = args.deal or args.target
+
+    if args.firm:
+        # Firm-scoped path resolution
+        ctx = resolve_deal_context(deal_name, firm=args.firm)
+
+        if not ctx.outputs_dir or not ctx.outputs_dir.exists():
+            console.print(f"[red]Error: Outputs directory not found for {args.firm}/{deal_name}[/red]")
+            console.print(f"[dim]Expected: {ctx.outputs_dir}[/dim]")
+            sys.exit(1)
 
         if args.version:
-            artifact_dir = output_dir / f"{safe_name}-{args.version}"
+            artifact_dir = ctx.get_version_output_dir(args.version)
         else:
-            # Find latest version
-            version_mgr = VersionManager(output_dir)
-            if safe_name not in version_mgr.versions_data:
-                console.print(f"[red]Error: No versions found for '{args.target}'[/red]")
+            try:
+                artifact_dir = get_latest_output_dir_for_deal(ctx)
+            except FileNotFoundError as e:
+                console.print(f"[red]Error: {e}[/red]")
                 sys.exit(1)
 
-            latest_version = version_mgr.versions_data[safe_name]["latest_version"]
-            artifact_dir = output_dir / f"{safe_name}-{latest_version}"
+    elif args.target:
+        target_path = Path(args.target)
 
-    if not artifact_dir.exists():
+        if target_path.exists() and target_path.is_dir():
+            # Direct path to artifact directory
+            artifact_dir = target_path
+        else:
+            # Try firm-scoped auto-detection first
+            ctx = resolve_deal_context(args.target)
+
+            if not ctx.is_legacy and ctx.outputs_dir and ctx.outputs_dir.exists():
+                # Found in io/{firm}/deals/{deal}/
+                console.print(f"[dim]Auto-detected firm: {ctx.firm}[/dim]")
+                if args.version:
+                    artifact_dir = ctx.get_version_output_dir(args.version)
+                else:
+                    try:
+                        artifact_dir = get_latest_output_dir_for_deal(ctx)
+                    except FileNotFoundError:
+                        console.print(f"[red]Error: No output versions found for {args.target}[/red]")
+                        sys.exit(1)
+            else:
+                # Fall back to legacy output/ structure
+                safe_name = sanitize_filename(args.target)
+                output_dir = Path("output")
+
+                if args.version:
+                    artifact_dir = output_dir / f"{safe_name}-{args.version}"
+                else:
+                    # Find latest version from legacy versions.json
+                    version_mgr = VersionManager(output_dir)
+                    if safe_name not in version_mgr.versions_data:
+                        console.print(f"[red]Error: No versions found for '{args.target}'[/red]")
+                        console.print(f"[dim]Checked: io/ (auto-detect) and output/versions.json[/dim]")
+                        sys.exit(1)
+
+                    latest_version = version_mgr.versions_data[safe_name]["latest_version"]
+                    artifact_dir = output_dir / f"{safe_name}-{latest_version}"
+
+    if not artifact_dir or not artifact_dir.exists():
         console.print(f"[red]Error: Artifact directory not found:[/red] {artifact_dir}")
         sys.exit(1)
 
@@ -423,8 +485,11 @@ def main():
     console.print(f"\n[bold cyan]Next steps:[/bold cyan]")
     console.print(f"1. Review the improved section in: {artifact_dir}/2-sections/")
     console.print(f"2. View complete memo: {final_draft}")
-    console.print(f"3. Export to HTML: python export-branded.py {final_draft} --brand hypernova")
-    console.print(f"4. Improve another section: python improve-section.py \"{args.target}\" \"<section name>\"")
+    console.print(f"3. Export to HTML: python cli/export_branded.py {final_draft} --brand hypernova")
+    if args.firm:
+        console.print(f"4. Improve another section: python cli/improve_section.py --firm {args.firm} --deal {deal_name} \"<section name>\"")
+    else:
+        console.print(f"4. Improve another section: python cli/improve_section.py \"{deal_name}\" \"<section name>\"")
 
 
 if __name__ == "__main__":

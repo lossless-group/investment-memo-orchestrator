@@ -69,7 +69,8 @@ def create_artifact_directory(
 def save_deck_analysis_artifacts(
     company_name: str,
     deck_analysis: Dict[str, Any],
-    section_drafts: Dict[str, str]
+    section_drafts: Dict[str, str],
+    firm: str = None
 ) -> None:
     """
     Save deck analysis artifacts with 0- prefix.
@@ -78,14 +79,21 @@ def save_deck_analysis_artifacts(
         company_name: Name of the company
         deck_analysis: Deck analysis data
         section_drafts: Initial section drafts from deck
+        firm: Optional firm name for firm-scoped outputs
     """
     from .versioning import VersionManager
+    from .paths import resolve_deal_context
 
-    # Get or create output directory
-    version_mgr = VersionManager(Path("output"))
+    # Get or create output directory - firm-aware
+    if firm:
+        ctx = resolve_deal_context(company_name, firm=firm)
+        version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+    else:
+        version_mgr = VersionManager(Path("output"))
+
     safe_name = sanitize_filename(company_name)
     version = version_mgr.get_next_version(safe_name)
-    output_dir = create_artifact_directory(company_name, version)
+    output_dir = create_artifact_directory(company_name, version, firm=firm)
 
     # Save structured JSON
     with open(output_dir / "0-deck-analysis.json", "w") as f:
@@ -108,27 +116,40 @@ def save_deck_analysis_artifacts(
     print(f"Deck analysis artifacts saved: {len(section_drafts)} initial sections created to 0-deck-sections/")
 
 
-def load_existing_section_drafts(company_name: str) -> Dict[str, str]:
+def load_existing_section_drafts(company_name: str, firm: str = None) -> Dict[str, str]:
     """
     Load any existing section drafts from artifacts.
 
     Args:
         company_name: Name of the company
+        firm: Optional firm name for firm-scoped outputs
 
     Returns:
         Dictionary mapping section filenames to content
     """
     from .versioning import VersionManager
+    from .paths import resolve_deal_context
 
-    version_mgr = VersionManager(Path("output"))
     safe_name = sanitize_filename(company_name)
+
+    # Get version manager - firm-aware
+    if firm:
+        ctx = resolve_deal_context(company_name, firm=firm)
+        version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+    else:
+        version_mgr = VersionManager(Path("output"))
 
     # Get the latest version for this company
     if safe_name not in version_mgr.versions_data:
         return {}
 
     latest_version = version_mgr.versions_data[safe_name]["latest_version"]
-    output_dir = Path("output") / f"{safe_name}-{latest_version}"
+
+    # Get output directory - firm-aware
+    if firm:
+        output_dir = ctx.get_version_output_dir(latest_version)
+    else:
+        output_dir = Path("output") / f"{safe_name}-{latest_version}"
 
     sections_dir = output_dir / "2-sections"
 

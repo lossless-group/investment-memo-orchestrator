@@ -588,12 +588,23 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     from datetime import datetime
     current_date = datetime.now().strftime("%B %Y")
 
-    # Get version manager and output directory
-    version_mgr = VersionManager(Path("output"))
+    # Get version manager and output directory - firm-aware
+    from ..paths import resolve_deal_context
+    from ..artifacts import create_artifact_directory
+
+    firm = state.get("firm")
     safe_name = sanitize_filename(company_name)
-    version = version_mgr.get_next_version(safe_name)
-    output_dir = Path("output") / f"{safe_name}-{version}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if firm:
+        ctx = resolve_deal_context(company_name, firm=firm)
+        version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+        version = version_mgr.get_next_version(safe_name)
+        output_dir = create_artifact_directory(company_name, str(version), firm=firm)
+    else:
+        version_mgr = VersionManager(Path("output"))
+        version = version_mgr.get_next_version(safe_name)
+        output_dir = Path("output") / f"{safe_name}-{version}"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n📝 Writing memo sections using outline guidance...")
     print(f"   Outline: {outline.metadata.outline_type} v{outline.metadata.version}")

@@ -22,11 +22,13 @@ conflicting (e.g., multiple entities named "Watershed"), the model should:
 
 Usage examples:
 
-    # Refocus the Recommendation section for the latest WatershedVC memo
-    python refocus_section.py "WatershedVC" "Recommendation"
+    # Firm-scoped (recommended):
+    python cli/refocus_section.py --firm hypernova --deal WatershedVC "Recommendation"
+    python cli/refocus_section.py --firm hypernova --deal WatershedVC "Risks & Mitigations" --version v0.0.1
 
-    # Refocus Risks & Mitigations for a specific version directory
-    python refocus_section.py output/WatershedVC-v0.0.1 "Risks & Mitigations"
+    # Legacy:
+    python cli/refocus_section.py "WatershedVC" "Recommendation"
+    python cli/refocus_section.py output/WatershedVC-v0.0.1 "Risks & Mitigations"
 
 The interface and artifact handling intentionally mirror cli/improve_section.py
 so it fits naturally into the existing workflow.
@@ -47,6 +49,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.artifacts import sanitize_filename, save_section_artifact
 from src.versioning import VersionManager
+from src.paths import resolve_deal_context, get_latest_output_dir_for_deal, DealContext
 
 
 # Reuse / extend the same section mapping as improve_section.py
@@ -376,14 +379,23 @@ def main() -> None:
     )
     parser.add_argument(
         "target",
+        nargs="?",
         help=(
             "Company name (e.g., 'WatershedVC') or path to an artifact directory "
-            "(e.g., output/WatershedVC-v0.0.1)"
+            "(e.g., output/WatershedVC-v0.0.1). Optional if --firm and --deal are provided."
         ),
     )
     parser.add_argument(
         "section",
         help="Section name (e.g., 'Recommendation', 'Risks & Mitigations')",
+    )
+    parser.add_argument(
+        "--firm",
+        help="Firm name for firm-scoped IO (e.g., 'hypernova'). Uses io/{firm}/deals/{deal}/"
+    )
+    parser.add_argument(
+        "--deal",
+        help="Deal name when using --firm. Required if --firm is provided."
     )
     parser.add_argument(
         "--version",
@@ -392,25 +404,74 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    target_path = Path(args.target)
+    # Validate arguments
+    if args.firm and not args.deal:
+        console.print("[red]Error: --deal is required when --firm is provided[/red]")
+        sys.exit(1)
 
-    if target_path.exists() and target_path.is_dir():
-        artifact_dir = target_path
-    else:
-        safe_name = sanitize_filename(args.target)
-        output_root = Path("output")
+    if not args.firm and not args.target:
+        console.print("[red]Error: Either provide a target (company name or path) or use --firm and --deal[/red]")
+        sys.exit(1)
+
+    # Determine artifact directory
+    artifact_dir = None
+    deal_name = args.deal or args.target
+
+    if args.firm:
+        # Firm-scoped path resolution
+        ctx = resolve_deal_context(deal_name, firm=args.firm)
+
+        if not ctx.outputs_dir or not ctx.outputs_dir.exists():
+            console.print(f"[red]Error: Outputs directory not found for {args.firm}/{deal_name}[/red]")
+            console.print(f"[dim]Expected: {ctx.outputs_dir}[/dim]")
+            sys.exit(1)
 
         if args.version:
-            artifact_dir = output_root / f"{safe_name}-{args.version}"
+            artifact_dir = ctx.get_version_output_dir(args.version)
         else:
-            version_mgr = VersionManager(output_root)
-            if safe_name not in version_mgr.versions_data:
-                console.print(f"[red]Error: No versions found for '{args.target}'[/red]")
+            try:
+                artifact_dir = get_latest_output_dir_for_deal(ctx)
+            except FileNotFoundError as e:
+                console.print(f"[red]Error: {e}[/red]")
                 sys.exit(1)
-            latest_version = version_mgr.versions_data[safe_name]["latest_version"]
-            artifact_dir = output_root / f"{safe_name}-{latest_version}"
 
-    if not artifact_dir.exists():
+    elif args.target:
+        target_path = Path(args.target)
+
+        if target_path.exists() and target_path.is_dir():
+            artifact_dir = target_path
+        else:
+            # Try firm-scoped auto-detection first
+            ctx = resolve_deal_context(args.target)
+
+            if not ctx.is_legacy and ctx.outputs_dir and ctx.outputs_dir.exists():
+                # Found in io/{firm}/deals/{deal}/
+                console.print(f"[dim]Auto-detected firm: {ctx.firm}[/dim]")
+                if args.version:
+                    artifact_dir = ctx.get_version_output_dir(args.version)
+                else:
+                    try:
+                        artifact_dir = get_latest_output_dir_for_deal(ctx)
+                    except FileNotFoundError:
+                        console.print(f"[red]Error: No output versions found for {args.target}[/red]")
+                        sys.exit(1)
+            else:
+                # Fall back to legacy output/ structure
+                safe_name = sanitize_filename(args.target)
+                output_root = Path("output")
+
+                if args.version:
+                    artifact_dir = output_root / f"{safe_name}-{args.version}"
+                else:
+                    version_mgr = VersionManager(output_root)
+                    if safe_name not in version_mgr.versions_data:
+                        console.print(f"[red]Error: No versions found for '{args.target}'[/red]")
+                        console.print(f"[dim]Checked: io/ (auto-detect) and output/versions.json[/dim]")
+                        sys.exit(1)
+                    latest_version = version_mgr.versions_data[safe_name]["latest_version"]
+                    artifact_dir = output_root / f"{safe_name}-{latest_version}"
+
+    if not artifact_dir or not artifact_dir.exists():
         console.print(
             f"[red]Error: Artifact directory not found:[/red] {artifact_dir}"
         )
@@ -448,10 +509,16 @@ def main() -> None:
         "3. Export to HTML: python cli/export_branded.py "
         f"{final_draft} --brand hypernova --mode dark"
     )
-    console.print(
-        "4. Refocus another section: python cli/refocus_section.py "
-        f"\"{args.target}\" \"<section name>\""
-    )
+    if args.firm:
+        console.print(
+            f"4. Refocus another section: python cli/refocus_section.py "
+            f"--firm {args.firm} --deal {deal_name} \"<section name>\""
+        )
+    else:
+        console.print(
+            "4. Refocus another section: python cli/refocus_section.py "
+            f"\"{deal_name}\" \"<section name>\""
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

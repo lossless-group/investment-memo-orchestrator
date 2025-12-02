@@ -172,8 +172,17 @@ def main():
         try:
             company_data = load_deal_config(deal_ctx)
 
-            # Load deck path
+            # Load deck path (resolve relative to deal directory if firm-scoped)
             deck_path = company_data.get("deck")
+            if deck_path and not deal_ctx.is_legacy:
+                # Deck path is relative to deal directory in firm-scoped mode
+                resolved_deck = deal_ctx.deal_dir / deck_path
+                if resolved_deck.exists():
+                    deck_path = str(resolved_deck)
+                else:
+                    # Maybe it's already an absolute path or relative to project root
+                    if not Path(deck_path).exists():
+                        console.print(f"[dim]Resolving deck relative to deal dir: {resolved_deck}[/dim]")
 
             # Load additional company context
             company_description = company_data.get("description")
@@ -372,7 +381,8 @@ def main():
             console.print(f"\n[bold green]✓ {status_msg}:[/bold green] {output_file}")
 
             # Save full state as JSON for debugging
-            state_file = version_output_dir / f"{safe_name}-{version}-state.json"
+            # Uses canonical location: state.json inside version directory
+            state_file = version_output_dir / "state.json"
             with open(state_file, "w") as f:
                 # Convert state to serializable format
                 serializable_state = {

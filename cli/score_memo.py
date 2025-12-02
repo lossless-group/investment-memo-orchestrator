@@ -3,6 +3,11 @@
 CLI tool for scoring an existing memo against a scorecard.
 
 Usage:
+    # Firm-scoped (recommended):
+    python cli/score_memo.py --firm hypernova --deal Aalo --scorecard hypernova-early-stage-12Ps
+    python cli/score_memo.py --firm hypernova --deal Aalo --version v0.0.5
+
+    # Legacy:
     python cli/score_memo.py "Company Name" --scorecard hypernova-early-stage-12Ps
     python cli/score_memo.py output/Sava-v0.0.2 --scorecard hypernova-early-stage-12Ps
 """
@@ -29,6 +34,7 @@ from src.scorecard_loader import (
     get_score_label,
 )
 from src.utils import get_latest_output_dir
+from src.paths import resolve_deal_context, get_latest_output_dir_for_deal, DealContext
 
 
 def find_output_dir(company_or_path: str) -> Path:
@@ -365,7 +371,20 @@ def main():
     )
     parser.add_argument(
         "company",
-        help="Company name or path to output directory"
+        nargs="?",
+        help="Company name or path to output directory. Optional if --firm and --deal are provided."
+    )
+    parser.add_argument(
+        "--firm",
+        help="Firm name for firm-scoped IO (e.g., 'hypernova'). Uses io/{firm}/deals/{deal}/"
+    )
+    parser.add_argument(
+        "--deal",
+        help="Deal name when using --firm. Required if --firm is provided."
+    )
+    parser.add_argument(
+        "--version",
+        help="Specific version (e.g., 'v0.0.1'). If not specified, uses latest."
     )
     parser.add_argument(
         "--scorecard",
@@ -374,7 +393,7 @@ def main():
     )
     parser.add_argument(
         "--output",
-        help="Output file path (default: output/{company}/5-scorecard/12Ps-scorecard.md)"
+        help="Output file path (default: {output_dir}/5-scorecard/12Ps-scorecard.md)"
     )
     parser.add_argument(
         "--model",
@@ -384,6 +403,15 @@ def main():
 
     args = parser.parse_args()
 
+    # Validate arguments
+    if args.firm and not args.deal:
+        print("❌ --deal is required when --firm is provided")
+        sys.exit(1)
+
+    if not args.firm and not args.company:
+        print("❌ Either provide a company name/path or use --firm and --deal")
+        sys.exit(1)
+
     # Check for API key
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -391,13 +419,35 @@ def main():
         sys.exit(1)
 
     # Find output directory
-    print(f"\n📂 Finding output directory for: {args.company}")
-    try:
-        output_dir = find_output_dir(args.company)
-        print(f"   Found: {output_dir}")
-    except FileNotFoundError as e:
-        print(f"❌ {e}")
-        sys.exit(1)
+    deal_name = args.deal or args.company
+    output_dir = None
+
+    if args.firm:
+        print(f"\n📂 Finding output for firm: {args.firm}, deal: {args.deal}")
+        ctx = resolve_deal_context(args.deal, firm=args.firm)
+
+        if not ctx.outputs_dir or not ctx.outputs_dir.exists():
+            print(f"❌ Outputs directory not found for {args.firm}/{args.deal}")
+            print(f"   Expected: {ctx.outputs_dir}")
+            sys.exit(1)
+
+        if args.version:
+            output_dir = ctx.get_version_output_dir(args.version)
+        else:
+            try:
+                output_dir = get_latest_output_dir_for_deal(ctx)
+            except FileNotFoundError as e:
+                print(f"❌ {e}")
+                sys.exit(1)
+    else:
+        print(f"\n📂 Finding output directory for: {args.company}")
+        try:
+            output_dir = find_output_dir(args.company)
+        except FileNotFoundError as e:
+            print(f"❌ {e}")
+            sys.exit(1)
+
+    print(f"   Found: {output_dir}")
 
     # Load scorecard
     print(f"\n📊 Loading scorecard: {args.scorecard}")

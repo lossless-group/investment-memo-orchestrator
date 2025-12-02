@@ -412,17 +412,33 @@ def _extract_key_facts(extraction_results: dict) -> dict:
     return key_facts
 
 
-def _get_or_create_output_dir(company_name: str) -> Path:
-    """Get or create output directory following project conventions."""
-    from ...artifacts import sanitize_filename
+def _get_or_create_output_dir(company_name: str, firm: str = None) -> Path:
+    """Get or create output directory following project conventions.
+
+    Args:
+        company_name: Name of the company
+        firm: Optional firm name for firm-scoped outputs
+
+    Returns:
+        Path to the output directory
+    """
+    from ...artifacts import sanitize_filename, create_artifact_directory
     from ...versioning import VersionManager
+    from ...paths import resolve_deal_context
 
     safe_name = sanitize_filename(company_name)
-    version_mgr = VersionManager(Path("output"))
-    version = version_mgr.get_next_version(safe_name)
 
-    output_dir = Path("output") / f"{safe_name}-{version}"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Get version manager - firm-aware
+    if firm:
+        ctx = resolve_deal_context(company_name, firm=firm)
+        version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+        version = version_mgr.get_next_version(safe_name)
+        output_dir = create_artifact_directory(company_name, str(version), firm=firm)
+    else:
+        version_mgr = VersionManager(Path("output"))
+        version = version_mgr.get_next_version(safe_name)
+        output_dir = Path("output") / f"{safe_name}-{version}"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     return output_dir
 
