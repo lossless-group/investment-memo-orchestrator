@@ -62,7 +62,8 @@
       "Bash(README.md)",
       "Bash(sed:*)",
       "Bash(git submodule:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(brew list:*)"
     ],
     "deny": [],
     "ask": []

@@ -16,6 +16,7 @@ Many people may not want to manage using an Open Source library and deal with th
 - [Pascal AI](https://www.pascalailabs.com/)
 - [Promenade AI](https://www.promenade-ai.com/)
 - [Rogo AI](https://rogo.ai/)
+- [Wokelo](https://www.wokelo.ai/)
 
 #### General AI Automation Platforms with Blueprints or Templates
 - [Lyzr | Investment Memo Blueprint](https://www.lyzr.ai/blueprints/venture-capital/investment-memo-generator-agent/)
