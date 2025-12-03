@@ -4,7 +4,7 @@ Multi-agent orchestration system for generating high-quality investment memos us
 
 **Status**: Production-Ready with Section-by-Section Processing ✅
 
-Sponsored by [Hypernova Capital](https://www.hypernova.capital)
+Supported by [Hypernova Capital](https://www.hypernova.capital), [Avalanche VC](https://avalanche.vc), and [Emerge Capital](https://emergecapital.vc)
 
 ### Similar Services
 Many people may not want to manage using an Open Source library and deal with the command line.  These are services we have found that can provide similar Investment Memo Generation.
@@ -24,6 +24,52 @@ Many people may not want to manage using an Open Source library and deal with th
 - [Bash | Investment Memo Template](https://www.getbash.com/templates/investment-memo)
 
 ## Recent Updates
+
+### 2025-12-03: Firm-Scoped IO System (v0.3.0)
+
+**Multi-tenant architecture** enabling private firm-specific configurations, deal data, and branded exports. Each firm can maintain isolated data while sharing the core codebase.
+
+**New Directory Structure:**
+```
+io/
+└── {firm}/                           # e.g., "hypernova", "emerge"
+    ├── configs/
+    │   └── brand-{firm}-config.yaml  # Firm-specific brand styling
+    ├── templates/
+    │   ├── outlines/                 # Firm-specific content outlines
+    │   └── scorecards/               # Firm-specific evaluation scorecards
+    └── deals/
+        └── {deal}/                   # e.g., "Blinka", "CoachCube"
+            ├── {deal}.json           # Deal configuration
+            ├── inputs/               # Pitch decks, datarooms
+            ├── outputs/              # Versioned memo artifacts
+            └── exports/              # Branded HTML/PDF exports
+                ├── dark/
+                └── light/
+```
+
+**Key Features:**
+- **Privacy**: Firm data stays in `io/` (gitignored or private git submodule)
+- **Multi-Tenant**: Multiple firms use same codebase with isolated configs
+- **Backward Compatible**: Legacy `output/`, `data/`, `templates/` paths still work
+- **Auto-Detection**: System auto-detects firm from `io/{firm}/deals/{deal}/` paths
+- **Resume**: New `resume_from_interruption.py` CLI to continue interrupted generation
+
+**Usage:**
+```bash
+# Generate memo with firm context
+python -m src.main "Blinka" --firm hypernova
+
+# Export with firm-scoped paths
+python cli/export_branded.py --firm hypernova --deal Blinka --mode dark --pdf
+
+# Resume interrupted generation
+python cli/resume_from_interruption.py --firm emerge --deal CoachCube
+```
+
+See `io/README.md` for complete firm-scoped IO documentation.
+
+---
 
 ### 2025-11-26: Dataroom Analyzer Agent System
 
@@ -87,7 +133,11 @@ This system uses a supervisor pattern with specialized AI agents to generate inv
 
 ### Core Command
 ```bash
+# Legacy mode (outputs to output/)
 python -m src.main "Company Name" --type direct --mode consider
+
+# Firm-scoped mode (outputs to io/{firm}/deals/{deal}/outputs/)
+python -m src.main "Company Name" --firm hypernova --type direct --mode consider
 ```
 
 ### Multi-Agent Pipeline
@@ -134,12 +184,13 @@ See [Pipeline Agents Reference](#pipeline-agents-reference) and [CLI Tools Refer
 
 ### Multi-Brand Export System
 - **Customizable branding**: Configure company name, tagline, colors, and fonts via YAML files
+- **Firm-scoped configs**: Brand configs in `io/{firm}/configs/` for private firm branding
+- **Shared configs**: Brand configs in `templates/brand-configs/` for cross-firm use
 - **Multiple brands**: Support for multiple VC firm clients in a single installation
-- **Brand configurations**: Create `templates/brand-configs/brand-<name>-config.yaml` files (e.g., `brand-accel-config.yaml`, `brand-sequoia-config.yaml`)
 - **Quick setup**: Copy `templates/brand-configs/brand-config.example.yaml` and customize with your firm's colors and fonts
 - **Export formats**: HTML (light/dark modes) and PDF with full branding
-- **Easy switching**: `python export-branded.py memo.md --brand accel` applies Accel branding
-- **System fonts**: Works with or without custom font files
+- **Easy switching**: `python cli/export_branded.py --firm hypernova --deal Blinka --brand collide` applies Collide branding to a Hypernova deal
+- **System fonts**: Works with or without custom font files (supports local `.woff2`, `.ttf` files)
 - **Documentation**: Complete guide in [docs/CUSTOM-BRANDING.md](docs/CUSTOM-BRANDING.md)
 
 #### Creating Your Own Brand
@@ -420,6 +471,8 @@ You can create a JSON file in `data/{CompanyName}.json` to provide additional co
 ### Output
 
 Each generation creates a versioned artifact directory:
+
+**Legacy mode** (`output/`):
 ```
 output/{Company-Name}-v0.0.x/
 ├── 1-research.json          # Structured research data
@@ -432,6 +485,19 @@ output/{Company-Name}-v0.0.x/
 ├── 3-validation.md          # Human-readable validation report
 ├── 4-final-draft.md         # Complete memo with citations
 └── state.json               # Full workflow state for debugging
+```
+
+**Firm-scoped mode** (`io/{firm}/`):
+```
+io/{firm}/deals/{deal}/
+├── {deal}.json              # Deal configuration
+├── inputs/                  # Source materials (decks, datarooms)
+├── outputs/                 # Generated memo artifacts
+│   └── {Deal}-v0.0.x/       # Same structure as legacy
+├── exports/                 # Branded HTML/PDF exports
+│   ├── dark/
+│   └── light/
+└── assets/                  # Deal-specific assets (logos)
 ```
 
 Plus `versions.json` tracking version history across all iterations.
@@ -612,6 +678,8 @@ investment-memo-orchestrator/
 │   │   ├── writer.py                 # Memo drafting
 │   │   ├── citation_enrichment.py    # Citation addition (Perplexity)
 │   │   ├── citation_validator.py     # Citation accuracy validation
+│   │   ├── toc_generator.py          # Table of Contents generation
+│   │   ├── fact_checker.py           # Fact verification agent
 │   │   ├── validator.py              # Quality validation
 │   │   ├── scorecard_agent.py        # 12-dimension emerging manager scorecard
 │   │   ├── portfolio_listing_agent.py # Portfolio company extraction
@@ -622,45 +690,65 @@ investment-memo-orchestrator/
 │   │       ├── document_scanner.py   # Directory scanning
 │   │       ├── document_classifier.py # 3-stage classification
 │   │       └── extractors/           # Specialized extractors
-│   │           ├── __init__.py
-│   │           └── competitive_extractor.py  # Battlecard synthesis
 │   ├── state.py                      # TypedDict schemas
 │   ├── workflow.py                   # LangGraph orchestration
 │   ├── artifacts.py                  # Artifact trail system
 │   ├── versioning.py                 # Version tracking system
+│   ├── paths.py                      # Firm-scoped path resolution
+│   ├── branding.py                   # Brand config loading
+│   ├── scorecard_loader.py           # Scorecard loading
 │   └── main.py                       # CLI entry point
+├── cli/
+│   ├── export_branded.py             # HTML/PDF export with branding
+│   ├── resume_from_interruption.py   # Resume interrupted generation
+│   ├── improve_section.py            # Section improvement
+│   ├── score_memo.py                 # Scorecard generation
+│   ├── recompile_memo.py             # Memo recompilation
+│   ├── refocus_section.py            # Section refocusing
+│   └── html-to-pdf.sh                # HTML to PDF conversion
+├── io/                               # Firm-scoped IO (gitignored)
+│   ├── README.md                     # Firm-scoped IO documentation
+│   └── {firm}/                       # e.g., hypernova, emerge
+│       ├── configs/                  # Brand configs
+│       ├── templates/                # Outlines, scorecards
+│       └── deals/                    # Deal data and outputs
 ├── templates/
-│   ├── memo-template.md              # 10-section structure
+│   ├── outlines/                     # YAML content outlines
+│   ├── scorecards/                   # Evaluation scorecards
+│   ├── brand-configs/                # Shared brand configurations
+│   ├── memo-template-direct.md       # Direct investment template
+│   ├── memo-template-fund.md         # Fund commitment template
 │   └── style-guide.md                # Writing standards
 ├── docs/
+│   ├── CUSTOM-BRANDING.md            # Brand configuration guide
+│   ├── COMMANDS_CHEAT_SHEET.md       # CLI reference
 │   └── WEB_SEARCH_SETUP.md           # Search provider guide
 ├── changelog/
-│   ├── 2025-11-16_01.md              # Week 1 POC completion
-│   └── 2025-11-16_02.md              # Artifact trail system
-├── context-vigilance/
-│   └── Multi-Agent-Orchestration...  # Exploration document
-├── output/                           # Generated memos with artifacts
-│   └── {Company}-v0.0.x/             # Versioned artifact directories
-├── data/                             # Sample company data
-└── tests/                            # Unit tests (TODO)
+│   └── releases/                     # Release notes
+├── output/                           # Legacy output directory
+├── data/                             # Legacy company data
+└── tests/                            # Unit tests
 ```
 
 ## CLI Tools Reference
 
-Standalone tools for post-generation improvements and exports.
+Standalone tools for post-generation improvements and exports. All tools support `--firm` and `--deal` flags for firm-scoped IO.
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| `cli/improve_section.py` | Improve a section with Perplexity research | `python -m cli.improve_section "Company" "Team"` |
-| `cli/improve_team_section.py` | Deep team research (LinkedIn + web) | `python -m cli.improve_team_section "Company"` |
-| `cli/assemble_draft.py` | Rebuild final draft from sections | `python -m cli.assemble_draft "Company"` |
-| `cli/rewrite_key_info.py` | Apply YAML corrections across sections | `python -m cli.rewrite_key_info "Company" corrections.yaml` |
-| `cli/generate_scorecard.py` | Generate scorecard from template | `python -m cli.generate_scorecard "Company"` |
-| `cli/evaluate_memo.py` | Re-run validation on existing memo | `python -m cli.evaluate_memo "Company"` |
-| `cli/refocus_section.py` | Refocus section with new guidance | `python -m cli.refocus_section "Company" "Section"` |
-| `cli/export_branded.py` | Export to branded HTML | `python export-branded.py memo.md --brand hypernova` |
+| `cli/resume_from_interruption.py` | Resume interrupted generation | `python cli/resume_from_interruption.py --firm hypernova --deal Blinka` |
+| `cli/improve_section.py` | Improve a section with Perplexity research | `python cli/improve_section.py --firm hypernova --deal Blinka "Team"` |
+| `cli/improve_team_section.py` | Deep team research (LinkedIn + web) | `python cli/improve_team_section.py --firm hypernova --deal Blinka` |
+| `cli/assemble_draft.py` | Rebuild final draft from sections | `python cli/assemble_draft.py --firm hypernova --deal Blinka` |
+| `cli/rewrite_key_info.py` | Apply YAML corrections across sections | `python cli/rewrite_key_info.py "Company" corrections.yaml` |
+| `cli/generate_scorecard.py` | Generate scorecard from template | `python cli/generate_scorecard.py "Company"` |
+| `cli/score_memo.py` | Score memo with scorecard | `python cli/score_memo.py --firm hypernova --deal Blinka` |
+| `cli/evaluate_memo.py` | Re-run validation on existing memo | `python cli/evaluate_memo.py "Company"` |
+| `cli/refocus_section.py` | Refocus section with new guidance | `python cli/refocus_section.py --firm hypernova --deal Blinka "Section"` |
+| `cli/recompile_memo.py` | Recompile memo from sections | `python cli/recompile_memo.py --firm hypernova --deal Blinka` |
+| `cli/export_branded.py` | Export to branded HTML/PDF | `python cli/export_branded.py --firm hypernova --deal Blinka --pdf` |
+| `cli/html-to-pdf.sh` | Convert HTML to PDF | `bash cli/html-to-pdf.sh path/to/memo.html` |
 | `cli/md2docx.py` | Export to Word (.docx) | `python md2docx.py memo.md` |
-| `cli/markdown_to_pdf.py` | Export to PDF | `python -m cli.markdown_to_pdf memo.md` |
 
 ## Pipeline Agents Reference
 
@@ -757,9 +845,11 @@ git describe --tags
   Example: the Avalanche memo output says Avalanche is raising a $50M fund, but they were raising a $10M fund. In many different places it discusses the fund size.  Therefore, this correction influences the entire content of the memo.
 
 ### Remaining Enhancements
-- [ ] Elegant use of Trademarks of both authoring investment firm and target company.
- - This has been developed but it's still buggy.
-- [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds) 
+- [x] Elegant use of Trademarks of both authoring investment firm and target company (v0.3.0)
+  - VC firm logo in HTML header via brand config
+  - Company trademark in memo body via deal config
+  - Dark/light mode support for both
+- [ ] Specialized research strategies per investment type (e.g., GP track record analysis for funds)
 - [ ] Specialized section outline per `fund` or `direct` investment type.
 - [ ] Agent that can screenshot the `deck` if provided and include relevant screenshots in relevant sections in the memo.
 
@@ -781,7 +871,9 @@ git describe --tags
 
 ## Roadmap
 
-- [ ] LangGraph checkpointing (resume from failures)
+- [x] Resume from interruption (v0.3.0 - `cli/resume_from_interruption.py`)
+- [x] Multi-tenant firm isolation (v0.3.0 - firm-scoped IO)
+- [ ] LangGraph native checkpointing
 - [ ] Web UI (Streamlit/Gradio)
 - [ ] Human-in-the-loop checkpoints
 - [ ] Batch processing for portfolio analysis
@@ -804,6 +896,6 @@ Investing in frontier technology companies at the intersection of climate, energ
 
 ---
 
-*Last updated: 2025-11-28*
-*Version: Automatically derived from git tags (currently v0.1.0)*
-*Status: Git-based versioning with setuptools-scm*
+*Last updated: 2025-12-03*
+*Version: v0.3.0 (Firm-Scoped IO System)*
+*Status: Production-ready with multi-tenant support*

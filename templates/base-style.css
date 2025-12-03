@@ -344,6 +344,11 @@ figure img {
     margin: 0 auto;
 }
 
+/* Hide figcaptions - alt text is for accessibility, not display */
+figcaption {
+    display: none;
+}
+
 /* Lists */
 ul, ol {
     margin: 0.75rem 0 0.75rem 1.5rem;

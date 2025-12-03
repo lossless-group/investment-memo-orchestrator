@@ -71,6 +71,7 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 # Fallback to relative path if file doesn't exist
                 trademark_url = f"../../{trademark_path}"
 
+    # Alt text for accessibility (figcaption hidden via CSS)
     trademark_markdown = f'![{company_name} Logo]({trademark_url})\n\n---\n\n'
 
     # Create header.md with just the trademark (title/date are in memo body)

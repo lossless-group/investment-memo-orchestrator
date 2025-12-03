@@ -118,7 +118,10 @@ def generate_toc_markdown(headers: List[Tuple[int, str, str]]) -> str:
         # Create markdown link
         toc_lines.append(f"{indent}- [{header_text}](#{slug})")
 
-    toc_lines.append("")  # Trailing newline
+    # Add horizontal rule after TOC to separate from content
+    toc_lines.append("")
+    toc_lines.append("---")
+    toc_lines.append("")
 
     return "\n".join(toc_lines)
 

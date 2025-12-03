@@ -568,13 +568,26 @@ def convert_to_branded_html(
             'trademark__TheoryForge--Light-Mode'
         )
 
-    # Save modified markdown to temp file
+    # Extract metadata BEFORE stripping H1 (we need the title for the HTML header)
+    # Write temp file first for extract_title_from_markdown
     temp_input_path = input_path.parent / f".temp_input_{input_path.stem}.md"
     with open(temp_input_path, 'w', encoding='utf-8') as f:
         f.write(markdown_content)
 
-    # Extract metadata
     title, company = extract_title_from_markdown(temp_input_path)
+
+    # Now strip redundant H1 title from markdown (HTML template already provides header)
+    # Pattern: "# Investment Memo: CompanyName" or "# CompanyName" at start of file
+    markdown_content = re.sub(
+        r'^#\s+(?:Investment Memo[:\s]*)?[^\n]+\n+',
+        '',
+        markdown_content,
+        count=1  # Only remove the first H1
+    )
+
+    # Save modified markdown (with H1 stripped) to temp file
+    with open(temp_input_path, 'w', encoding='utf-8') as f:
+        f.write(markdown_content)
 
     # Create HTML template (with optional custom memo_date from company data)
     template = create_html_template(title, company, brand, css_path, dark_mode, memo_date)

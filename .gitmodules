@@ -5,3 +5,6 @@
 [submodule "io/avalanche"]
 	path = io/avalanche
 	url = https://github.com/lossless-group/avalanche-secure-data.git
+[submodule "io/emerge"]
+	path = io/emerge
+	url = https://github.com/lossless-group/io-emerge.git

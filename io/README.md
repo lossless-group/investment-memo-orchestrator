@@ -473,6 +473,25 @@ python cli/recompile_memo.py --firm {firm} --deal {deal}
 python cli/refocus_section.py --firm {firm} --deal {deal} "{Section Name}" --focus "{new focus}"
 ```
 
+### Resume from Interruption
+
+If memo generation is interrupted (e.g., network issues), resume from the last checkpoint:
+
+```bash
+python cli/resume_from_interruption.py --firm {firm} --deal {deal}
+
+# Resume specific version
+python cli/resume_from_interruption.py --firm {firm} --deal {deal} --version v0.0.1
+```
+
+The script detects the last successful checkpoint and resumes from there, avoiding redundant API calls.
+
+### HTML to PDF Conversion
+
+```bash
+bash cli/html-to-pdf.sh io/{firm}/deals/{DealName}/exports/dark/{DealName}-v0.0.x.html
+```
+
 ---
 
 ## Git Submodule Management
