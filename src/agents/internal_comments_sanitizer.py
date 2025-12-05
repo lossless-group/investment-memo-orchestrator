@@ -26,6 +26,14 @@ LEAKED_COMMENTARY_PATTERNS = [
     (r"^(Searching|Looking|Checking|Verifying|Examining|Exploring) for.*?[.!]\s*", "process_narration"),
     (r"^(Based on|According to) (my search|the search|my research|the research).*?[.!]\s*", "process_narration"),
 
+    # Conversational LLM responses - direct address to user
+    (r"^I understand (you're|you are|that you)[^.]*\.", "conversational_response"),
+    (r"^(Could|Can|Would) you (clarify|provide|share|explain)[^?]*\?", "clarification_request"),
+    (r"^(However|The) (content|text|section) you('ve| have) (provided|shared|given)[^.]*\.", "conversational_response"),
+    (r"^The text you've shared[^.]*\.", "conversational_response"),
+    (r"^\d+\.\s+(Do you want|Are you asking|Should I|Would you like)[^?]*\?", "clarification_request"),
+    (r"^Or are you asking[^?]*\?", "clarification_request"),
+
     # Capability caveats - **Note:** blocks explaining limitations
     (r"\*\*Note:\*\*[^*]*?(does not contain|unable to|could not|cannot|no .* found|no .* available)[^*]*?\n", "capability_caveat"),
     (r"\*\*Note:\*\*[^*]*?(placeholder|needs to be|should be|will be added)[^*]*?\n", "capability_caveat"),
@@ -70,6 +78,13 @@ PARAGRAPH_EXTRACTION_PATTERNS = [
     r"^Once (the|you|we)",
     r"^Unfortunately,",
     r"^This section (does not|appears|seems)",
+    r"^I understand (you're|you are|that you)",
+    r"^(Could|Can|Would) you (clarify|provide|share)",
+    r"^(However|The) (content|text|section) you",
+    r"^The text you've shared",
+    r"^\d+\.\s+(Do you want|Are you asking|Should I)",
+    r"^Or are you asking",
+    r"^\*\*Could you clarify",
 ]
 
 
