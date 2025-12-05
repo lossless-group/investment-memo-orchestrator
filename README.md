@@ -511,7 +511,7 @@ You can create a JSON file in `data/{CompanyName}.json` to provide additional co
 | `description` | string | Brief description to guide research |
 | `url` | string | Company website URL |
 | `stage` | string | Investment stage (Seed, Series A, etc.) |
-| `deck` | string | Path to pitch deck PDF (relative to project root) |
+| `deck` | string | Path to pitch deck PDF or PowerPoint (`.pdf`, `.pptx`) relative to project root |
 | `trademark_light` | string | URL or path to light mode company logo |
 | `trademark_dark` | string | URL or path to dark mode company logo |
 | `notes` | string | Specific research focus areas or instructions |
@@ -674,32 +674,56 @@ For detailed export options, custom branding, and troubleshooting, see:
 
 ```
 ┌──────────────┐
-│  Supervisor  │ ← Coordinates workflow
+│  Supervisor  │ ← Coordinates workflow via LangGraph
 └──────┬───────┘
        │
    ┌───┴────────────┐
-   │ Deck Analyst   │ ← Extract info from pitch deck PDF (if available)
+   │ Deck Analyst   │ ← Extract info from pitch deck PDF/PPTX (if available)
    └───┬────────────┘   Saves: 0-deck-analysis.json, 0-deck-analysis.md, initial drafts
        │
-   ┌───┴────┐
-   │Research│ ← Web search (Tavily: 4 queries) + synthesis
-   └───┬────┘   Saves: 1-research.json, 1-research.md
+   ┌───┴─────────────────┐
+   │ Research            │ ← Web search (Tavily: 4 queries) + synthesis
+   └───┬─────────────────┘   Saves: 1-research.json, 1-research.md
        │
-   ┌───┴────┐
-   │ Writer │ ← Draft memo (10 sections), enrich deck drafts with research
-   └───┬────┘   Saves: 2-sections/*.md (10 files)
+   ┌───┴─────────────────┐
+   │ Section Research    │ ← Section-specific Perplexity research with citations
+   └───┬─────────────────┘   Saves: 1-section-research/*.md
        │
-   ┌───┴─────────────┐
-   │Citation Enrich  │ ← Add inline citations (Perplexity Sonar Pro)
-   └───┬─────────────┘   Preserves narrative, adds [^1], [^2], etc.
+   ┌───┴─────────────────┐
+   │ Writer              │ ← Draft memo (10 sections), polish section research
+   └───┬─────────────────┘   Saves: 2-sections/*.md (10 files)
        │
-   ┌───┴──────────────────┐
-   │Citation Validator    │ ← Validate date accuracy, detect duplicates
-   └───┬──────────────────┘   Check URLs, ensure proper formatting
+   ┌───┴─────────────────┐
+   │ Enrichment Pipeline │ ← Trademark → Socials → Links → Visualizations
+   └───┬─────────────────┘   Updates 2-sections/*.md with logos, LinkedIn, hyperlinks
        │
-   ┌───┴────────┐
-   │ Validator  │ ← Score 0-10, identify issues
-   └───┬────────┘   Saves: 3-validation.json, 3-validation.md
+   ┌───┴─────────────────┐
+   │ Citation Enrichment │ ← Add inline citations (Perplexity Sonar Pro)
+   └───┬─────────────────┘   Preserves narrative, adds [^1], [^2], etc.
+       │
+   ┌───┴─────────────────┐
+   │ TOC Generator       │ ← Generate Table of Contents with anchor links
+   └───┬─────────────────┘   Insert TOC after header, before first section
+       │
+   ┌───┴─────────────────┐
+   │ Revise Summaries    │ ← Rewrite Executive Summary + Closing Assessment
+   └───┬─────────────────┘   Extract metrics from body, ensure accurate bookends
+       │
+   ┌───┴─────────────────┐
+   │ Citation Validator  │ ← Validate date accuracy, detect duplicates
+   └───┬─────────────────┘   Check URLs, ensure proper formatting
+       │
+   ┌───┴─────────────────┐
+   │ Fact Checker        │ ← Verify claims against research sources
+   └───┬─────────────────┘   Identify unsourced metrics, hallucinated data
+       │
+   ┌───┴─────────────────┐
+   │ Validator           │ ← Score 0-10, identify issues
+   └───┬─────────────────┘   Saves: 3-validation.json, 3-validation.md
+       │
+   ┌───┴─────────────────┐
+   │ Scorecard Evaluator │ ← Evaluate against firm's scorecard template
+   └───┬─────────────────┘   Saves: scorecard.json, scorecard.md
        │
    ┌───┴───────────────┐
    │   Score >= 8?     │
@@ -734,13 +758,14 @@ MemoState = {
 investment-memo-orchestrator/
 ├── src/
 │   ├── agents/
-│   │   ├── deck_analyst.py           # Pitch deck analysis (PDF extraction)
+│   │   ├── deck_analyst.py           # Pitch deck analysis (PDF + PowerPoint)
 │   │   ├── researcher.py             # Basic research (no web search)
 │   │   ├── research_enhanced.py      # Web search + synthesis
 │   │   ├── writer.py                 # Memo drafting
 │   │   ├── citation_enrichment.py    # Citation addition (Perplexity)
 │   │   ├── citation_validator.py     # Citation accuracy validation
 │   │   ├── toc_generator.py          # Table of Contents generation
+│   │   ├── revise_summary_sections.py # Rewrite Executive Summary + Closing Assessment
 │   │   ├── fact_checker.py           # Fact verification agent
 │   │   ├── validator.py              # Quality validation
 │   │   ├── scorecard_agent.py        # 12-dimension emerging manager scorecard
@@ -756,6 +781,9 @@ investment-memo-orchestrator/
 │   ├── workflow.py                   # LangGraph orchestration
 │   ├── artifacts.py                  # Artifact trail system
 │   ├── versioning.py                 # Version tracking system
+│   ├── cli/                          # Module CLI commands
+│   │   ├── __init__.py
+│   │   └── revise_summaries.py       # Revise Executive Summary + Closing
 │   ├── paths.py                      # Firm-scoped path resolution
 │   ├── branding.py                   # Brand config loading
 │   ├── scorecard_loader.py           # Scorecard loading
@@ -803,6 +831,7 @@ Standalone tools for post-generation improvements and exports. All tools support
 | `cli/improve_section.py` | Improve a section with Perplexity research | `python cli/improve_section.py --firm hypernova --deal Blinka "Team"` |
 | `cli/improve_team_section.py` | Deep team research (LinkedIn + web) | `python cli/improve_team_section.py --firm hypernova --deal Blinka` |
 | `cli/assemble_draft.py` | Rebuild final draft from sections | `python cli/assemble_draft.py --firm hypernova --deal Blinka` |
+| `src/cli/revise_summaries.py` | Rewrite Executive Summary + Closing Assessment | `python -m src.cli.revise_summaries "Company" --firm dark-matter` |
 | `cli/rewrite_key_info.py` | Apply YAML corrections across sections | `python cli/rewrite_key_info.py "Company" corrections.yaml` |
 | `cli/generate_scorecard.py` | Generate scorecard from template | `python cli/generate_scorecard.py "Company"` |
 | `cli/score_memo.py` | Score memo with scorecard | `python cli/score_memo.py --firm hypernova --deal Blinka` |
@@ -819,17 +848,20 @@ Agents that run as part of the main memo generation workflow (`python -m src.mai
 
 | Agent | File | Purpose |
 |-------|------|---------|
-| Deck Analyst | `deck_analyst.py` | Extract info from pitch deck PDFs |
+| Deck Analyst | `deck_analyst.py` | Extract info from pitch decks (PDF + PowerPoint) |
 | Research | `research_enhanced.py` | Web search via Tavily/Perplexity |
+| Section Research | `perplexity_section_researcher.py` | Section-specific research with citations |
 | Writer | `writer.py` | Draft sections from outline/template |
 | Trademark Enrichment | `trademark_enrichment.py` | Insert company logo into header |
 | Socials Enrichment | `socials_enrichment.py` | Add LinkedIn links to team members |
 | Link Enrichment | `link_enrichment.py` | Add hyperlinks to organizations/entities |
 | Citation Enrichment | `citation_enrichment.py` | Add inline citations via Perplexity |
 | TOC Generator | `toc_generator.py` | Generate Table of Contents |
+| Revise Summaries | `revise_summary_sections.py` | Rewrite bookend sections with accurate metrics |
 | Citation Validator | `citation_validator.py` | Validate citation accuracy and dates |
 | Fact Checker | `fact_checker.py` | Verify claims against research sources |
 | Validator | `validator.py` | Score memo quality (0-10 scale) |
+| Scorecard Evaluator | `scorecard_evaluator.py` | Evaluate against firm's scorecard template |
 
 ## Standalone Agents Reference
 
@@ -995,5 +1027,5 @@ Investing in frontier technology companies at the intersection of climate, energ
 ---
 
 *Last updated: 2025-12-05*
-*Version: v0.3.4 (Internal Comments Sanitizer)*
+*Version: v0.3.5 (PowerPoint Support + Revise Summaries Agent)*
 *Status: Production-ready with multi-tenant support*

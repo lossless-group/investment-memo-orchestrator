@@ -16,6 +16,7 @@ from anthropic import Anthropic
 import fitz  # PyMuPDF
 from io import BytesIO
 from PIL import Image
+from pptx import Presentation  # For PowerPoint files
 
 from ..state import MemoState, DeckAnalysisData, SectionDraft
 from ..outline_loader import load_outline_for_state
@@ -44,8 +45,10 @@ def deck_analyst_agent(state: Dict) -> Dict:
 
     deck_file = Path(deck_path)
 
-    # STEP 1: Extract text from PDF (pypdf)
-    if deck_file.suffix.lower() == ".pdf":
+    # STEP 1: Extract text from deck (PDF or PowerPoint)
+    deck_suffix = deck_file.suffix.lower()
+
+    if deck_suffix == ".pdf":
         print(f"Extracting text from PDF deck ({deck_file.name})...", flush=True)
         deck_content = extract_text_from_pdf(deck_path)
         print(f"Extracted {len(deck_content)} characters from deck", flush=True)
@@ -57,14 +60,30 @@ def deck_analyst_agent(state: Dict) -> Dict:
             print("⚠️  Minimal text extracted - PDF appears to be image-based", flush=True)
             print("Using Claude's PDF vision to analyze deck...", flush=True)
             return analyze_pdf_with_vision(deck_path, state)
+
+    elif deck_suffix in [".pptx", ".ppt"]:
+        print(f"Extracting text from PowerPoint deck ({deck_file.name})...", flush=True)
+        try:
+            deck_content = extract_text_from_pptx(deck_path)
+            print(f"Extracted {len(deck_content)} characters from {len(deck_content.split('--- SLIDE'))-1} slides", flush=True)
+
+            if len(deck_content.strip()) < 500:
+                print("⚠️  Minimal text extracted - PowerPoint may be mostly images", flush=True)
+                print("Note: Image-only PowerPoint analysis not yet supported", flush=True)
+                # Continue with what we have
+        except Exception as e:
+            return {
+                "deck_analysis": None,
+                "messages": [f"Error reading PowerPoint: {e}"]
+            }
     else:
-        # For now, skip image decks to avoid bottleneck
+        # Unsupported format
         return {
             "deck_analysis": None,
-            "messages": [f"Deck format {deck_file.suffix} not yet supported (images cause bottleneck)"]
+            "messages": [f"Deck format {deck_suffix} not supported. Supported: .pdf, .pptx"]
         }
 
-    # STEP 2: Analyze with Claude (text-based PDF)
+    # STEP 2: Analyze extracted text with Claude
     print("Analyzing deck content with Claude Sonnet 4.5...")
     llm = ChatAnthropic(
         model="claude-sonnet-4-5-20250929",
@@ -123,7 +142,14 @@ IMPORTANT:
             content = content[json_start:json_end].strip()
         deck_analysis = json.loads(content)
 
-    deck_analysis["deck_page_count"] = len(PdfReader(deck_path).pages)
+    # Get page/slide count based on file type
+    if deck_suffix == ".pdf":
+        deck_analysis["deck_page_count"] = len(PdfReader(deck_path).pages)
+    elif deck_suffix in [".pptx", ".ppt"]:
+        deck_analysis["deck_page_count"] = len(Presentation(deck_path).slides)
+    else:
+        deck_analysis["deck_page_count"] = 0
+
     print(f"Extracted data from {deck_analysis['deck_page_count']}-page deck")
 
     # STEP 3: Create initial section drafts where relevant info exists
@@ -162,6 +188,60 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         text_content.append(f"--- PAGE {page_num} ---\n{page_text}\n")
 
     return "\n".join(text_content)
+
+
+def extract_text_from_pptx(pptx_path: str) -> str:
+    """
+    Extract text from PowerPoint file.
+
+    Extracts text from all slides, including:
+    - Slide titles
+    - Text boxes and shapes
+    - Tables
+    - Notes
+
+    Args:
+        pptx_path: Path to .pptx file
+
+    Returns:
+        Extracted text with slide markers
+    """
+    prs = Presentation(pptx_path)
+    text_content = []
+
+    for slide_num, slide in enumerate(prs.slides, 1):
+        slide_text = []
+        slide_text.append(f"--- SLIDE {slide_num} ---")
+
+        # Extract from all shapes
+        for shape in slide.shapes:
+            # Handle text frames (most common)
+            if shape.has_text_frame:
+                for paragraph in shape.text_frame.paragraphs:
+                    para_text = "".join([run.text for run in paragraph.runs])
+                    if para_text.strip():
+                        slide_text.append(para_text.strip())
+
+            # Handle tables
+            if shape.has_table:
+                table = shape.table
+                for row in table.rows:
+                    row_text = []
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            row_text.append(cell.text.strip())
+                    if row_text:
+                        slide_text.append(" | ".join(row_text))
+
+        # Extract slide notes if present
+        if slide.has_notes_slide and slide.notes_slide.notes_text_frame:
+            notes = slide.notes_slide.notes_text_frame.text.strip()
+            if notes:
+                slide_text.append(f"[Notes: {notes}]")
+
+        text_content.append("\n".join(slide_text))
+
+    return "\n\n".join(text_content)
 
 
 def analyze_pdf_with_vision(pdf_path: str, state: Dict) -> Dict:
@@ -387,8 +467,11 @@ IMPORTANT:
 
 def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnthropic) -> Dict[str, SectionDraft]:
     """
-    Create draft sections based on deck content and outline definition.
-    Only creates sections where substantial info exists.
+    Create draft sections for ALL extracted deck data fields.
+
+    This creates a draft for EVERY field that has substantial data, regardless of
+    outline section names. Downstream agents (researcher, writer) can then use
+    these drafts as authoritative source material.
 
     Args:
         deck_analysis: Extracted deck data
@@ -400,64 +483,107 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
     """
     drafts = {}
 
-    # Load the appropriate outline for this investment
-    outline = load_outline_for_state(state)
-
-    # Map deck data fields to section concepts (generic mapping)
-    # These map deck_analysis fields to outline section concepts
-    deck_field_to_concept = {
-        "problem_statement": ["business", "overview", "problem"],
-        "solution_description": ["business", "overview", "solution", "product", "technology"],
-        "product_description": ["product", "technology", "business"],
-        "market_size": ["market", "context"],
-        "competitive_landscape": ["market", "competitive", "context"],
-        "traction_metrics": ["traction", "milestones", "signals", "indicators"],
-        "milestones": ["traction", "milestones", "signals"],
-        "team_members": ["team", "gp", "background", "credibility"],
-        "funding_ask": ["funding", "terms", "fee", "economics"],
-        "use_of_funds": ["funding", "terms", "portfolio", "construction"],
-        "go_to_market": ["strategy", "thesis", "investment"],
+    # Map deck fields to filenames - outline agnostic
+    # Create a draft for EVERY field with data, let downstream agents use them
+    DECK_FIELD_CONFIG = {
+        "problem_statement": {
+            "filename": "deck-problem.md",
+            "display_name": "Problem Statement",
+            "related_fields": ["problem_statement"]
+        },
+        "solution_description": {
+            "filename": "deck-solution.md",
+            "display_name": "Solution",
+            "related_fields": ["solution_description"]
+        },
+        "product_description": {
+            "filename": "deck-product.md",
+            "display_name": "Product",
+            "related_fields": ["product_description"]
+        },
+        "business_model": {
+            "filename": "deck-business-model.md",
+            "display_name": "Business Model",
+            "related_fields": ["business_model"]
+        },
+        "market_size": {
+            "filename": "deck-market.md",
+            "display_name": "Market Size",
+            "related_fields": ["market_size"]
+        },
+        "competitive_landscape": {
+            "filename": "deck-competitive.md",
+            "display_name": "Competitive Landscape",
+            "related_fields": ["competitive_landscape"]
+        },
+        "traction_metrics": {
+            "filename": "deck-traction.md",
+            "display_name": "Traction & Metrics",
+            "related_fields": ["traction_metrics", "milestones"]
+        },
+        "team_members": {
+            "filename": "deck-team.md",
+            "display_name": "Team",
+            "related_fields": ["team_members"]
+        },
+        "funding_ask": {
+            "filename": "deck-funding.md",
+            "display_name": "Funding & Terms",
+            "related_fields": ["funding_ask", "use_of_funds"]
+        },
+        "go_to_market": {
+            "filename": "deck-gtm.md",
+            "display_name": "Go-to-Market Strategy",
+            "related_fields": ["go_to_market"]
+        },
     }
 
-    # For each section in the outline, check if we have relevant deck data
-    for section in outline.sections:
-        section_name = section.name
-        filename = section.filename
+    def has_substantial_data(field_value) -> bool:
+        """Check if field has real data (not empty or placeholder)."""
+        if not field_value:
+            return False
+        if field_value == "Not mentioned":
+            return False
+        if field_value == "":
+            return False
+        if field_value == []:
+            return False
+        if field_value == {}:
+            return False
+        # For dicts, check if all values are "Not mentioned"
+        if isinstance(field_value, dict):
+            return any(v and v != "Not mentioned" for v in field_value.values())
+        return True
 
-        # Find which deck fields might be relevant to this section
-        # by checking if section name keywords match our concept mapping
-        section_name_lower = section_name.lower()
-        relevant_fields = []
+    # Create a draft for each field with substantial data
+    for primary_field, config in DECK_FIELD_CONFIG.items():
+        # Check if any of the related fields have data
+        related_fields = config["related_fields"]
+        fields_with_data = [
+            f for f in related_fields
+            if has_substantial_data(deck_analysis.get(f))
+        ]
 
-        for field, concepts in deck_field_to_concept.items():
-            if any(concept in section_name_lower for concept in concepts):
-                relevant_fields.append(field)
+        if not fields_with_data:
+            continue
 
-        # Check if deck has substantial info for this section
-        has_info = any(
-            deck_analysis.get(field) and
-            deck_analysis[field] != "Not mentioned" and
-            deck_analysis[field] != "" and
-            deck_analysis[field] != [] and
-            deck_analysis[field] != {}
-            for field in relevant_fields
+        # Generate draft content
+        content = create_section_draft_from_deck(
+            llm,
+            config["display_name"],
+            deck_analysis,
+            fields_with_data
         )
 
-        if has_info and relevant_fields:
-            content = create_section_draft_from_deck(
-                llm,
-                section_name,
-                deck_analysis,
-                relevant_fields
-            )
+        # Create SectionDraft object
+        drafts[config["filename"]] = SectionDraft(
+            section_name=config["display_name"],
+            content=content,
+            word_count=len(content.split()),
+            citations=[]  # Citations added by citation enrichment agent
+        )
 
-            # Create proper SectionDraft object
-            drafts[filename] = SectionDraft(
-                section_name=section_name,
-                content=content,
-                word_count=len(content.split()),
-                citations=[]  # Citations will be added by citation enrichment agent
-            )
+        print(f"    ✓ Created deck draft: {config['filename']} ({len(content.split())} words)")
 
     return drafts
 

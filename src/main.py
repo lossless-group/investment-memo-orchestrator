@@ -143,8 +143,10 @@ def main():
     if not deal_ctx.is_legacy:
         console.print(f"[bold green]Using firm-scoped IO:[/bold green] {deal_ctx.firm}")
         console.print(f"[dim]Deal directory: {deal_ctx.deal_dir}[/dim]")
-        # Update firm variable if it was auto-detected
-        if not firm:
+        # ALWAYS use the firm from deal context (auto-detection may have found it elsewhere)
+        if deal_ctx.firm and deal_ctx.firm != firm:
+            if firm:
+                console.print(f"[dim]Note: Overriding default firm '{firm}' with detected firm '{deal_ctx.firm}'[/dim]")
             firm = deal_ctx.firm
     else:
         if firm:
