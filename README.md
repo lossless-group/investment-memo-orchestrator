@@ -749,6 +749,7 @@ Standalone tools for post-generation improvements and exports. All tools support
 | Tool | Purpose | Usage |
 |------|---------|-------|
 | `cli/resume_from_interruption.py` | Resume interrupted generation | `python cli/resume_from_interruption.py --firm hypernova --deal Blinka` |
+| `cli/sanitize_commentary.py` | Extract LLM process commentary to internal notes | `python cli/sanitize_commentary.py --firm hypernova --deal Blinka` |
 | `cli/improve_section.py` | Improve a section with Perplexity research | `python cli/improve_section.py --firm hypernova --deal Blinka "Team"` |
 | `cli/improve_team_section.py` | Deep team research (LinkedIn + web) | `python cli/improve_team_section.py --firm hypernova --deal Blinka` |
 | `cli/assemble_draft.py` | Rebuild final draft from sections | `python cli/assemble_draft.py --firm hypernova --deal Blinka` |
@@ -786,6 +787,7 @@ Agents with their own CLI entry points for specialized tasks.
 
 | Agent | File | Purpose |
 |-------|------|---------|
+| Internal Comments Sanitizer | `internal_comments_sanitizer.py` | Extract LLM process commentary to internal notes |
 | Scorecard Agent | `scorecard_agent.py` | Generate scorecards from YAML templates |
 | Portfolio Listing | `portfolio_listing_agent.py` | Extract portfolio companies from fund memos |
 | Key Info Rewrite | `key_info_rewrite.py` | Propagate fact corrections across sections |
@@ -883,17 +885,24 @@ git describe --tags
 
 ## Up Next
 
-### Internal Comments Containerization
+### Internal Comments Containerization ✅
 
 LLMs have a tendency to include meta-commentary in generated content ("Let me search for...", "Note: Unable to find...", "If you have the actual content, please share..."). Despite aggressive prompt engineering, this process commentary leaks into final output and is inappropriate for external-facing documents.
 
-**Planned Solution:** A `memo_sanitizer` agent that:
-1. Detects leaked commentary using regex patterns and LLM classification
+**Implemented:** The `cli/sanitize_commentary.py` CLI and `src/agents/internal_comments_sanitizer.py` agent:
+1. Detects leaked commentary using 15+ regex patterns
 2. Extracts internal notes to a separate `2-sections-internal/` folder
 3. Consolidates process notes into `4-internal-notes.md`
-4. Produces clean, shareable final drafts
+4. Automatically reassembles clean final draft
 
-This preserves useful internal commentary (data gaps, recommendations) while ensuring the main output is professional and shareable.
+**Usage:**
+```bash
+# Sanitize a memo
+python cli/sanitize_commentary.py --firm hypernova --deal Blinka
+
+# Preview what would be extracted without modifying
+python cli/sanitize_commentary.py --firm hypernova --deal Blinka --preview
+```
 
 See `context-vigilance/Containerizing-Internal-Comments-and-Recommendations-for-Consideration.md` for complete specification.
 
@@ -910,7 +919,7 @@ See `context-vigilance/Table-Generator-Agent-Spec.md` for complete specification
 
 - [x] Resume from interruption (v0.3.0 - `cli/resume_from_interruption.py`)
 - [x] Multi-tenant firm isolation (v0.3.0 - firm-scoped IO)
-- [ ] Internal comments containerization (sanitizer agent)
+- [x] Internal comments containerization (v0.3.4 - `cli/sanitize_commentary.py`)
 - [ ] Table generator agent
 - [ ] LangGraph native checkpointing
 - [ ] Web UI (Streamlit/Gradio)
@@ -936,5 +945,5 @@ Investing in frontier technology companies at the intersection of climate, energ
 ---
 
 *Last updated: 2025-12-05*
-*Version: v0.3.3 (Entity Disambiguation)*
+*Version: v0.3.4 (Internal Comments Sanitizer)*
 *Status: Production-ready with multi-tenant support*
