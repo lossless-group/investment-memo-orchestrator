@@ -1,8 +1,9 @@
 # Disambiguation Management Across Agents
 
 **Date Created**: 2025-11-28
-**Status**: IMPLEMENTED
+**Status**: IMPLEMENTED (core), IN_PROGRESS (exclusion list feature)
 **Priority**: CRITICAL
+**Last Updated**: 2025-12-05
 **Related Issues**:
 - `context-vigilance/issue-resolution/Preventing-Hallucinations-in-Memo-Generation.md`
 - `context-vigilance/Anti-Hallucination-Fact-Checker-Agent.md`
@@ -148,7 +149,7 @@ The pipeline had no mechanism to verify that retrieved data actually pertained t
 
 ### Data Model: Disambiguation Context
 
-**Source**: `data/{CompanyName}.json`
+**Source**: `data/{CompanyName}.json` or `io/{firm}/deals/{Deal}/{Deal}.json`
 
 ```json
 {
@@ -158,7 +159,11 @@ The pipeline had no mechanism to verify that retrieved data actually pertained t
   "url": "https://www.savahq.com",
   "stage": "Series A",
   "deck": "data/Secure-Inputs/2025-11_Sava-Fundraising-Deck--Series-A.pdf",
-  "notes": "Focus on team backgrounds, technology platform, and market positioning. Ensure research is about SavaHQ (savahq.com), NOT other companies named Sava."
+  "notes": "Focus on team backgrounds, technology platform, and market positioning.",
+  "disambiguation": [
+    "https://sava.ai",
+    "https://www.savatechnologies.com"
+  ]
 }
 ```
 
@@ -167,15 +172,47 @@ The pipeline had no mechanism to verify that retrieved data actually pertained t
 | Field | Purpose | Example |
 |-------|---------|---------|
 | `description` | Semantic identifier | "AI-powered trust administration platform" |
-| `url` | Domain anchor | "https://www.savahq.com" |
-| `notes` | Explicit disambiguation hints | "NOT other companies named Sava" |
+| `url` | Domain anchor (CORRECT company) | "https://www.savahq.com" |
+| `notes` | Additional research guidance | "Focus on team backgrounds..." |
+| `disambiguation` | **NEW**: Array of WRONG-entity URLs to exclude | `["https://sava.ai", "https://othersava.com"]` |
+
+### The `disambiguation` Field
+
+The `disambiguation` array contains URLs of **wrong entities** that share a similar name. When the research agents encounter sources from these domains, they should:
+
+1. **DISCARD** any data from those sources
+2. **NOT CITE** those URLs
+3. **Flag** if significant content was found there (indicates confusion risk)
+
+**Example for Reson8:**
+```json
+{
+  "name": "Reson8",
+  "url": "https://reson8.xyz/",
+  "disambiguation": [
+    "https://www.reson8.group/",
+    "https://www.reson8media.com/",
+    "https://reson8sms.com/"
+  ]
+}
+```
+
+**Prompt Integration:**
+```
+EXCLUDED ENTITIES (DO NOT USE DATA FROM THESE):
+- reson8.group (different company)
+- reson8media.com (different company)
+- reson8sms.com (different company)
+
+If you find information from these domains, DISCARD IT completely.
+```
 
 ### State Propagation
 
 Disambiguation context flows through the pipeline via `MemoState`:
 
 ```
-data/{Company}.json
+data/{Company}.json or io/{firm}/deals/{Deal}/{Deal}.json
         ↓
     main.py (loads JSON, populates state)
         ↓
@@ -183,11 +220,17 @@ data/{Company}.json
         company_name: "Sava",
         company_description: "...",
         company_url: "https://www.savahq.com",
-        research_notes: "..."
+        research_notes: "...",
+        disambiguation_excludes: ["sava.ai", "savatechnologies.com"]  # NEW
     }
         ↓
     All agents receive full state
 ```
+
+**State Field**: `disambiguation_excludes`
+- **Source**: `disambiguation` array in JSON config
+- **Type**: `List[str]` of domains to exclude
+- **Processing**: URLs are parsed to extract domains (e.g., `https://sava.ai` → `sava.ai`)
 
 ### Implementation 1: PerplexityProvider.search()
 
@@ -348,19 +391,42 @@ ONLY use sources that reference THIS specific company (website: {url})
 If you find funding/revenue/metrics for a DIFFERENT company with the same name, DISCARD IT
 ```
 
-### Rule 3: Source Verification
+### Rule 3: Explicit Exclusion List (NEW)
+```
+EXCLUDED DOMAINS - DO NOT USE DATA FROM:
+{list of domains from disambiguation_excludes}
+
+If you encounter sources from these domains, they are about a DIFFERENT company.
+DISCARD all information from these sources completely.
+```
+
+### Rule 4: Source Verification
 ```
 When citing specific data, verify the source mentions the correct company
 ```
 
-### Rule 4: Uncertainty Acknowledgment
+### Rule 5: Uncertainty Acknowledgment
 ```
 If unsure whether data is about the right company, state "Data not verified for this entity"
 ```
 
-### Rule 5: Cross-Reference Requirement
+### Rule 6: Cross-Reference Requirement
 ```
 Cross-reference with company website to confirm you have the correct entity
+```
+
+### Building the Exclusion Block
+
+When `disambiguation_excludes` is populated, add to prompts:
+
+```python
+# Build exclusion block from disambiguation array
+exclusion_block = ""
+if disambiguation_excludes and len(disambiguation_excludes) > 0:
+    exclusion_block = "\nEXCLUDED ENTITIES - DO NOT USE DATA FROM THESE DOMAINS:\n"
+    for domain in disambiguation_excludes:
+        exclusion_block += f"- {domain} (WRONG company, different entity)\n"
+    exclusion_block += "\nIf you find information from these domains, DISCARD IT completely.\n"
 ```
 
 ---
@@ -560,6 +626,7 @@ Names requiring extra disambiguation care:
 | `company_description` | JSON `description` | research_enhanced, perplexity_section_researcher, improve_section |
 | `company_url` | JSON `url` | research_enhanced, perplexity_section_researcher, improve_section |
 | `research_notes` | JSON `notes` | research_enhanced, perplexity_section_researcher, improve_section |
+| `disambiguation_excludes` | JSON `disambiguation` | research_enhanced, perplexity_section_researcher, improve_section |
 
 ### Pipeline Flow
 
