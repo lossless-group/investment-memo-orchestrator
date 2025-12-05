@@ -8,3 +8,6 @@
 [submodule "io/emerge"]
 	path = io/emerge
 	url = https://github.com/lossless-group/io-emerge.git
+[submodule "io/dark-matter"]
+	path = io/dark-matter
+	url = https://github.com/lossless-group/dark-matter-private-data.git
