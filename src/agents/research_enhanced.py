@@ -318,6 +318,7 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
     company_url = state.get("company_url")
     company_stage = state.get("company_stage")
     research_notes = state.get("research_notes")
+    disambiguation_excludes = state.get("disambiguation_excludes", [])
 
     # Display loaded context
     if company_description:
@@ -341,6 +342,15 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
             disambiguation_parts.append(f"Domain: {domain}")
         if research_notes:
             disambiguation_parts.append(f"Notes: {research_notes}")
+
+        # NEW: Add explicit exclusion list for wrong entities
+        if disambiguation_excludes and len(disambiguation_excludes) > 0:
+            exclusion_block = "\nEXCLUDED ENTITIES - DO NOT USE DATA FROM THESE DOMAINS:"
+            for domain in disambiguation_excludes:
+                exclusion_block += f"\n- {domain} (WRONG company, different entity)"
+            exclusion_block += "\n\nIf you find information from these domains, DISCARD IT completely."
+            disambiguation_parts.append(exclusion_block)
+            print(f"Exclusion list added: {', '.join(disambiguation_excludes)}")
 
         disambiguation_context = "\n".join(disambiguation_parts)
         print(f"Disambiguation context built for entity verification")

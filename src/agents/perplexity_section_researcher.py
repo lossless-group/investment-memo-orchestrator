@@ -94,7 +94,8 @@ def build_section_research_query(
     memo_mode: str,
     deck_draft_content: str = "",
     company_url: str = "",
-    research_notes: str = ""
+    research_notes: str = "",
+    disambiguation_excludes: list = None
 ) -> str:
     """
     Build section-specific research query using outline guidance.
@@ -146,7 +147,7 @@ cite it as "[^deck]" with note "per company pitch deck, unverified externally".
 
     # Build disambiguation block if we have identifying info
     disambiguation_block = ""
-    if company_url or research_notes:
+    if company_url or research_notes or disambiguation_excludes:
         disambiguation_block = f"""
 CRITICAL - ENTITY DISAMBIGUATION:
 There may be multiple companies named "{company_name}". You MUST research the CORRECT company:
@@ -156,12 +157,19 @@ There may be multiple companies named "{company_name}". You MUST research the CO
         if research_notes:
             disambiguation_block += f"- Research notes: {research_notes}\n"
 
+        # Add explicit exclusion list for wrong entities
+        if disambiguation_excludes and len(disambiguation_excludes) > 0:
+            disambiguation_block += "\nEXCLUDED DOMAINS (WRONG COMPANIES - DO NOT USE):\n"
+            for domain in disambiguation_excludes:
+                disambiguation_block += f"- {domain} (WRONG company, different entity)\n"
+
         disambiguation_block += """
 DISAMBIGUATION RULES:
 1. ONLY use sources that reference THIS specific company
 2. If you find funding/revenue data for a DIFFERENT company with the same name, DISCARD IT
 3. Cross-reference company website to verify you have the correct entity
-4. If unsure, state "Data not verified for this entity" rather than include wrong data
+4. If a source is from an EXCLUDED DOMAIN listed above, ignore it completely
+5. If unsure, state "Data not verified for this entity" rather than include wrong data
 """
 
     query = f"""Research and write comprehensive content for the "{section_def.name}" section of an investment memo about {company_name}.
@@ -211,6 +219,7 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
     company_description = state.get("company_description", "")
     company_url = state.get("company_url", "")
     research_notes = state.get("research_notes", "")
+    disambiguation_excludes = state.get("disambiguation_excludes", [])
     general_research = state.get("research", {})
     memo_mode = state.get("memo_mode", "consider")
 
@@ -306,7 +315,8 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
             memo_mode=memo_mode,
             deck_draft_content=deck_draft_content,
             company_url=company_url,
-            research_notes=research_notes
+            research_notes=research_notes,
+            disambiguation_excludes=disambiguation_excludes
         )
 
         print(f"      Calling Perplexity Sonar Pro...")

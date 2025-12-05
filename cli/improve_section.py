@@ -161,10 +161,11 @@ def improve_section_with_sonar_pro(
     company_description = state.get("company_description", "")
     company_url = state.get("company_url", "")
     research_notes = state.get("research_notes", "")
+    disambiguation_excludes = state.get("disambiguation_excludes", [])
 
     # Build disambiguation block if we have identifying info
     disambiguation_context = ""
-    if company_description or company_url:
+    if company_description or company_url or disambiguation_excludes:
         disambiguation_context = f"""
 CRITICAL - ENTITY DISAMBIGUATION:
 There may be multiple companies named "{company_name}". You MUST research the CORRECT company:
@@ -180,13 +181,20 @@ There may be multiple companies named "{company_name}". You MUST research the CO
         if research_notes:
             disambiguation_context += f"RESEARCH NOTES: {research_notes}\n"
 
+        # Add explicit exclusion list for wrong entities
+        if disambiguation_excludes and len(disambiguation_excludes) > 0:
+            disambiguation_context += "\nEXCLUDED DOMAINS (WRONG COMPANIES - DO NOT USE):\n"
+            for excl_domain in disambiguation_excludes:
+                disambiguation_context += f"- {excl_domain} (WRONG company, different entity)\n"
+
         disambiguation_context += f"""
 DISAMBIGUATION RULES:
 1. ONLY use sources that reference THIS specific company (website: {company_url or 'see description'})
 2. If you find data for a DIFFERENT company with the same name, DISCARD IT
 3. When citing funding/revenue/metrics, verify the source mentions the correct company
-4. If unsure whether data is about the right company, state "Data not verified for this entity"
-5. Cross-reference with company website ({company_url}) to confirm you have the right entity
+4. If a source is from an EXCLUDED DOMAIN listed above, ignore it completely
+5. If unsure whether data is about the right company, state "Data not verified for this entity"
+6. Cross-reference with company website ({company_url}) to confirm you have the right entity
 """
 
     # Load template

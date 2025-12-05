@@ -159,6 +159,7 @@ def main():
     company_url = None
     company_stage = None
     research_notes = None
+    disambiguation_excludes = []
     company_trademark_light = None
     company_trademark_dark = None
     outline_name = None
@@ -189,6 +190,19 @@ def main():
             company_url = company_data.get("url")
             company_stage = company_data.get("stage")
             research_notes = company_data.get("notes")
+
+            # Load disambiguation exclusion list (URLs of wrong entities)
+            disambiguation_raw = company_data.get("disambiguation", [])
+            disambiguation_excludes = []
+            if disambiguation_raw:
+                for url in disambiguation_raw:
+                    # Extract domain from URL
+                    if url:
+                        domain = url.replace("https://", "").replace("http://", "").replace("www.", "").rstrip("/").split("/")[0]
+                        if domain:
+                            disambiguation_excludes.append(domain)
+                if disambiguation_excludes:
+                    console.print(f"[bold yellow]Disambiguation excludes:[/bold yellow] {', '.join(disambiguation_excludes)}")
 
             # Load company trademark paths (light and dark mode)
             company_trademark_light = company_data.get("trademark_light")
@@ -276,6 +290,7 @@ def main():
                 company_url=company_url,
                 company_stage=company_stage,
                 research_notes=research_notes,
+                disambiguation_excludes=disambiguation_excludes,
                 company_trademark_light=company_trademark_light,
                 company_trademark_dark=company_trademark_dark,
                 outline_name=outline_name,

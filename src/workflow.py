@@ -285,6 +285,7 @@ def generate_memo(
     company_url: str = None,
     company_stage: str = None,
     research_notes: str = None,
+    disambiguation_excludes: list = None,
     company_trademark_light: str = None,
     company_trademark_dark: str = None,
     outline_name: str = None,
@@ -303,6 +304,7 @@ def generate_memo(
         company_url: Company website URL
         company_stage: Investment stage (Seed, Series A, etc.)
         research_notes: Additional research guidance or focus areas
+        disambiguation_excludes: List of domains to exclude (wrong entities with similar names)
         company_trademark_light: Path or URL to light mode company logo/trademark
         company_trademark_dark: Path or URL to dark mode company logo/trademark
         outline_name: Custom outline name (e.g., "lpcommit-emerging-manager")
@@ -324,6 +326,7 @@ def generate_memo(
         company_url=company_url,
         company_stage=company_stage,
         research_notes=research_notes,
+        disambiguation_excludes=disambiguation_excludes,
         company_trademark_light=company_trademark_light,
         company_trademark_dark=company_trademark_dark,
         outline_name=outline_name,
