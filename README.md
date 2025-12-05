@@ -6,6 +6,56 @@ Multi-agent orchestration system for generating high-quality investment memos us
 
 Supported by [Hypernova Capital](https://www.hypernova.capital), [Avalanche VC](https://avalanche.vc), and [Emerge Capital](https://emergecapital.vc)
 
+---
+
+## Table of Contents
+
+- [Similar Services](#similar-services)
+- [Recent Updates](#recent-updates)
+  - [Firm-Scoped IO System (v0.3.0)](#2025-12-03-firm-scoped-io-system-v030)
+  - [Dataroom Analyzer Agent System](#2025-11-26-dataroom-analyzer-agent-system)
+  - [Premium Data Sources Integration](#2025-11-22-premium-data-sources-integration)
+  - [Section-by-Section Processing](#2025-11-20-section-by-section-processing)
+- [Overview](#overview)
+- [Key Features](#key-features)
+  - [Core Command](#core-command)
+  - [Multi-Agent Pipeline](#multi-agent-pipeline)
+  - [Web Search Integration](#web-search-integration-with-premium-source-targeting)
+  - [Artifact Trail System](#artifact-trail-system)
+  - [Citation System](#citation-system-perplexity-sonar-pro-with-premium-sources)
+  - [Multi-Brand Export System](#multi-brand-export-system)
+  - [Version Control System](#version-control-system)
+  - [Quality Standards](#quality-standards)
+  - [Dual-Template System](#dual-template-system)
+  - [Scorecard Template System](#scorecard-template-system)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Usage](#usage)
+  - [Company Data Files](#company-data-files-optional)
+  - [Output](#output)
+- [Improving Existing Memos](#improving-existing-memos)
+  - [Section Improvement with Perplexity](#section-improvement-with-perplexity-sonar-pro)
+  - [Reassembling Final Draft](#reassembling-final-draft)
+- [Export](#export)
+- [Architecture](#architecture)
+  - [Workflow](#workflow)
+  - [State Management](#state-management)
+- [Project Structure](#project-structure)
+- [CLI Tools Reference](#cli-tools-reference)
+- [Pipeline Agents Reference](#pipeline-agents-reference)
+- [Standalone Agents Reference](#standalone-agents-reference)
+- [Versioning & Releases](#versioning--releases)
+- [Status](#status)
+- [Current Capabilities](#current-capabilities-)
+- [Up Next](#up-next)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ### Similar Services
 Many people may not want to manage using an Open Source library and deal with the command line.  These are services we have found that can provide similar Investment Memo Generation.
 
