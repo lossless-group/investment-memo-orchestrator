@@ -205,8 +205,20 @@ def main():
                     console.print(f"[bold yellow]Disambiguation excludes:[/bold yellow] {', '.join(disambiguation_excludes)}")
 
             # Load company trademark paths (light and dark mode)
+            # Resolve relative to deal directory in firm-scoped mode
             company_trademark_light = company_data.get("trademark_light")
             company_trademark_dark = company_data.get("trademark_dark")
+
+            if not deal_ctx.is_legacy:
+                # Resolve trademark paths relative to deal directory
+                if company_trademark_light and not Path(company_trademark_light).exists():
+                    resolved_light = deal_ctx.deal_dir / company_trademark_light
+                    if resolved_light.exists():
+                        company_trademark_light = str(resolved_light)
+                if company_trademark_dark and not Path(company_trademark_dark).exists():
+                    resolved_dark = deal_ctx.deal_dir / company_trademark_dark
+                    if resolved_dark.exists():
+                        company_trademark_dark = str(resolved_dark)
 
             # Load custom outline name if present
             outline_name = company_data.get("outline")

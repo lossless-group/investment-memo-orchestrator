@@ -444,7 +444,11 @@ You can create a JSON file in `data/{CompanyName}.json` to provide additional co
   "deck": "data/CompanyName-deck.pdf",
   "trademark_light": "https://company.com/logo-light.svg",
   "trademark_dark": "https://company.com/logo-dark.svg",
-  "notes": "Research focus: team backgrounds, competitive positioning, unit economics"
+  "notes": "Research focus: team backgrounds, competitive positioning, unit economics",
+  "disambiguation": [
+    "https://wrong-company.com/",
+    "https://similar-name-different-entity.com/"
+  ]
 }
 ```
 
@@ -461,11 +465,18 @@ You can create a JSON file in `data/{CompanyName}.json` to provide additional co
 | `trademark_light` | string | URL or path to light mode company logo |
 | `trademark_dark` | string | URL or path to dark mode company logo |
 | `notes` | string | Specific research focus areas or instructions |
+| `disambiguation` | array | URLs of **wrong** companies with similar names to exclude from research |
 
 **Trademark Insertion:**
 - If trademark paths are provided, the company logo will be automatically inserted in the memo content after the header metadata
 - Light mode exports use `trademark_light`, dark mode exports use `trademark_dark`
 - Trademarks can be URLs (e.g., from company website) or local file paths (e.g., `templates/trademarks/company-logo.svg`)
+
+**Entity Disambiguation:**
+- Companies with common names often have multiple entities in search results (e.g., "Mercury" could be the banking startup or an insurance company)
+- The `disambiguation` array lists URLs of **wrong entities** that should be excluded from research
+- Research agents will discard data from these domains, preventing entity confusion
+- Example: A company called "Reson8" at `reson8.xyz` might be confused with `reson8.group`, `reson8media.com`, or `reson8sms.com` - add those to the disambiguation array to exclude them
 
 **Example:** See `data/sample-company.json` and `data/TheoryForge.json` for complete examples.
 
@@ -870,10 +881,37 @@ git describe --tags
 - [x] Rich CLI with progress indicators
 - [x] State export (JSON)
 
+## Up Next
+
+### Internal Comments Containerization
+
+LLMs have a tendency to include meta-commentary in generated content ("Let me search for...", "Note: Unable to find...", "If you have the actual content, please share..."). Despite aggressive prompt engineering, this process commentary leaks into final output and is inappropriate for external-facing documents.
+
+**Planned Solution:** A `memo_sanitizer` agent that:
+1. Detects leaked commentary using regex patterns and LLM classification
+2. Extracts internal notes to a separate `2-sections-internal/` folder
+3. Consolidates process notes into `4-internal-notes.md`
+4. Produces clean, shareable final drafts
+
+This preserves useful internal commentary (data gaps, recommendations) while ensuring the main output is professional and shareable.
+
+See `context-vigilance/Containerizing-Internal-Comments-and-Recommendations-for-Consideration.md` for complete specification.
+
+### Table Generator Agent
+
+A specialized agent to identify and generate tables from data that would be better presented in tabular form:
+- Temporal series (funding rounds, milestones, metrics over time)
+- Entity comparisons (competitors, investors, team members)
+- Structured data from decks and datarooms
+
+See `context-vigilance/Table-Generator-Agent-Spec.md` for complete specification.
+
 ## Roadmap
 
 - [x] Resume from interruption (v0.3.0 - `cli/resume_from_interruption.py`)
 - [x] Multi-tenant firm isolation (v0.3.0 - firm-scoped IO)
+- [ ] Internal comments containerization (sanitizer agent)
+- [ ] Table generator agent
 - [ ] LangGraph native checkpointing
 - [ ] Web UI (Streamlit/Gradio)
 - [ ] Human-in-the-loop checkpoints
@@ -897,6 +935,6 @@ Investing in frontier technology companies at the intersection of climate, energ
 
 ---
 
-*Last updated: 2025-12-03*
-*Version: v0.3.0 (Firm-Scoped IO System)*
+*Last updated: 2025-12-05*
+*Version: v0.3.3 (Entity Disambiguation)*
 *Status: Production-ready with multi-tenant support*
