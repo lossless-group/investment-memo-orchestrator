@@ -6,6 +6,7 @@ from .writer import writer_agent
 from .validator import validator_agent
 from .portfolio_listing_agent import portfolio_listing_agent
 from .scorecard_agent import scorecard_agent
+from .revise_summary_sections import revise_summary_sections
 
 __all__ = [
     "research_agent",
@@ -14,4 +15,5 @@ __all__ = [
     "validator_agent",
     "portfolio_listing_agent",
     "scorecard_agent",
+    "revise_summary_sections",
 ]

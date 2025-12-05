@@ -22,6 +22,7 @@ from .agents.link_enrichment import link_enrichment_agent
 from .agents.visualization_enrichment import visualization_enrichment_agent
 from .agents.citation_enrichment import citation_enrichment_agent
 from .agents.toc_generator import toc_generator_agent
+from .agents.revise_summary_sections import revise_summary_sections
 from .agents.citation_validator import citation_validator_agent
 from .agents.fact_checker import fact_checker_agent
 from .agents.validator import validator_agent
@@ -231,6 +232,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
     workflow.add_node("cite", citation_enrichment_agent)
     workflow.add_node("toc", toc_generator_agent)  # Generate Table of Contents with anchor links
+    workflow.add_node("revise_summaries", revise_summary_sections)  # Revise Executive Summary & Closing based on full draft
     workflow.add_node("validate_citations", citation_validator_agent)  # Citation accuracy validator
     workflow.add_node("fact_check", fact_checker_agent)  # NEW: Fact-checking agent (verify claims vs sources)
     workflow.add_node("validate", validator_agent)
@@ -252,7 +254,8 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("enrich_links", "enrich_visualizations")
     workflow.add_edge("enrich_visualizations", "cite")
     workflow.add_edge("cite", "toc")  # Generate TOC after citations assembled
-    workflow.add_edge("toc", "validate_citations")  # Validate citation accuracy after TOC
+    workflow.add_edge("toc", "revise_summaries")  # Revise bookend sections based on complete draft
+    workflow.add_edge("revise_summaries", "validate_citations")  # Validate citation accuracy after revision
     workflow.add_edge("validate_citations", "fact_check")  # NEW: Fact-check claims against research sources
     workflow.add_edge("fact_check", "validate")
     workflow.add_edge("validate", "scorecard")  # NEW: Run scorecard evaluation after validation

@@ -113,51 +113,258 @@ def format_checker_agent(state: MemoState) -> dict:
     return {"messages": [f"Format checker: fixed {len(issues_fixed)} files"]}
 ```
 
-## Agent 3: `summary_revisor`
+## Agent 3: `revise_summary_sections`
 
-**Purpose**: Revise Executive Summary / Business Overview based on complete memo content.
+**Purpose**: Revise Executive Summary AND Closing Assessment based on the COMPLETE assembled final draft.
 
-**Location**: `src/agents/summary_revisor.py`
+**Location**: `src/agents/revise_summary_sections.py`
 
-**Problem**: Summary sections are written early in the pipeline before all sections exist. They may:
-- Miss key insights from later sections
-- Have different emphasis than the final narrative
-- Lack specific metrics that appear in later sections
+**Critical Difference from Other Agents**: This agent runs AFTER `toc_generator` and reads the complete `4-final-draft.md`, not individual section files. This ensures the summary sections are rewritten based on what's ACTUALLY in the final memo.
 
-**Behavior**:
-1. Load all section files (global view)
-2. Extract key elements:
-   - Most compelling metrics from each section
-   - Key risks identified in Section 8
-   - Investment thesis from Section 9
-   - Recommendation from Section 10
-3. Revise `01-executive-summary.md` and/or `02-business-overview.md`:
-   - Ensure summary reflects actual content
-   - Add specific metrics discovered in research
-   - Align tone with recommendation (COMMIT/CONSIDER/PASS)
-   - Keep concise (target ~300-400 words for exec summary)
+### Problem Statement
 
-**Prompt structure**:
+Summary sections are written early in the pipeline before all content exists. This causes:
+- **Premature hedging**: Summary contains "excuses" about missing data that IS present in later sections
+- **Content mismatch**: Summary doesn't accurately reflect what's in the body
+- **Stale framing**: Early drafts frame the thesis differently than the evidence that emerges
+- **Placeholder language**: "Data not available" when the data actually exists
+
+**Example Issue (ProfileHealth, Reson8)**:
+The Executive Summary made excuses about missing information, even though:
+- The deck contained comprehensive data
+- The research sections had specific metrics
+- The body sections contained all the details
+
+### Sections to Revise
+
+| Section | File | Purpose |
+|---------|------|---------|
+| Executive Summary | `01-executive-summary.md` | Synthesize entire memo into compelling overview |
+| Closing Assessment | `10-closing-assessment.md` (or equivalent) | Final recommendation based on full analysis |
+
+### Behavior
+
+1. **Load complete final draft** (`4-final-draft.md`) - the fully assembled memo
+2. **Extract key data points** from the full content:
+   - Funding terms (amount, valuation, runway)
+   - Team members with backgrounds
+   - Traction metrics (users, revenue, growth)
+   - Market size claims with sources
+   - Key risks identified
+   - Investment thesis
+3. **Revise Executive Summary**:
+   - Use SPECIFIC metrics from the body (not vague language)
+   - Remove false hedging ("data not available" when it IS available)
+   - Ensure it accurately reflects the full memo content
+   - Keep concise (~275-400 words depending on outline)
+4. **Revise Closing Assessment**:
+   - Synthesize the full analysis (not just repeat summary)
+   - Weigh strengths against risks based on ACTUAL content
+   - Provide concrete next steps or due diligence items
+   - Give clear recommendation with specific rationale
+5. **Save revised sections** back to `2-sections/`
+6. **Trigger reassembly** of `4-final-draft.md`
+
+### Workflow Position
+
 ```
-You have written an investment memo. Now revise the Executive Summary to accurately reflect the complete memo.
-
-CURRENT EXECUTIVE SUMMARY:
-{current_summary}
-
-KEY CONTENT FROM OTHER SECTIONS:
-- Team highlights: {team_highlights}
-- Key metrics: {key_metrics}
-- Main risks: {main_risks}
-- Investment thesis: {thesis}
-- Recommendation: {recommendation}
-
-Revise the Executive Summary to:
-1. Lead with the most compelling opportunity
-2. Include 2-3 specific metrics that support the thesis
-3. Acknowledge primary risk (1 sentence)
-4. End with clear recommendation alignment
-5. Stay under 400 words
+EXISTING PIPELINE:
+deck_analyst → research → writer → enrichments → citation → toc_generator
+                                                                    │
+                                                                    ▼
+                                                    ┌─────────────────────────┐
+                                                    │ revise_summary_sections │
+                                                    │                         │
+                                                    │ • Read 4-final-draft.md │
+                                                    │ • Extract key data      │
+                                                    │ • Revise Exec Summary   │
+                                                    │ • Revise Closing        │
+                                                    │ • Reassemble draft      │
+                                                    └─────────────────────────┘
+                                                                    │
+                                                                    ▼
+                                                    fact_checker / validator
 ```
+
+### Workflow Integration
+
+```python
+# In src/workflow.py - add AFTER toc_generator
+workflow.add_node("revise_summary_sections", revise_summary_sections)
+workflow.add_edge("toc_generator", "revise_summary_sections")
+workflow.add_edge("revise_summary_sections", "fact_checker")
+```
+
+### Implementation
+
+```python
+def revise_summary_sections(state: MemoState) -> dict:
+    """
+    Post-generation agent that rewrites Executive Summary and Closing Assessment
+    based on the complete final draft content.
+    """
+    company_name = state["company_name"]
+    output_dir = get_latest_output_dir(company_name)
+
+    # 1. Load the COMPLETE final draft
+    final_draft_path = output_dir / "4-final-draft.md"
+    if not final_draft_path.exists():
+        return {"messages": ["No final draft found - skipping summary revision"]}
+
+    full_memo_content = final_draft_path.read_text()
+
+    # 2. Extract key data points from the full memo
+    extracted_data = extract_memo_highlights(full_memo_content)
+
+    # 3. Revise Executive Summary
+    exec_summary = revise_executive_summary(
+        full_memo=full_memo_content,
+        extracted_data=extracted_data,
+        state=state
+    )
+
+    # 4. Revise Closing Assessment
+    closing = revise_closing_assessment(
+        full_memo=full_memo_content,
+        extracted_data=extracted_data,
+        state=state
+    )
+
+    # 5. Save revised sections
+    sections_dir = output_dir / "2-sections"
+    (sections_dir / "01-executive-summary.md").write_text(exec_summary)
+    # Closing might be 10-closing-assessment.md or similar
+    closing_files = list(sections_dir.glob("*closing*.md")) + list(sections_dir.glob("*recommendation*.md"))
+    if closing_files:
+        closing_files[0].write_text(closing)
+
+    # 6. Trigger reassembly
+    reassemble_final_draft(output_dir)
+
+    return {
+        "messages": [
+            f"Revised Executive Summary based on full memo content",
+            f"Revised Closing Assessment based on full memo content",
+            f"Reassembled final draft with updated bookend sections"
+        ]
+    }
+```
+
+### Executive Summary Revision Prompt
+
+```
+You are revising the Executive Summary for an investment memo.
+
+You have access to the COMPLETE final memo below. Write a NEW Executive Summary that:
+
+1. ACCURATELY REFLECTS the actual content (not speculation)
+2. HIGHLIGHTS A FEW KEY METRICS from the body (funding, traction, market size/TAM)
+3. AVOIDS hedging language ("data not available") unless truly warranted
+4. PROVIDES clear, confident framing of the opportunity
+
+DO NOT:
+- Make excuses for missing data if the data IS present in the memo
+- Make excuses in general, just try to write a good summary.
+- Use vague language when specific numbers are available
+- Add information not present in the memo
+
+Target: {target_words} words
+
+FULL MEMO CONTENT:
+{full_memo}
+
+EXTRACTED KEY DATA:
+- Funding: {funding}
+- Traction: {traction}
+- Market: {market}
+
+Write the revised Executive Summary:
+```
+
+### Closing Assessment Revision Prompt
+
+```
+You are revising the Closing Assessment for an investment memo.
+
+Based on the COMPLETE memo content below, write a final assessment that:
+
+1. SYNTHESIZES the full analysis (not just repeats the summary)
+2. WEIGHS strengths against risks based on ACTUAL content
+3. PROVIDES concrete next steps or due diligence items
+4. GIVES clear recommendation with specific rationale
+5. TARGETS around 600 words, and up to three paragraphs.
+
+Investment Mode: {mode}
+- "consider": Prospective analysis - recommend PASS/CONSIDER/COMMIT
+- "justify": Retrospective justification - explain why we invested
+
+FULL MEMO CONTENT:
+{full_memo}
+
+KEY STRENGTHS IDENTIFIED:
+{strengths}
+
+KEY RISKS IDENTIFIED:
+{risks}
+
+Write the revised Closing Assessment ({target_words} words):
+```
+
+### CLI Standalone Usage
+
+```bash
+# Revise summary sections for a specific company
+python -m src.cli.revise_summaries "CompanyName"
+
+# Revise for specific version
+python -m src.cli.revise_summaries "CompanyName" --version v0.0.4
+
+# Dry run (preview changes without writing)
+python -m src.cli.revise_summaries "CompanyName" --dry-run
+```
+
+### Reassembly After Revision
+
+After revising the sections, the final draft must be reassembled:
+
+```python
+def reassemble_final_draft(output_dir: Path) -> None:
+    """
+    Reassemble 4-final-draft.md from all sections after summary revision.
+
+    Preserves:
+    - Header (header.md)
+    - TOC (existing)
+    - All sections in order
+    - Citations block
+    """
+    # Load existing to preserve TOC and citations
+    existing = (output_dir / "4-final-draft.md").read_text()
+    toc_block = extract_toc_block(existing)
+    citations_block = extract_citations_block(existing)
+
+    # Reassemble with revised sections
+    parts = []
+    if (output_dir / "header.md").exists():
+        parts.append((output_dir / "header.md").read_text())
+    if toc_block:
+        parts.append(toc_block)
+    for section in sorted((output_dir / "2-sections").glob("*.md")):
+        parts.append(section.read_text())
+    if citations_block:
+        parts.append(citations_block)
+
+    (output_dir / "4-final-draft.md").write_text("\n\n---\n\n".join(parts))
+```
+
+### Success Metrics
+
+| Metric | Current | Target |
+|--------|---------|--------|
+| Summary matches body content | ~60% | 95%+ |
+| False "data unavailable" statements | Common | 0 |
+| Specific metrics in summary | ~3 | 8+ |
+| Bookend coherence with body | Medium | High |
 
 ## Agent 4: `introduction_revisor`
 
@@ -194,29 +401,49 @@ emerging markets. The founding team brings exactly this combination...
 
 ## Workflow Integration
 
-Add to `src/workflow.py` after `citation_enrichment` and before `toc_generator`:
+The quality agents run at different points in the pipeline:
+
+### Pre-Assembly Agents (before toc_generator)
 
 ```python
-# Quality improvement agents (run on section files)
+# Quality improvement agents (run on section files BEFORE assembly)
 workflow.add_node("redundancy_reducer", redundancy_reducer_agent)
 workflow.add_node("format_checker", format_checker_agent)
-workflow.add_node("summary_revisor", summary_revisor_agent)
 workflow.add_node("introduction_revisor", introduction_revisor_agent)
 
-# Sequence
+# Pre-assembly sequence
 workflow.add_edge("citation_enrichment", "redundancy_reducer")
 workflow.add_edge("redundancy_reducer", "format_checker")
-workflow.add_edge("format_checker", "summary_revisor")
-workflow.add_edge("summary_revisor", "introduction_revisor")
+workflow.add_edge("format_checker", "introduction_revisor")
 workflow.add_edge("introduction_revisor", "toc_generator")
+```
+
+### Post-Assembly Agent (after toc_generator)
+
+```python
+# Summary revision runs AFTER assembly so it can read the complete final draft
+workflow.add_node("revise_summary_sections", revise_summary_sections)
+
+# Post-assembly sequence
+workflow.add_edge("toc_generator", "revise_summary_sections")
+workflow.add_edge("revise_summary_sections", "fact_checker")
 ```
 
 ## Order Rationale
 
-1. **redundancy_reducer** first - removes duplicate content before other agents process
-2. **format_checker** second - clean formatting for easier LLM processing
-3. **summary_revisor** third - needs clean, de-duped content to summarize
-4. **introduction_revisor** last - needs final content to write transitions
+**Pre-Assembly (on section files):**
+1. **redundancy_reducer** - removes duplicate content before other agents process
+2. **format_checker** - clean formatting for easier LLM processing
+3. **introduction_revisor** - improves section transitions and openings
+
+**Assembly:**
+4. **toc_generator** - creates TOC and assembles `4-final-draft.md`
+
+**Post-Assembly (on complete draft):**
+5. **revise_summary_sections** - reads COMPLETE final draft, rewrites Executive Summary and Closing Assessment based on actual content, then reassembles
+
+**Validation:**
+6. **fact_checker** / **validator** - validates the revised memo
 
 ## CLI Standalone Tools
 
@@ -232,14 +459,15 @@ python cli/revise_introductions.py output/Andela-v0.0.1
 
 ## Implementation Priority
 
-1. `format_checker` - Rule-based, no LLM needed, quick win
-2. `redundancy_reducer` - High value, noticeable quality improvement
-3. `summary_revisor` - Ensures summary accuracy
+1. **`revise_summary_sections`** - HIGHEST priority, solves the "making excuses" problem in Executive Summary
+2. `format_checker` - Rule-based, no LLM needed, quick win
+3. `redundancy_reducer` - High value, noticeable quality improvement
 4. `introduction_revisor` - Nice-to-have, polish layer
 
 ## Notes
 
-- All agents operate on `2-sections/*.md` files, not final draft
-- Final assembly happens AFTER these agents run
+- Pre-assembly agents (`redundancy_reducer`, `format_checker`, `introduction_revisor`) operate on `2-sections/*.md` files
+- `revise_summary_sections` is unique: runs AFTER assembly, reads `4-final-draft.md`, then saves revised sections and triggers reassembly
+- Final validation happens AFTER `revise_summary_sections`
 - Each agent should be idempotent (safe to run multiple times)
 - Log changes made for debugging
