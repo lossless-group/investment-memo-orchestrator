@@ -138,10 +138,28 @@ class BrandConfig:
                 if config_path is None:
                     config_path = search_paths[-1]
             else:
-                # Look for default config in templates/brand-configs/ first
-                config_path = Path("templates/brand-configs/brand-config.yaml")
-                if not config_path.exists():
-                    config_path = Path("brand-config.yaml")
+                # If firm is provided but no brand_name, use firm as the brand name
+                if firm:
+                    # Search firm-scoped config first, then templates
+                    search_paths = [
+                        Path(f"io/{firm}/configs/brand-{firm}-config.yaml"),
+                        Path(f"templates/brand-configs/brand-{firm}-config.yaml"),
+                    ]
+                    config_path = None
+                    for path in search_paths:
+                        if path.exists():
+                            config_path = path
+                            break
+                    if config_path is None:
+                        # Fall back to default config
+                        config_path = Path("templates/brand-configs/brand-config.yaml")
+                        if not config_path.exists():
+                            config_path = Path("brand-config.yaml")
+                else:
+                    # Look for default config in templates/brand-configs/ first
+                    config_path = Path("templates/brand-configs/brand-config.yaml")
+                    if not config_path.exists():
+                        config_path = Path("brand-config.yaml")
 
         if not config_path.exists():
             if brand_name or (config_path != Path("brand-config.yaml")):

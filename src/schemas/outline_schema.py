@@ -79,6 +79,14 @@ class TargetLength:
 
 
 @dataclass
+class DimensionQuestions:
+    """Questions organized by dimension for 12Ps framework."""
+    dimension: str  # e.g., "problem", "possibility", "positioning"
+    dimension_label: Optional[str] = None  # e.g., "Problem (P4)"
+    questions: List[str] = field(default_factory=list)
+
+
+@dataclass
 class SectionDefinition:
     """Definition of a single section in the memo."""
     number: int
@@ -86,10 +94,17 @@ class SectionDefinition:
     filename: str
     target_length: TargetLength
     description: str
-    guiding_questions: List[str]
+    guiding_questions: List[str]  # Flat list (legacy, still supported)
     section_vocabulary: SectionVocabulary
     mode_specific: Dict[str, ModeSpecificGuidance]
     validation_criteria: List[str]
+    # 12Ps framework extensions
+    group: Optional[str] = None  # e.g., "origins", "opening", "organization"
+    group_question: Optional[str] = None  # e.g., "Why would anyone care about this company?"
+    dimensions: Optional[List[str]] = None  # e.g., ["persona", "pain", "proposition"]
+    synthesis_of: Optional[List[str]] = None  # For synthesis sections (e.g., Offering)
+    # Dimension-grouped questions (preferred over flat guiding_questions)
+    questions_by_dimension: Optional[Dict[str, DimensionQuestions]] = None
 
 
 @dataclass

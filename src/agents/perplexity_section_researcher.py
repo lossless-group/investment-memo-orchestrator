@@ -113,8 +113,47 @@ def build_section_research_query(
     Returns:
         Research query for Perplexity
     """
-    # Extract guiding questions from outline
-    questions_text = "\n".join(f"- {q}" for q in section_def.guiding_questions[:10])
+    # Extract guiding questions from outline - prefer dimension-grouped if available
+    questions_text = ""
+    if hasattr(section_def, 'questions_by_dimension') and section_def.questions_by_dimension:
+        # Use dimension-grouped format for richer context
+        for dim_key, dim_q in section_def.questions_by_dimension.items():
+            label = dim_q.dimension_label or dim_key.title()
+            questions_text += f"\n### {label}\n"
+            for q in dim_q.questions:
+                questions_text += f"- {q}\n"
+    else:
+        # Fallback to flat list
+        questions_text = "\n".join(f"- {q}" for q in section_def.guiding_questions[:10])
+
+    # Extract section description and context from outline (CRITICAL for non-standard section names)
+    section_description = ""
+    if hasattr(section_def, 'description') and section_def.description:
+        section_description = f"\nSECTION PURPOSE:\n{section_def.description.strip()}\n"
+
+    # Extract group question if available (high-level framing)
+    group_question = ""
+    if hasattr(section_def, 'group_question') and section_def.group_question:
+        group_question = f"\nCORE QUESTION THIS SECTION ANSWERS: {section_def.group_question}\n"
+
+    # Extract dimensions being evaluated
+    dimensions_text = ""
+    if hasattr(section_def, 'dimensions') and section_def.dimensions:
+        dims = ", ".join(section_def.dimensions)
+        dimensions_text = f"\nDIMENSIONS TO EVALUATE: {dims}\n"
+
+    # Extract required elements if available
+    required_elements = ""
+    structure_template = ""
+    if hasattr(section_def, 'section_vocabulary') and section_def.section_vocabulary:
+        vocab = section_def.section_vocabulary
+        if hasattr(vocab, 'required_elements') and vocab.required_elements:
+            elements = "\n".join(f"- {e}" for e in vocab.required_elements[:8])
+            required_elements = f"\nREQUIRED ELEMENTS (must include):\n{elements}\n"
+        # Extract structure template - this shows the expected subsection organization
+        if hasattr(vocab, 'structure_template') and vocab.structure_template:
+            template_lines = "\n".join(vocab.structure_template)
+            structure_template = f"\nEXPECTED SECTION STRUCTURE:\n{template_lines}\n"
 
     # Extract relevant research context based on section
     section_context = ""
@@ -176,7 +215,7 @@ DISAMBIGUATION RULES:
 {disambiguation_block}
 COMPANY OVERVIEW:
 {company_description}
-{section_context}
+{section_description}{group_question}{dimensions_text}{structure_template}{required_elements}{section_context}
 {deck_context}
 
 SECTION GUIDANCE - Address these questions with specific data and citations:
@@ -269,15 +308,57 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
     research_dir.mkdir(exist_ok=True)
 
     # Load deck section drafts if available (from 0-deck-sections/)
+    # New format: deck-{topic}.md (e.g., deck-team.md, deck-funding.md)
+    # Old format: {num}-{section}.md (e.g., 09-funding-terms.md)
     deck_sections_dir = output_dir / "0-deck-sections"
     deck_drafts = {}
+    deck_drafts_by_topic = {}  # Map topic keywords to content
+
     if deck_sections_dir.exists():
         for deck_file in deck_sections_dir.glob("*.md"):
-            # Extract section number from filename (e.g., "02-business-overview.md" -> "02")
-            section_num_str = deck_file.stem.split("-")[0]
-            deck_drafts[section_num_str] = deck_file.read_text()
-        if deck_drafts:
-            print(f"📄 Loaded {len(deck_drafts)} deck section drafts for verification")
+            content = deck_file.read_text()
+            filename = deck_file.stem
+
+            # New format: deck-{topic}.md
+            if filename.startswith("deck-"):
+                topic = filename.replace("deck-", "")  # e.g., "team", "funding", "market"
+                deck_drafts_by_topic[topic] = content
+            else:
+                # Old format: {num}-{section}.md - extract section number
+                section_num_str = filename.split("-")[0]
+                if section_num_str.isdigit():
+                    deck_drafts[section_num_str] = content
+
+        total_drafts = len(deck_drafts) + len(deck_drafts_by_topic)
+        if total_drafts:
+            print(f"📄 Loaded {total_drafts} deck section drafts:")
+            for topic in deck_drafts_by_topic:
+                print(f"    • deck-{topic}.md")
+
+    # Map outline section concepts to deck draft topics
+    SECTION_TO_DECK_TOPICS = {
+        "executive": ["problem", "solution", "funding"],
+        "summary": ["problem", "solution", "funding"],
+        "origins": ["problem", "solution"],
+        "opening": ["business-model", "product", "solution"],
+        "organization": ["team"],
+        "team": ["team"],
+        "offering": ["product", "solution"],
+        "product": ["product", "solution"],
+        "technology": ["product", "solution"],
+        "opportunity": ["market", "competitive"],
+        "market": ["market", "competitive"],
+        "traction": ["traction"],
+        "milestones": ["traction"],
+        "funding": ["funding"],
+        "terms": ["funding"],
+        "risks": ["competitive"],
+        "scorecard": ["traction", "team", "market"],
+        "closing": ["funding", "traction"],
+        "assessment": ["funding", "traction"],
+        "gtm": ["gtm"],
+        "strategy": ["gtm", "competitive"],
+    }
 
     print(f"\n{'='*70}")
     print(f"🔍 PERPLEXITY SECTION RESEARCH")
@@ -298,8 +379,28 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
         section_filename = section_def.filename.replace(".md", "-research.md")
 
         # Get deck draft for this section if available
+        # First try old format (numbered), then try new format (topic-based)
         section_num_padded = f"{section_num:02d}"
         deck_draft_content = deck_drafts.get(section_num_padded, "")
+
+        # If no numbered draft, try to find relevant topic-based drafts
+        if not deck_draft_content and deck_drafts_by_topic:
+            section_name_lower = section_name.lower()
+            relevant_topics = []
+
+            # Find matching topics for this section
+            for keyword, topics in SECTION_TO_DECK_TOPICS.items():
+                if keyword in section_name_lower:
+                    relevant_topics.extend(topics)
+
+            # Collect content from matching deck drafts
+            matched_drafts = []
+            for topic in set(relevant_topics):  # dedupe
+                if topic in deck_drafts_by_topic:
+                    matched_drafts.append(f"### From Pitch Deck ({topic.title()})\n\n{deck_drafts_by_topic[topic]}")
+
+            if matched_drafts:
+                deck_draft_content = "\n\n---\n\n".join(matched_drafts)
 
         print(f"  [{section_num}/10] {section_name}")
         print(f"      Target: {section_def.target_length.ideal_words} words | Questions: {len(section_def.guiding_questions)}")
@@ -334,6 +435,66 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
             )
 
             research_content = response.choices[0].message.content
+
+            # Validate response is not garbage/meta-commentary
+            GARBAGE_PATTERNS = [
+                "I notice that you",
+                "you haven't provided",
+                "Let me fetch",
+                "I need:",
+                "please provide",
+                "Which Stratosphere company",
+                "Once you provide",
+                "To help you properly",
+                "contains only a header",
+                "There are no organizations",
+                "If you have the actual content",
+            ]
+
+            is_garbage = False
+            word_count = len(research_content.split())
+
+            # Check for short responses (under 200 words is suspicious)
+            if word_count < 200:
+                is_garbage = True
+                print(f"      ⚠️  Response too short ({word_count} words)")
+
+            # Check for meta-commentary patterns
+            for pattern in GARBAGE_PATTERNS:
+                if pattern.lower() in research_content.lower():
+                    is_garbage = True
+                    print(f"      ⚠️  Detected meta-commentary: '{pattern[:30]}...'")
+                    break
+
+            # If garbage detected, retry with more explicit context
+            if is_garbage:
+                print(f"      🔄 Retrying with enhanced context...")
+
+                # Build enhanced query with explicit section framing
+                enhanced_query = f"""IMPORTANT: You must write actual research content, NOT ask clarifying questions.
+
+The company is: {company_name}
+{f'Company website: {company_url}' if company_url else ''}
+Description: {company_description}
+
+DO NOT say "I need more information" or "Let me fetch" - you have all the information you need.
+DO NOT ask which company - the company is {company_name} as described above.
+
+Write the ACTUAL CONTENT for the "{section_def.name}" section now.
+
+{query}"""
+
+                retry_response = client.chat.completions.create(
+                    model="sonar-pro",
+                    messages=[
+                        {"role": "system", "content": PERPLEXITY_RESEARCH_SYSTEM_PROMPT + "\n\nCRITICAL: Always write actual content. Never ask for clarification or say you need more info."},
+                        {"role": "user", "content": enhanced_query}
+                    ],
+                    temperature=0.3,
+                    max_tokens=4000
+                )
+                research_content = retry_response.choices[0].message.content
+                print(f"      ✓ Retry complete ({len(research_content.split())} words)")
 
             # Count citations
             citations = re.findall(r'\[\^(\d+)\]', research_content)

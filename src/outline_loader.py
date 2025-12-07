@@ -23,6 +23,7 @@ from src.schemas.outline_schema import (
     ModeSpecificGuidance,
     FirmPreferences,
     SectionOverride,
+    DimensionQuestions,
 )
 
 
@@ -144,6 +145,40 @@ def flatten_guiding_questions(questions_data: Any) -> List[str]:
         return []
 
 
+def parse_questions_by_dimension(qbd_data: Dict[str, Any]) -> Dict[str, DimensionQuestions]:
+    """
+    Parse dimension-grouped questions from YAML data.
+
+    Expected YAML format:
+      questions_by_dimension:
+        problem:
+          label: "Problem (P4)"
+          questions:
+            - "How many target customers exist?"
+            - "How is the market experiencing this pain?"
+        possibility:
+          label: "Possibility (P5)"
+          questions:
+            - "What is the TAM?"
+    """
+    result = {}
+    for dim_key, dim_data in qbd_data.items():
+        if isinstance(dim_data, dict):
+            result[dim_key] = DimensionQuestions(
+                dimension=dim_key,
+                dimension_label=dim_data.get('label'),
+                questions=dim_data.get('questions', [])
+            )
+        elif isinstance(dim_data, list):
+            # Simple format: just a list of questions
+            result[dim_key] = DimensionQuestions(
+                dimension=dim_key,
+                dimension_label=None,
+                questions=dim_data
+            )
+    return result
+
+
 def parse_section(section_data: Dict[str, Any]) -> SectionDefinition:
     """Parse a section definition from YAML data."""
     target_length_data = section_data['target_length']
@@ -159,8 +194,19 @@ def parse_section(section_data: Dict[str, Any]) -> SectionDefinition:
     for mode, mode_data in section_data.get('mode_specific', {}).items():
         mode_specific[mode] = parse_mode_specific(mode_data)
 
-    # Flatten nested guiding questions into a single list
-    guiding_questions = flatten_guiding_questions(section_data.get('guiding_questions', []))
+    # Parse dimension-grouped questions if available (12Ps framework)
+    questions_by_dimension = None
+    if 'questions_by_dimension' in section_data:
+        questions_by_dimension = parse_questions_by_dimension(section_data['questions_by_dimension'])
+
+    # Flatten nested guiding questions into a single list (legacy support)
+    # If questions_by_dimension exists, also create flat list from it for backward compat
+    if questions_by_dimension:
+        guiding_questions = []
+        for dim_q in questions_by_dimension.values():
+            guiding_questions.extend(dim_q.questions)
+    else:
+        guiding_questions = flatten_guiding_questions(section_data.get('guiding_questions', []))
 
     return SectionDefinition(
         number=section_data['number'],
@@ -172,6 +218,12 @@ def parse_section(section_data: Dict[str, Any]) -> SectionDefinition:
         section_vocabulary=section_vocab,
         mode_specific=mode_specific,
         validation_criteria=section_data.get('validation_criteria', []),
+        # 12Ps framework extensions
+        group=section_data.get('group'),
+        group_question=section_data.get('group_question'),
+        dimensions=section_data.get('dimensions'),
+        synthesis_of=section_data.get('synthesis_of'),
+        questions_by_dimension=questions_by_dimension,
     )
 
 

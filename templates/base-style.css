@@ -501,12 +501,9 @@ hr {
     text-decoration: underline;
 }
 
-/* Add spacing between consecutive citations */
-.footnote-ref + .footnote-ref::before {
-    content: ",";
-    margin-right: 0.25em;
-    color: var(--brand-text-light);
-    font-weight: normal;
+/* Spacing between consecutive citations - comma removed to work better with consolidation */
+.footnote-ref + .footnote-ref {
+    margin-left: 0.15em;
 }
 
 /* Alternative: Use comma separators for grouped citations */

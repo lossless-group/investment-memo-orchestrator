@@ -174,6 +174,88 @@ Suggested improvements:
     }
 
 
+def integrate_scorecard(state: MemoState) -> dict:
+    """
+    Integrate the 12Ps scorecard into section 8 and reassemble final draft.
+
+    The scorecard evaluator generates detailed scores in 5-scorecard/12Ps-scorecard.md,
+    but this runs AFTER the writer creates section 8. This function:
+    1. Copies the full scorecard to replace section 8
+    2. Reassembles the final draft with the integrated scorecard
+
+    Args:
+        state: Current memo state
+
+    Returns:
+        Updated state with messages
+    """
+    from .utils import get_latest_output_dir
+    from pathlib import Path
+
+    company_name = state["company_name"]
+    firm = state.get("firm")
+
+    try:
+        output_dir = get_latest_output_dir(company_name, firm=firm)
+    except FileNotFoundError:
+        return {"messages": ["Scorecard integration skipped: no output directory"]}
+
+    # Check for scorecard file
+    scorecard_dir = output_dir / "5-scorecard"
+    scorecard_file = scorecard_dir / "12Ps-scorecard.md"
+
+    if not scorecard_file.exists():
+        print("  ⚠️  No 12Ps scorecard found, skipping integration")
+        return {"messages": ["Scorecard integration skipped: no scorecard file"]}
+
+    # Find section 8 (scorecard summary section) in 2-sections/
+    sections_dir = output_dir / "2-sections"
+    section_8_file = None
+
+    for f in sections_dir.glob("08-*.md"):
+        section_8_file = f
+        break
+
+    if not section_8_file:
+        # Try to find any scorecard-related section
+        for f in sections_dir.glob("*scorecard*.md"):
+            section_8_file = f
+            break
+
+    if section_8_file:
+        # Replace section 8 with the full scorecard
+        scorecard_content = scorecard_file.read_text()
+        section_8_file.write_text(scorecard_content)
+        print(f"  ✓ Integrated scorecard into {section_8_file.name}")
+    else:
+        print("  ⚠️  Section 8 not found, creating new scorecard section")
+        section_8_file = sections_dir / "08-12ps-scorecard-summary.md"
+        scorecard_content = scorecard_file.read_text()
+        section_8_file.write_text(scorecard_content)
+
+    # Reassemble final draft
+    final_draft_path = output_dir / "4-final-draft.md"
+
+    # Preserve logo/header from existing draft if present
+    content = ""
+    if final_draft_path.exists():
+        existing = final_draft_path.read_text()
+        first_line = existing.split('\n')[0]
+        if first_line.startswith('!['):
+            content = first_line + '\n\n'
+
+    # Assemble all sections in order
+    for section_file in sorted(sections_dir.glob("*.md")):
+        if section_file.name == "header.md":
+            continue
+        content += section_file.read_text() + '\n\n'
+
+    final_draft_path.write_text(content)
+    print(f"  ✓ Reassembled final draft: {len(content.split())} words")
+
+    return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(content.split())} words)"]}
+
+
 def router_node(state: MemoState) -> dict:
     """
     Router node that decides whether to analyze deck first.
@@ -237,6 +319,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("fact_check", fact_checker_agent)  # NEW: Fact-checking agent (verify claims vs sources)
     workflow.add_node("validate", validator_agent)
     workflow.add_node("scorecard", scorecard_evaluator_agent)  # NEW: 12Ps scorecard evaluation
+    workflow.add_node("integrate_scorecard", integrate_scorecard)  # Integrate scorecard into section 8
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
@@ -244,7 +327,7 @@ def build_workflow() -> StateGraph:
     workflow.set_entry_point("deck_analyst")
 
     # Define edges (workflow sequence)
-    # Deck Analyst → Research → Section Research → Draft → Trademark → Socials → Links → Visualizations → Citations → TOC → Citation Validator → Fact Check → Validate
+    # Deck Analyst → Research → Section Research → Draft → Trademark → Socials → Links → Visualizations → Citations → TOC → Revise Summaries → Citation Validator → Fact Check → Validate → Scorecard → Integrate Scorecard → Finalize/Human Review
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "section_research")  # Generate section research with citations
     workflow.add_edge("section_research", "draft")     # Writer polishes section research
@@ -258,11 +341,12 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("revise_summaries", "validate_citations")  # Validate citation accuracy after revision
     workflow.add_edge("validate_citations", "fact_check")  # NEW: Fact-check claims against research sources
     workflow.add_edge("fact_check", "validate")
-    workflow.add_edge("validate", "scorecard")  # NEW: Run scorecard evaluation after validation
+    workflow.add_edge("validate", "scorecard")  # Run scorecard evaluation after validation
+    workflow.add_edge("scorecard", "integrate_scorecard")  # Integrate scorecard into section 8 and reassemble final draft
 
-    # Conditional edge after scorecard evaluation
+    # Conditional edge after scorecard integration
     workflow.add_conditional_edges(
-        "scorecard",
+        "integrate_scorecard",
         should_continue,
         {
             "finalize": "finalize",

@@ -430,10 +430,12 @@ def scorecard_evaluator_agent(state: MemoState) -> Dict[str, Any]:
 
     print(f"\n📊 Scorecard Evaluator: Evaluating {company_name}")
     print(f"   Scorecard: {scorecard_name}")
+    if firm:
+        print(f"   Firm: {firm}")
 
-    # Load scorecard
+    # Load scorecard (firm-aware)
     try:
-        scorecard = load_scorecard(scorecard_name)
+        scorecard = load_scorecard(scorecard_name, firm=firm)
     except FileNotFoundError as e:
         print(f"   ❌ Scorecard not found: {e}")
         return {
