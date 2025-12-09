@@ -589,13 +589,21 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     current_date = datetime.now().strftime("%B %Y")
 
     # Get version manager and output directory - firm-aware
+    # IMPORTANT: Check for existing output_dir first (set by resume script)
     from ..paths import resolve_deal_context
     from ..artifacts import create_artifact_directory
 
     firm = state.get("firm")
     safe_name = sanitize_filename(company_name)
 
-    if firm:
+    # Check if output_dir already set (e.g., by resume script)
+    existing_output_dir = state.get("output_dir")
+    if existing_output_dir:
+        output_dir = Path(existing_output_dir)
+        print(f"   Using existing output directory: {output_dir}")
+        # Ensure 2-sections directory exists
+        (output_dir / "2-sections").mkdir(parents=True, exist_ok=True)
+    elif firm:
         ctx = resolve_deal_context(company_name, firm=firm)
         version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
         version = version_mgr.get_next_version(safe_name)

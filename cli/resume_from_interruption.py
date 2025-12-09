@@ -237,20 +237,25 @@ def reconstruct_state_from_artifacts(
         print(f"Loaded company data: type={investment_type}, mode={memo_mode}")
 
     # Start with fresh state
-    print(f"[DEBUG] About to call create_initial_state for {company_name}")
+    # IMPORTANT: Pass firm, outline_name, and scorecard_name so writer uses correct paths
+    firm = ctx.firm if ctx else None
+    print(f"[DEBUG] About to call create_initial_state for {company_name} (firm={firm})")
     state = create_initial_state(
         company_name=company_name,
         investment_type=investment_type,
         memo_mode=memo_mode,
+        firm=firm,
         deck_path=deck_path,
         company_description=company_description,
         company_url=company_url,
         company_stage=company_stage,
         research_notes=research_notes,
         company_trademark_light=company_trademark_light,
-        company_trademark_dark=company_trademark_dark
+        company_trademark_dark=company_trademark_dark,
+        outline_name=outline_name,
+        scorecard_name=scorecard_name
     )
-    print("[DEBUG] create_initial_state completed")
+    print(f"[DEBUG] create_initial_state completed (state firm={state.get('firm')})")
 
     # Override output directory to use existing one
     state["output_dir"] = str(output_dir)
