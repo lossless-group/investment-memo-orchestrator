@@ -165,9 +165,10 @@ def scorecard_agent(state: MemoState) -> Dict[str, Any]:
     if outline_name != "lpcommit-emerging-manager":
         return {"messages": ["Scorecard agent skipped - outline is not lpcommit-emerging-manager"]}
 
-    # Get output directory (firm-aware)
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         return {"messages": ["Scorecard agent skipped - no output directory found"]}
 

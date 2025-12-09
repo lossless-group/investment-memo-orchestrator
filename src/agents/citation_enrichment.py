@@ -159,7 +159,7 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     try:
         from openai import OpenAI
         from pathlib import Path
-        from ..utils import get_latest_output_dir
+        from ..utils import get_output_dir_from_state
 
         # Use default_headers to set User-Agent (bypasses Cloudflare)
         perplexity_client = OpenAI(
@@ -175,9 +175,9 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
             "messages": ["Citation enrichment skipped - openai package not installed"]
         }
 
-    # Get output directory (firm-aware)
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
         sections_dir = output_dir / "2-sections"
     except FileNotFoundError:
         print("Warning: No output directory found, skipping citation enrichment")

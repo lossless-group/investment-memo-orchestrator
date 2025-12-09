@@ -284,9 +284,10 @@ def internal_comments_sanitizer_agent(state: MemoState) -> dict:
     print(f"{'='*70}")
     print(f"Company: {company_name}")
 
-    # Get output directory
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         print(f"⚠️  No output directory found for {company_name}")
         return {

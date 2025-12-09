@@ -73,14 +73,13 @@ def link_enrichment_agent(state: MemoState) -> Dict[str, Any]:
         Updated state message
     """
     from pathlib import Path
-    from ..utils import get_latest_output_dir
+    from ..utils import get_output_dir_from_state
 
     company_name = state["company_name"]
-    firm = state.get("firm")
 
-    # Get output directory (firm-aware)
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
         sections_dir = output_dir / "2-sections"
     except FileNotFoundError:
         print("⊘ Link enrichment skipped - no output directory found")

@@ -1,8 +1,43 @@
 """Utility functions for the investment memo orchestrator."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from .artifacts import sanitize_filename
+
+if TYPE_CHECKING:
+    from .state import MemoState
+
+
+def get_output_dir_from_state(state: "MemoState") -> Path:
+    """
+    Get output directory from state, falling back to get_latest_output_dir.
+
+    This is the preferred method for agents to get the output directory.
+    It respects state["output_dir"] (set during resume) before falling back
+    to auto-detection via get_latest_output_dir.
+
+    Args:
+        state: MemoState containing company_name, firm, and optionally output_dir
+
+    Returns:
+        Path to the output directory
+
+    Raises:
+        FileNotFoundError: If no output directory can be determined
+    """
+    # Check for pre-set output_dir (e.g., from resume script)
+    existing_output_dir = state.get("output_dir")
+    if existing_output_dir:
+        output_dir = Path(existing_output_dir)
+        if output_dir.exists():
+            return output_dir
+        # Path was set but doesn't exist - log warning and continue
+        print(f"Warning: state['output_dir'] set to {output_dir} but doesn't exist, falling back")
+
+    # Fall back to auto-detection
+    company_name = state["company_name"]
+    firm = state.get("firm")
+    return get_latest_output_dir(company_name, firm=firm)
 
 
 def get_latest_output_dir(

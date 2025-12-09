@@ -295,9 +295,10 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
                 word_counts = section.get("word_counts", {})
                 closing_words = word_counts.get("ideal", word_counts.get("max", 600))
 
-    # Get output directory
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         print("⊘ Summary revision skipped - no output directory found")
         return {"messages": ["Summary revision skipped - no output directory"]}

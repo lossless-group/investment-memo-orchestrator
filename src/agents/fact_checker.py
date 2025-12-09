@@ -347,11 +347,11 @@ All sections should be flagged for review.
 """
             print(entity_mismatch_warning)
 
-    # Get output directory (firm-aware)
-    from ..utils import get_latest_output_dir
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    from ..utils import get_output_dir_from_state
 
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
         sections_dir = output_dir / "2-sections"
     except FileNotFoundError:
         print("❌ No output directory found - skipping fact check")

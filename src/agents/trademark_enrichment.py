@@ -34,9 +34,10 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         print("⊘ Trademark enrichment skipped - no trademark paths provided")
         return {"messages": ["Trademark enrichment skipped - no trademark paths provided"]}
 
-    # Get output directory (firm-aware)
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         print(f"⊘ Trademark enrichment skipped - no output directory found for {company_name}")
         return {"messages": ["Trademark enrichment skipped - no output directory"]}

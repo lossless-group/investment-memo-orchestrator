@@ -282,26 +282,32 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
         }
     )
 
-    # Get output directory (firm-aware)
-    try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
-    except FileNotFoundError:
-        # Create new version if no existing output - firm-aware
-        from ..paths import resolve_deal_context
-        from ..artifacts import create_artifact_directory
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect or create)
+    from ..utils import get_output_dir_from_state
+    existing_output_dir = state.get("output_dir")
+    if existing_output_dir:
+        output_dir = Path(existing_output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        try:
+            output_dir = get_latest_output_dir(company_name, firm=firm)
+        except FileNotFoundError:
+            # Create new version if no existing output - firm-aware
+            from ..paths import resolve_deal_context
+            from ..artifacts import create_artifact_directory
 
-        safe_name = sanitize_filename(company_name)
+            safe_name = sanitize_filename(company_name)
 
-        if firm:
-            ctx = resolve_deal_context(company_name, firm=firm)
-            version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
-            version = version_mgr.get_next_version(safe_name)
-            output_dir = create_artifact_directory(company_name, str(version), firm=firm)
-        else:
-            version_mgr = VersionManager(Path("output"))
-            version = version_mgr.get_next_version(safe_name)
-            output_dir = Path("output") / f"{safe_name}-{version}"
-            output_dir.mkdir(parents=True, exist_ok=True)
+            if firm:
+                ctx = resolve_deal_context(company_name, firm=firm)
+                version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+                version = version_mgr.get_next_version(safe_name)
+                output_dir = create_artifact_directory(company_name, str(version), firm=firm)
+            else:
+                version_mgr = VersionManager(Path("output"))
+                version = version_mgr.get_next_version(safe_name)
+                output_dir = Path("output") / f"{safe_name}-{version}"
+                output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create research directory
     research_dir = output_dir / "1-research"

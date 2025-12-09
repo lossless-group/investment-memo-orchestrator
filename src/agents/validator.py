@@ -202,11 +202,10 @@ Return your validation as JSON matching the schema in your system prompt."""
 
     # Save validation artifacts
     try:
-        from ..utils import get_latest_output_dir
+        from ..utils import get_output_dir_from_state
 
-        # Get artifact directory (firm-aware) - should already exist
-        firm = state.get("firm")
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        # Get artifact directory (respects state["output_dir"] for resume)
+        output_dir = get_output_dir_from_state(state)
 
         # Prepare validation data for saving
         validation_artifact = {

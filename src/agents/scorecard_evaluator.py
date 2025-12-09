@@ -442,9 +442,10 @@ def scorecard_evaluator_agent(state: MemoState) -> Dict[str, Any]:
             "messages": [f"Scorecard evaluation failed: {e}"]
         }
 
-    # Find output directory (firm-aware)
+    # Find output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError as e:
         print(f"   ❌ Output directory not found: {e}")
         return {

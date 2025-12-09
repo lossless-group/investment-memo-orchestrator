@@ -425,9 +425,10 @@ def socials_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     if team_members:
         team_profiles = find_team_linkedin_profiles(team_members, company_name)
 
-    # Get output directory (firm-aware)
+    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
         sections_dir = output_dir / "2-sections"
     except FileNotFoundError:
         print(f"⊘ Socials enrichment skipped - no output directory found")
