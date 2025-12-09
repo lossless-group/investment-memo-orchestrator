@@ -63,7 +63,17 @@
       "Bash(sed:*)",
       "Bash(git submodule:*)",
       "Bash(mv:*)",
-      "Bash(brew list:*)"
+      "Bash(brew list:*)",
+      "Bash(git push:*)",
+      "Bash(grep:*)",
+      "Bash(git tag:*)",
+      "Bash(ls:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(PYTHONPATH=. python cli/improve_section.py:*)",
+      "Bash(printenv:*)",
+      "Bash(echo:*)",
+      "Bash(timeout 60 python:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []
