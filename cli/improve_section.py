@@ -71,6 +71,15 @@ SECTION_MAP = {
     "Track Record Analysis": (6, "06-track-record-analysis.md"),
     "Fee Structure & Economics": (7, "07-fee-structure--economics.md"),
     "LP Base & References": (8, "08-lp-base--references.md"),
+    # 12Ps framework sections (direct-early-stage-12Ps outline)
+    "Origins": (2, "02-origins.md"),
+    "Opening": (3, "03-opening.md"),
+    "Organization": (4, "04-organization.md"),
+    "Offering": (5, "05-offering.md"),
+    "Opportunity": (6, "06-opportunity.md"),
+    "Risks & What Could Go Wrong": (7, "07-risks--what-could-go-wrong.md"),
+    "12Ps Scorecard Summary": (8, "08-12ps-scorecard-summary.md"),
+    "Closing Assessment": (10, "10-closing-assessment.md"),
 }
 
 

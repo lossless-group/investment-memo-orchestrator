@@ -194,8 +194,23 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     sections_data = []  # Store (section_num, section_name, enriched_content)
     total_citations_before_renumber = 0
 
+    # Check if using 12Ps outline (scorecard section will be generated separately)
+    outline_name = state.get("outline_name", "")
+    is_12ps_outline = "12Ps" in outline_name or "12ps" in outline_name
+
     for section_file in section_files:
         section_name = section_file.stem.split("-", 1)[1].replace("--", " & ").replace("-", " ").title()
+
+        # Skip scorecard section for 12Ps outlines - it will be replaced by scorecard agent
+        if is_12ps_outline and ("scorecard" in section_file.stem.lower() or section_file.stem.startswith("08-")):
+            print(f"  ⏭️  Skipping {section_name} (will be replaced by scorecard agent)")
+            # Still include in sections_data for final assembly
+            with open(section_file) as f:
+                section_content = f.read()
+            section_num = section_file.stem.split("-")[0]
+            sections_data.append((section_num, section_name, section_content))
+            continue
+
         print(f"  Enriching citations: {section_name}...")
 
         # Read section

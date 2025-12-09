@@ -233,27 +233,37 @@ def integrate_scorecard(state: MemoState) -> dict:
         scorecard_content = scorecard_file.read_text()
         section_8_file.write_text(scorecard_content)
 
-    # Reassemble final draft
-    final_draft_path = output_dir / "4-final-draft.md"
+    # Reassemble final draft using canonical assembly (handles citations + TOC)
+    try:
+        from cli.assemble_draft import assemble_final_draft
+        from rich.console import Console
+        console = Console()
+        final_draft_path = assemble_final_draft(output_dir, console)
+        word_count = final_draft_path.read_text().split()
+        print(f"  ✓ Reassembled final draft with citations and TOC: {len(word_count)} words")
+        return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(word_count)} words)"]}
+    except ImportError:
+        # Fallback to basic assembly if cli module not available
+        final_draft_path = output_dir / "4-final-draft.md"
 
-    # Preserve logo/header from existing draft if present
-    content = ""
-    if final_draft_path.exists():
-        existing = final_draft_path.read_text()
-        first_line = existing.split('\n')[0]
-        if first_line.startswith('!['):
-            content = first_line + '\n\n'
+        # Preserve logo/header from existing draft if present
+        content = ""
+        if final_draft_path.exists():
+            existing = final_draft_path.read_text()
+            first_line = existing.split('\n')[0]
+            if first_line.startswith('!['):
+                content = first_line + '\n\n'
 
-    # Assemble all sections in order
-    for section_file in sorted(sections_dir.glob("*.md")):
-        if section_file.name == "header.md":
-            continue
-        content += section_file.read_text() + '\n\n'
+        # Assemble all sections in order
+        for section_file in sorted(sections_dir.glob("*.md")):
+            if section_file.name == "header.md":
+                continue
+            content += section_file.read_text() + '\n\n'
 
-    final_draft_path.write_text(content)
-    print(f"  ✓ Reassembled final draft: {len(content.split())} words")
+        final_draft_path.write_text(content)
+        print(f"  ✓ Reassembled final draft (basic): {len(content.split())} words")
 
-    return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(content.split())} words)"]}
+        return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(content.split())} words)"]}
 
 
 def router_node(state: MemoState) -> dict:
