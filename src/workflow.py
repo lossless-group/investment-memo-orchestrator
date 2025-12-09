@@ -74,7 +74,8 @@ def finalize_memo(state: MemoState) -> dict:
     # Get artifact directory (most recent) - firm-aware
     try:
         output_dir = get_latest_output_dir(company_name, firm=firm)
-        final_draft_path = output_dir / "4-final-draft.md"
+        from .artifacts import get_final_draft_path
+        final_draft_path = get_final_draft_path(output_dir)
     except FileNotFoundError:
         raise FileNotFoundError(f"No output directory found for {company_name}")
 
@@ -148,12 +149,15 @@ def human_review(state: MemoState) -> dict:
 
         # Save as draft (not final)
         if memo_content:
-            save_final_draft(output_dir, memo_content)
+            final_draft_path = save_final_draft(output_dir, memo_content)
+        else:
+            from .artifacts import get_final_draft_path
+            final_draft_path = get_final_draft_path(output_dir)
 
         # Save state snapshot
         save_state_snapshot(output_dir, state)
 
-        print(f"Draft saved for review to: {output_dir / '4-final-draft.md'}")
+        print(f"Draft saved for review to: {final_draft_path}")
         print(f"State snapshot saved to: {output_dir / 'state.json'}")
     except Exception as e:
         print(f"Warning: Could not save draft artifacts: {e}")
@@ -244,7 +248,8 @@ def integrate_scorecard(state: MemoState) -> dict:
         return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(word_count)} words)"]}
     except ImportError:
         # Fallback to basic assembly if cli module not available
-        final_draft_path = output_dir / "4-final-draft.md"
+        from .artifacts import get_final_draft_path
+        final_draft_path = get_final_draft_path(output_dir)
 
         # Preserve logo/header from existing draft if present
         content = ""

@@ -204,7 +204,8 @@ def reassemble_final_draft(output_dir: Path) -> None:
     - All sections in order
     - Citations block (from existing final draft)
     """
-    final_draft_path = output_dir / "4-final-draft.md"
+    from ..artifacts import get_final_draft_path
+    final_draft_path = get_final_draft_path(output_dir)
     sections_dir = output_dir / "2-sections"
 
     if not final_draft_path.exists():
@@ -301,7 +302,8 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
         print("⊘ Summary revision skipped - no output directory found")
         return {"messages": ["Summary revision skipped - no output directory"]}
 
-    final_draft_path = output_dir / "4-final-draft.md"
+    from ..artifacts import get_final_draft_path
+    final_draft_path = get_final_draft_path(output_dir)
     sections_dir = output_dir / "2-sections"
 
     if not final_draft_path.exists():
@@ -440,7 +442,8 @@ def revise_summaries_cli(
         print(f"[DRY RUN] Would revise summary sections for {company_name}")
         try:
             output_dir = get_latest_output_dir(company_name, firm=firm)
-            final_draft = output_dir / "4-final-draft.md"
+            from ..artifacts import get_final_draft_path
+            final_draft = get_final_draft_path(output_dir)
             if final_draft.exists():
                 content = final_draft.read_text()
                 print(f"  Final draft: {len(content)} chars")

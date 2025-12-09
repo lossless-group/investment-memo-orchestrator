@@ -70,8 +70,9 @@ def detect_resume_point(output_dir: Path) -> str:
         except (json.JSONDecodeError, KeyError):
             pass
 
-    # Check citations and TOC
-    final_draft = output_dir / "4-final-draft.md"
+    # Check citations and TOC - try new naming pattern first
+    final_draft_files = list(output_dir.glob("6-*.md"))
+    final_draft = final_draft_files[0] if final_draft_files else output_dir / "4-final-draft.md"
     if final_draft.exists() and final_draft.stat().st_size > 100:
         try:
             content = final_draft.read_text()
@@ -291,8 +292,9 @@ def reconstruct_state_from_artifacts(
         except Exception as e:
             print(f"Warning: Could not load validation: {e}")
 
-    # Load final draft if exists
-    final_draft = output_dir / "4-final-draft.md"
+    # Load final draft if exists - try new naming pattern first
+    final_draft_files = list(output_dir.glob("6-*.md"))
+    final_draft = final_draft_files[0] if final_draft_files else output_dir / "4-final-draft.md"
     if final_draft.exists():
         try:
             state["final_memo"] = final_draft.read_text()
@@ -503,7 +505,9 @@ def main():
 
     if resume_from == "complete":
         print(f"\n✅ Memo already complete!")
-        print(f"\nFinal draft: {output_dir / '4-final-draft.md'}")
+        final_draft_files = list(output_dir.glob("6-*.md"))
+        final_draft = final_draft_files[0] if final_draft_files else output_dir / "4-final-draft.md"
+        print(f"\nFinal draft: {final_draft}")
         sys.exit(0)
 
     if resume_from == "start":
@@ -543,7 +547,9 @@ def main():
         print(f"\n{'='*60}")
         print("✅ Memo generation complete!")
         print('='*60)
-        print(f"\nFinal draft: {output_dir / '4-final-draft.md'}")
+        final_draft_files = list(output_dir.glob("6-*.md"))
+        final_draft = final_draft_files[0] if final_draft_files else output_dir / "4-final-draft.md"
+        print(f"\nFinal draft: {final_draft}")
         if final_state.get("overall_score"):
             print(f"Quality score: {final_state['overall_score']}/10")
 

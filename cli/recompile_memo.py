@@ -77,7 +77,9 @@ def assemble_sections(artifact_dir: Path) -> Path:
         content = section_file.read_text(encoding="utf-8").rstrip()
         parts.append(content + "\n\n")
 
-    final_draft = artifact_dir / "4-final-draft.md"
+    # Use versioned filename pattern
+    from src.artifacts import get_final_draft_path
+    final_draft = get_final_draft_path(artifact_dir)
     final_draft.write_text("".join(parts).rstrip() + "\n", encoding="utf-8")
     return final_draft
 

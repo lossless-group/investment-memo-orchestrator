@@ -187,7 +187,8 @@ def toc_generator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         print("⊘ TOC generation skipped - no output directory found")
         return {"messages": ["TOC generation skipped - no output directory"]}
 
-    final_draft_path = output_dir / "4-final-draft.md"
+    from ..artifacts import get_final_draft_path
+    final_draft_path = get_final_draft_path(output_dir)
 
     if not final_draft_path.exists():
         print("⊘ TOC generation skipped - no final draft found")

@@ -851,15 +851,21 @@ Multiple Brands:
             sys.exit(1)
 
         # Set input to the final draft in the artifact directory
-        args.input = artifact_dir / "4-final-draft.md"
-        if not args.input.exists():
+        # Try new naming pattern first: 6-{Deal}-{Version}.md
+        final_draft_files = list(artifact_dir.glob("6-*.md"))
+        if final_draft_files:
+            args.input = final_draft_files[0]
+        elif (artifact_dir / "4-final-draft.md").exists():
+            # Fallback to legacy naming
+            args.input = artifact_dir / "4-final-draft.md"
+        else:
             # Try alternative memo filename
             memo_files = list(artifact_dir.glob("*-memo.md"))
             if memo_files:
                 args.input = memo_files[0]
             else:
                 print(f"Error: No memo file found in {artifact_dir}")
-                print("  Expected: 4-final-draft.md or *-memo.md")
+                print("  Expected: 6-{Deal}-{Version}.md, 4-final-draft.md, or *-memo.md")
                 sys.exit(1)
 
         print(f"Resolved: {args.input}")
@@ -932,8 +938,11 @@ Multiple Brands:
         if args.all:
             files = list(args.input.glob('**/*.md'))
         else:
-            # Find highest version files
-            files = list(args.input.glob('**/4-final-draft.md'))
+            # Find final draft files - try new naming pattern first
+            files = list(args.input.glob('**/6-*.md'))
+            if not files:
+                # Fallback to legacy naming
+                files = list(args.input.glob('**/4-final-draft.md'))
             if not files:
                 files = list(args.input.glob('**/*-memo.md'))
     else:
@@ -952,8 +961,8 @@ Multiple Brands:
     for md_file in files:
         try:
             # Determine output filename
-            if md_file.name == '4-final-draft.md':
-                # Use parent directory name
+            if md_file.name == '4-final-draft.md' or md_file.name.startswith('6-'):
+                # Use parent directory name for final draft files
                 output_name = md_file.parent.name
             else:
                 output_name = md_file.stem

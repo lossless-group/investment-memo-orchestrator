@@ -360,8 +360,8 @@ def internal_comments_sanitizer_agent(state: MemoState) -> dict:
         import sys
         sys.path.insert(0, str(Path(__file__).parent.parent.parent))
         from cli.assemble_draft import assemble_final_draft
-        assemble_final_draft(output_dir, verbose=False)
-        print(f"✓ Final draft reassembled: {output_dir / '4-final-draft.md'}")
+        final_draft_path = assemble_final_draft(output_dir, verbose=False)
+        print(f"✓ Final draft reassembled: {final_draft_path}")
     except Exception as e:
         print(f"⚠️  Could not reassemble final draft: {e}")
 

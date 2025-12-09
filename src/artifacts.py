@@ -509,12 +509,12 @@ def save_fact_check_artifacts(output_dir: Path, fact_check_data: Dict[str, Any])
         fact_check_data: Fact-check data from fact_checker agent
     """
     # Save structured JSON
-    with open(output_dir / "5-fact-check.json", "w") as f:
+    with open(output_dir / "4-fact-check.json", "w") as f:
         json.dump(fact_check_data, f, indent=2, ensure_ascii=False)
 
     # Save human-readable markdown report
     report = format_fact_check_report(fact_check_data)
-    with open(output_dir / "5-fact-check.md", "w") as f:
+    with open(output_dir / "4-fact-check.md", "w") as f:
         f.write(report)
 
 
@@ -592,16 +592,52 @@ def format_fact_check_report(fact_check_data: Dict[str, Any]) -> str:
     return md
 
 
-def save_final_draft(output_dir: Path, content: str) -> None:
+def get_final_draft_filename(output_dir: Path) -> str:
+    """
+    Get the final draft filename based on output directory name.
+
+    The output directory follows the pattern: {Deal}-{Version}
+    The final draft filename follows the pattern: 6-{Deal}-{Version}.md
+
+    Args:
+        output_dir: Output directory path (e.g., output/MitrixBio-v0.0.2)
+
+    Returns:
+        Final draft filename (e.g., 6-MitrixBio-v0.0.2.md)
+    """
+    # Extract deal name and version from directory name
+    dir_name = output_dir.name  # e.g., "MitrixBio-v0.0.2"
+    return f"6-{dir_name}.md"
+
+
+def get_final_draft_path(output_dir: Path) -> Path:
+    """
+    Get the full path to the final draft file.
+
+    Args:
+        output_dir: Output directory path
+
+    Returns:
+        Full path to final draft file
+    """
+    return output_dir / get_final_draft_filename(output_dir)
+
+
+def save_final_draft(output_dir: Path, content: str) -> Path:
     """
     Save final assembled memo.
 
     Args:
         output_dir: Directory to save artifacts
         content: Final memo content
+
+    Returns:
+        Path to saved final draft file
     """
-    with open(output_dir / "4-final-draft.md", "w") as f:
+    final_draft_path = get_final_draft_path(output_dir)
+    with open(final_draft_path, "w") as f:
         f.write(content)
+    return final_draft_path
 
 
 def save_state_snapshot(output_dir: Path, state: Dict[str, Any]) -> None:

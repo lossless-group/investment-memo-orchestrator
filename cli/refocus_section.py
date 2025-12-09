@@ -351,7 +351,9 @@ def reassemble_final_draft(artifact_dir: Path, console: Console) -> Path:
         with open(section_file) as f:
             content += f.read() + "\n\n"
 
-    final_draft = artifact_dir / "4-final-draft.md"
+    # Use versioned filename pattern
+    from src.artifacts import get_final_draft_path
+    final_draft = get_final_draft_path(artifact_dir)
     with open(final_draft, "w") as f:
         f.write(content.strip())
 

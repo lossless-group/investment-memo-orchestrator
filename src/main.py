@@ -374,21 +374,25 @@ def main():
         version = version_mgr.get_next_version(safe_name)
 
         if memo_content:
-            # Determine file suffix based on status
+            # Determine status
             is_finalized = final_memo is not None
-            file_suffix = "memo" if is_finalized else "draft"
 
             # Get version output directory
             version_output_dir = deal_ctx.get_version_output_dir(str(version)) if not deal_ctx.is_legacy else output_base / f"{safe_name}-{version}"
             version_output_dir.mkdir(parents=True, exist_ok=True)
 
-            output_file = version_output_dir / f"{safe_name}-{version}-{file_suffix}.md"
+            # Final draft is now 6-{Deal}-{Version}.md (single source of truth)
+            # The pipeline agents already create this file via citation_enrichment/assemble_draft
+            final_draft_file = version_output_dir / f"6-{safe_name}-{version}.md"
 
-            with open(output_file, "w") as f:
-                f.write(memo_content)
+            # If the pipeline created the file, it's the canonical version
+            # Otherwise, write the memo content as the final draft
+            if not final_draft_file.exists() and memo_content:
+                with open(final_draft_file, "w") as f:
+                    f.write(memo_content)
 
-            # Record version with relative path
-            relative_path = version_mgr.get_relative_file_path(safe_name, version, f"{safe_name}-{version}-{file_suffix}.md")
+            # Record version with the new canonical filename
+            relative_path = version_mgr.get_relative_file_path(safe_name, version, f"6-{safe_name}-{version}.md")
             version_mgr.record_version(
                 safe_name,
                 version,
@@ -407,7 +411,7 @@ def main():
             console.print(md)
 
             status_msg = "Memo saved to" if is_finalized else "Draft saved to"
-            console.print(f"\n[bold green]✓ {status_msg}:[/bold green] {output_file}")
+            console.print(f"\n[bold green]✓ {status_msg}:[/bold green] {final_draft_file}")
 
             # Save full state as JSON for debugging
             # Uses canonical location: state.json inside version directory

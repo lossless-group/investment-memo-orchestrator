@@ -253,7 +253,10 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     enriched_content += renumber_citations_globally(sections_data)
 
     # Save enriched final draft with globally renumbered citations
-    with open(output_dir / "4-final-draft.md", "w") as f:
+    # Filename follows pattern: 6-{Deal}-{Version}.md
+    from ..artifacts import get_final_draft_path
+    final_draft_path = get_final_draft_path(output_dir)
+    with open(final_draft_path, "w") as f:
         f.write(enriched_content)
 
     # Count unique citations after renumbering
