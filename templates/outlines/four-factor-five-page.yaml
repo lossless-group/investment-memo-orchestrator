@@ -1,0 +1,531 @@
+# Four Factor Five Page Investment Memo Outline
+# Concise 5-page format focusing on the four critical investment factors
+# Summary is written last after analyzing all four factors
+
+metadata:
+  outline_type: "four_factor"
+  version: "1.0.0"
+  description: "Concise 5-page memo: Summary + Team + Traction + Market + Barriers"
+  date_created: "2025-12-09"
+  compatible_modes: ["consider", "justify"]
+  page_target: 5
+  notes: |
+    This outline is designed for rapid investment screening.
+    Each section limited to ~1 page (~400-500 words).
+    Summary written LAST after all four factors are analyzed.
+
+# Global vocabulary (applies to all sections)
+vocabulary:
+  financial:
+    preferred:
+      - term: "annual recurring revenue (ARR)"
+        first_use: "annual recurring revenue (ARR)"
+        subsequent: "ARR"
+
+      - term: "monthly recurring revenue (MRR)"
+        first_use: "monthly recurring revenue (MRR)"
+        subsequent: "MRR"
+
+      - term: "customer acquisition cost (CAC)"
+        first_use: "customer acquisition cost (CAC)"
+        subsequent: "CAC"
+
+      - term: "lifetime value (LTV)"
+        first_use: "lifetime value (LTV)"
+        subsequent: "LTV"
+
+    avoid:
+      - term: "revenue"
+        instead: "Specify ARR, MRR, or total revenue"
+
+  market:
+    preferred:
+      - term: "total addressable market (TAM)"
+        first_use: "total addressable market (TAM)"
+        subsequent: "TAM"
+
+      - term: "compound annual growth rate (CAGR)"
+        first_use: "compound annual growth rate (CAGR)"
+        subsequent: "CAGR"
+
+    avoid:
+      - term: "huge market"
+        instead: "Provide TAM with $ figure and source"
+
+      - term: "rapidly growing"
+        instead: "Specify CAGR percentage"
+
+  team:
+    preferred:
+      - term: "founder-market fit"
+        definition: "Alignment between founder background and market opportunity"
+
+      - term: "domain expertise"
+        usage: "Use when discussing specialized knowledge"
+
+    avoid:
+      - term: "rockstar team"
+        instead: "Describe specific credentials and experience"
+
+      - term: "world-class"
+        instead: "Cite specific achievements"
+
+  recommendation:
+    required_terms:
+      - "PASS"
+      - "CONSIDER"
+      - "COMMIT"
+
+    forbidden_terms:
+      - "Maybe"
+      - "Strong Consider"
+      - "Soft Pass"
+
+  style_rules:
+    tone: "Professional, analytical, concise - not promotional"
+    voice: "Active voice preferred"
+
+    numbers:
+      - "Use numerals for all metrics and financial figures"
+      - "Use dollar signs: $5M not 5M dollars"
+      - "Use percentages: 30% not thirty percent"
+
+    citations:
+      - "Obsidian-style: [^1], [^2], [^3]"
+      - "Format: [^1]: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD"
+
+# Section definitions
+# NOTE: Summary is section 1 but written LAST after all factors analyzed
+sections:
+  - number: 1
+    name: "Summary"
+    filename: "01-summary.md"
+    write_order: 5  # Written last
+    target_length:
+      min_words: 350
+      max_words: 500
+      ideal_words: 425
+      page_limit: 1
+
+    description: |
+      One-page executive summary synthesizing findings from all four factors.
+      Written LAST after Team, Traction, Market, and Barriers are complete.
+      Must stand alone as a complete investment assessment.
+
+    guiding_questions:
+      - "What does this company do? (one sentence)"
+      - "What is the investment recommendation? (PASS/CONSIDER/COMMIT)"
+      - "What is the one-sentence rationale for the recommendation?"
+      - "Team: What are the 2-3 most important team strengths or concerns?"
+      - "Traction: What are the key metrics that matter?"
+      - "Market: How big is the opportunity and why now?"
+      - "Barriers: What defensibility exists or is missing?"
+      - "What are the 2-3 critical risks?"
+      - "What are the next steps?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"
+        - "@pitchbook"
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+
+    section_vocabulary:
+      required_elements:
+        - Company name and one-sentence description
+        - Clear recommendation (PASS/CONSIDER/COMMIT)
+        - One-sentence rationale
+        - Key finding from each of the four factors
+        - 2-3 critical risks
+        - Specific next steps
+
+      avoid:
+        - "Promotional language without evidence"
+        - "Vague claims: strong team, significant traction"
+        - "Speculation: could potentially, might be able to"
+
+    mode_specific:
+      consider:
+        emphasis: "Balanced assessment with clear recommendation"
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+
+      justify:
+        emphasis: "Clear rationale for why investment was made"
+        recommendation_options: ["COMMIT"]
+
+    validation_criteria:
+      - "Contains clear recommendation (PASS/CONSIDER/COMMIT)"
+      - "One-sentence rationale immediately follows recommendation"
+      - "References findings from all four factor sections"
+      - "Identifies 2-3 key risks"
+      - "Includes actionable next steps"
+      - "Fits on one page (~400-500 words)"
+
+  - number: 2
+    name: "Team"
+    filename: "02-team.md"
+    write_order: 1  # Written first
+    target_length:
+      min_words: 350
+      max_words: 500
+      ideal_words: 425
+      page_limit: 1
+
+    description: |
+      One-page assessment of the founding team, their relevant experience,
+      founder-market fit, and critical gaps. Focus on why this team is
+      uniquely positioned to win (or not).
+
+    guiding_questions:
+      - "Who are the founders? (names, titles, backgrounds)"
+      - "What relevant experience do they have for THIS problem?"
+      - "Have they worked together before?"
+      - "What is their founder-market fit score?"
+      - "What are the 2-3 most compelling team strengths?"
+      - "What are the critical gaps or concerns?"
+      - "Who are the key advisors and what value do they add?"
+      - "Who are the notable investors (if any)?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"
+        - "@linkedin"
+      domains:
+        include:
+          - "linkedin.com"
+          - "crunchbase.com"
+          - "[company-domain]/about"
+          - "[company-domain]/team"
+
+    section_vocabulary:
+      required_elements:
+        - Founder names with titles
+        - Previous companies/roles for each founder
+        - Specific accomplishments (quantified where possible)
+        - 2-3 key strengths with evidence
+        - 1-2 gaps or concerns
+        - LinkedIn profile links (added by enrichment)
+
+      structure_template:
+        - "Founders: [Brief bio for each, 2-3 sentences]"
+        - "Founder-Market Fit: [Assessment with evidence]"
+        - "Strengths: [2-3 bullet points]"
+        - "Gaps/Concerns: [1-2 bullet points]"
+        - "Advisors/Investors: [If notable, 1-2 sentences]"
+
+      avoid:
+        - "rockstar, world-class, exceptional (without evidence)"
+        - "Strong team (without specifics)"
+        - "Passionate about X (focus on competence)"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of team capability for the opportunity"
+        required_analysis:
+          - "Founder-market fit assessment"
+          - "Critical gaps that need filling"
+          - "Red flags or concerns"
+
+      justify:
+        emphasis: "Team strengths that drove investment confidence"
+        required_analysis:
+          - "Why this team is uniquely positioned"
+          - "Experience that de-risked the bet"
+
+    validation_criteria:
+      - "All founders named with titles"
+      - "Relevant experience specified for each founder"
+      - "2-3 specific strengths listed with evidence"
+      - "At least 1 gap or concern identified"
+      - "No promotional language without substantiation"
+      - "Fits on one page (~400-500 words)"
+
+  - number: 3
+    name: "Traction"
+    filename: "03-traction.md"
+    write_order: 2
+    target_length:
+      min_words: 350
+      max_words: 500
+      ideal_words: 425
+      page_limit: 1
+
+    description: |
+      One-page analysis of quantitative evidence of product-market fit.
+      Must include specific numbers - no vague descriptors like "strong growth."
+      If metrics unavailable, state explicitly.
+
+    guiding_questions:
+      - "What is the revenue? (ARR/MRR with specific $ amount)"
+      - "How many customers? (exact number, distinguish paying vs pilots)"
+      - "What is the growth rate? (specific % MoM or YoY)"
+      - "Who are the notable customers? (names if public)"
+      - "What are the usage metrics? (DAU, MAU, transactions)"
+      - "What is customer retention/churn?"
+      - "What major milestones have been achieved?"
+      - "What does the pipeline look like?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"
+        - "@techcrunch"
+      domains:
+        include:
+          - "[company-domain]"
+          - "crunchbase.com"
+          - "techcrunch.com"
+
+    section_vocabulary:
+      required_elements:
+        - Revenue figure (or explicit "not disclosed")
+        - Customer count (or explicit "not disclosed")
+        - Growth rate with timeframe (or explicit "not disclosed")
+        - Key milestones with dates
+        - Customer names if publicly available
+
+      critical_rules:
+        - "NEVER use vague terms: 'significant traction', 'strong growth'"
+        - "ALWAYS quantify: '$500K ARR', '50 customers', '30% MoM'"
+        - "If unavailable, state: 'Revenue not disclosed'"
+        - "Distinguish pilots from paying customers"
+
+      structure_template:
+        - "Revenue: [Specific $ or 'not disclosed']"
+        - "Customers: [Number, type, notable names]"
+        - "Growth: [% rate with timeframe]"
+        - "Key Milestones: [2-4 bullets with dates]"
+        - "Pipeline: [If known]"
+
+      avoid:
+        - "Significant traction (quantify!)"
+        - "Strong growth (give %)"
+        - "Several customers (give number)"
+        - "Fortune 500 customers (name them)"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of traction vs stage expectations"
+        required_analysis:
+          - "Is traction sufficient for stage?"
+          - "Is growth accelerating or decelerating?"
+          - "What's missing that should be there?"
+
+      justify:
+        emphasis: "Traction that validated product-market fit"
+        required_analysis:
+          - "Metrics that exceeded expectations"
+          - "Evidence of repeatability"
+
+    validation_criteria:
+      - "Revenue metric with $ amount (or explicit unavailable)"
+      - "Customer count specified numerically"
+      - "Growth rate quantified with timeframe"
+      - "NO vague language ('strong traction')"
+      - "Missing data explicitly stated"
+      - "Fits on one page (~400-500 words)"
+
+  - number: 4
+    name: "Market"
+    filename: "04-market.md"
+    write_order: 3
+    target_length:
+      min_words: 350
+      max_words: 500
+      ideal_words: 425
+      page_limit: 1
+
+    description: |
+      One-page analysis of market size, growth dynamics, and timing.
+      Must include TAM with source/methodology and specific competitors.
+      Answer: Is this a big enough market, and why now?
+
+    guiding_questions:
+      - "What is the TAM? ($ figure with source)"
+      - "What is the market growth rate? (CAGR)"
+      - "What are the key market tailwinds?"
+      - "Why is now the right time?"
+      - "Who are the 3-5 main competitors?"
+      - "How is the company differentiated?"
+      - "What is the competitive positioning?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@statista"
+        - "@cbinsights"
+        - "@pitchbook"
+      domains:
+        include:
+          - "statista.com"
+          - "cbinsights.com"
+          - "pitchbook.com"
+          - "gartner.com"
+
+    section_vocabulary:
+      required_elements:
+        - TAM with $ figure and source
+        - Market CAGR with timeframe
+        - 3-5 named competitors
+        - Clear differentiation statement
+        - "Why now" thesis
+
+      structure_template:
+        - "Market Size: [TAM with source, SAM if available]"
+        - "Growth: [CAGR with drivers]"
+        - "Why Now: [2-3 tailwinds]"
+        - "Competition: [3-5 named competitors with positioning]"
+        - "Differentiation: [How company wins]"
+
+      avoid:
+        - "Billion-dollar market (give specific TAM)"
+        - "Rapidly growing (give CAGR %)"
+        - "Large incumbents (name them)"
+        - "No real competition (there always is)"
+
+    mode_specific:
+      consider:
+        emphasis: "Is the market big enough and timing right?"
+        required_analysis:
+          - "TAM believability assessment"
+          - "Competitive dynamics evaluation"
+          - "Timing thesis strength"
+
+      justify:
+        emphasis: "Market opportunity that justified investment"
+        required_analysis:
+          - "Why market size was compelling"
+          - "Tailwinds we believed in"
+
+    validation_criteria:
+      - "TAM stated with $ figure and source"
+      - "Market growth rate quantified (CAGR)"
+      - "At least 3 competitors named"
+      - "Why now thesis articulated"
+      - "Differentiation explained with specifics"
+      - "Fits on one page (~400-500 words)"
+
+  - number: 5
+    name: "Barriers"
+    filename: "05-barriers.md"
+    write_order: 4
+    target_length:
+      min_words: 350
+      max_words: 500
+      ideal_words: 425
+      page_limit: 1
+
+    description: |
+      One-page assessment of defensibility and barriers to competition.
+      What prevents others from copying this? What moats exist or can be built?
+      Be honest about both existing and aspirational barriers.
+
+    guiding_questions:
+      - "What IP or proprietary technology exists?"
+      - "Are there network effects? What kind?"
+      - "What are the switching costs for customers?"
+      - "Is there a data advantage? How is it built?"
+      - "What are the economies of scale?"
+      - "Are there regulatory barriers?"
+      - "What is the brand/reputation value?"
+      - "What barriers are aspirational vs actual today?"
+      - "How easy would it be for a well-funded competitor to replicate?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@techcrunch"
+        - "@wired"
+      domains:
+        include:
+          - "[company-domain]"
+          - "techcrunch.com"
+          - "patents.google.com"
+
+    section_vocabulary:
+      preferred_terms:
+        - "barriers to entry (not moats unless specific type)"
+        - "network effects (specify: direct, indirect, data)"
+        - "switching costs (specify: financial, procedural, relational)"
+        - "proprietary technology (not secret sauce)"
+        - "data advantage (not data moat)"
+
+      required_elements:
+        - Assessment of each barrier type (present or absent)
+        - Distinction between existing and aspirational barriers
+        - Honest evaluation of replicability
+        - Time-to-build estimate for key barriers
+
+      structure_template:
+        - "IP/Technology: [Patents, proprietary tech, or 'None']"
+        - "Network Effects: [Type and strength, or 'None']"
+        - "Switching Costs: [Type and magnitude]"
+        - "Data Advantage: [Nature and defensibility]"
+        - "Other Barriers: [Regulatory, brand, scale]"
+        - "Replicability Assessment: [How hard to copy?]"
+
+      avoid:
+        - "Strong moat (be specific about barrier type)"
+        - "First mover advantage (rarely durable)"
+        - "Proprietary algorithm (explain what makes it defensible)"
+        - "Overstating aspirational barriers as current"
+
+    mode_specific:
+      consider:
+        emphasis: "Honest assessment of current and buildable defensibility"
+        required_analysis:
+          - "Which barriers exist today?"
+          - "Which are aspirational?"
+          - "How long to build real barriers?"
+          - "Risk of well-funded competitor"
+
+      justify:
+        emphasis: "Barriers that gave confidence in long-term defensibility"
+        required_analysis:
+          - "Barriers that existed at investment"
+          - "Barriers we believed could be built"
+          - "Timeline for defensibility"
+
+    validation_criteria:
+      - "Each major barrier type addressed (IP, network, switching, data)"
+      - "Clear distinction between existing and aspirational"
+      - "Honest replicability assessment"
+      - "No promotional language ('strong moat')"
+      - "Specific evidence for claimed barriers"
+      - "Fits on one page (~400-500 words)"
+
+# Cross-section requirements
+cross_section_requirements:
+  write_order:
+    description: "Sections must be written in this order"
+    sequence:
+      - "Team (factor 1)"
+      - "Traction (factor 2)"
+      - "Market (factor 3)"
+      - "Barriers (factor 4)"
+      - "Summary (written LAST, synthesizes all factors)"
+
+  page_discipline:
+    description: "Each section must fit on approximately one page"
+    target: "400-500 words per section"
+    total: "~2,000-2,500 words for entire memo"
+
+  citation_consistency:
+    description: "Citations follow Obsidian style"
+    format: "[^1], [^2], [^3]"
+    consolidation: "All citations renumbered globally at end"
+
+  four_factor_framework:
+    description: "Summary must synthesize all four factors"
+    factors:
+      - name: "Team"
+        questions:
+          - "Can this team execute?"
+      - name: "Traction"
+        questions:
+          - "Is there evidence of product-market fit?"
+      - name: "Market"
+        questions:
+          - "Is the opportunity big enough?"
+      - name: "Barriers"
+        questions:
+          - "Can they defend the position?"
