@@ -1161,8 +1161,10 @@ def main():
 - `0-deck-analysis.*` - Deck analysis (runs first)
 - `1-research.*` - Web research (second, builds on deck)
 - `2-sections/` - Combined deck + research + writing
-- `3-validation.*` - Validation (unchanged)
-- `4-final-draft.md` - Final output (unchanged)
+- `3-validation.*` - Validation scores and feedback
+- `4-fact-check.*` - Fact-check results
+- `5-scorecard/` - Scorecard evaluation
+- `6-{Deal}-{Version}.md` - Final draft (e.g., `6-Aito-v0.0.2.md`)
 
 ### Step 2: MCP Integration
 1. **Build Portfolio Data MCP server**:
@@ -1409,7 +1411,10 @@ output/
     │   └── 10-recommendation.md
     ├── 3-validation.json        # Validation scores and feedback
     ├── 3-validation.md          # Human-readable validation report
-    ├── 4-final-draft.md         # Complete assembled memo
+    ├── 4-fact-check.json        # Fact-check results
+    ├── 4-fact-check.md          # Human-readable fact-check report
+    ├── 5-scorecard/             # Scorecard evaluation directory
+    ├── 6-{Deal}-{Version}.md    # Final draft (e.g., 6-Aito-v0.0.2.md)
     └── state.json               # Full workflow state for debugging
 ```
 
@@ -1430,7 +1435,7 @@ output/
 - Research agent writes `1-research.json` and `1-research.md`
 - Writer agent saves each section to `2-sections/`
 - Validator agent writes `3-validation.json` and `3-validation.md`
-- Finalize step assembles `4-final-draft.md`
+- Finalize step assembles `6-{Deal}-{Version}.md` (via centralized `src/final_draft.py`)
 
 ```python
 def research_agent_enhanced(state: MemoState) -> dict:
@@ -1529,9 +1534,12 @@ Automatically enrich mentions of people and organizations with relevant links:
 - ✅ Research artifacts: `1-research.json` and `1-research.md`
 - ✅ Section artifacts: `2-sections/*.md` (all 10 sections)
 - ✅ Validation artifacts: `3-validation.json` and `3-validation.md`
-- ✅ Final output: `4-final-draft.md` with citations
+- ✅ Fact-check artifacts: `4-fact-check.json` and `4-fact-check.md`
+- ✅ Scorecard directory: `5-scorecard/`
+- ✅ Final output: `6-{Deal}-{Version}.md` with citations (e.g., `6-Aito-v0.0.2.md`)
 - ✅ State snapshot: `state.json` for debugging
 - ✅ Version directory structure: `output/{Company-Name}-v0.0.x/`
+- ✅ Centralized final draft operations: `src/final_draft.py` module
 
 **Citation System: IMPLEMENTED**
 - ✅ New Citation-Enrichment Agent added to workflow
@@ -1565,10 +1573,31 @@ Automatically enrich mentions of people and organizations with relevant links:
 
 *Files Created*:
 - `src/artifacts.py`: Central module for artifact trail functionality
+- `src/final_draft.py`: **Centralized final draft operations** (single source of truth)
 - `src/agents/citation_enrichment.py`: New agent for adding citations
 - Updated: `src/workflow.py` to include citation step
 - Updated: `src/agents/research_enhanced.py` to use sonar-pro model
 - Updated: All agents to save artifacts during execution
+
+*Final Draft Module (`src/final_draft.py`)*:
+This centralized module provides a single source of truth for all final draft file operations. Changing the final draft naming convention only requires editing this file.
+
+```python
+# Configuration constants
+FINAL_DRAFT_PREFIX = "6"  # Change this to rename all final drafts
+LEGACY_FILENAME = "4-final-draft.md"  # For backwards compatibility
+
+# Key functions
+get_final_draft_filename(output_dir)  # Returns "6-{Deal}-{Version}.md"
+get_final_draft_path(output_dir)      # Returns full Path object
+find_final_draft(output_dir)          # Auto-detects new or legacy naming
+read_final_draft(output_dir)          # Reads content with auto-detection
+write_final_draft(output_dir, content) # Writes with new naming pattern
+find_all_final_drafts(root_dir)       # Finds all final drafts recursively
+is_final_draft_file(filepath)         # Checks if file matches pattern
+```
+
+All consumer modules (`workflow.py`, `citation_enrichment.py`, `toc_generator.py`, `export_branded.py`, CLI tools) import from this centralized module.
 
 **Remaining Work**:
 - LinkedIn profile links (planned)
@@ -1656,20 +1685,22 @@ Result: Citations now display as `[1], [2], [3], [4], [5]` - clear, professional
 **Usage Examples**:
 
 ```bash
-# Basic Word export
-python md2docx.py output/Company/4-final-draft.md
+# Basic Word export (new naming pattern)
+python md2docx.py output/Company-v0.0.2/6-Company-v0.0.2.md
 
 # Branded HTML (light mode - default)
-python export-branded.py output/Company/4-final-draft.md
+python export-branded.py output/Company-v0.0.2/6-Company-v0.0.2.md
 
 # Branded HTML (dark mode)
-python export-branded.py output/Company/4-final-draft.md --mode dark
+python export-branded.py output/Company-v0.0.2/6-Company-v0.0.2.md --mode dark
 
-# Batch export all memos (both modes)
+# Batch export all memos (both modes) - auto-detects final drafts
 ./export-all-modes.sh
 
 # Export with PDF generation
-python export-branded.py output/Company/4-final-draft.md --pdf
+python export-branded.py output/Company-v0.0.2/6-Company-v0.0.2.md --pdf
+
+# Note: Export tools auto-detect both new (6-*.md) and legacy (4-final-draft.md) naming
 ```
 
 **Export Format Comparison**:
@@ -1721,7 +1752,9 @@ The export tools integrate seamlessly with the memo generation pipeline:
         │
 ┌───────┴─────────────────────────────┐
 │   output/{Company}-v0.0.x/          │
-│   ├── 4-final-draft.md  ← Generated│
+│   ├── 6-{Company}-v0.0.x.md ← Final│
+│   ├── 4-fact-check.*                │
+│   ├── 5-scorecard/                  │
 │   └── ... (other artifacts)         │
 └───────┬─────────────────────────────┘
         │
@@ -2106,6 +2139,10 @@ fonts:
 
 3. Run exports as normal:
    ```bash
+   # New naming pattern
+   python export-branded.py output/Company-v0.0.2/6-Company-v0.0.2.md
+
+   # Legacy naming (still supported via auto-detection)
    python export-branded.py output/Company/4-final-draft.md
    ```
 
