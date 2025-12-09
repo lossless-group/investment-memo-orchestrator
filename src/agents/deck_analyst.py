@@ -6,7 +6,7 @@ that subsequent agents can build upon.
 """
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 from langchain_anthropic import ChatAnthropic
 from pypdf import PdfReader
 import json
@@ -20,6 +20,13 @@ from pptx import Presentation  # For PowerPoint files
 
 from ..state import MemoState, DeckAnalysisData, SectionDraft
 from ..outline_loader import load_outline_for_state
+
+# Optional: pdf2image for higher quality rendering (requires Poppler)
+try:
+    from pdf2image import convert_from_path
+    PDF2IMAGE_AVAILABLE = True
+except ImportError:
+    PDF2IMAGE_AVAILABLE = False
 
 
 def deck_analyst_agent(state: Dict) -> Dict:
@@ -171,10 +178,59 @@ IMPORTANT:
         firm=firm
     )
 
+    # STEP 5: Extract visual screenshots (PDF only)
+    deck_screenshots = []
+    if deck_suffix == ".pdf":
+        print("Identifying visual pages for screenshot extraction...")
+        try:
+            # Get the output directory for saving screenshots
+            from ..artifacts import create_artifact_directory
+            from ..versioning import VersionManager
+            from ..artifacts import sanitize_filename
+
+            safe_name = sanitize_filename(state["company_name"])
+            if firm:
+                from ..paths import resolve_deal_context
+                ctx = resolve_deal_context(state["company_name"], firm=firm)
+                version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+            else:
+                version_mgr = VersionManager(Path("output"))
+
+            # Check if company already has versions tracked
+            if safe_name in version_mgr.versions_data:
+                version = version_mgr.get_current_version(safe_name)
+            else:
+                version = version_mgr.get_next_version(safe_name)
+
+            output_dir = create_artifact_directory(state["company_name"], version, firm=firm)
+
+            # Use Claude to identify which pages have visual value
+            client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            page_selections = identify_visual_pages(deck_path, deck_analysis, client)
+
+            if page_selections:
+                print(f"  Found {len(page_selections)} pages with visual content")
+                deck_screenshots = extract_deck_screenshots(
+                    deck_path,
+                    output_dir,
+                    page_selections,
+                    use_pdf2image=PDF2IMAGE_AVAILABLE,
+                    dpi=150
+                )
+                print(f"  Extracted {len(deck_screenshots)} screenshots")
+
+                # Add screenshots to deck analysis
+                deck_analysis["screenshots"] = deck_screenshots
+            else:
+                print("  No significant visual content identified")
+
+        except Exception as e:
+            print(f"  ⚠ Screenshot extraction failed: {e}")
+
     return {
         "deck_analysis": deck_analysis,
         "draft_sections": section_drafts,  # Partial sections
-        "messages": [f"Deck analysis complete: {deck_analysis['deck_page_count']} pages analyzed"]
+        "messages": [f"Deck analysis complete: {deck_analysis['deck_page_count']} pages analyzed, {len(deck_screenshots)} screenshots extracted"]
     }
 
 
@@ -242,6 +298,235 @@ def extract_text_from_pptx(pptx_path: str) -> str:
         text_content.append("\n".join(slide_text))
 
     return "\n\n".join(text_content)
+
+
+def extract_deck_screenshots(
+    pdf_path: str,
+    output_dir: Path,
+    page_selections: List[Dict[str, Any]] = None,
+    use_pdf2image: bool = True,
+    dpi: int = 150,
+    quality: int = 85
+) -> List[Dict[str, Any]]:
+    """
+    Extract screenshots from specific PDF pages.
+
+    Args:
+        pdf_path: Path to PDF file
+        output_dir: Directory to save screenshots
+        page_selections: List of dicts with page_number, category, and description
+                        If None, extracts all pages
+        use_pdf2image: Use pdf2image (higher quality) vs PyMuPDF (faster)
+        dpi: Resolution for rendering (150 = good balance of quality/size)
+        quality: JPEG quality (1-100)
+
+    Returns:
+        List of dicts with path, page_number, category, description, dimensions
+    """
+    screenshots_dir = output_dir / "deck-screenshots"
+    screenshots_dir.mkdir(exist_ok=True)
+
+    extracted = []
+    doc = fitz.open(pdf_path)
+    page_count = len(doc)
+
+    # If no selections provided, we won't extract anything by default
+    # (LLM should guide which pages to extract)
+    if not page_selections:
+        doc.close()
+        return extracted
+
+    # Extract selected pages
+    for selection in page_selections:
+        page_num = selection.get("page_number", 1) - 1  # Convert to 0-indexed
+        if page_num < 0 or page_num >= page_count:
+            continue
+
+        category = selection.get("category", "general")
+        description = selection.get("description", f"Page {page_num + 1}")
+
+        # Generate filename: page-03-team.png
+        safe_category = "".join(c for c in category if c.isalnum() or c == '-').lower()
+        filename = f"page-{page_num + 1:02d}-{safe_category}.png"
+        output_path = screenshots_dir / filename
+
+        try:
+            if use_pdf2image and PDF2IMAGE_AVAILABLE:
+                # Higher quality rendering via Poppler
+                images = convert_from_path(
+                    pdf_path,
+                    dpi=dpi,
+                    first_page=page_num + 1,
+                    last_page=page_num + 1,
+                    fmt="png"
+                )
+                if images:
+                    img = images[0]
+                    img.save(output_path, "PNG", optimize=True)
+                    width, height = img.size
+            else:
+                # Fallback to PyMuPDF rendering
+                page = doc[page_num]
+                # Scale factor: 150 DPI / 72 base DPI = ~2.08x
+                scale = dpi / 72.0
+                mat = fitz.Matrix(scale, scale)
+                pix = page.get_pixmap(matrix=mat)
+
+                # Convert to PIL for saving as PNG
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                img.save(output_path, "PNG", optimize=True)
+                width, height = pix.width, pix.height
+
+            extracted.append({
+                "path": str(output_path.relative_to(output_dir)),
+                "filename": filename,
+                "page_number": page_num + 1,
+                "category": category,
+                "description": description,
+                "width": width,
+                "height": height
+            })
+            print(f"    ✓ Extracted page {page_num + 1}: {filename}")
+
+        except Exception as e:
+            print(f"    ⚠ Failed to extract page {page_num + 1}: {e}")
+
+    doc.close()
+    return extracted
+
+
+def identify_visual_pages(
+    pdf_path: str,
+    deck_analysis: Dict[str, Any],
+    client: Anthropic
+) -> List[Dict[str, Any]]:
+    """
+    Use Claude to identify which pages contain valuable visual content.
+
+    Analyzes the deck to find pages with:
+    - Team photos/org charts
+    - Product screenshots/demos
+    - Market size charts
+    - Traction/growth charts
+    - Competitive landscape diagrams
+    - Architecture/tech diagrams
+
+    Args:
+        pdf_path: Path to PDF file
+        deck_analysis: Already extracted deck analysis data
+        client: Anthropic client for vision API
+
+    Returns:
+        List of page selections with category and description
+    """
+    doc = fitz.open(pdf_path)
+    page_count = len(doc)
+
+    # Sample pages for analysis (all pages if <= 20, otherwise sample)
+    if page_count <= 20:
+        pages_to_analyze = list(range(page_count))
+    else:
+        # Sample: first 5, last 5, and evenly distributed middle pages
+        pages_to_analyze = list(range(5)) + list(range(page_count - 5, page_count))
+        middle_count = min(10, page_count - 10)
+        step = (page_count - 10) // middle_count
+        pages_to_analyze += [5 + i * step for i in range(middle_count)]
+        pages_to_analyze = sorted(set(pages_to_analyze))
+
+    # Convert pages to images for Claude
+    image_contents = []
+    for page_num in pages_to_analyze:
+        page = doc[page_num]
+        # Low resolution for classification (saves tokens)
+        mat = fitz.Matrix(0.3, 0.3)
+        pix = page.get_pixmap(matrix=mat)
+
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        img_buffer = BytesIO()
+        img.save(img_buffer, format="JPEG", quality=60)
+        img_bytes = img_buffer.getvalue()
+        img_b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
+
+        image_contents.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": img_b64
+            }
+        })
+
+    doc.close()
+
+    # Ask Claude to identify visual pages
+    prompt = f"""Analyze these {len(pages_to_analyze)} pitch deck slides and identify which ones contain valuable VISUAL content that should be saved as screenshots for an investment memo.
+
+The slides are numbered in order: {[p + 1 for p in pages_to_analyze]}
+
+Look for these categories of visual content:
+- **team**: Team photos, org charts, founder headshots
+- **product**: Product screenshots, UI mockups, demo screens
+- **traction**: Growth charts, metrics graphs, revenue/user charts
+- **market**: Market size charts, TAM/SAM/SOM diagrams
+- **competitive**: Competitive landscape diagrams, positioning matrices
+- **architecture**: Technical architecture diagrams, system diagrams
+- **timeline**: Roadmap visuals, milestone timelines
+
+Return a JSON array of pages to extract. Only include pages with SIGNIFICANT visual value (not just text slides or basic bullet points).
+
+Format:
+```json
+[
+  {{"page_number": 3, "category": "team", "description": "Founding team photos with backgrounds"}},
+  {{"page_number": 7, "category": "traction", "description": "MRR growth chart showing 3x YoY growth"}},
+  {{"page_number": 12, "category": "product", "description": "Dashboard UI screenshot"}}
+]
+```
+
+Return ONLY the JSON array, no other text. If no pages have significant visual value, return an empty array: []"""
+
+    try:
+        content_blocks = image_contents + [{"type": "text", "text": prompt}]
+
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=2000,
+            messages=[{
+                "role": "user",
+                "content": content_blocks
+            }]
+        )
+
+        content = response.content[0].text
+
+        # Parse JSON response
+        try:
+            selections = json.loads(content)
+        except json.JSONDecodeError:
+            # Extract from code block if needed
+            if "```json" in content:
+                json_str = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                json_str = content.split("```")[1].split("```")[0].strip()
+            else:
+                json_str = content
+            selections = json.loads(json_str)
+
+        # Validate and clean selections
+        valid_selections = []
+        for sel in selections:
+            if isinstance(sel, dict) and "page_number" in sel:
+                valid_selections.append({
+                    "page_number": int(sel.get("page_number", 1)),
+                    "category": str(sel.get("category", "general")),
+                    "description": str(sel.get("description", ""))[:200]
+                })
+
+        return valid_selections
+
+    except Exception as e:
+        print(f"    ⚠ Visual page identification failed: {e}")
+        return []
 
 
 def analyze_pdf_with_vision(pdf_path: str, state: Dict) -> Dict:
@@ -451,10 +736,54 @@ IMPORTANT:
             firm=firm
         )
 
+        # Extract visual screenshots (vision mode already has client)
+        deck_screenshots = []
+        print("Identifying visual pages for screenshot extraction...", flush=True)
+        try:
+            from ..artifacts import create_artifact_directory
+            from ..versioning import VersionManager
+            from ..artifacts import sanitize_filename
+
+            safe_name = sanitize_filename(state["company_name"])
+            if firm:
+                from ..paths import resolve_deal_context
+                ctx = resolve_deal_context(state["company_name"], firm=firm)
+                version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+            else:
+                version_mgr = VersionManager(Path("output"))
+
+            # Check if company already has versions tracked
+            if safe_name in version_mgr.versions_data:
+                version = version_mgr.get_current_version(safe_name)
+            else:
+                version = version_mgr.get_next_version(safe_name)
+
+            output_dir = create_artifact_directory(state["company_name"], version, firm=firm)
+
+            # Reuse the client we already have
+            page_selections = identify_visual_pages(pdf_path, deck_analysis, client)
+
+            if page_selections:
+                print(f"  Found {len(page_selections)} pages with visual content", flush=True)
+                deck_screenshots = extract_deck_screenshots(
+                    pdf_path,
+                    output_dir,
+                    page_selections,
+                    use_pdf2image=PDF2IMAGE_AVAILABLE,
+                    dpi=150
+                )
+                print(f"  Extracted {len(deck_screenshots)} screenshots", flush=True)
+                deck_analysis["screenshots"] = deck_screenshots
+            else:
+                print("  No significant visual content identified", flush=True)
+
+        except Exception as e:
+            print(f"  ⚠ Screenshot extraction failed: {e}", flush=True)
+
         return {
             "deck_analysis": deck_analysis,
             "draft_sections": section_drafts,
-            "messages": [f"Deck analysis complete (vision mode): {deck_analysis.get('deck_page_count', 'unknown')} pages analyzed"]
+            "messages": [f"Deck analysis complete (vision mode): {deck_analysis.get('deck_page_count', 'unknown')} pages analyzed, {len(deck_screenshots)} screenshots extracted"]
         }
 
     except Exception as e:

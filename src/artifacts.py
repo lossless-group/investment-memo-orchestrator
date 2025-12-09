@@ -227,6 +227,27 @@ def format_deck_analysis_summary(deck_analysis: Dict[str, Any]) -> str:
             md += f"- {note}\n"
         md += "\n"
 
+    # Screenshots
+    if deck_analysis.get('screenshots'):
+        md += "## Extracted Screenshots\n\n"
+        md += f"**Total**: {len(deck_analysis['screenshots'])} visual pages captured\n\n"
+
+        # Group by category
+        screenshots_by_category = {}
+        for screenshot in deck_analysis['screenshots']:
+            category = screenshot.get('category', 'general')
+            if category not in screenshots_by_category:
+                screenshots_by_category[category] = []
+            screenshots_by_category[category].append(screenshot)
+
+        for category, screenshots in screenshots_by_category.items():
+            md += f"### {category.title()}\n\n"
+            for ss in screenshots:
+                md += f"- **Page {ss['page_number']}**: {ss.get('description', 'No description')}\n"
+                md += f"  - File: `{ss['path']}`\n"
+                md += f"  - Dimensions: {ss.get('width', '?')}x{ss.get('height', '?')}px\n"
+            md += "\n"
+
     return md
 
 

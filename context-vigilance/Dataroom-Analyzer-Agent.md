@@ -2425,6 +2425,122 @@ source .venv/bin/activate && python -m src.agents.dataroom.analyzer \
 
 ---
 
+---
+
+## Deck Screenshot Extraction Feature (2025-12-09)
+
+### Overview
+
+The Pitch Deck Analyzer (part of the dataroom system) now includes automatic screenshot extraction capability. This feature uses LLM-guided visual page identification to extract high-quality PNG screenshots of key deck pages for embedding in investment memos.
+
+### How It Works
+
+1. **Visual Page Identification**: After extracting text and data from the deck, Claude's vision API analyzes all pages to identify those with significant visual content (not just text/bullet slides)
+
+2. **Category-Based Selection**: Pages are categorized by content type:
+   - `team` - Team photos, org charts, founder headshots
+   - `product` - Product screenshots, UI mockups, demo screens
+   - `traction` - Growth charts, metrics graphs, revenue/user charts
+   - `market` - Market size charts, TAM/SAM/SOM diagrams
+   - `competitive` - Competitive landscape diagrams, positioning matrices
+   - `architecture` - Technical architecture diagrams, system diagrams
+   - `timeline` - Roadmap visuals, milestone timelines
+
+3. **High-Quality Rendering**: Selected pages are rendered at 150 DPI using either:
+   - `pdf2image` (Poppler backend) - Higher quality, requires system dependency
+   - `PyMuPDF` (fallback) - Built-in, no additional dependencies
+
+4. **Artifact Storage**: Screenshots saved to `output/{Company}-v0.0.x/deck-screenshots/`
+
+### Output Structure
+
+```
+output/{Company}-v0.0.x/
+├── deck-screenshots/
+│   ├── page-03-team.png
+│   ├── page-07-traction.png
+│   ├── page-12-product.png
+│   └── page-15-market.png
+├── 0-deck-analysis.json    # Now includes "screenshots" array
+├── 0-deck-analysis.md      # Now includes screenshot listing
+└── ...
+```
+
+### Screenshot Metadata
+
+Each screenshot includes metadata:
+```json
+{
+  "path": "deck-screenshots/page-07-traction.png",
+  "filename": "page-07-traction.png",
+  "page_number": 7,
+  "category": "traction",
+  "description": "MRR growth chart showing 3x YoY growth",
+  "width": 1275,
+  "height": 1650
+}
+```
+
+### Dependencies
+
+**Python packages** (in pyproject.toml):
+- `PyMuPDF>=1.24.0` - PDF rendering (always available)
+- `pdf2image>=1.17.0` - Higher quality rendering (optional)
+
+**System dependencies** (for pdf2image):
+```bash
+# macOS
+brew install poppler
+
+# Ubuntu/Debian
+sudo apt install poppler-utils
+```
+
+### Integration with Dataroom Analyzer
+
+When processing a dataroom that contains pitch decks, the screenshot extraction runs automatically:
+
+1. Dataroom scanner identifies pitch deck(s)
+2. Each deck is processed by the Pitch Deck Analyzer
+3. Screenshot extraction runs as part of deck analysis
+4. Screenshots are saved to the appropriate artifact directory
+5. Screenshot metadata included in `DataroomAnalysis.pitch_deck.screenshots`
+
+### Use Cases for Extracted Screenshots
+
+1. **Memo Embedding**: Reference screenshots in investment memo sections
+   ```markdown
+   See team slide: ![Team](deck-screenshots/page-03-team.png)
+   ```
+
+2. **HTML/PDF Exports**: Include visual evidence in exported memos
+
+3. **Quick Reference**: Review key visuals without opening full deck
+
+4. **Archival**: Preserve visual state of deck at analysis time
+
+### Configuration
+
+Screenshot extraction runs by default for all PDF decks. To customize:
+
+```python
+# In deck_analyst.py - adjust DPI for quality/size tradeoff
+deck_screenshots = extract_deck_screenshots(
+    deck_path,
+    output_dir,
+    page_selections,
+    use_pdf2image=PDF2IMAGE_AVAILABLE,
+    dpi=150  # Default: 150 (good balance). Range: 72-300
+)
+```
+
+### Related Documentation
+
+- See [Deck-Analyzer-Agent.md](./Deck-Analyzer-Agent.md) for detailed deck analyst documentation
+- See [Multi-Agent-Orchestration-for-Investment-Memo-Generation.md](./Multi-Agent-Orchestration-for-Investment-Memo-Generation.md) for pipeline overview
+
+---
+
 ## References
 
 - Existing `deck_analyst.py` implementation
