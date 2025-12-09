@@ -74,18 +74,16 @@ def finalize_memo(state: MemoState) -> dict:
     # Get artifact directory (most recent) - firm-aware
     try:
         output_dir = get_latest_output_dir(company_name, firm=firm)
-        from .artifacts import get_final_draft_path
-        final_draft_path = get_final_draft_path(output_dir)
     except FileNotFoundError:
         raise FileNotFoundError(f"No output directory found for {company_name}")
 
-    # Verify final draft exists (created by citation enrichment)
-    if not final_draft_path.exists():
-        raise FileNotFoundError(f"Final draft not found at {final_draft_path}. Citation enrichment may have failed.")
+    # Load final draft content (handles new and legacy naming)
+    from .final_draft import find_final_draft, read_final_draft
+    final_draft_path = find_final_draft(output_dir)
+    if not final_draft_path:
+        raise FileNotFoundError(f"Final draft not found in {output_dir}. Citation enrichment may have failed.")
 
-    # Load final draft content
-    with open(final_draft_path) as f:
-        memo_content = f.read()
+    memo_content = read_final_draft(output_dir)
 
     # Save state snapshot
     try:
@@ -148,10 +146,10 @@ def human_review(state: MemoState) -> dict:
         memo_content = draft.get("content", "")
 
         # Save as draft (not final)
+        from .final_draft import write_final_draft, get_final_draft_path
         if memo_content:
-            final_draft_path = save_final_draft(output_dir, memo_content)
+            final_draft_path = write_final_draft(output_dir, memo_content)
         else:
-            from .artifacts import get_final_draft_path
             final_draft_path = get_final_draft_path(output_dir)
 
         # Save state snapshot
@@ -248,7 +246,7 @@ def integrate_scorecard(state: MemoState) -> dict:
         return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(word_count)} words)"]}
     except ImportError:
         # Fallback to basic assembly if cli module not available
-        from .artifacts import get_final_draft_path
+        from .final_draft import get_final_draft_path
         final_draft_path = get_final_draft_path(output_dir)
 
         # Preserve logo/header from existing draft if present

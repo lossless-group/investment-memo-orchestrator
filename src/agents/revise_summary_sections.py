@@ -204,16 +204,16 @@ def reassemble_final_draft(output_dir: Path) -> None:
     - All sections in order
     - Citations block (from existing final draft)
     """
-    from ..artifacts import get_final_draft_path
-    final_draft_path = get_final_draft_path(output_dir)
+    from ..final_draft import find_final_draft, read_final_draft
+    final_draft_path = find_final_draft(output_dir)
     sections_dir = output_dir / "2-sections"
 
-    if not final_draft_path.exists():
+    if not final_draft_path:
         print("  ⚠️  No final draft to reassemble")
         return
 
     # Load existing to preserve TOC and citations
-    existing_content = final_draft_path.read_text()
+    existing_content = read_final_draft(output_dir)
 
     # Extract TOC block (starts with "## Table of Contents" and ends before next ## or section)
     toc_match = re.search(
@@ -302,11 +302,11 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
         print("⊘ Summary revision skipped - no output directory found")
         return {"messages": ["Summary revision skipped - no output directory"]}
 
-    from ..artifacts import get_final_draft_path
-    final_draft_path = get_final_draft_path(output_dir)
+    from ..final_draft import find_final_draft, read_final_draft
+    final_draft_path = find_final_draft(output_dir)
     sections_dir = output_dir / "2-sections"
 
-    if not final_draft_path.exists():
+    if not final_draft_path:
         print("⊘ Summary revision skipped - no final draft found")
         return {"messages": ["Summary revision skipped - no final draft"]}
 
@@ -317,7 +317,7 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     print("\n📝 Revising summary sections based on complete memo...")
 
     # Read the complete final draft
-    full_memo = final_draft_path.read_text()
+    full_memo = read_final_draft(output_dir)
 
     # Extract key data from the memo
     funding_data = extract_funding_data(full_memo)
@@ -442,9 +442,9 @@ def revise_summaries_cli(
         print(f"[DRY RUN] Would revise summary sections for {company_name}")
         try:
             output_dir = get_latest_output_dir(company_name, firm=firm)
-            from ..artifacts import get_final_draft_path
-            final_draft = get_final_draft_path(output_dir)
-            if final_draft.exists():
+            from ..final_draft import find_final_draft, read_final_draft
+            final_draft = find_final_draft(output_dir)
+            if final_draft:
                 content = final_draft.read_text()
                 print(f"  Final draft: {len(content)} chars")
                 print(f"  Funding data: {extract_funding_data(content)[:100]}...")

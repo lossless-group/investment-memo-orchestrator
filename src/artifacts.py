@@ -592,52 +592,23 @@ def format_fact_check_report(fact_check_data: Dict[str, Any]) -> str:
     return md
 
 
-def get_final_draft_filename(output_dir: Path) -> str:
-    """
-    Get the final draft filename based on output directory name.
+# =============================================================================
+# FINAL DRAFT UTILITIES - Re-exported from src/final_draft.py
+# =============================================================================
+# These are re-exported here for backwards compatibility.
+# For new code, import directly from src.final_draft instead.
 
-    The output directory follows the pattern: {Deal}-{Version}
-    The final draft filename follows the pattern: 6-{Deal}-{Version}.md
-
-    Args:
-        output_dir: Output directory path (e.g., output/MitrixBio-v0.0.2)
-
-    Returns:
-        Final draft filename (e.g., 6-MitrixBio-v0.0.2.md)
-    """
-    # Extract deal name and version from directory name
-    dir_name = output_dir.name  # e.g., "MitrixBio-v0.0.2"
-    return f"6-{dir_name}.md"
-
-
-def get_final_draft_path(output_dir: Path) -> Path:
-    """
-    Get the full path to the final draft file.
-
-    Args:
-        output_dir: Output directory path
-
-    Returns:
-        Full path to final draft file
-    """
-    return output_dir / get_final_draft_filename(output_dir)
-
-
-def save_final_draft(output_dir: Path, content: str) -> Path:
-    """
-    Save final assembled memo.
-
-    Args:
-        output_dir: Directory to save artifacts
-        content: Final memo content
-
-    Returns:
-        Path to saved final draft file
-    """
-    final_draft_path = get_final_draft_path(output_dir)
-    with open(final_draft_path, "w") as f:
-        f.write(content)
-    return final_draft_path
+from .final_draft import (
+    get_final_draft_filename,
+    get_final_draft_path,
+    find_final_draft,
+    final_draft_exists,
+    read_final_draft,
+    write_final_draft,
+    save_final_draft,
+    find_all_final_drafts,
+    is_final_draft_file,
+)
 
 
 def save_state_snapshot(output_dir: Path, state: Dict[str, Any]) -> None:

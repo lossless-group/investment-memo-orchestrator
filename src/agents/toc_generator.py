@@ -187,16 +187,15 @@ def toc_generator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         print("⊘ TOC generation skipped - no output directory found")
         return {"messages": ["TOC generation skipped - no output directory"]}
 
-    from ..artifacts import get_final_draft_path
-    final_draft_path = get_final_draft_path(output_dir)
+    from ..final_draft import find_final_draft, read_final_draft
+    final_draft_path = find_final_draft(output_dir)
 
-    if not final_draft_path.exists():
+    if not final_draft_path:
         print("⊘ TOC generation skipped - no final draft found")
         return {"messages": ["TOC generation skipped - no final draft"]}
 
     # Read final draft
-    with open(final_draft_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+    content = read_final_draft(output_dir)
 
     # Check if TOC already exists
     if '## Table of Contents' in content:

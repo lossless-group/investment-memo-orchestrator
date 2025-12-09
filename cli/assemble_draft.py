@@ -117,11 +117,9 @@ def assemble_final_draft(
         h3_count = sum(1 for h in headers if h[0] == 3)
         log(f"TOC: {h2_count} sections, {h3_count} subsections")
 
-    # Step 6: Save final draft with versioned filename (6-{Deal}-{Version}.md)
-    from src.artifacts import get_final_draft_path
-    final_draft = get_final_draft_path(artifact_dir)
-    with open(final_draft, "w") as f:
-        f.write(content.strip())
+    # Step 6: Save final draft using centralized utility
+    from src.final_draft import write_final_draft
+    final_draft = write_final_draft(artifact_dir, content.strip())
 
     console.print(f"[green]✓ Final draft assembled:[/green] {final_draft}")
 

@@ -351,11 +351,9 @@ def reassemble_final_draft(artifact_dir: Path, console: Console) -> Path:
         with open(section_file) as f:
             content += f.read() + "\n\n"
 
-    # Use versioned filename pattern
-    from src.artifacts import get_final_draft_path
-    final_draft = get_final_draft_path(artifact_dir)
-    with open(final_draft, "w") as f:
-        f.write(content.strip())
+    # Save using centralized utility
+    from src.final_draft import write_final_draft
+    final_draft = write_final_draft(artifact_dir, content.strip())
 
     console.print(f"[green] Final draft reassembled:[/green] {final_draft}")
     return final_draft
