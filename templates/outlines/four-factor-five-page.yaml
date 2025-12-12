@@ -364,11 +364,11 @@ sections:
 
     section_vocabulary:
       required_elements:
-        - TAM with $ figure and source
-        - Market CAGR with timeframe
-        - 3-5 named competitors
-        - Clear differentiation statement
-        - "Why now" thesis
+        - "TAM with $ figure and source"
+        - "Market CAGR with timeframe"
+        - "3-5 named competitors"
+        - "Clear differentiation statement"
+        - "Why now thesis"
 
       structure_template:
         - "Market Size: [TAM with source, SAM if available]"
