@@ -11,7 +11,8 @@ This is the integrated version of the POC approach.
 import os
 import re
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 
 from ..state import MemoState
@@ -239,6 +240,145 @@ Include complete citation list at the end in the specified format."""
     return query
 
 
+def _research_single_section(
+    client: OpenAI,
+    section_def: Any,
+    company_name: str,
+    company_description: str,
+    company_url: str,
+    research_notes: str,
+    disambiguation_excludes: list,
+    general_research: Dict[str, Any],
+    memo_mode: str,
+    deck_drafts: Dict[str, str],
+    deck_drafts_by_topic: Dict[str, str],
+    section_to_deck_topics: Dict[str, list],
+    research_dir: Path
+) -> Tuple[int, int, str, Optional[str]]:
+    """
+    Research a single section using Perplexity Sonar Pro.
+
+    Returns:
+        Tuple of (section_num, citation_count, section_name, error_message_or_None)
+    """
+    section_num = section_def.number
+    section_name = section_def.name
+    section_filename = section_def.filename.replace(".md", "-research.md")
+
+    # Get deck draft for this section if available
+    section_num_padded = f"{section_num:02d}"
+    deck_draft_content = deck_drafts.get(section_num_padded, "")
+
+    # If no numbered draft, try to find relevant topic-based drafts
+    if not deck_draft_content and deck_drafts_by_topic:
+        section_name_lower = section_name.lower()
+        relevant_topics = []
+
+        for keyword, topics in section_to_deck_topics.items():
+            if keyword in section_name_lower:
+                relevant_topics.extend(topics)
+
+        matched_drafts = []
+        for topic in set(relevant_topics):
+            if topic in deck_drafts_by_topic:
+                matched_drafts.append(f"### From Pitch Deck ({topic.title()})\n\n{deck_drafts_by_topic[topic]}")
+
+        if matched_drafts:
+            deck_draft_content = "\n\n---\n\n".join(matched_drafts)
+
+    # Build query
+    query = build_section_research_query(
+        section_def=section_def,
+        company_name=company_name,
+        company_description=company_description,
+        general_research=general_research,
+        memo_mode=memo_mode,
+        deck_draft_content=deck_draft_content,
+        company_url=company_url,
+        research_notes=research_notes,
+        disambiguation_excludes=disambiguation_excludes
+    )
+
+    try:
+        # Call Perplexity Sonar Pro
+        response = client.chat.completions.create(
+            model="sonar-pro",
+            messages=[
+                {"role": "system", "content": PERPLEXITY_RESEARCH_SYSTEM_PROMPT},
+                {"role": "user", "content": query}
+            ],
+            temperature=0.2,
+            max_tokens=4000
+        )
+
+        research_content = response.choices[0].message.content
+
+        # Validate response is not garbage/meta-commentary
+        GARBAGE_PATTERNS = [
+            "I notice that you",
+            "you haven't provided",
+            "Let me fetch",
+            "I need:",
+            "please provide",
+            "Which Stratosphere company",
+            "Once you provide",
+            "To help you properly",
+            "contains only a header",
+            "There are no organizations",
+            "If you have the actual content",
+        ]
+
+        is_garbage = False
+        word_count = len(research_content.split())
+
+        if word_count < 200:
+            is_garbage = True
+
+        for pattern in GARBAGE_PATTERNS:
+            if pattern.lower() in research_content.lower():
+                is_garbage = True
+                break
+
+        # If garbage detected, retry with more explicit context
+        if is_garbage:
+            enhanced_query = f"""IMPORTANT: You must write actual research content, NOT ask clarifying questions.
+
+The company is: {company_name}
+{f'Company website: {company_url}' if company_url else ''}
+Description: {company_description}
+
+DO NOT say "I need more information" or "Let me fetch" - you have all the information you need.
+DO NOT ask which company - the company is {company_name} as described above.
+
+Write the ACTUAL CONTENT for the "{section_def.name}" section now.
+
+{query}"""
+
+            retry_response = client.chat.completions.create(
+                model="sonar-pro",
+                messages=[
+                    {"role": "system", "content": PERPLEXITY_RESEARCH_SYSTEM_PROMPT + "\n\nCRITICAL: Always write actual content. Never ask for clarification or say you need more info."},
+                    {"role": "user", "content": enhanced_query}
+                ],
+                temperature=0.3,
+                max_tokens=4000
+            )
+            research_content = retry_response.choices[0].message.content
+
+        # Count citations
+        citations = re.findall(r'\[\^(\d+)\]', research_content)
+        citation_count = len(set(citations))
+
+        # Save research file
+        research_file = research_dir / section_filename
+        research_file.write_text(research_content)
+
+        return (section_num, citation_count, section_name, None)
+
+    except Exception as e:
+        return (section_num, 0, section_name, str(e))
+
+
 def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
     """
     Generate section-specific research with citations using Perplexity Sonar Pro.
@@ -366,171 +506,71 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
         "strategy": ["gtm", "competitive"],
     }
 
+    # Parallel execution config
+    # Using 5 workers to respect Perplexity rate limits while maximizing throughput
+    MAX_WORKERS = 5
+
     print(f"\n{'='*70}")
-    print(f"🔍 PERPLEXITY SECTION RESEARCH")
+    print(f"🔍 PERPLEXITY SECTION RESEARCH (PARALLEL)")
     print(f"{'='*70}")
     print(f"Company: {company_name}")
     print(f"Sections: {len(outline.sections)}")
     print(f"Deck drafts: {len(deck_drafts)} available")
+    print(f"Max parallel workers: {MAX_WORKERS}")
     print(f"Output: {research_dir}")
     print(f"{'='*70}\n")
 
-    # Research each section
+    # Research each section in parallel
     total_citations = 0
     sections_completed = 0
+    results = {}  # Store results by section number for ordered output
 
-    for section_def in outline.sections:
-        section_num = section_def.number
-        section_name = section_def.name
-        section_filename = section_def.filename.replace(".md", "-research.md")
+    print(f"  Launching {len(outline.sections)} section research tasks in parallel...")
+    print(f"  (Results will appear as they complete)\n")
 
-        # Get deck draft for this section if available
-        # First try old format (numbered), then try new format (topic-based)
-        section_num_padded = f"{section_num:02d}"
-        deck_draft_content = deck_drafts.get(section_num_padded, "")
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Submit all section research tasks
+        future_to_section = {
+            executor.submit(
+                _research_single_section,
+                client=client,
+                section_def=section_def,
+                company_name=company_name,
+                company_description=company_description,
+                company_url=company_url,
+                research_notes=research_notes,
+                disambiguation_excludes=disambiguation_excludes,
+                general_research=general_research,
+                memo_mode=memo_mode,
+                deck_drafts=deck_drafts,
+                deck_drafts_by_topic=deck_drafts_by_topic,
+                section_to_deck_topics=SECTION_TO_DECK_TOPICS,
+                research_dir=research_dir
+            ): section_def
+            for section_def in outline.sections
+        }
 
-        # If no numbered draft, try to find relevant topic-based drafts
-        if not deck_draft_content and deck_drafts_by_topic:
-            section_name_lower = section_name.lower()
-            relevant_topics = []
+        # Collect results as they complete
+        for future in as_completed(future_to_section):
+            section_def = future_to_section[future]
+            try:
+                section_num, citation_count, section_name, error = future.result()
 
-            # Find matching topics for this section
-            for keyword, topics in SECTION_TO_DECK_TOPICS.items():
-                if keyword in section_name_lower:
-                    relevant_topics.extend(topics)
+                if error:
+                    print(f"  ❌ [{section_num:02d}] {section_name}: {error}")
+                else:
+                    print(f"  ✓ [{section_num:02d}] {section_name}: {citation_count} citations")
+                    total_citations += citation_count
+                    sections_completed += 1
+                    results[section_num] = citation_count
 
-            # Collect content from matching deck drafts
-            matched_drafts = []
-            for topic in set(relevant_topics):  # dedupe
-                if topic in deck_drafts_by_topic:
-                    matched_drafts.append(f"### From Pitch Deck ({topic.title()})\n\n{deck_drafts_by_topic[topic]}")
-
-            if matched_drafts:
-                deck_draft_content = "\n\n---\n\n".join(matched_drafts)
-
-        print(f"  [{section_num}/10] {section_name}")
-        print(f"      Target: {section_def.target_length.ideal_words} words | Questions: {len(section_def.guiding_questions)}")
-        if deck_draft_content:
-            print(f"      📄 Deck draft available ({len(deck_draft_content)} chars)")
-
-        # Build query with deck draft if available
-        query = build_section_research_query(
-            section_def=section_def,
-            company_name=company_name,
-            company_description=company_description,
-            general_research=general_research,
-            memo_mode=memo_mode,
-            deck_draft_content=deck_draft_content,
-            company_url=company_url,
-            research_notes=research_notes,
-            disambiguation_excludes=disambiguation_excludes
-        )
-
-        print(f"      Calling Perplexity Sonar Pro...")
-
-        try:
-            # Call Perplexity Sonar Pro
-            response = client.chat.completions.create(
-                model="sonar-pro",
-                messages=[
-                    {"role": "system", "content": PERPLEXITY_RESEARCH_SYSTEM_PROMPT},
-                    {"role": "user", "content": query}
-                ],
-                temperature=0.2,
-                max_tokens=4000
-            )
-
-            research_content = response.choices[0].message.content
-
-            # Validate response is not garbage/meta-commentary
-            GARBAGE_PATTERNS = [
-                "I notice that you",
-                "you haven't provided",
-                "Let me fetch",
-                "I need:",
-                "please provide",
-                "Which Stratosphere company",
-                "Once you provide",
-                "To help you properly",
-                "contains only a header",
-                "There are no organizations",
-                "If you have the actual content",
-            ]
-
-            is_garbage = False
-            word_count = len(research_content.split())
-
-            # Check for short responses (under 200 words is suspicious)
-            if word_count < 200:
-                is_garbage = True
-                print(f"      ⚠️  Response too short ({word_count} words)")
-
-            # Check for meta-commentary patterns
-            for pattern in GARBAGE_PATTERNS:
-                if pattern.lower() in research_content.lower():
-                    is_garbage = True
-                    print(f"      ⚠️  Detected meta-commentary: '{pattern[:30]}...'")
-                    break
-
-            # If garbage detected, retry with more explicit context
-            if is_garbage:
-                print(f"      🔄 Retrying with enhanced context...")
-
-                # Build enhanced query with explicit section framing
-                enhanced_query = f"""IMPORTANT: You must write actual research content, NOT ask clarifying questions.
-
-The company is: {company_name}
-{f'Company website: {company_url}' if company_url else ''}
-Description: {company_description}
-
-DO NOT say "I need more information" or "Let me fetch" - you have all the information you need.
-DO NOT ask which company - the company is {company_name} as described above.
-
-Write the ACTUAL CONTENT for the "{section_def.name}" section now.
-
-{query}"""
-
-                retry_response = client.chat.completions.create(
-                    model="sonar-pro",
-                    messages=[
-                        {"role": "system", "content": PERPLEXITY_RESEARCH_SYSTEM_PROMPT + "\n\nCRITICAL: Always write actual content. Never ask for clarification or say you need more info."},
-                        {"role": "user", "content": enhanced_query}
-                    ],
-                    temperature=0.3,
-                    max_tokens=4000
-                )
-                research_content = retry_response.choices[0].message.content
-                print(f"      ✓ Retry complete ({len(research_content.split())} words)")
-
-            # Count citations
-            citations = re.findall(r'\[\^(\d+)\]', research_content)
-            citation_count = len(set(citations))
-
-            # Validate minimum citations
-            MIN_CITATIONS = 5
-            if citation_count < MIN_CITATIONS:
-                print(f"      ⚠️  WARNING: Only {citation_count} citations (minimum: {MIN_CITATIONS})")
-                print(f"      Proceeding but quality may be lower than expected")
-
-            # Save research file
-            research_file = research_dir / section_filename
-            research_file.write_text(research_content)
-
-            print(f"      ✓ Complete: {citation_count} citations, {len(research_content.split())} words")
-            print(f"      Saved: {section_filename}")
-
-            total_citations += citation_count
-            sections_completed += 1
-
-        except Exception as e:
-            print(f"      ❌ Error: {e}")
-            print(f"      Skipping section - writer will work without section research")
-            continue
+            except Exception as e:
+                print(f"  ❌ [{section_def.number:02d}] {section_def.name}: Unexpected error: {e}")
 
     print(f"\n{'='*70}")
-    print(f"✅ SECTION RESEARCH COMPLETE")
+    print(f"✅ SECTION RESEARCH COMPLETE (PARALLEL)")
     print(f"{'='*70}")
-    print(f"Sections researched: {sections_completed}/10")
+    print(f"Sections researched: {sections_completed}/{len(outline.sections)}")
     print(f"Total citations: {total_citations}")
     print(f"Average per section: {total_citations/sections_completed:.1f}" if sections_completed > 0 else "N/A")
     print(f"Research files: {research_dir}")
