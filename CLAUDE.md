@@ -34,14 +34,14 @@ See `changelog/2025-11-20_01.md` for complete details.
 **System Dependencies** (install these first for full functionality):
 
 ```bash
-# macOS - Install Pandoc and WeasyPrint dependencies
-brew install pandoc cairo pango gdk-pixbuf libffi
+# macOS - Install Pandoc, WeasyPrint dependencies, and Poppler
+brew install pandoc cairo pango gdk-pixbuf libffi poppler
 
 # Ubuntu/Debian
-sudo apt install pandoc libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev
+sudo apt install pandoc libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev poppler-utils
 ```
 
-*Note: Pandoc enables Word/HTML exports. WeasyPrint dependencies enable PDF generation. Both are optional but recommended.*
+*Note: Pandoc enables Word/HTML exports. WeasyPrint dependencies enable PDF generation. Poppler enables PDF-to-image conversion for deck analysis with Claude Vision. All are optional but recommended.*
 
 **Python Setup**:
 

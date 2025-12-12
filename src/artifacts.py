@@ -71,7 +71,7 @@ def save_deck_analysis_artifacts(
     deck_analysis: Dict[str, Any],
     section_drafts: Dict[str, str],
     firm: str = None
-) -> None:
+) -> Path:
     """
     Save deck analysis artifacts with 0- prefix.
 
@@ -80,32 +80,45 @@ def save_deck_analysis_artifacts(
         deck_analysis: Deck analysis data
         section_drafts: Initial section drafts from deck
         firm: Optional firm name for firm-scoped outputs
+
+    Returns:
+        Path to the output directory where artifacts were saved
     """
     from .versioning import VersionManager
     from .paths import resolve_deal_context
 
+    print(f"  [DEBUG] Starting save_deck_analysis_artifacts for {company_name} (firm={firm})", flush=True)
+
     # Get or create output directory - firm-aware
     if firm:
+        print(f"  [DEBUG] Resolving deal context...", flush=True)
         ctx = resolve_deal_context(company_name, firm=firm)
+        print(f"  [DEBUG] Creating version manager...", flush=True)
         version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
     else:
         version_mgr = VersionManager(Path("output"))
 
     safe_name = sanitize_filename(company_name)
+    print(f"  [DEBUG] Getting next version for {safe_name}...", flush=True)
     version = version_mgr.get_next_version(safe_name)
+    print(f"  [DEBUG] Next version: {version}", flush=True)
     output_dir = create_artifact_directory(company_name, version, firm=firm)
+    print(f"  [DEBUG] Created artifact directory: {output_dir}", flush=True)
 
     # Save structured JSON
+    print(f"  [DEBUG] Saving 0-deck-analysis.json...", flush=True)
     with open(output_dir / "0-deck-analysis.json", "w") as f:
         json.dump(deck_analysis, f, indent=2, ensure_ascii=False)
 
     # Save human-readable summary
+    print(f"  [DEBUG] Saving 0-deck-analysis.md...", flush=True)
     summary = format_deck_analysis_summary(deck_analysis)
     with open(output_dir / "0-deck-analysis.md", "w") as f:
         f.write(summary)
 
     # Save initial section drafts to 0-deck-sections/ (separate from final 2-sections/)
     # These will be fed to Perplexity researcher as citable input
+    print(f"  [DEBUG] Creating 0-deck-sections/ directory...", flush=True)
     deck_sections_dir = output_dir / "0-deck-sections"
     deck_sections_dir.mkdir(exist_ok=True)
 
@@ -113,7 +126,9 @@ def save_deck_analysis_artifacts(
         with open(deck_sections_dir / filename, "w") as f:
             f.write(f"<!-- DRAFT FROM DECK ANALYSIS - Cite as [Company Pitch Deck] -->\n\n{content}")
 
-    print(f"Deck analysis artifacts saved: {len(section_drafts)} initial sections created to 0-deck-sections/")
+    print(f"Deck analysis artifacts saved: {len(section_drafts)} initial sections created to 0-deck-sections/", flush=True)
+
+    return output_dir
 
 
 def load_existing_section_drafts(company_name: str, firm: str = None) -> Dict[str, str]:

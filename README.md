@@ -406,6 +406,19 @@ brew install cairo pango gdk-pixbuf libffi
 sudo apt install libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev
 ```
 
+**Poppler** (for PDF-to-image conversion in deck analysis):
+```bash
+# macOS
+brew install poppler
+
+# Ubuntu/Debian
+sudo apt install poppler-utils
+
+# Windows
+# Download from: https://github.com/oschwartz10612/poppler-windows/releases
+```
+*Note: Required for Claude Vision API to analyze pitch deck pages as images. Without poppler, deck analysis falls back to text-only extraction.*
+
 #### Python Dependencies
 
 ```bash

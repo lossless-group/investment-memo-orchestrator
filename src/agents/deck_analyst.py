@@ -29,6 +29,83 @@ except ImportError:
     PDF2IMAGE_AVAILABLE = False
 
 
+import concurrent.futures
+import signal
+
+
+def extract_screenshots_with_timeout(
+    pdf_path: str,
+    deck_analysis: Dict,
+    output_dir: Path,
+    timeout_seconds: int = 90
+) -> List[Dict[str, Any]]:
+    """
+    Extract visual screenshots from deck pages with a timeout.
+
+    This function runs screenshot extraction in a separate thread with a timeout
+    to prevent the workflow from hanging if Claude Vision API is slow or unresponsive.
+
+    Args:
+        pdf_path: Path to PDF file
+        deck_analysis: Already extracted deck analysis data
+        output_dir: Directory where screenshots should be saved
+        timeout_seconds: Maximum time to wait for screenshot extraction
+
+    Returns:
+        List of screenshot metadata dicts, or empty list if failed/timed out
+    """
+    print(f"\n📷 Starting screenshot extraction (timeout: {timeout_seconds}s)...", flush=True)
+    print(f"   Output directory: {output_dir}", flush=True)
+
+    def _extract_screenshots():
+        """Inner function that does the actual extraction."""
+        try:
+            # Create Anthropic client for vision
+            client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+            # Identify which pages have valuable visual content
+            print("  Identifying visual pages with Claude Vision...", flush=True)
+            page_selections = identify_visual_pages(pdf_path, deck_analysis, client)
+
+            if not page_selections:
+                print("  No significant visual content identified", flush=True)
+                return []
+
+            print(f"  Found {len(page_selections)} pages with visual content", flush=True)
+
+            # Extract the screenshots
+            screenshots = extract_deck_screenshots(
+                pdf_path,
+                output_dir,
+                page_selections,
+                use_pdf2image=PDF2IMAGE_AVAILABLE,
+                dpi=150
+            )
+
+            print(f"  ✓ Extracted {len(screenshots)} screenshots", flush=True)
+            return screenshots
+
+        except Exception as e:
+            print(f"  ⚠️  Screenshot extraction error: {e}", flush=True)
+            return []
+
+    # Run extraction with timeout using ThreadPoolExecutor
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_extract_screenshots)
+            try:
+                screenshots = future.result(timeout=timeout_seconds)
+                return screenshots
+            except concurrent.futures.TimeoutError:
+                print(f"  ⚠️  Screenshot extraction timed out after {timeout_seconds}s", flush=True)
+                print("  Continuing workflow without screenshots...", flush=True)
+                return []
+    except Exception as e:
+        print(f"  ⚠️  Screenshot extraction failed: {e}", flush=True)
+        print("  Continuing workflow without screenshots...", flush=True)
+        return []
+
+
 def deck_analyst_agent(state: Dict) -> Dict:
     """
     Analyzes pitch deck and extracts key information.
@@ -91,10 +168,11 @@ def deck_analyst_agent(state: Dict) -> Dict:
         }
 
     # STEP 2: Analyze extracted text with Claude
-    print("Analyzing deck content with Claude Sonnet 4.5...")
+    print("Analyzing deck content with Claude Sonnet 4.5...", flush=True)
     llm = ChatAnthropic(
         model="claude-sonnet-4-5-20250929",
-        temperature=0
+        temperature=0,
+        timeout=120  # 2 minute timeout to avoid hangs
     )
 
     analysis_prompt = f"""You are a venture capital investment analyst reviewing a pitch deck.
@@ -129,15 +207,16 @@ IMPORTANT:
 - Return ONLY valid JSON, no other text
 """
 
+    print("Sending deck to Claude for analysis...", flush=True)
     response = llm.invoke(analysis_prompt)
-    print("Deck analysis complete, parsing results...")
+    print("Deck analysis complete, parsing results...", flush=True)
 
     # Parse JSON from response
     try:
         deck_analysis = json.loads(response.content)
     except json.JSONDecodeError:
         # Try to extract JSON from markdown code block
-        print("Extracting JSON from markdown code block...")
+        print("Extracting JSON from markdown code block...", flush=True)
         content = response.content
         if "```json" in content:
             json_start = content.find("```json") + 7
@@ -157,75 +236,38 @@ IMPORTANT:
     else:
         deck_analysis["deck_page_count"] = 0
 
-    print(f"Extracted data from {deck_analysis['deck_page_count']}-page deck")
+    print(f"Extracted data from {deck_analysis['deck_page_count']}-page deck", flush=True)
 
     # STEP 3: Create initial section drafts where relevant info exists
-    print("Creating initial section drafts from deck data...")
+    print("Creating initial section drafts from deck data...", flush=True)
     section_drafts = create_initial_section_drafts(deck_analysis, state, llm)
-    print(f"Created {len(section_drafts)} initial section drafts")
+    print(f"Created {len(section_drafts)} initial section drafts", flush=True)
 
     # STEP 4: Save artifacts
     from ..artifacts import save_deck_analysis_artifacts
-    print("Saving deck analysis artifacts...")
+    print("Saving deck analysis artifacts...", flush=True)
     # Extract just the content strings for artifact saving
     section_drafts_for_disk = {k: v["content"] for k, v in section_drafts.items()}
     # Pass firm from state for firm-scoped output paths
     firm = state.get("firm")
-    save_deck_analysis_artifacts(
+    output_dir = save_deck_analysis_artifacts(
         state["company_name"],
         deck_analysis,
         section_drafts_for_disk,
         firm=firm
     )
 
-    # STEP 5: Extract visual screenshots (PDF only)
+    # STEP 5: Extract visual screenshots (async with timeout, non-blocking on failure)
     deck_screenshots = []
     if deck_suffix == ".pdf":
-        print("Identifying visual pages for screenshot extraction...")
-        try:
-            # Get the output directory for saving screenshots
-            from ..artifacts import create_artifact_directory
-            from ..versioning import VersionManager
-            from ..artifacts import sanitize_filename
-
-            safe_name = sanitize_filename(state["company_name"])
-            if firm:
-                from ..paths import resolve_deal_context
-                ctx = resolve_deal_context(state["company_name"], firm=firm)
-                version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
-            else:
-                version_mgr = VersionManager(Path("output"))
-
-            # Check if company already has versions tracked
-            if safe_name in version_mgr.versions_data:
-                version = version_mgr.get_current_version(safe_name)
-            else:
-                version = version_mgr.get_next_version(safe_name)
-
-            output_dir = create_artifact_directory(state["company_name"], version, firm=firm)
-
-            # Use Claude to identify which pages have visual value
-            client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-            page_selections = identify_visual_pages(deck_path, deck_analysis, client)
-
-            if page_selections:
-                print(f"  Found {len(page_selections)} pages with visual content")
-                deck_screenshots = extract_deck_screenshots(
-                    deck_path,
-                    output_dir,
-                    page_selections,
-                    use_pdf2image=PDF2IMAGE_AVAILABLE,
-                    dpi=150
-                )
-                print(f"  Extracted {len(deck_screenshots)} screenshots")
-
-                # Add screenshots to deck analysis
-                deck_analysis["screenshots"] = deck_screenshots
-            else:
-                print("  No significant visual content identified")
-
-        except Exception as e:
-            print(f"  ⚠ Screenshot extraction failed: {e}")
+        deck_screenshots = extract_screenshots_with_timeout(
+            deck_path,
+            deck_analysis,
+            output_dir,  # Pass the exact output_dir from artifact saving
+            timeout_seconds=90  # 90 second timeout for screenshot extraction
+        )
+        if deck_screenshots:
+            deck_analysis["screenshots"] = deck_screenshots
 
     return {
         "deck_analysis": deck_analysis,
@@ -912,7 +954,7 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
             citations=[]  # Citations added by citation enrichment agent
         )
 
-        print(f"    ✓ Created deck draft: {config['filename']} ({len(content.split())} words)")
+        print(f"    ✓ Created deck draft: {config['filename']} ({len(content.split())} words)", flush=True)
 
     return drafts
 
