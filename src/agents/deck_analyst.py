@@ -554,7 +554,8 @@ def extract_deck_screenshots(
     page_selections: List[Dict[str, Any]] = None,
     use_pdf2image: bool = True,
     dpi: int = 150,
-    quality: int = 85
+    quality: int = 85,
+    max_width: int = 1200
 ) -> List[Dict[str, Any]]:
     """
     Extract screenshots from specific PDF pages.
@@ -567,6 +568,8 @@ def extract_deck_screenshots(
         use_pdf2image: Use pdf2image (higher quality) vs PyMuPDF (faster)
         dpi: Resolution for rendering (150 = good balance of quality/size)
         quality: JPEG quality (1-100)
+        max_width: Maximum width in pixels (default 1200). Images wider than this
+                   are resized while maintaining aspect ratio.
 
     Returns:
         List of dicts with path, page_number, category, description, dimensions
@@ -599,6 +602,7 @@ def extract_deck_screenshots(
         output_path = screenshots_dir / filename
 
         try:
+            img = None
             if use_pdf2image and PDF2IMAGE_AVAILABLE:
                 # Higher quality rendering via Poppler
                 images = convert_from_path(
@@ -610,10 +614,9 @@ def extract_deck_screenshots(
                 )
                 if images:
                     img = images[0]
-                    img.save(output_path, "PNG", optimize=True)
-                    width, height = img.size
-            else:
-                # Fallback to PyMuPDF rendering
+
+            # Fallback to PyMuPDF rendering if pdf2image failed or unavailable
+            if img is None:
                 page = doc[page_num]
                 # Scale factor: 150 DPI / 72 base DPI = ~2.08x
                 scale = dpi / 72.0
@@ -622,8 +625,18 @@ def extract_deck_screenshots(
 
                 # Convert to PIL for saving as PNG
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                img.save(output_path, "PNG", optimize=True)
-                width, height = pix.width, pix.height
+
+            # Resize if width exceeds max_width (maintain aspect ratio)
+            width, height = img.size
+            if width > max_width:
+                ratio = max_width / width
+                new_height = int(height * ratio)
+                img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+                width, height = img.size
+                print(f"    📐 Resized to {width}x{height} (max width: {max_width}px)")
+
+            # Save with optimization
+            img.save(output_path, "PNG", optimize=True)
 
             extracted.append({
                 "path": str(output_path.relative_to(output_dir)),
