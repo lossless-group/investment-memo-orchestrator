@@ -73,7 +73,9 @@
       "Bash(printenv:*)",
       "Bash(echo:*)",
       "Bash(timeout 60 python:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "WebFetch(domain:www.screwfix.com)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

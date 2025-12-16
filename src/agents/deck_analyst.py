@@ -21,6 +21,120 @@ from pptx import Presentation  # For PowerPoint files
 from ..state import MemoState, DeckAnalysisData, SectionDraft
 from ..outline_loader import load_outline_for_state
 
+# Mapping from screenshot categories to section filenames
+# Used to embed screenshots in the appropriate deck section files
+SCREENSHOT_CATEGORY_TO_SECTION = {
+    "team": "deck-team.md",
+    "traction": "deck-traction.md",
+    "product": "deck-product.md",
+    "market": "deck-market.md",
+    "competitive": "deck-competitive.md",
+    "architecture": "deck-product.md",  # Merge with product
+    "timeline": "deck-traction.md",     # Merge with traction
+    "general": None,  # No specific section
+}
+
+# Mapping from outline section names to deck topic files
+# This is saved to 0-deck-analysis.json so other agents can use it
+# Keys are lowercase section name keywords, values are deck topic names
+SECTION_TO_DECK_TOPICS = {
+    "executive": ["problem", "solution", "funding"],
+    "summary": ["problem", "solution", "funding"],
+    "origins": ["problem", "solution"],
+    "opening": ["business-model", "product", "solution"],
+    "organization": ["team"],
+    "team": ["team"],
+    "people": ["team"],
+    "offering": ["product", "solution"],
+    "product": ["product", "solution"],
+    "technology": ["product", "solution"],
+    "opportunity": ["market", "competitive"],
+    "market": ["market", "competitive"],
+    "traction": ["traction"],
+    "milestones": ["traction"],
+    "funding": ["funding"],
+    "terms": ["funding"],
+    "risks": ["competitive"],
+    "scorecard": ["traction", "team", "market"],
+    "closing": ["funding", "traction"],
+    "assessment": ["funding", "traction"],
+    "gtm": ["gtm"],
+    "strategy": ["gtm", "competitive"],
+}
+
+# Mapping from deck topics to screenshot categories
+# Used to build section_to_screenshots mapping
+DECK_TOPIC_TO_SCREENSHOT_CATEGORY = {
+    "team": "team",
+    "traction": "traction",
+    "product": "product",
+    "market": "market",
+    "competitive": "competitive",
+    "problem": None,  # No dedicated screenshot category
+    "solution": "product",  # Solution screenshots go with product
+    "business-model": None,
+    "funding": None,
+    "gtm": None,
+}
+
+
+def build_section_to_screenshots(screenshots: List[Dict[str, Any]], output_dir: Path) -> Dict[str, List[str]]:
+    """
+    Build a mapping from outline section keywords to screenshot paths.
+
+    This mapping is saved to 0-deck-analysis.json so that the inject_deck_images
+    agent can add screenshots to the appropriate 2-sections/ files.
+
+    Args:
+        screenshots: List of screenshot metadata dicts with 'category' and 'path'
+        output_dir: Output directory (for building absolute paths)
+
+    Returns:
+        Dict mapping section keywords to lists of absolute screenshot paths
+        Example: {"organization": ["/path/to/page-14-team.png"], "opportunity": ["/path/to/page-07-market.png"]}
+    """
+    if not screenshots:
+        return {}
+
+    # Group screenshots by category
+    category_to_paths: Dict[str, List[str]] = {}
+    for ss in screenshots:
+        category = ss.get("category", "general")
+        if category == "general":
+            continue  # Skip general screenshots - no section mapping
+
+        # Build absolute path
+        abs_path = str(output_dir / ss["path"])
+
+        if category not in category_to_paths:
+            category_to_paths[category] = []
+        category_to_paths[category].append(abs_path)
+
+    # Build section to screenshots mapping
+    section_to_screenshots: Dict[str, List[str]] = {}
+
+    for section_keyword, deck_topics in SECTION_TO_DECK_TOPICS.items():
+        screenshots_for_section = []
+
+        for topic in deck_topics:
+            # Get the screenshot category for this deck topic
+            screenshot_category = DECK_TOPIC_TO_SCREENSHOT_CATEGORY.get(topic)
+            if screenshot_category and screenshot_category in category_to_paths:
+                screenshots_for_section.extend(category_to_paths[screenshot_category])
+
+        if screenshots_for_section:
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_paths = []
+            for path in screenshots_for_section:
+                if path not in seen:
+                    seen.add(path)
+                    unique_paths.append(path)
+            section_to_screenshots[section_keyword] = unique_paths
+
+    return section_to_screenshots
+
+
 # Optional: pdf2image for higher quality rendering (requires Poppler)
 try:
     from pdf2image import convert_from_path
@@ -104,6 +218,77 @@ def extract_screenshots_with_timeout(
         print(f"  ⚠️  Screenshot extraction failed: {e}", flush=True)
         print("  Continuing workflow without screenshots...", flush=True)
         return []
+
+
+def embed_screenshots_in_section_files(output_dir: Path, screenshots: List[Dict[str, Any]]) -> int:
+    """
+    Embed screenshot images into their corresponding section files in 0-deck-sections/.
+
+    This function updates the already-saved section files to include image embeds
+    at the top of each file. Uses absolute paths for cross-directory compatibility.
+
+    Args:
+        output_dir: Output directory containing 0-deck-sections/
+        screenshots: List of screenshot metadata dicts with path, category, description
+
+    Returns:
+        Number of sections updated with screenshots
+    """
+    if not screenshots:
+        return 0
+
+    deck_sections_dir = output_dir / "0-deck-sections"
+    if not deck_sections_dir.exists():
+        print(f"  ⚠️  0-deck-sections/ not found, cannot embed screenshots", flush=True)
+        return 0
+
+    # Group screenshots by target section
+    section_to_screenshots: Dict[str, List[Dict]] = {}
+    for screenshot in screenshots:
+        category = screenshot.get("category", "general")
+        target_section = SCREENSHOT_CATEGORY_TO_SECTION.get(category)
+
+        if target_section:
+            if target_section not in section_to_screenshots:
+                section_to_screenshots[target_section] = []
+            section_to_screenshots[target_section].append(screenshot)
+
+    if not section_to_screenshots:
+        print(f"  No screenshots mapped to sections", flush=True)
+        return 0
+
+    updated_count = 0
+
+    for section_filename, section_screenshots in section_to_screenshots.items():
+        section_path = deck_sections_dir / section_filename
+
+        if not section_path.exists():
+            print(f"  ⚠️  Section file {section_filename} not found, skipping screenshot embed", flush=True)
+            continue
+
+        # Read existing content
+        existing_content = section_path.read_text()
+
+        # Build image embeds (use absolute paths for cross-directory compatibility)
+        image_embeds = []
+        for ss in section_screenshots:
+            # Build absolute path to screenshot
+            abs_screenshot_path = output_dir / ss["path"]
+            description = ss.get("description", f"Page {ss.get('page_number', '?')} from pitch deck")
+
+            # Create markdown image embed
+            image_embeds.append(f"![{description}]({abs_screenshot_path})")
+
+        # Prepend images to content
+        images_block = "\n\n".join(image_embeds)
+        new_content = f"{images_block}\n\n{existing_content}"
+
+        # Write updated content
+        section_path.write_text(new_content)
+        updated_count += 1
+        print(f"  ✓ Embedded {len(section_screenshots)} screenshot(s) in {section_filename}", flush=True)
+
+    return updated_count
 
 
 def deck_analyst_agent(state: Dict) -> Dict:
@@ -268,6 +453,27 @@ IMPORTANT:
         )
         if deck_screenshots:
             deck_analysis["screenshots"] = deck_screenshots
+
+            # STEP 6: Embed screenshots into section files
+            # This updates 0-deck-sections/ files with image embeds at the top
+            print("Embedding screenshots in section drafts...", flush=True)
+            sections_updated = embed_screenshots_in_section_files(output_dir, deck_screenshots)
+            if sections_updated:
+                print(f"✓ Embedded screenshots in {sections_updated} section file(s)", flush=True)
+
+            # STEP 7: Build and save section-to-screenshots mapping
+            # This mapping tells inject_deck_images agent which images go in which sections
+            print("Building section-to-screenshots mapping...", flush=True)
+            section_to_screenshots = build_section_to_screenshots(deck_screenshots, output_dir)
+            deck_analysis["section_to_deck_topics"] = SECTION_TO_DECK_TOPICS
+            deck_analysis["section_to_screenshots"] = section_to_screenshots
+            print(f"✓ Mapped screenshots to {len(section_to_screenshots)} section keywords", flush=True)
+
+            # Re-save deck_analysis.json with screenshots and mappings
+            deck_analysis_path = output_dir / "0-deck-analysis.json"
+            with open(deck_analysis_path, "w") as f:
+                json.dump(deck_analysis, f, indent=2, default=str)
+            print(f"✓ Updated 0-deck-analysis.json with screenshot mappings", flush=True)
 
     return {
         "deck_analysis": deck_analysis,
@@ -816,6 +1022,25 @@ IMPORTANT:
                 )
                 print(f"  Extracted {len(deck_screenshots)} screenshots", flush=True)
                 deck_analysis["screenshots"] = deck_screenshots
+
+                # Embed screenshots into section files
+                print("Embedding screenshots in section drafts...", flush=True)
+                sections_updated = embed_screenshots_in_section_files(output_dir, deck_screenshots)
+                if sections_updated:
+                    print(f"✓ Embedded screenshots in {sections_updated} section file(s)", flush=True)
+
+                # Build and save section-to-screenshots mapping
+                print("Building section-to-screenshots mapping...", flush=True)
+                section_to_screenshots = build_section_to_screenshots(deck_screenshots, output_dir)
+                deck_analysis["section_to_deck_topics"] = SECTION_TO_DECK_TOPICS
+                deck_analysis["section_to_screenshots"] = section_to_screenshots
+                print(f"✓ Mapped screenshots to {len(section_to_screenshots)} section keywords", flush=True)
+
+                # Re-save deck_analysis.json with screenshots and mappings
+                deck_analysis_path = output_dir / "0-deck-analysis.json"
+                with open(deck_analysis_path, "w") as f:
+                    json.dump(deck_analysis, f, indent=2, default=str)
+                print(f"✓ Updated 0-deck-analysis.json with screenshot mappings", flush=True)
             else:
                 print("  No significant visual content identified", flush=True)
 

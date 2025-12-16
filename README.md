@@ -192,7 +192,7 @@ python -m src.main "Company Name" --firm hypernova --type direct --mode consider
 ```
 
 ### Multi-Agent Pipeline
-The system coordinates 11+ specialized agents: research, writing, enrichment (trademarks, socials, links, citations), validation, and fact-checking. All agents process sections individually to avoid API timeouts.
+The system coordinates **18 specialized agents**: deck analysis, research, writing, enrichment (trademarks, socials, links, citations), citation cleanup (remove invalid sources, assembly), validation, fact-checking, and scorecard evaluation. All agents process sections individually to avoid API timeouts.
 
 See [Pipeline Agents Reference](#pipeline-agents-reference) and [CLI Tools Reference](#cli-tools-reference) for complete listings.
 
@@ -685,58 +685,82 @@ For detailed export options, custom branding, and troubleshooting, see:
 
 ### Workflow
 
+The system uses **18 specialized agents** orchestrated via LangGraph. The complete pipeline:
+
 ```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           MEMO GENERATION PIPELINE                           │
+│                        (18 agents via LangGraph)                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
 ┌──────────────┐
 │  Supervisor  │ ← Coordinates workflow via LangGraph
 └──────┬───────┘
        │
-   ┌───┴────────────┐
-   │ Deck Analyst   │ ← Extract info from pitch deck PDF/PPTX (if available)
-   └───┬────────────┘   Saves: 0-deck-analysis.json, 0-deck-analysis.md, initial drafts
+   ┌───┴────────────────┐
+   │ 1. Deck Analyst    │ ← Extract info from pitch deck PDF/PPTX (if available)
+   └───┬────────────────┘   Saves: 0-deck-analysis.json, 0-deck-analysis.md
        │
-   ┌───┴─────────────────┐
-   │ Research            │ ← Web search (Tavily: 4 queries) + synthesis
-   └───┬─────────────────┘   Saves: 1-research.json, 1-research.md
+   ┌───┴────────────────┐
+   │ 2. Research        │ ← Web search (Tavily: 4 queries) + synthesis
+   └───┬────────────────┘   Saves: 1-research.json, 1-research.md
        │
-   ┌───┴─────────────────┐
-   │ Section Research    │ ← Section-specific Perplexity research with citations
-   └───┬─────────────────┘   Saves: 1-section-research/*.md
+   ┌───┴────────────────┐
+   │ 3. Section Research│ ← Section-specific Perplexity research with citations
+   └───┬────────────────┘   Saves: 1-research/*.md (per-section research)
        │
-   ┌───┴─────────────────┐
-   │ Writer              │ ← Draft memo (10 sections), polish section research
-   └───┬─────────────────┘   Saves: 2-sections/*.md (10 files)
+   ┌───┴────────────────┐
+   │ 4. Writer          │ ← Draft memo (10 sections), polish section research
+   └───┬────────────────┘   Saves: 2-sections/*.md (10 files)
        │
-   ┌───┴─────────────────┐
-   │ Enrichment Pipeline │ ← Trademark → Socials → Links → Visualizations
-   └───┬─────────────────┘   Updates 2-sections/*.md with logos, LinkedIn, hyperlinks
+   ╔═══╧════════════════════════════════════════════════════════╗
+   ║              ENRICHMENT PIPELINE (4 agents)                ║
+   ╠════════════════════════════════════════════════════════════╣
+   ║  5. Trademark  → 6. Socials → 7. Links → 8. Visualizations ║
+   ╚═══╤════════════════════════════════════════════════════════╝
+       │              Updates 2-sections/*.md with logos, LinkedIn, hyperlinks
        │
-   ┌───┴─────────────────┐
-   │ Citation Enrichment │ ← Add inline citations (Perplexity Sonar Pro)
-   └───┬─────────────────┘   Preserves narrative, adds [^1], [^2], etc.
+   ┌───┴────────────────┐
+   │ 9. Citation Enrich │ ← Add inline citations (Perplexity Sonar Pro)
+   └───┬────────────────┘   Adds [^1], [^2], etc. per section
        │
-   ┌───┴─────────────────┐
-   │ TOC Generator       │ ← Generate Table of Contents with anchor links
-   └───┬─────────────────┘   Insert TOC after header, before first section
+   ┌───┴────────────────┐
+   │ 10. TOC Generator  │ ← Generate Table of Contents with anchor links
+   └───┬────────────────┘   Insert TOC after header, before first section
        │
-   ┌───┴─────────────────┐
-   │ Revise Summaries    │ ← Rewrite Executive Summary + Closing Assessment
-   └───┬─────────────────┘   Extract metrics from body, ensure accurate bookends
+   ┌───┴────────────────┐
+   │ 11. Revise Summary │ ← Rewrite Executive Summary + Closing Assessment
+   └───┬────────────────┘   Extract metrics from body, ensure accurate bookends
        │
-   ┌───┴─────────────────┐
-   │ Citation Validator  │ ← Validate date accuracy, detect duplicates
-   └───┬─────────────────┘   Check URLs, ensure proper formatting
+   ╔═══╧════════════════════════════════════════════════════════╗
+   ║            CITATION CLEANUP PIPELINE (2 agents)            ║
+   ╠════════════════════════════════════════════════════════════╣
+   ║  12. Remove Invalid Sources → 13. Citation Assembly        ║
+   ║      - Validate URLs (HEAD)     - Renumber [^1][^2][^3]... ║
+   ║      - Remove 404s/410s         - Consolidate to ONE block ║
+   ║      - Detect hallucinations    - Remove per-section defs  ║
+   ╚═══╤════════════════════════════════════════════════════════╝
+       │              Cleans 1-research/ and 2-sections/, assembles 6-final-draft.md
        │
-   ┌───┴─────────────────┐
-   │ Fact Checker        │ ← Verify claims against research sources
-   └───┬─────────────────┘   Identify unsourced metrics, hallucinated data
+   ┌───┴────────────────┐
+   │ 14. Citation Valid │ ← Validate date accuracy, detect duplicates
+   └───┬────────────────┘   Check remaining URLs, ensure proper formatting
        │
-   ┌───┴─────────────────┐
-   │ Validator           │ ← Score 0-10, identify issues
-   └───┬─────────────────┘   Saves: 3-validation.json, 3-validation.md
+   ┌───┴────────────────┐
+   │ 15. Fact Checker   │ ← Verify claims against research sources
+   └───┬────────────────┘   Identify unsourced metrics, hallucinated data
        │
-   ┌───┴─────────────────┐
-   │ Scorecard Evaluator │ ← Evaluate against firm's scorecard template
-   └───┬─────────────────┘   Saves: scorecard.json, scorecard.md
+   ┌───┴────────────────┐
+   │ 16. Validator      │ ← Score 0-10, identify issues
+   └───┬────────────────┘   Saves: 3-validation.json, 3-validation.md
+       │
+   ┌───┴────────────────┐
+   │ 17. Scorecard      │ ← Evaluate against firm's scorecard template
+   └───┬────────────────┘   Saves: 5-scorecard/*.md
+       │
+   ┌───┴────────────────┐
+   │ 18. Integrate Score│ ← Integrate scorecard into section 8, reassemble
+   └───┬────────────────┘
        │
    ┌───┴───────────────┐
    │   Score >= 8?     │
@@ -745,7 +769,62 @@ For detailed export options, custom branding, and troubleshooting, see:
    ┌───┴────┐  ┌──┴──────────┐
    │Finalize│  │Human Review │
    └────────┘  └─────────────┘
-   Both save: 4-final-draft.md, state.json
+   Both save: 6-{Company}-v0.0.x.md, state.json
+```
+
+### Mermaid Workflow Diagram
+
+```mermaid
+flowchart TD
+    subgraph Input
+        A[Start] --> B[Deck Analyst]
+    end
+
+    subgraph Research Phase
+        B --> C[Research Agent]
+        C --> D[Section Research]
+    end
+
+    subgraph Writing Phase
+        D --> E[Writer Agent]
+    end
+
+    subgraph Enrichment Pipeline
+        E --> F[Trademark Enrichment]
+        F --> G[Socials Enrichment]
+        G --> H[Link Enrichment]
+        H --> I[Visualization Enrichment]
+    end
+
+    subgraph Citation Pipeline
+        I --> J[Citation Enrichment]
+        J --> K[TOC Generator]
+        K --> L[Revise Summaries]
+    end
+
+    subgraph Citation Cleanup
+        L --> M[Remove Invalid Sources]
+        M --> N[Citation Assembly]
+    end
+
+    subgraph Validation Phase
+        N --> O[Citation Validator]
+        O --> P[Fact Checker]
+        P --> Q[Validator]
+    end
+
+    subgraph Scorecard Phase
+        Q --> R[Scorecard Evaluator]
+        R --> S[Integrate Scorecard]
+    end
+
+    subgraph Output
+        S --> T{Score >= 8?}
+        T -->|Yes| U[Finalize]
+        T -->|No| V[Human Review]
+        U --> W[Final Draft]
+        V --> W
+    end
 ```
 
 ### State Management
@@ -774,14 +853,22 @@ investment-memo-orchestrator/
 │   │   ├── deck_analyst.py           # Pitch deck analysis (PDF + PowerPoint)
 │   │   ├── researcher.py             # Basic research (no web search)
 │   │   ├── research_enhanced.py      # Web search + synthesis
+│   │   ├── perplexity_section_researcher.py  # Section-specific research
 │   │   ├── writer.py                 # Memo drafting
+│   │   ├── trademark_enrichment.py   # Company logo insertion
+│   │   ├── socials_enrichment.py     # LinkedIn link addition
+│   │   ├── link_enrichment.py        # Organization hyperlinks
+│   │   ├── visualization_enrichment.py # Charts/graphs (disabled)
 │   │   ├── citation_enrichment.py    # Citation addition (Perplexity)
-│   │   ├── citation_validator.py     # Citation accuracy validation
 │   │   ├── toc_generator.py          # Table of Contents generation
-│   │   ├── revise_summary_sections.py # Rewrite Executive Summary + Closing Assessment
+│   │   ├── revise_summary_sections.py # Rewrite Executive Summary + Closing
+│   │   ├── remove_invalid_sources.py # URL validation, remove 404s/hallucinations
+│   │   ├── citation_assembly.py      # Global citation renumbering & consolidation
+│   │   ├── citation_validator.py     # Citation accuracy validation
 │   │   ├── fact_checker.py           # Fact verification agent
 │   │   ├── validator.py              # Quality validation
 │   │   ├── scorecard_agent.py        # 12-dimension emerging manager scorecard
+│   │   ├── scorecard_evaluator.py    # Scorecard evaluation agent
 │   │   ├── portfolio_listing_agent.py # Portfolio company extraction
 │   │   └── dataroom/                 # Dataroom Analyzer Agent System
 │   │       ├── __init__.py           # Package exports
@@ -871,6 +958,8 @@ Agents that run as part of the main memo generation workflow (`python -m src.mai
 | Citation Enrichment | `citation_enrichment.py` | Add inline citations via Perplexity |
 | TOC Generator | `toc_generator.py` | Generate Table of Contents |
 | Revise Summaries | `revise_summary_sections.py` | Rewrite bookend sections with accurate metrics |
+| Remove Invalid Sources | `remove_invalid_sources.py` | Validate URLs, remove 404s and hallucinated citations |
+| Citation Assembly | `citation_assembly.py` | Consolidate and renumber citations globally |
 | Citation Validator | `citation_validator.py` | Validate citation accuracy and dates |
 | Fact Checker | `fact_checker.py` | Verify claims against research sources |
 | Validator | `validator.py` | Score memo quality (0-10 scale) |
@@ -1039,6 +1128,6 @@ Investing in frontier technology companies at the intersection of climate, energ
 
 ---
 
-*Last updated: 2025-12-05*
-*Version: v0.3.5 (PowerPoint Support + Revise Summaries Agent)*
+*Last updated: 2025-12-15*
+*Version: v0.3.6 (Citation Cleanup Pipeline: Remove Invalid Sources + Citation Assembly)*
 *Status: Production-ready with multi-tenant support*

@@ -3,10 +3,24 @@ LangGraph workflow orchestration for investment memo generation.
 
 This module defines the supervisor pattern that coordinates the Research,
 Writer, and Validator agents through a state graph.
+
+IMPORTANT: Citation validation happens at TWO points to prevent hallucination propagation:
+
+1. AFTER section_research, BEFORE writer (cleanup_research node):
+   - Validates citations in 1-research/ files
+   - Removes hallucinated/404 URLs BEFORE writer sees them
+   - Prevents false information from entering draft narrative
+
+2. AFTER revise_summaries, BEFORE assembly (cleanup_sections node):
+   - Validates citations in 2-sections/ files
+   - Catches any new hallucinations from citation enrichment
+   - Ensures clean citations before final assembly
+
+This two-gate approach ensures hallucinations are killed at the source.
 """
 
 from langgraph.graph import StateGraph, END
-from typing import Literal as LiteralType
+from typing import Literal as LiteralType, Dict, Any
 
 import os
 from pathlib import Path
@@ -23,12 +37,156 @@ from .agents.visualization_enrichment import visualization_enrichment_agent
 from .agents.citation_enrichment import citation_enrichment_agent
 from .agents.toc_generator import toc_generator_agent
 from .agents.revise_summary_sections import revise_summary_sections
+from .agents.inject_deck_images import inject_deck_images_agent
 from .agents.citation_validator import citation_validator_agent
+from .agents.remove_invalid_sources import (
+    remove_invalid_sources_agent,
+    validate_url,
+    extract_citation_urls,
+    remove_invalid_citations_from_directory,
+    reorder_directory_citations,
+    INVALID_HTTP_CODES,
+    HALLUCINATION_PATTERNS,
+)
+from .agents.citation_assembly import citation_assembly_agent
 from .agents.fact_checker import fact_checker_agent
 from .agents.validator import validator_agent
 from .agents.scorecard_evaluator import scorecard_evaluator_agent
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
 from .versioning import VersionManager
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
+
+
+def cleanup_research_citations(state: MemoState) -> Dict[str, Any]:
+    """
+    Validate and clean citations in 1-research/ files BEFORE the writer sees them.
+
+    This is the FIRST validation gate - it runs after section_research but before
+    the writer agent. This prevents hallucinated citations from ever entering
+    the draft narrative.
+
+    Process:
+    1. Collect all citation URLs from 1-research/ files
+    2. Validate URLs in parallel (HTTP HEAD requests)
+    3. Remove invalid citations (404s, hallucination patterns)
+    4. Reorder remaining citations to eliminate gaps
+
+    Args:
+        state: Current memo state
+
+    Returns:
+        Updated state with cleanup results
+    """
+    from .utils import get_latest_output_dir
+
+    company_name = state["company_name"]
+    firm = state.get("firm")
+
+    print(f"\n🔍 VALIDATION GATE 1: Cleaning research citations for {company_name}...")
+    print(f"   (This runs BEFORE writer to prevent hallucination propagation)")
+
+    # Get output directory
+    try:
+        output_dir = get_latest_output_dir(company_name, firm=firm)
+    except FileNotFoundError:
+        return {
+            "messages": ["Research cleanup skipped: no output directory found"]
+        }
+
+    research_dir = output_dir / "1-research"
+
+    if not research_dir.exists():
+        print("  ⚠️  No 1-research/ directory found, skipping")
+        return {
+            "messages": ["Research cleanup skipped: no research directory"]
+        }
+
+    # Collect all citation URLs from research files
+    citation_urls: Dict[str, str] = {}
+    for f in research_dir.glob("*.md"):
+        content = f.read_text()
+        citations = extract_citation_urls(content)
+        citation_urls.update(citations)
+
+    if not citation_urls:
+        print("  No citations found in research files")
+        return {
+            "messages": ["Research cleanup: no citations found"]
+        }
+
+    print(f"  Found {len(citation_urls)} citations to validate")
+
+    # Validate URLs in parallel
+    invalid_citations = set()
+    valid_citations = set()
+    potentially_valid = set()
+
+    print(f"  Validating URLs...")
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_citation = {
+            executor.submit(validate_url, url): (num, url)
+            for num, url in citation_urls.items()
+        }
+
+        for future in as_completed(future_to_citation):
+            num, url = future_to_citation[future]
+            try:
+                _, http_code, status = future.result()
+
+                if http_code == -1:  # Hallucination pattern
+                    invalid_citations.add(num)
+                    print(f"    ❌ [^{num}]: Hallucination - {url[:50]}...")
+                elif http_code in INVALID_HTTP_CODES:
+                    invalid_citations.add(num)
+                    print(f"    ❌ [^{num}]: HTTP {http_code} - {url[:50]}...")
+                elif http_code in {401, 403, 429, 500, 502, 503}:
+                    potentially_valid.add(num)
+                elif http_code == 0:
+                    potentially_valid.add(num)
+                else:
+                    valid_citations.add(num)
+
+            except Exception as e:
+                print(f"    ⚠️  [^{num}]: Error - {e}")
+                potentially_valid.add(num)
+
+    print(f"  Results: {len(valid_citations)} valid, {len(potentially_valid)} uncertain, {len(invalid_citations)} invalid")
+
+    if not invalid_citations:
+        print("  ✓ All research citations are valid")
+        return {
+            "messages": [f"Research validation: {len(valid_citations)} valid, 0 removed"]
+        }
+
+    # PASS 1: Remove invalid citations
+    print(f"\n  📝 Removing {len(invalid_citations)} invalid citations from research...")
+    research_removed = remove_invalid_citations_from_directory(research_dir, invalid_citations)
+    if research_removed:
+        print(f"    ✓ Cleaned {research_removed} research files")
+
+    # PASS 2: Reorder citations to eliminate gaps
+    print(f"  🔢 Reordering citations...")
+    research_reordered = reorder_directory_citations(research_dir)
+    if research_reordered:
+        print(f"    ✓ Reordered {research_reordered} files")
+
+    remaining = len(citation_urls) - len(invalid_citations)
+    summary = f"Research cleanup: removed {len(invalid_citations)} invalid, {remaining} remaining"
+    print(f"\n  ✅ {summary}")
+    print(f"  ✅ Writer will now receive CLEAN research data")
+
+    return {
+        "messages": [summary],
+        "research_cleanup": {
+            "total": len(citation_urls),
+            "valid": len(valid_citations),
+            "uncertain": len(potentially_valid),
+            "removed": len(invalid_citations),
+            "remaining": remaining
+        }
+    }
 
 
 def should_continue(state: MemoState) -> LiteralType["finalize", "human_review"]:
@@ -317,21 +475,25 @@ def build_workflow() -> StateGraph:
     research_fn = research_agent_enhanced if use_enhanced_research else research_agent
 
     # Add agent nodes
-    workflow.add_node("deck_analyst", deck_analyst_agent)  # NEW: Deck analyst (always runs, skips if no deck)
+    workflow.add_node("deck_analyst", deck_analyst_agent)  # Deck analyst (always runs, skips if no deck)
     workflow.add_node("research", research_fn)
-    workflow.add_node("section_research", perplexity_section_researcher_agent)  # NEW: Section-specific research with citations
+    workflow.add_node("section_research", perplexity_section_researcher_agent)  # Section-specific research with citations
+    workflow.add_node("cleanup_research", cleanup_research_citations)  # GATE 1: Clean research citations BEFORE writer
     workflow.add_node("draft", writer_agent)
-    workflow.add_node("enrich_trademark", trademark_enrichment_agent)  # NEW: Company trademark insertion
+    workflow.add_node("inject_deck_images", inject_deck_images_agent)  # Inject screenshots from deck into 2-sections/
+    workflow.add_node("enrich_trademark", trademark_enrichment_agent)  # Company trademark insertion
     workflow.add_node("enrich_socials", socials_enrichment_agent)
     workflow.add_node("enrich_links", link_enrichment_agent)
     workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
     workflow.add_node("cite", citation_enrichment_agent)
     workflow.add_node("toc", toc_generator_agent)  # Generate Table of Contents with anchor links
     workflow.add_node("revise_summaries", revise_summary_sections)  # Revise Executive Summary & Closing based on full draft
+    workflow.add_node("cleanup_sections", remove_invalid_sources_agent)  # GATE 2: Clean section citations before assembly
+    workflow.add_node("assemble_citations", citation_assembly_agent)  # Consolidate and renumber citations
     workflow.add_node("validate_citations", citation_validator_agent)  # Citation accuracy validator
-    workflow.add_node("fact_check", fact_checker_agent)  # NEW: Fact-checking agent (verify claims vs sources)
+    workflow.add_node("fact_check", fact_checker_agent)  # Fact-checking agent (verify claims vs sources)
     workflow.add_node("validate", validator_agent)
-    workflow.add_node("scorecard", scorecard_evaluator_agent)  # NEW: 12Ps scorecard evaluation
+    workflow.add_node("scorecard", scorecard_evaluator_agent)  # 12Ps scorecard evaluation
     workflow.add_node("integrate_scorecard", integrate_scorecard)  # Integrate scorecard into section 8
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
@@ -340,19 +502,39 @@ def build_workflow() -> StateGraph:
     workflow.set_entry_point("deck_analyst")
 
     # Define edges (workflow sequence)
-    # Deck Analyst → Research → Section Research → Draft → Trademark → Socials → Links → Visualizations → Citations → TOC → Revise Summaries → Citation Validator → Fact Check → Validate → Scorecard → Integrate Scorecard → Finalize/Human Review
+    #
+    # ANTI-HALLUCINATION ARCHITECTURE:
+    # Two validation gates ensure hallucinated citations never propagate:
+    #
+    # GATE 1 (cleanup_research): After section_research, BEFORE writer
+    #   - Validates 1-research/ citations
+    #   - Writer receives ONLY clean research data
+    #
+    # GATE 2 (cleanup_sections): After revise_summaries, BEFORE assembly
+    #   - Validates 2-sections/ citations
+    #   - Catches any new hallucinations from citation enrichment
+    #
+    # Full sequence:
+    # Deck → Research → Section Research → [GATE 1] → Writer → Inject Deck Images →
+    # Enrichment → Citations → TOC → Revise → [GATE 2] → Assembly → Validation →
+    # Fact Check → Validate → Scorecard
+
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "section_research")  # Generate section research with citations
-    workflow.add_edge("section_research", "draft")     # Writer polishes section research
-    workflow.add_edge("draft", "enrich_trademark")  # Insert company trademark after drafting
+    workflow.add_edge("section_research", "cleanup_research")  # GATE 1: Clean research before writer
+    workflow.add_edge("cleanup_research", "draft")     # Writer receives CLEAN research
+    workflow.add_edge("draft", "inject_deck_images")  # Inject deck screenshots into 2-sections/
+    workflow.add_edge("inject_deck_images", "enrich_trademark")  # Then insert company trademark
     workflow.add_edge("enrich_trademark", "enrich_socials")
     workflow.add_edge("enrich_socials", "enrich_links")
     workflow.add_edge("enrich_links", "enrich_visualizations")
     workflow.add_edge("enrich_visualizations", "cite")
     workflow.add_edge("cite", "toc")  # Generate TOC after citations assembled
     workflow.add_edge("toc", "revise_summaries")  # Revise bookend sections based on complete draft
-    workflow.add_edge("revise_summaries", "validate_citations")  # Validate citation accuracy after revision
-    workflow.add_edge("validate_citations", "fact_check")  # NEW: Fact-check claims against research sources
+    workflow.add_edge("revise_summaries", "cleanup_sections")  # GATE 2: Clean sections before assembly
+    workflow.add_edge("cleanup_sections", "assemble_citations")  # Consolidate and renumber citations
+    workflow.add_edge("assemble_citations", "validate_citations")  # Validate assembled citations
+    workflow.add_edge("validate_citations", "fact_check")  # Fact-check claims against research sources
     workflow.add_edge("fact_check", "validate")
     workflow.add_edge("validate", "scorecard")  # Run scorecard evaluation after validation
     workflow.add_edge("scorecard", "integrate_scorecard")  # Integrate scorecard into section 8 and reassemble final draft

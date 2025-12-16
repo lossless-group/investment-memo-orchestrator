@@ -146,24 +146,67 @@ def validate_citation(citation_num: str, citation_text: str) -> Tuple[List[Dict[
     issues = []
     extracted_url = None
 
-    # 1. Check format
-    # Expected: YYYY, MMM DD. Title - Source. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://...
-    format_pattern = r'(\d{4}),\s+(\w{3})\s+(\d{2})\.\s+(.+?)\s+Published:\s+(\d{4}-\d{2}-\d{2})\s*\|\s*Updated:\s+(.+?)\s*(?:\|\s*URL:\s*(https?://\S+))?'
+    # 1. Check format - support multiple formats:
+    # Format A (markdown link): YYYY, MMM DD. [Title](URL). Source. Published: YYYY-MM-DD | Updated: N/A
+    # Format A2 (with author): YYYY, MMM DD. Author et al. [Title](URL). Source. Published: YYYY-MM-DD | Updated: N/A
+    # Format B (legacy): YYYY, MMM DD. Title. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://...
 
-    match = re.search(format_pattern, citation_text)
+    # Try to extract URL from markdown link first (most common modern format)
+    # This handles both [Title](URL) immediately after date and with author names in between
+    markdown_url_pattern = r'\[([^\]]+)\]\((https?://[^)]+)\)'
+    markdown_match = re.search(markdown_url_pattern, citation_text)
 
-    if not match:
-        issues.append({
-            "severity": "error",
-            "message": "Citation format invalid (expected: YYYY, MMM DD. Title. Published: YYYY-MM-DD | Updated: YYYY-MM-DD | URL: https://...)"
-        })
-        return issues, None
+    if markdown_match:
+        # Found a markdown link - extract URL and validate date format
+        title = markdown_match.group(1)
+        extracted_url = markdown_match.group(2)
 
-    display_year, display_month, display_day, title, published_date, updated_date, url = match.groups()
-    extracted_url = url
+        # Extract date components
+        date_pattern = r'(\d{4}),\s+(\w{3})\s+(\d{1,2})\.'
+        date_match = re.search(date_pattern, citation_text)
+
+        # Extract published/updated dates
+        pub_pattern = r'Published:\s+(\d{4}-\d{2}-\d{2})\s*\|\s*Updated:\s+(.+?)(?:\s*$|\s*\|)'
+        pub_match = re.search(pub_pattern, citation_text)
+
+        if date_match and pub_match:
+            display_year, display_month, display_day = date_match.groups()
+            published_date, updated_date = pub_match.groups()
+        else:
+            # Has URL but non-standard date format - warn but accept
+            issues.append({
+                "severity": "warning",
+                "message": "Citation has URL but non-standard date format"
+            })
+            return issues, extracted_url
+    else:
+        # No markdown link found - try legacy format with URL at end
+        format_b_pattern = r'(\d{4}),\s+(\w{3})\s+(\d{1,2})\.\s+(.+?)\s+Published:\s+(\d{4}-\d{2}-\d{2})\s*\|\s*Updated:\s+(.+?)\s*\|\s*URL:\s*(https?://\S+)'
+        match = re.search(format_b_pattern, citation_text)
+
+        if match:
+            display_year, display_month, display_day, title, published_date, updated_date, url = match.groups()
+            extracted_url = url
+        else:
+            # Check if it at least has a URL somewhere (relaxed validation)
+            url_match = re.search(r'(https?://[^\s\)]+)', citation_text)
+            if url_match:
+                extracted_url = url_match.group(1)
+                # Just warn about format, don't error if we found a URL
+                issues.append({
+                    "severity": "warning",
+                    "message": "Citation format non-standard but URL found"
+                })
+                return issues, extracted_url
+            else:
+                issues.append({
+                    "severity": "error",
+                    "message": "Citation format invalid and no URL found (expected: YYYY, MMM DD. [Title](URL). Source. Published: YYYY-MM-DD | Updated: N/A)"
+                })
+                return issues, None
 
     # 2. Check URL presence
-    if not url:
+    if not extracted_url:
         issues.append({
             "severity": "error",
             "message": "Missing URL in citation"
@@ -228,10 +271,10 @@ def validate_citation(citation_num: str, citation_text: str) -> Tuple[List[Dict[
         })
 
     # 4. Check URL accessibility (optional - can be slow)
-    if url and len(issues) == 0:  # Only check URL if no other issues
+    if extracted_url and len(issues) == 0:  # Only check URL if no other issues
         try:
             req = urllib.request.Request(
-                url,
+                extracted_url,
                 headers={'User-Agent': 'Mozilla/5.0'}
             )
             with urllib.request.urlopen(req, timeout=5) as response:

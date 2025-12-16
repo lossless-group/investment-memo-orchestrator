@@ -492,6 +492,226 @@ except Exception as e:
 
 ---
 
+## Screenshot Placement in Final Memo (ANALYSIS)
+
+**Status**: Gap identified 2025-12-15 - Screenshots extracted but NOT embedded in final draft
+
+### The Problem
+
+Screenshots are successfully extracted to `deck-screenshots/` with category metadata (team, traction, product, etc.), but they never appear in the final memo. The expected output:
+
+```markdown
+## 4. Team
+
+![Team Slide from Deck](/absolute/path/to/deck-screenshots/page-03-team.png)
+
+The founding team brings deep domain expertise...
+```
+
+**Current behavior**: No image embeds appear in `2-sections/` or the final draft (`6-{Deal}-{Version}.md`).
+
+### Analysis: Where Should Placement Happen?
+
+#### Option A: Embed in `0-deck-sections/` (During Deck Analysis) ✅ RECOMMENDED
+
+**When**: During `deck_analyst_agent()`, after screenshots are extracted
+
+**How**: When creating `0-deck-sections/deck-team.md`, `deck-traction.md`, etc., embed the corresponding screenshot at the top of each file.
+
+**Pros**:
+- **Earliest possible point** - images become part of source material from the start
+- **Natural mapping** - screenshot categories (team, traction, product) already match section files
+- **Downstream preservation** - writer agent sees images and preserves/relocates them
+- **Single responsibility** - deck analyst already has all needed context (screenshot paths + categories)
+- **No new agent needed** - extends existing functionality
+
+**Cons**:
+- Writer agent prompt must explicitly preserve image embeds
+- Deck analyst scope increases slightly
+
+**Implementation**:
+```python
+# In deck_analyst.py, when creating section drafts:
+def create_section_draft(field_name, content, screenshots, output_dir):
+    # Find matching screenshot by category
+    matching_screenshots = [s for s in screenshots if s["category"] == field_to_category(field_name)]
+
+    draft = ""
+    for screenshot in matching_screenshots:
+        abs_path = output_dir / screenshot["path"]
+        draft += f"![{screenshot['description']}]({abs_path})\n\n"
+
+    draft += content
+    return draft
+```
+
+#### Option B: Separate `deck_screenshot_placement` Agent
+
+**When**: After deck analysis, before research
+
+**Pros**:
+- Single responsibility principle
+- Can be more sophisticated about placement decisions
+
+**Cons**:
+- Another agent to maintain
+- Duplicates logic that deck analyst already has (category→section mapping)
+- Adds pipeline complexity
+
+**Verdict**: Overkill for this use case.
+
+#### Option C: Place in `2-sections/` (After Writer)
+
+**When**: After writer creates sections, before citation enrichment
+
+**Pros**:
+- Writer has already structured sections with proper headers
+- Easy to find "## 4. Team" header and insert after it
+
+**Cons**:
+- Late in pipeline - if writer doesn't know about images, it can't reference them
+- Feels like retrofitting rather than natural flow
+- Screenshot context is lost by this point (deck analyst memory gone)
+
+**Verdict**: Possible fallback, but not ideal.
+
+#### Option D: Place in `1-research/`
+
+**Cons**:
+- Research files are about EXTERNAL sources, not deck content
+- Conceptually wrong location
+
+**Verdict**: Not appropriate.
+
+### Recommended Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  DECK ANALYST (deck_analyst.py)                                      │
+│                                                                      │
+│  1. Extract text/vision content                                      │
+│  2. Generate structured JSON (DeckAnalysisData)                      │
+│  3. Extract screenshots with categories                              │
+│  4. Create 0-deck-sections/ WITH EMBEDDED IMAGES  ◄── NEW           │
+│     ├─ deck-team.md                                                  │
+│     │   ![Team photo](/path/to/page-03-team.png)                    │
+│     │   Content about team...                                        │
+│     └─ deck-traction.md                                              │
+│         ![Growth chart](/path/to/page-07-traction.png)              │
+│         Content about traction...                                    │
+└─────────────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  RESEARCH + WRITER                                                   │
+│                                                                      │
+│  - Research agent adds external sources (no images to add)           │
+│  - Writer agent reads 0-deck-sections/ as source material            │
+│  - Writer PRESERVES image embeds, placing them appropriately         │
+│  - Writer prompt: "Preserve any ![image](path) embeds from source"  │
+└─────────────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  2-SECTIONS/ (Output)                                                │
+│                                                                      │
+│  04-team.md                                                          │
+│  ## 4. Team                                                          │
+│                                                                      │
+│  ![Founding team with backgrounds](/path/to/page-03-team.png)       │
+│                                                                      │
+│  The ProfileHealth team combines deep healthcare expertise...        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Insight: Early Embedding + Downstream Preservation
+
+The principle is: **embed at the earliest point where context exists, then preserve downstream**.
+
+The deck analyst has:
+- Screenshot paths
+- Screenshot categories (team, traction, product, market, etc.)
+- Section draft content
+- The mapping between categories and section files
+
+No other agent has this complete context. By embedding images in `0-deck-sections/`, we ensure:
+
+1. **Images are part of the source material** - not an afterthought
+2. **Writer sees images and can decide optimal placement** - maybe move from top to inline
+3. **Natural flow** - no special "image placement" logic needed later
+4. **Single source of truth** - deck analyst owns both extraction AND initial placement
+
+### Implementation Checklist
+
+- [x] Update `deck_analyst.py` to embed screenshots when creating `0-deck-sections/` drafts
+  - Added `embed_screenshots_in_section_files()` function
+  - Called after screenshot extraction in both text and vision paths
+- [x] Map screenshot categories to section fields:
+  - `team` → `deck-team.md`
+  - `traction` → `deck-traction.md`
+  - `product` → `deck-product.md`
+  - `market` → `deck-market.md`
+  - `competitive` → `deck-competitive.md`
+  - `architecture` → `deck-product.md` (merge with product)
+  - `timeline` → `deck-traction.md` (merge with traction)
+  - Added `SCREENSHOT_CATEGORY_TO_SECTION` constant
+- [x] Use ABSOLUTE paths in image embeds (required for final export)
+- [x] Save `section_to_deck_topics` and `section_to_screenshots` mappings to `0-deck-analysis.json`
+  - Added `SECTION_TO_DECK_TOPICS` constant
+  - Added `build_section_to_screenshots()` function
+  - JSON re-saved after screenshots extracted
+- [x] Create `inject_deck_images` agent (`src/agents/inject_deck_images.py`)
+  - Reads mapping from `0-deck-analysis.json`
+  - Injects screenshots into `2-sections/` files after writer
+  - Added to workflow between `draft` and `enrich_trademark`
+- [ ] Test that images flow through to `6-{Deal}-{Version}.md` (final draft)
+- [ ] Verify HTML export renders images correctly
+
+### Revised Architecture (2025-12-15)
+
+The original plan to have images flow through Perplexity doesn't work because Perplexity
+can't preserve `![image](path)` markdown. The revised architecture:
+
+```
+deck_analyst:
+  1. Extract screenshots → deck-screenshots/
+  2. Embed in 0-deck-sections/ (for reference)
+  3. Save mapping to 0-deck-analysis.json:
+     - section_to_deck_topics: {"organization": ["team"], ...}
+     - section_to_screenshots: {"organization": ["/path/to/team.png"], ...}
+
+section_researcher:
+  - Reads 0-deck-sections/ content (text only)
+  - Sends to Perplexity as context
+  - Perplexity writes 1-research/ (images lost - expected)
+
+writer:
+  - Polishes 1-research/ → 2-sections/
+  - Content from deck is integrated (via Perplexity)
+  - Images NOT present yet
+
+inject_deck_images: ← NEW AGENT
+  - Reads section_to_screenshots from 0-deck-analysis.json
+  - Matches section names to screenshots via keyword matching
+  - Injects images into 2-sections/ files
+  - Images now in final output
+```
+
+### Image Embed Format
+
+Use absolute paths for cross-directory compatibility:
+
+```markdown
+![Team Slide from Deck](/Users/mpstaton/code/.../deck-screenshots/page-03-team.png)
+```
+
+**Why absolute paths?**
+- `2-sections/` is a different directory than `deck-screenshots/`
+- Relative paths would break: `../deck-screenshots/` might not resolve correctly during export
+- Absolute paths work consistently in markdown preview, HTML export, and PDF generation
+
+---
+
 ## Performance Characteristics
 
 ### Processing Time

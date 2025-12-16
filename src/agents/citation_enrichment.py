@@ -281,10 +281,15 @@ def renumber_citations_globally(sections_data: list) -> str:
     """
     Renumber citations globally across all sections and consolidate into ONE citation block.
 
-    Each section comes with its own [^1], [^2], etc. This function:
-    1. Renumbers them sequentially across the entire memo
+    Each section comes with its own citations (both numeric like [^1] and
+    alphanumeric like [^deck], [^ehrtime]). This function:
+    1. Renumbers ALL citations sequentially across the entire memo
     2. Strips citation blocks from individual sections
     3. Consolidates all citations into ONE block at the end
+
+    Special handling for canonical citations like [^deck]:
+    - Same key across sections maps to ONE citation number
+    - Only the FIRST definition encountered is kept (no duplicates)
 
     Args:
         sections_data: List of tuples (section_num, section_name, section_content)
@@ -293,8 +298,9 @@ def renumber_citations_globally(sections_data: list) -> str:
         Combined content with globally renumbered citations and ONE citation block
     """
     combined_content = ""
-    all_citations = []  # Collect all citation definitions
+    citation_definitions = {}  # Map citation number -> definition (keeps first only)
     citation_counter = 1
+    global_citation_map = {}  # Track citation key -> number across sections
 
     # Process each section
     for idx, (section_num, section_name, section_content) in enumerate(sections_data):
@@ -311,38 +317,62 @@ def renumber_citations_globally(sections_data: list) -> str:
         # This ensures proper hierarchy: ## Section Name > ### Subsection
         main_content = re.sub(r'^## ', '### ', main_content, flags=re.MULTILINE)
 
-        # Find all citation numbers in this section's content
-        old_citations = set(re.findall(r'\[\^(\d+)\]', main_content))
+        # Find ALL citation keys in this section's content (both numeric and alphanumeric)
+        # Matches: [^1], [^deck], [^ehrtime], [^3b], etc.
+        old_citations = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', main_content))
 
-        # Create mapping for this section
+        # Create mapping for this section's citations
         section_map = {}
-        for old_num in sorted(old_citations, key=int):
-            section_map[old_num] = citation_counter
-            citation_counter += 1
+        # Sort: numeric first (by value), then alphanumeric (alphabetically)
+        def sort_key(x):
+            try:
+                return (0, int(x), '')
+            except ValueError:
+                return (1, 0, x)
+
+        for old_key in sorted(old_citations, key=sort_key):
+            # Check if we've already assigned a number to this citation key globally
+            if old_key not in global_citation_map:
+                global_citation_map[old_key] = citation_counter
+                citation_counter += 1
+            section_map[old_key] = global_citation_map[old_key]
 
         # Renumber inline citations in main content
-        for old_num, new_num in section_map.items():
-            # Replace inline citations [^X] with [^NEW]
+        # Process longer keys first to avoid partial replacements (e.g., [^3b] before [^3])
+        for old_key in sorted(section_map.keys(), key=len, reverse=True):
+            new_num = section_map[old_key]
+            # Replace inline citations [^key] with [^NEW]
             main_content = re.sub(
-                rf'\[\^{old_num}\]',
+                rf'\[\^{re.escape(old_key)}\]',
                 f'[^{new_num}]',
                 main_content
             )
 
-        # Renumber and collect citation definitions
+        # Collect citation definitions (keep FIRST definition per citation number)
         if citations_section:
-            for old_num, new_num in section_map.items():
-                # Find citation definition lines
-                citation_pattern = rf'\[\^{old_num}\]:.*?(?=\[\^|\Z)'
+            for old_key, new_num in section_map.items():
+                # Skip if we already have a definition for this citation number
+                # This handles canonical citations like [^deck] that appear in multiple sections
+                if new_num in citation_definitions:
+                    continue
+
+                # Find citation definition lines (handles multi-line definitions)
+                citation_pattern = rf'\[\^{re.escape(old_key)}\]:.*?(?=\n\[\^|\Z)'
                 matches = re.findall(citation_pattern, citations_section, re.DOTALL)
-                for match in matches:
-                    # Renumber the citation
-                    renumbered = re.sub(rf'\[\^{old_num}\]:', f'[^{new_num}]:', match.strip())
-                    if renumbered and renumbered not in all_citations:
-                        all_citations.append(renumbered)
+                if matches:
+                    # Renumber the citation definition
+                    renumbered = re.sub(
+                        rf'\[\^{re.escape(old_key)}\]:',
+                        f'[^{new_num}]:',
+                        matches[0].strip()
+                    )
+                    citation_definitions[new_num] = renumbered
 
         # Add section to combined content (WITHOUT citations block)
         combined_content += f"## {section_num}. {section_name}\n\n{main_content}\n\n---\n\n"
+
+    # Sort citations by number and build final list
+    all_citations = [citation_definitions[num] for num in sorted(citation_definitions.keys())]
 
     # Add ONE consolidated citation block at the end
     if all_citations:

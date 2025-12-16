@@ -222,6 +222,10 @@ def polish_section_research(
     # Count citations before polishing
     citations_before = len(set(re.findall(r'\[\^(\d+)\]', research_content)))
 
+    # Find any embedded images in the research content
+    image_embeds = re.findall(r'!\[([^\]]*)\]\(([^)]+)\)', research_content)
+    has_images = len(image_embeds) > 0
+
     # Build mode guidance
     mode_guidance = ""
     if memo_mode == "justify":
@@ -276,7 +280,14 @@ CITATION PRESERVATION (CRITICAL - WILL BE VALIDATED):
 - DO NOT renumber citations
 - If a sentence has multiple citations [^1] [^2], keep ALL of them
 - INCLUDE the complete "### Citations" section at the end
-
+{"" if not has_images else f'''
+IMAGE PRESERVATION (CRITICAL):
+- PRESERVE ALL {len(image_embeds)} IMAGE EMBED(S) EXACTLY - DO NOT REMOVE ANY
+- Keep image format: ![description](absolute/path/to/image.png)
+- Place each image at the TOP of the section, before the text content
+- These are screenshots from the company's pitch deck - they add credibility
+- DO NOT modify the image paths
+'''}
 STYLE GUIDANCE:
 {style_guide[:1000]}
 
@@ -294,6 +305,7 @@ WHAT YOU CANNOT DO:
 - Add new factual claims without citations
 - Change specific numbers or dates
 - Consolidate multiple citations into one
+- Remove or modify image embeds ![...](...)
 
 VALIDATION: Your output will be checked to ensure ALL {citations_before} citations are preserved. If any are missing, the output will be rejected.
 
@@ -340,6 +352,36 @@ Output the polished section content (no section header "## {section_def.number}.
     if "### Citations" not in polished_content:
         print(f"      ⚠️  WARNING: Citation list missing! Using original research")
         return research_content
+
+    # Validate citation DEFINITIONS exist (not just the header)
+    # Count definitions in original research
+    defs_before = len(re.findall(r'^\[\^[a-zA-Z0-9_]+\]:', research_content, re.MULTILINE))
+    defs_after = len(re.findall(r'^\[\^[a-zA-Z0-9_]+\]:', polished_content, re.MULTILINE))
+
+    if defs_before > 0 and defs_after == 0:
+        print(f"      ⚠️  WARNING: Citation definitions lost! Before: {defs_before}, After: {defs_after}")
+        print(f"      Using original research content to preserve citations")
+        return research_content
+
+    if defs_after < defs_before * 0.5:  # Lost more than half
+        print(f"      ⚠️  WARNING: Too many citation definitions lost! Before: {defs_before}, After: {defs_after}")
+        print(f"      Using original research content to preserve citations")
+        return research_content
+
+    # Validate images preserved (if any existed)
+    if has_images:
+        images_after = re.findall(r'!\[([^\]]*)\]\(([^)]+)\)', polished_content)
+        if len(images_after) < len(image_embeds):
+            print(f"      ⚠️  WARNING: Image embeds lost! Before: {len(image_embeds)}, After: {len(images_after)}")
+            # Prepend missing images to the content
+            missing_images = []
+            after_paths = {path for _, path in images_after}
+            for desc, path in image_embeds:
+                if path not in after_paths:
+                    missing_images.append(f"![{desc}]({path})")
+            if missing_images:
+                print(f"      Restoring {len(missing_images)} missing image embed(s)")
+                polished_content = "\n\n".join(missing_images) + "\n\n" + polished_content
 
     return polished_content
 

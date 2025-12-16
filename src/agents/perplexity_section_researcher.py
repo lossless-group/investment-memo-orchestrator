@@ -22,6 +22,109 @@ from ..artifacts import sanitize_filename
 from ..versioning import VersionManager
 
 
+def fix_duplicate_citation_keys(content: str) -> str:
+    """
+    Fix duplicate citation keys in Perplexity research output.
+
+    Perplexity often outputs multiple definitions with the same key:
+        [^3]: Source A...
+        [^3]: Source B...
+        [^3]: Source C...
+
+    This function:
+    1. Renumbers them to be unique sequential keys: [^3], [^4], [^5]
+    2. EXPANDS inline [^3] references to [^3] [^4] [^5] (all sources for that claim)
+
+    Args:
+        content: Research content with potentially duplicate citation keys
+
+    Returns:
+        Content with unique sequential citation keys and expanded inline refs
+    """
+    # Split into main content and citations section
+    if "### Citations" not in content:
+        return content
+
+    parts = content.split("### Citations", 1)
+    main_content = parts[0]
+    citations_section = parts[1] if len(parts) > 1 else ""
+
+    # Find all citation definitions (including [^deck] and numeric)
+    # Pattern: [^key]: followed by content until next [^ or end
+    citation_pattern = r'\[\^([a-zA-Z0-9_]+)\]:([^\[]*?)(?=\[\^|\Z)'
+    matches = re.findall(citation_pattern, citations_section, re.DOTALL)
+
+    if not matches:
+        return content
+
+    # Build new citation list with unique keys
+    # Track which old keys map to which NEW keys (one old key -> multiple new keys)
+    new_citations = []
+    key_expansion = {}  # old_key -> [list of new_keys]
+    next_num = 1
+    seen_definitions = {}  # Track by definition text to detect true duplicates
+
+    for key, definition in matches:
+        definition = definition.strip()
+        if not definition:
+            continue
+
+        # Keep [^deck] as-is (canonical citation)
+        if key == "deck":
+            if "deck" not in key_expansion:
+                new_citations.append(f"[^deck]: {definition}")
+                key_expansion["deck"] = ["deck"]
+            continue
+
+        # Check if this exact definition was already seen (true duplicate)
+        def_hash = definition[:100]  # Use first 100 chars as hash
+        if def_hash in seen_definitions:
+            # True duplicate - don't add again, but track the mapping
+            existing_new_key = seen_definitions[def_hash]
+            if key not in key_expansion:
+                key_expansion[key] = [existing_new_key]
+            elif existing_new_key not in key_expansion[key]:
+                key_expansion[key].append(existing_new_key)
+        else:
+            # New unique citation - assign new sequential number
+            new_key = str(next_num)
+            new_citations.append(f"[^{new_key}]: {definition}")
+            seen_definitions[def_hash] = new_key
+
+            # Add to expansion map
+            if key not in key_expansion:
+                key_expansion[key] = [new_key]
+            else:
+                key_expansion[key].append(new_key)
+
+            next_num += 1
+
+    # Update inline citations in main content
+    # When old [^3] maps to new [^3], [^4], [^5], expand to "[^3] [^4] [^5]"
+    # Process longer keys first to avoid partial matches
+    for old_key in sorted(key_expansion.keys(), key=len, reverse=True):
+        new_keys = key_expansion[old_key]
+        if len(new_keys) == 1 and new_keys[0] == old_key:
+            # No change needed
+            continue
+
+        # Build expanded citation string
+        expanded = " ".join(f"[^{k}]" for k in new_keys)
+
+        # Replace inline citations
+        main_content = re.sub(
+            rf'\[\^{re.escape(old_key)}\]',
+            expanded,
+            main_content
+        )
+
+    # Rebuild content with fixed citations
+    fixed_content = main_content.rstrip() + "\n\n### Citations\n\n"
+    fixed_content += "\n\n".join(new_citations)
+
+    return fixed_content
+
+
 # Perplexity Research System Prompt
 PERPLEXITY_RESEARCH_SYSTEM_PROMPT = """You are an investment research specialist gathering facts for investment memos.
 
@@ -365,7 +468,11 @@ Write the ACTUAL CONTENT for the "{section_def.name}" section now.
             )
             research_content = retry_response.choices[0].message.content
 
-        # Count citations
+        # Fix duplicate citation keys from Perplexity
+        # Perplexity often outputs multiple [^3]: definitions - we need unique sequential keys
+        research_content = fix_duplicate_citation_keys(research_content)
+
+        # Count citations after fixing
         citations = re.findall(r'\[\^(\d+)\]', research_content)
         citation_count = len(set(citations))
 
