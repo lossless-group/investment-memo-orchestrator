@@ -1,148 +1,247 @@
 """
-Citation-Enrichment Agent - Adds inline academic citations to memo sections.
+Citation-Enrichment Agent - Adds additional inline citations to research files.
 
-This agent takes well-written content from the Writer agent and enriches it with
-properly formatted inline citations [^1], [^2], etc. using Perplexity's research
-capabilities, without rewriting or altering the narrative.
+IMPORTANT: This agent operates on 1-research/ files (NOT 2-sections/) so that any
+new citations become part of the source material that flows through the writer.
+
+This agent PRESERVES all existing content and citations. It only ADDS new citations
+to uncited factual claims - it never removes or overwrites existing content.
+
+The workflow is:
+1. Extract existing citations from research file
+2. Find the highest citation number
+3. Ask Perplexity to add NEW citations starting from N+1
+4. Merge Perplexity's additions with existing content
+5. Save enriched research back to file
 """
 
 from langchain_core.messages import HumanMessage, SystemMessage
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Set
 import re
 
 from ..state import MemoState
 
 
-CITATION_ENRICHMENT_SYSTEM_PROMPT = """You are a citation specialist for investment memos.
+def extract_existing_citations(content: str) -> Tuple[Set[str], int, str, str]:
+    """
+    Extract existing citations from content.
 
-Your ONLY job is to add inline citations to existing content.
+    Args:
+        content: Markdown content with potential citations
 
-CRITICAL RULES:
-1. DO NOT rewrite or change the narrative
-2. DO NOT alter the author's voice or phrasing
-3. DO NOT add new information or change existing claims
-4. ONLY insert [^1], [^2], [^3], etc. citations to support existing factual claims
-5. Find authoritative sources for each factual claim from quality industry sources:
-   - Company websites, blogs, and press releases
-   - TechCrunch, The Information, Sifted, Protocol, Axios
-   - Medium articles from credible authors
-   - Crunchbase, PitchBook (for funding data)
-   - SEC filings, S-1s, investor letters
-   - Industry analyst reports (Gartner, CB Insights, McKinsey, etc.)
-   - News outlets (Bloomberg, Reuters, WSJ, FT)
-   - Academic papers only when relevant for technical claims
-6. EVERY citation MUST include the full URL wrapped as a markdown link in the title
-7. Generate a comprehensive citation list at the end in this exact format:
+    Returns:
+        Tuple of:
+        - Set of existing citation keys (e.g., {'1', '2', 'deck'})
+        - Highest numeric citation number (0 if none)
+        - Main content (before ### Citations)
+        - Existing citations section (after ### Citations)
+    """
+    # Split content from citations section
+    parts = content.split("### Citations")
+    main_content = parts[0].strip() if parts else content.strip()
+    citations_section = parts[1].strip() if len(parts) > 1 else ""
 
-### Citations
+    # Find all citation keys in inline references
+    inline_refs = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', main_content))
 
-[^1]: YYYY, MMM DD. Author Name. [Source Title](https://full-url-here.com). Publisher or Outlet Name.Published: YYYY-MM-DD | Updated: YYYY-MM-DD
+    # Find all citation keys in definitions
+    definition_keys = set(re.findall(r'^\[\^([a-zA-Z0-9_]+)\]:', citations_section, re.MULTILINE))
 
-[^2]: YYYY, MMM DD. Author Name. [Source Title](https://full-url-here.com). Publisher or Outlet Name. Published: YYYY-MM-DD | Updated: N/A
+    all_keys = inline_refs | definition_keys
 
-IMPORTANT FORMATTING:
-- DD must ALWAYS be two digits with zero-padding (e.g., "Jan 08" not "Jan 8", "Mar 03" not "Mar 3")
-- ALWAYS wrap the title in a markdown link: [Title](URL) - this makes the source clickable
-- Publisher or Outlet Name should be included after the title, if available.
-- Author Name is mostly relevant for articles or blog posts, not press releases or company websites. So, use judgement call when including it.
-- ALWAYS include "Updated:" field - use "Updated: N/A" if source has no update date
-- ALWAYS include "Published:" field with actual date
-- The format MUST be: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD | Updated: YYYY-MM-DD or N/A
-- DO NOT add "URL: https://..." at the end - the URL goes inside the markdown link
-- No space before colon in "[^1]:"
-- Exactly one space after colon before text begins
+    # Find highest numeric citation
+    highest_num = 0
+    for key in all_keys:
+        try:
+            num = int(key)
+            if num > highest_num:
+                highest_num = num
+        except ValueError:
+            pass  # Non-numeric key like 'deck'
 
-WHAT TO CITE:
-- Funding amounts and rounds (cite Crunchbase, PitchBook, press releases)
-- Company founding date, location, team info (cite company website, LinkedIn, Crunchbase, early media coverage)
-- Market sizing and TAM figures (cite industry reports, analyst firms, gold standard journalism sources like Wall Street Journal, Financial Times, etc)
-- Technical specifications and product details (cite company announcements, technical docs)
-- Traction metrics and milestones (cite company blog, press releases, news articles, included RAG materials)
-- Investor names and details (cite funding announcements, Crunchbase)
-- Competitive landscape claims (cite company websites, industry analysis)
-
-CITATION PLACEMENT (OBSIDIAN MARKDOWN FORMAT):
-- Place citation AFTER punctuation when punctuation exists: "raised $136M. [^1]" NOT "raised $136M[^1]."
-- Always include exactly ONE SPACE before each citation marker: "claim. [^1] [^2]" NOT "claim.[^1][^2]"
-- Multiple citations: "text. [^1] [^2] [^3]" with one space before each
-- In bullet points without ending punctuation: "- Bullet item [^1]" (one space before citation)
-- Examples:
-  CORRECT: "The company raised $136M. [^1]"
-  CORRECT: "Founded in 2023 by Jane Doe. [^1] [^2]"
-  CORRECT: "- Strategic partnership with Acme Corp [^3]"
-  WRONG: "The company raised $136M[^1]."
-  WRONG: "Founded in 2023.[^1][^2]"
-
-OUTPUT FORMAT:
-Return the content with inline citations added, followed by:
-
-### Citations
-
-[citation list in the format above with URLs]
-
-Remember: Your goal is to add scholarly rigor WITHOUT changing what was written. ALWAYS include URLs in the citation list."""
+    return all_keys, highest_num, main_content, citations_section
 
 
-def enrich_section_with_citations(
-    section_content: str,
+def build_enrichment_prompt(
+    content: str,
+    section_name: str,
+    company_name: str,
+    existing_keys: Set[str],
+    start_from: int
+) -> str:
+    """
+    Build a prompt that instructs Perplexity to ADD citations without changing existing content.
+
+    Args:
+        content: The research content to enrich
+        section_name: Name of the section
+        company_name: Company name
+        existing_keys: Set of existing citation keys to preserve
+        start_from: Number to start new citations from
+
+    Returns:
+        Prompt string for Perplexity
+    """
+    existing_list = ", ".join(sorted(existing_keys)) if existing_keys else "none"
+
+    return f"""You are enriching research content for {company_name} with additional citations.
+
+CRITICAL PRESERVATION RULES:
+1. DO NOT rewrite, rephrase, or modify ANY existing text
+2. DO NOT remove or change ANY existing citations [{existing_list}]
+3. DO NOT add citations to claims that already have citations
+4. ONLY add NEW citations to UNCITED factual claims
+
+CITATION NUMBERING:
+- Existing citations: {existing_list}
+- Start NEW citations from: [^{start_from}]
+- Number sequentially: [^{start_from}], [^{start_from + 1}], [^{start_from + 2}], etc.
+
+WHAT TO CITE (if not already cited):
+- Market size and TAM figures
+- Company founding date, location, team info
+- Funding amounts and investor names
+- Technical specifications and product details
+- Traction metrics and milestones
+- Competitive landscape claims
+
+CITATION FORMAT:
+- Inline: Place AFTER punctuation with space: "text. [^{start_from}]"
+- Definition: [^N]: YYYY, MMM DD. [Title](https://url.com). Publisher. Published: YYYY-MM-DD | Updated: N/A
+
+OUTPUT REQUIREMENTS:
+1. Return the COMPLETE content with new citations added (preserve ALL existing text exactly)
+2. End with "### New Citations" header followed by ONLY the NEW citation definitions
+3. Do NOT include existing citations in the New Citations section
+
+RESEARCH CONTENT TO ENRICH:
+{content}
+
+Return the enriched content with new citations added to uncited claims, then a "### New Citations" section with only the new definitions."""
+
+
+def enrich_research_with_citations(
+    research_content: str,
     section_name: str,
     company_name: str,
     perplexity_client
 ) -> str:
     """
-    Enrich a single section with citations.
+    Enrich research content with additional citations while preserving existing ones.
 
     Args:
-        section_content: Section content to enrich
+        research_content: Research content to enrich
         section_name: Name of the section
         company_name: Company name
         perplexity_client: Perplexity API client
 
     Returns:
-        Section content with citations added
+        Research content with additional citations merged in
     """
-    user_prompt = f"""Add inline citations to this {section_name} section for {company_name}.
+    # Extract existing citations
+    existing_keys, highest_num, main_content, existing_citations = extract_existing_citations(research_content)
+    start_from = highest_num + 1
 
-CRITICAL:
-1. Do NOT rewrite - only add [^1], [^2] citations
-2. Place citations AFTER punctuation with space: "text. [^1]"
-3. Multiple citations separated by space: "text. [^1] [^2]"
-4. EVERY citation MUST have URL wrapped in markdown link
-5. Format: [^1]: YYYY, MMM DD. [Title](https://url.com). Published: YYYY-MM-DD | Updated: N/A
+    print(f"      Existing citations: {len(existing_keys)} (highest: {highest_num})")
+    print(f"      New citations will start from: [^{start_from}]")
 
-SECTION:
-{section_content}
-
-Return same content with citations added, plus citation list at end."""
+    # Build prompt
+    prompt = build_enrichment_prompt(
+        content=research_content,
+        section_name=section_name,
+        company_name=company_name,
+        existing_keys=existing_keys,
+        start_from=start_from
+    )
 
     try:
         response = perplexity_client.chat.completions.create(
             model="sonar-pro",
             messages=[
-                {"role": "system", "content": CITATION_ENRICHMENT_SYSTEM_PROMPT[:2000]},
-                {"role": "user", "content": user_prompt}
+                {"role": "system", "content": "You are a citation specialist. Your job is to ADD citations to uncited claims while preserving ALL existing content exactly as written."},
+                {"role": "user", "content": prompt}
             ],
-            max_tokens=6000,
-            temperature=0.3
+            max_tokens=8000,
+            temperature=0.2
         )
-        return response.choices[0].message.content
+        enriched = response.choices[0].message.content
+
+        # Validate that existing citations are preserved
+        new_keys, _, new_main, new_citations = extract_existing_citations(enriched)
+
+        missing_keys = existing_keys - new_keys
+        if missing_keys:
+            print(f"      WARNING: Perplexity removed citations: {missing_keys}")
+            print(f"      Falling back to original content")
+            return research_content
+
+        # Count new citations added
+        added_keys = new_keys - existing_keys
+        print(f"      Added {len(added_keys)} new citations")
+
+        # Merge citations: existing + new
+        # Extract new citation definitions from Perplexity response
+        new_citation_defs = ""
+        if "### New Citations" in enriched:
+            new_citation_defs = enriched.split("### New Citations")[1].strip()
+            enriched = enriched.split("### New Citations")[0].strip()
+        elif "### Citations" in enriched:
+            # Perplexity might use regular Citations header
+            enriched_parts = enriched.split("### Citations")
+            if len(enriched_parts) > 1:
+                new_main = enriched_parts[0].strip()
+                potential_new_defs = enriched_parts[1].strip()
+                # Only take definitions that are NEW (not in existing_keys)
+                new_def_lines = []
+                for line in potential_new_defs.split('\n'):
+                    match = re.match(r'\[\^([a-zA-Z0-9_]+)\]:', line)
+                    if match:
+                        key = match.group(1)
+                        if key not in existing_keys:
+                            new_def_lines.append(line)
+                    elif new_def_lines and line.strip():
+                        # Continuation of previous definition
+                        new_def_lines.append(line)
+                new_citation_defs = '\n'.join(new_def_lines)
+                enriched = new_main
+
+        # Rebuild final content with merged citations
+        final_content = enriched.strip()
+
+        # Add citations section with existing + new
+        all_citations = existing_citations.strip() if existing_citations else ""
+        if new_citation_defs:
+            if all_citations:
+                all_citations += "\n\n" + new_citation_defs.strip()
+            else:
+                all_citations = new_citation_defs.strip()
+
+        if all_citations:
+            final_content += "\n\n---\n\n### Citations\n\n" + all_citations
+
+        return final_content
+
     except Exception as e:
-        print(f"  Warning: Citation enrichment failed for {section_name}: {e}")
-        return section_content  # Return original if enrichment fails
+        print(f"      Warning: Citation enrichment failed: {e}")
+        return research_content  # Return original if enrichment fails
 
 
 def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     """
-    Citation-Enrichment Agent - SECTION-BY-SECTION.
+    Citation-Enrichment Agent - Enriches 1-research/ files with additional citations.
 
-    Enriches each section independently with citations by loading from section files.
+    This agent operates on research files (NOT sections) so that new citations
+    become part of the source material that flows through the writer to sections.
+
+    PRESERVATION: This agent preserves ALL existing content and citations.
+    It only ADDS new citations to uncited factual claims.
 
     Args:
         state: Current memo state
 
     Returns:
-        Updated state with citation-enriched sections
+        Updated state with enrichment results
     """
     company_name = state["company_name"]
     firm = state.get("firm")
@@ -175,212 +274,76 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
             "messages": ["Citation enrichment skipped - openai package not installed"]
         }
 
-    # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
+    # Get output directory
     try:
         output_dir = get_output_dir_from_state(state)
-        sections_dir = output_dir / "2-sections"
+        research_dir = output_dir / "1-research"
     except FileNotFoundError:
         print("Warning: No output directory found, skipping citation enrichment")
         return {"messages": ["Citation enrichment skipped - no output directory"]}
 
-    if not sections_dir.exists():
-        print("Warning: No sections directory found, skipping citation enrichment")
-        return {"messages": ["Citation enrichment skipped - no sections found"]}
+    if not research_dir.exists():
+        print("Warning: No research directory found, skipping citation enrichment")
+        return {"messages": ["Citation enrichment skipped - no research found"]}
 
-    print(f"\n📚 Enriching citations section-by-section...")
+    print(f"\n📚 Enriching research files with additional citations...")
+    print(f"   (Preserving all existing content and citations)")
 
-    # Load all section files
-    section_files = sorted(sections_dir.glob("*.md"))
-    sections_data = []  # Store (section_num, section_name, enriched_content)
-    total_citations_before_renumber = 0
+    # Load all research files
+    research_files = sorted(research_dir.glob("*-research.md"))
 
-    # Check if using 12Ps outline (scorecard section will be generated separately)
-    outline_name = state.get("outline_name", "")
-    is_12ps_outline = "12Ps" in outline_name or "12ps" in outline_name
+    if not research_files:
+        print("Warning: No research files found")
+        return {"messages": ["Citation enrichment skipped - no research files"]}
 
-    for section_file in section_files:
-        section_name = section_file.stem.split("-", 1)[1].replace("--", " & ").replace("-", " ").title()
+    total_citations_added = 0
+    files_enriched = 0
 
-        # Skip scorecard section for 12Ps outlines - it will be replaced by scorecard agent
-        if is_12ps_outline and ("scorecard" in section_file.stem.lower() or section_file.stem.startswith("08-")):
-            print(f"  ⏭️  Skipping {section_name} (will be replaced by scorecard agent)")
-            # Still include in sections_data for final assembly
-            with open(section_file) as f:
-                section_content = f.read()
-            section_num = section_file.stem.split("-")[0]
-            sections_data.append((section_num, section_name, section_content))
-            continue
+    for research_file in research_files:
+        section_name = research_file.stem.replace("-research", "").split("-", 1)
+        section_name = section_name[1] if len(section_name) > 1 else section_name[0]
+        section_name = section_name.replace("-", " ").title()
 
-        print(f"  Enriching citations: {section_name}...")
+        print(f"  Enriching: {section_name}...")
 
-        # Read section
-        with open(section_file) as f:
-            section_content = f.read()
+        # Read research file
+        with open(research_file) as f:
+            research_content = f.read()
 
-        # Enrich with citations
-        enriched_section = enrich_section_with_citations(
-            section_content=section_content,
+        # Count existing citations
+        existing_keys, _, _, _ = extract_existing_citations(research_content)
+        citations_before = len(existing_keys)
+
+        # Enrich with citations (preserving existing)
+        enriched_content = enrich_research_with_citations(
+            research_content=research_content,
             section_name=section_name,
             company_name=company_name,
             perplexity_client=perplexity_client
         )
 
-        # Save enriched section back
-        with open(section_file, "w") as f:
-            f.write(enriched_section)
+        # Count new citations
+        new_keys, _, _, _ = extract_existing_citations(enriched_content)
+        citations_after = len(new_keys)
+        citations_added = citations_after - citations_before
 
-        # Store for global renumbering
-        section_num = section_file.stem.split("-")[0]
-        sections_data.append((section_num, section_name, enriched_section))
+        if citations_added > 0:
+            # Save enriched research back
+            with open(research_file, "w") as f:
+                f.write(enriched_content)
 
-        # Count citations (before renumbering)
-        section_cites = len(re.findall(r'\[\^[0-9]+\]', enriched_section))
-        total_citations_before_renumber += section_cites
-        print(f"  ✓ {section_name}: {section_cites} citations added")
+            total_citations_added += citations_added
+            files_enriched += 1
+            print(f"    ✓ Added {citations_added} citations (total: {citations_after})")
+        else:
+            print(f"    - No new citations added (existing: {citations_before})")
 
-    # Renumber citations globally across all sections
-    print(f"\n🔢 Renumbering citations globally across all sections...")
-
-    # Check if header.md exists (created by trademark enrichment agent)
-    header_file = output_dir / "header.md"
-    if header_file.exists():
-        with open(header_file) as f:
-            header_content = f.read()
-        enriched_content = header_content + "\n"
-    else:
-        enriched_content = f"# Investment Memo: {company_name}\n\n"
-
-    enriched_content += renumber_citations_globally(sections_data)
-
-    # Save enriched final draft with globally renumbered citations
-    from ..final_draft import write_final_draft
-    final_draft_path = write_final_draft(output_dir, enriched_content)
-
-    # Count unique citations after renumbering
-    total_citations_after = len(set(re.findall(r'\[\^(\d+)\]', enriched_content)))
-    print(f"✓ Citation renumbering complete: {total_citations_after} unique citations (from {total_citations_before_renumber} section citations)")
-
-    # Update state
-    from ..state import SectionDraft
-    enriched_sections = {
-        "full_memo": SectionDraft(
-            section_name="full_memo",
-            content=enriched_content,
-            word_count=len(enriched_content.split()),
-            citations=extract_citation_count(enriched_content)
-        )
-    }
+    summary = f"Citation enrichment complete: {total_citations_added} citations added across {files_enriched} files"
+    print(f"\n✓ {summary}")
 
     return {
-        "draft_sections": enriched_sections,
-        "messages": [f"Citations added to memo for {company_name}: {total_citations_after} unique citations"]
+        "messages": [summary]
     }
-
-
-def renumber_citations_globally(sections_data: list) -> str:
-    """
-    Renumber citations globally across all sections and consolidate into ONE citation block.
-
-    Each section comes with its own citations (both numeric like [^1] and
-    alphanumeric like [^deck], [^ehrtime]). This function:
-    1. Renumbers ALL citations sequentially across the entire memo
-    2. Strips citation blocks from individual sections
-    3. Consolidates all citations into ONE block at the end
-
-    Special handling for canonical citations like [^deck]:
-    - Same key across sections maps to ONE citation number
-    - Only the FIRST definition encountered is kept (no duplicates)
-
-    Args:
-        sections_data: List of tuples (section_num, section_name, section_content)
-
-    Returns:
-        Combined content with globally renumbered citations and ONE citation block
-    """
-    combined_content = ""
-    citation_definitions = {}  # Map citation number -> definition (keeps first only)
-    citation_counter = 1
-    global_citation_map = {}  # Track citation key -> number across sections
-
-    # Process each section
-    for idx, (section_num, section_name, section_content) in enumerate(sections_data):
-        # Split content from citations
-        parts = section_content.split("### Citations")
-        main_content = parts[0].strip() if parts else section_content.strip()
-        citations_section = parts[1].strip() if len(parts) > 1 else ""
-
-        # Strip leading # header from section content (we add our own numbered header)
-        # Matches: "# Section Name" or "# Section Name\n" at the start
-        main_content = re.sub(r'^#\s+[^\n]+\n*', '', main_content, count=1).strip()
-
-        # Demote subsection headers: ## -> ### (since we add ## for main section header)
-        # This ensures proper hierarchy: ## Section Name > ### Subsection
-        main_content = re.sub(r'^## ', '### ', main_content, flags=re.MULTILINE)
-
-        # Find ALL citation keys in this section's content (both numeric and alphanumeric)
-        # Matches: [^1], [^deck], [^ehrtime], [^3b], etc.
-        old_citations = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', main_content))
-
-        # Create mapping for this section's citations
-        section_map = {}
-        # Sort: numeric first (by value), then alphanumeric (alphabetically)
-        def sort_key(x):
-            try:
-                return (0, int(x), '')
-            except ValueError:
-                return (1, 0, x)
-
-        for old_key in sorted(old_citations, key=sort_key):
-            # Check if we've already assigned a number to this citation key globally
-            if old_key not in global_citation_map:
-                global_citation_map[old_key] = citation_counter
-                citation_counter += 1
-            section_map[old_key] = global_citation_map[old_key]
-
-        # Renumber inline citations in main content
-        # Process longer keys first to avoid partial replacements (e.g., [^3b] before [^3])
-        for old_key in sorted(section_map.keys(), key=len, reverse=True):
-            new_num = section_map[old_key]
-            # Replace inline citations [^key] with [^NEW]
-            main_content = re.sub(
-                rf'\[\^{re.escape(old_key)}\]',
-                f'[^{new_num}]',
-                main_content
-            )
-
-        # Collect citation definitions (keep FIRST definition per citation number)
-        if citations_section:
-            for old_key, new_num in section_map.items():
-                # Skip if we already have a definition for this citation number
-                # This handles canonical citations like [^deck] that appear in multiple sections
-                if new_num in citation_definitions:
-                    continue
-
-                # Find citation definition lines (handles multi-line definitions)
-                citation_pattern = rf'\[\^{re.escape(old_key)}\]:.*?(?=\n\[\^|\Z)'
-                matches = re.findall(citation_pattern, citations_section, re.DOTALL)
-                if matches:
-                    # Renumber the citation definition
-                    renumbered = re.sub(
-                        rf'\[\^{re.escape(old_key)}\]:',
-                        f'[^{new_num}]:',
-                        matches[0].strip()
-                    )
-                    citation_definitions[new_num] = renumbered
-
-        # Add section to combined content (WITHOUT citations block)
-        combined_content += f"## {section_num}. {section_name}\n\n{main_content}\n\n---\n\n"
-
-    # Sort citations by number and build final list
-    all_citations = [citation_definitions[num] for num in sorted(citation_definitions.keys())]
-
-    # Add ONE consolidated citation block at the end
-    if all_citations:
-        combined_content += "### Citations\n\n"
-        combined_content += "\n\n".join(all_citations)
-        combined_content += "\n"
-
-    return combined_content
 
 
 def extract_citation_count(content: str) -> list:

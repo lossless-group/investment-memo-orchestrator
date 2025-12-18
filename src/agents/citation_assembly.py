@@ -31,20 +31,23 @@ def extract_inline_citations(content: str) -> List[str]:
     """
     Extract all inline citation references from content in order of appearance.
 
+    Handles both numeric ([^1], [^2]) and alphanumeric ([^deck], [^ehrtime]) citations.
+
     Args:
         content: Markdown content
 
     Returns:
-        List of citation numbers (as strings) in order of first appearance
+        List of citation keys (as strings) in order of first appearance
     """
     seen = set()
     ordered = []
 
-    for match in re.finditer(r'\[\^(\d+)\](?!:)', content):
-        num = match.group(1)
-        if num not in seen:
-            seen.add(num)
-            ordered.append(num)
+    # Match both numeric and alphanumeric citation keys
+    for match in re.finditer(r'\[\^([a-zA-Z0-9_]+)\](?!:)', content):
+        key = match.group(1)
+        if key not in seen:
+            seen.add(key)
+            ordered.append(key)
 
     return ordered
 
@@ -53,21 +56,24 @@ def extract_citation_definitions(content: str) -> Dict[str, str]:
     """
     Extract all citation definitions from content.
 
+    Handles both numeric ([^1]:) and alphanumeric ([^deck]:) definitions.
+
     Args:
         content: Markdown content
 
     Returns:
-        Dict mapping citation number to full definition text
+        Dict mapping citation key to full definition text
     """
     definitions = {}
 
-    # Match citation definitions: [^N]: ... (until next [^ or end of content)
-    pattern = r'^\[\^(\d+)\]:\s*(.+?)(?=^\[\^|\Z)'
+    # Match citation definitions: [^key]: ... (until next [^ or end of content)
+    # Handles numeric and alphanumeric keys
+    pattern = r'^\[\^([a-zA-Z0-9_]+)\]:\s*(.+?)(?=^\[\^|\Z)'
 
     for match in re.finditer(pattern, content, re.MULTILINE | re.DOTALL):
-        num = match.group(1)
+        key = match.group(1)
         text = match.group(2).strip()
-        definitions[num] = text
+        definitions[key] = text
 
     return definitions
 
@@ -76,27 +82,29 @@ def remove_citation_definitions_from_content(content: str) -> str:
     """
     Remove all citation definition blocks from content.
 
+    Handles both numeric ([^1]:) and alphanumeric ([^deck]:) definitions.
+
     Args:
         content: Markdown content
 
     Returns:
         Content with citation definitions removed
     """
-    # Remove citation definitions (lines starting with [^N]:)
+    # Remove citation definitions (lines starting with [^key]:)
     lines = content.split('\n')
     filtered = []
     in_citation_block = False
 
     for line in lines:
-        # Check if this line starts a citation definition
-        if re.match(r'^\[\^\d+\]:', line):
+        # Check if this line starts a citation definition (numeric or alphanumeric)
+        if re.match(r'^\[\^[a-zA-Z0-9_]+\]:', line):
             in_citation_block = True
             continue
 
         # Check if we're continuing a multi-line citation
         if in_citation_block:
             # If line is empty or starts with new citation, stay in block
-            if line.strip() == '' or re.match(r'^\[\^\d+\]:', line):
+            if line.strip() == '' or re.match(r'^\[\^[a-zA-Z0-9_]+\]:', line):
                 continue
             # If line starts with content (not indented continuation), exit block
             if not line.startswith(' ') and not line.startswith('\t'):
@@ -111,16 +119,24 @@ def remove_citation_definitions_from_content(content: str) -> str:
     while filtered and filtered[-1].strip() == '':
         filtered.pop()
 
-    return '\n'.join(filtered)
+    result = '\n'.join(filtered)
+
+    # Remove empty "### Citations" header (with optional preceding ---)
+    result = re.sub(r'\n*---\n*### Citations\s*$', '', result, flags=re.MULTILINE)
+    result = re.sub(r'\n*### Citations\s*$', '', result, flags=re.MULTILINE)
+
+    return result.rstrip()
 
 
 def renumber_inline_citations(content: str, old_to_new: Dict[str, str]) -> str:
     """
     Renumber all inline citation references in content.
 
+    Handles both numeric and alphanumeric citation keys.
+
     Args:
         content: Markdown content
-        old_to_new: Mapping from old citation numbers to new ones
+        old_to_new: Mapping from old citation keys to new ones
 
     Returns:
         Content with renumbered citations
@@ -128,14 +144,21 @@ def renumber_inline_citations(content: str, old_to_new: Dict[str, str]) -> str:
     if not old_to_new:
         return content
 
-    # Sort by old number descending to avoid replacement conflicts
-    # (replace [^100] before [^10] before [^1])
-    for old_num in sorted(old_to_new.keys(), key=lambda x: int(x), reverse=True):
-        new_num = old_to_new[old_num]
-        # Replace inline references [^N] (not definitions [^N]:)
+    # Sort by key length descending to avoid replacement conflicts
+    # (replace [^deck] before [^1], and [^100] before [^10] before [^1])
+    def sort_key(key):
+        # Longer keys first, then by numeric value or alphabetically
+        try:
+            return (-len(key), int(key), '')
+        except ValueError:
+            return (-len(key), 0, key)
+
+    for old_key in sorted(old_to_new.keys(), key=sort_key):
+        new_key = old_to_new[old_key]
+        # Replace inline references [^key] (not definitions [^key]:)
         content = re.sub(
-            rf'\[\^{old_num}\](?!:)',
-            f'[^{new_num}]',
+            rf'\[\^{re.escape(old_key)}\](?!:)',
+            f'[^{new_key}]',
             content
         )
 
@@ -203,6 +226,7 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     """
     output_dir = Path(output_dir)
     sections_dir = output_dir / "2-sections"
+    research_dir = output_dir / "1-research"
     header_file = output_dir / "header.md"
 
     if not sections_dir.exists():
@@ -235,13 +259,23 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
             if num not in appearance_order:
                 appearance_order.append(num)
 
-        # Extract definitions
+        # Extract definitions from sections
         definitions = extract_citation_definitions(content)
         for num, text in definitions.items():
             if num not in all_definitions:
                 all_definitions[num] = text
 
         all_content_parts.append((section_file.name, content))
+
+    # Also collect definitions from 1-research/ as fallback source
+    # (definitions may have been stripped from sections in previous runs)
+    if research_dir.exists():
+        for research_file in sorted(research_dir.glob("*.md")):
+            content = research_file.read_text()
+            definitions = extract_citation_definitions(content)
+            for num, text in definitions.items():
+                if num not in all_definitions:
+                    all_definitions[num] = text
 
     total_citations = len(appearance_order)
     print(f"  📊 Found {total_citations} unique citations across {len(section_files)} sections")

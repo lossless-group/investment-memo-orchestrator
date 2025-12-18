@@ -506,30 +506,31 @@ def build_workflow() -> StateGraph:
     # ANTI-HALLUCINATION ARCHITECTURE:
     # Two validation gates ensure hallucinated citations never propagate:
     #
-    # GATE 1 (cleanup_research): After section_research, BEFORE writer
-    #   - Validates 1-research/ citations
-    #   - Writer receives ONLY clean research data
+    # GATE 1 (cleanup_research): After citation enrichment, BEFORE writer
+    #   - Citation enrichment adds citations to 1-research/ files (preserving existing)
+    #   - Cleanup validates ALL citations (existing + new)
+    #   - Writer receives ONLY clean research data with validated citations
     #
     # GATE 2 (cleanup_sections): After revise_summaries, BEFORE assembly
     #   - Validates 2-sections/ citations
-    #   - Catches any new hallucinations from citation enrichment
+    #   - Catches any issues from section processing
     #
     # Full sequence:
-    # Deck → Research → Section Research → [GATE 1] → Writer → Inject Deck Images →
-    # Enrichment → Citations → TOC → Revise → [GATE 2] → Assembly → Validation →
-    # Fact Check → Validate → Scorecard
+    # Deck → Research → Section Research → [CITE on 1-research/] → [GATE 1] → Writer →
+    # Inject Deck Images → Enrichment → TOC → Revise → [GATE 2] → Assembly →
+    # Validation → Fact Check → Validate → Scorecard
 
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "section_research")  # Generate section research with citations
-    workflow.add_edge("section_research", "cleanup_research")  # GATE 1: Clean research before writer
-    workflow.add_edge("cleanup_research", "draft")     # Writer receives CLEAN research
+    workflow.add_edge("section_research", "cite")      # Enrich research with additional citations (preserves existing)
+    workflow.add_edge("cite", "cleanup_research")      # GATE 1: Validate ALL citations before writer
+    workflow.add_edge("cleanup_research", "draft")     # Writer receives CLEAN, citation-enriched research
     workflow.add_edge("draft", "inject_deck_images")  # Inject deck screenshots into 2-sections/
     workflow.add_edge("inject_deck_images", "enrich_trademark")  # Then insert company trademark
     workflow.add_edge("enrich_trademark", "enrich_socials")
     workflow.add_edge("enrich_socials", "enrich_links")
     workflow.add_edge("enrich_links", "enrich_visualizations")
-    workflow.add_edge("enrich_visualizations", "cite")
-    workflow.add_edge("cite", "toc")  # Generate TOC after citations assembled
+    workflow.add_edge("enrich_visualizations", "toc")  # Generate TOC (cite now runs earlier on research)
     workflow.add_edge("toc", "revise_summaries")  # Revise bookend sections based on complete draft
     workflow.add_edge("revise_summaries", "cleanup_sections")  # GATE 2: Clean sections before assembly
     workflow.add_edge("cleanup_sections", "assemble_citations")  # Consolidate and renumber citations
