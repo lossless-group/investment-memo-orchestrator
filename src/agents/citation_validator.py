@@ -25,20 +25,52 @@ def citation_validator_agent(state: MemoState) -> Dict[str, Any]:
     Validates citations in the drafted memo for accuracy, accessibility, and consistency.
 
     Args:
-        state: Current memo state containing draft_sections with citations
+        state: Current memo state
 
     Returns:
         Updated state with citation_validation_results
     """
-    draft_sections = state.get("draft_sections", {})
-    if not draft_sections:
-        raise ValueError("No draft available. Citation enrichment must run first.")
+    from ..utils import get_latest_output_dir
 
     company_name = state["company_name"]
-    memo_content = draft_sections.get("full_memo", {}).get("content", "")
+    firm = state.get("firm")
 
-    if not memo_content:
-        raise ValueError("Draft memo content is empty.")
+    # Read from final draft file (new architecture stores sections in files, not state)
+    try:
+        output_dir = get_latest_output_dir(company_name, firm=firm)
+    except FileNotFoundError:
+        print("Warning: No output directory found, skipping citation validation")
+        return {
+            "citation_validation": {
+                "total_citations": 0,
+                "valid_citations": 0,
+                "issues": ["No output directory found"],
+                "warnings": []
+            },
+            "messages": ["Citation validation skipped: no output directory"]
+        }
+
+    # Find final draft file (could be 4-final-draft.md or 6-*.md)
+    final_draft_path = None
+    for pattern in ["6-*.md", "4-final-draft.md"]:
+        matches = list(output_dir.glob(pattern))
+        if matches:
+            final_draft_path = matches[0]
+            break
+
+    if not final_draft_path or not final_draft_path.exists():
+        print("Warning: No final draft found, skipping citation validation")
+        return {
+            "citation_validation": {
+                "total_citations": 0,
+                "valid_citations": 0,
+                "issues": ["No final draft found"],
+                "warnings": []
+            },
+            "messages": ["Citation validation skipped: no final draft"]
+        }
+
+    memo_content = final_draft_path.read_text()
 
     print(f"Validating citations for {company_name}...")
 

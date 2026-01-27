@@ -280,9 +280,9 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     total_citations = len(appearance_order)
     print(f"  📊 Found {total_citations} unique citations across {len(section_files)} sections")
 
+    # Even with 0 citations, we still need to assemble the final draft
     if total_citations == 0:
-        print("  ⚠️  No citations found to assemble")
-        return {"messages": ["Citation assembly: no citations found"]}
+        print("  ℹ️  No citations found - assembling draft without citations block")
 
     # Step 2: Build renumbering map (sequential starting at 1)
     old_to_new: Dict[str, str] = {}
@@ -351,12 +351,13 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     for section_file in section_files:
         final_parts.append(section_file.read_text())
 
-    # Add consolidated citation block
-    citation_block = format_citation_block(
-        renumbered_definitions,
-        sorted(renumbered_definitions.keys(), key=int)
-    )
-    final_parts.append(citation_block)
+    # Add consolidated citation block (only if there are citations)
+    if renumbered_definitions:
+        citation_block = format_citation_block(
+            renumbered_definitions,
+            sorted(renumbered_definitions.keys(), key=int)
+        )
+        final_parts.append(citation_block)
 
     # Write final draft
     final_content = '\n\n'.join(final_parts)

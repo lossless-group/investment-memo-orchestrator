@@ -207,7 +207,17 @@ def enrich_research_with_citations(
                 enriched = new_main
 
         # Rebuild final content with merged citations
+        # CRITICAL: Strip ALL citation sections from enriched content before adding merged block
+        # This handles cases where Perplexity includes existing citations in its output
         final_content = enriched.strip()
+
+        # Remove all existing "### Citations" sections and their content
+        while "### Citations" in final_content:
+            parts = final_content.split("### Citations", 1)
+            final_content = parts[0].rstrip()
+            # Also remove any preceding "---" separator
+            if final_content.endswith("---"):
+                final_content = final_content[:-3].rstrip()
 
         # Add citations section with existing + new
         all_citations = existing_citations.strip() if existing_citations else ""

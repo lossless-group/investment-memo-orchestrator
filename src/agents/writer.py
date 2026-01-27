@@ -219,8 +219,9 @@ def polish_section_research(
     """
     import re
 
-    # Count citations before polishing
-    citations_before = len(set(re.findall(r'\[\^(\d+)\]', research_content)))
+    # Count citations before polishing (alphanumeric keys like [^1], [^deck], [^source_name])
+    all_citations_before = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', research_content))
+    citations_before = len(all_citations_before)
 
     # Find any embedded images in the research content
     image_embeds = re.findall(r'!\[([^\]]*)\]\(([^)]+)\)', research_content)
@@ -274,12 +275,14 @@ SECTION REQUIREMENTS:
 
 CITATION PRESERVATION (CRITICAL - WILL BE VALIDATED):
 - PRESERVE ALL {citations_before} CITATIONS EXACTLY - DO NOT REMOVE ANY
-- Keep citation format: ". [^1]" (space before bracket, after punctuation)
-- Keep ALL citation numbers [^1] through [^{citations_before}]
+- Citations may be numeric [^1] or alphanumeric [^deck] - preserve ALL of them
+- Keep citation format: ". [^key]" (space before bracket, after punctuation)
+- Keep ALL citation keys exactly as they appear: {list(all_citations_before)[:10]}{'...' if len(all_citations_before) > 10 else ''}
 - DO NOT consolidate or remove "redundant" citations
-- DO NOT renumber citations
-- If a sentence has multiple citations [^1] [^2], keep ALL of them
-- INCLUDE the complete "### Citations" section at the end
+- DO NOT renumber or rename citations - [^deck] MUST stay [^deck], [^1] MUST stay [^1]
+- If a sentence has multiple citations [^1] [^deck], keep ALL of them
+- INCLUDE the complete "### Citations" section at the end with ALL definitions
+- COPY the citation definitions EXACTLY as they appear in the input (same keys, same text)
 {"" if not has_images else f'''
 IMAGE PRESERVATION (CRITICAL):
 - PRESERVE ALL {len(image_embeds)} IMAGE EMBED(S) EXACTLY - DO NOT REMOVE ANY
@@ -339,12 +342,16 @@ Output the polished section content (no section header "## {section_def.number}.
             print(f"      Using original research content without polishing")
             return research_content  # Fallback to original research
 
-    # Validate citations preserved
-    citations_after = len(set(re.findall(r'\[\^(\d+)\]', polished_content)))
+    # Validate citations preserved (alphanumeric keys)
+    all_citations_after = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', polished_content))
+    citations_after = len(all_citations_after)
 
-    if citations_before != citations_after:
+    # Check if we lost citations
+    lost_citations = all_citations_before - all_citations_after
+    if lost_citations:
         print(f"      ⚠️  WARNING: Citation mismatch! Before: {citations_before}, After: {citations_after}")
-        print(f"      Attempting to use original research content with minimal formatting")
+        print(f"      Lost citations: {lost_citations}")
+        print(f"      Using original research content to preserve citations")
         # Fall back to original research if citations were lost
         return research_content
 
@@ -365,6 +372,26 @@ Output the polished section content (no section header "## {section_def.number}.
 
     if defs_after < defs_before * 0.5:  # Lost more than half
         print(f"      ⚠️  WARNING: Too many citation definitions lost! Before: {defs_before}, After: {defs_after}")
+        print(f"      Using original research content to preserve citations")
+        return research_content
+
+    # Validate that definition keys match inline citation keys
+    inline_keys_after = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\](?!:)', polished_content))
+    definition_keys_after = set(re.findall(r'^\[\^([a-zA-Z0-9_]+)\]:', polished_content, re.MULTILINE))
+
+    # Check if LLM renumbered citations (inline keys don't match original)
+    if inline_keys_after != all_citations_before:
+        renamed_keys = inline_keys_after - all_citations_before
+        if renamed_keys:
+            print(f"      ⚠️  WARNING: LLM renamed citation keys! New keys: {renamed_keys}")
+            print(f"      Original keys were: {all_citations_before}")
+            print(f"      Using original research content to preserve citations")
+            return research_content
+
+    # Check if definitions match inline references
+    missing_defs = inline_keys_after - definition_keys_after
+    if missing_defs:
+        print(f"      ⚠️  WARNING: Missing definitions for inline citations: {missing_defs}")
         print(f"      Using original research content to preserve citations")
         return research_content
 

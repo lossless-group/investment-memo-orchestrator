@@ -108,19 +108,37 @@ def validator_agent(state: MemoState) -> Dict[str, Any]:
     Validates the drafted memo against Hypernova quality standards.
 
     Args:
-        state: Current memo state containing draft_sections
+        state: Current memo state
 
     Returns:
         Updated state with validation_results and overall_score
     """
-    draft_sections = state.get("draft_sections", {})
-    if not draft_sections:
-        raise ValueError("No draft available. Writer agent must run first.")
+    from ..utils import get_latest_output_dir
+    from pathlib import Path
 
     company_name = state["company_name"]
-    memo_content = draft_sections.get("full_memo", {}).get("content", "")
+    firm = state.get("firm")
 
-    if not memo_content:
+    # Read from final draft file (new architecture stores sections in files, not state)
+    try:
+        output_dir = get_latest_output_dir(company_name, firm=firm)
+    except FileNotFoundError:
+        raise ValueError("No output directory found. Writer agent must run first.")
+
+    # Find final draft file (could be 6-*.md or 4-final-draft.md)
+    final_draft_path = None
+    for pattern in ["6-*.md", "4-final-draft.md"]:
+        matches = list(output_dir.glob(pattern))
+        if matches:
+            final_draft_path = matches[0]
+            break
+
+    if not final_draft_path or not final_draft_path.exists():
+        raise ValueError("No final draft found. Citation assembly must run first.")
+
+    memo_content = final_draft_path.read_text()
+
+    if not memo_content.strip():
         raise ValueError("Draft memo content is empty.")
 
     # Load style guide

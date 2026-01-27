@@ -41,6 +41,13 @@ def detect_resume_point(output_dir: Path) -> str:
         - "complete": Workflow already finished
         - "start": No checkpoints found, start from beginning
         - Agent name: Resume from this agent (e.g., "cite", "validate")
+
+    Workflow order (from workflow.py):
+        deck_analyst → research → section_research → cite → cleanup_research → draft →
+        inject_deck_images → enrich_trademark → enrich_socials → enrich_links →
+        enrich_visualizations → toc → revise_summaries → cleanup_sections →
+        assemble_citations → validate_citations → fact_check → validate →
+        scorecard → integrate_scorecard → finalize
     """
     # Check in reverse order (later checkpoints first)
 
@@ -55,6 +62,11 @@ def detect_resume_point(output_dir: Path) -> str:
         except (json.JSONDecodeError, KeyError):
             pass
 
+    # Check for scorecard (runs after validate)
+    scorecard_dir = output_dir / "5-scorecard"
+    if scorecard_dir.exists() and list(scorecard_dir.glob("*.md")):
+        return "integrate_scorecard"  # Resume at scorecard integration
+
     # Check validation
     validation_json = output_dir / "3-validation.json"
     if validation_json.exists() and _is_valid_json(validation_json):
@@ -62,7 +74,7 @@ def detect_resume_point(output_dir: Path) -> str:
             with open(validation_json) as f:
                 validation = json.load(f)
             if validation.get("overall_score") is not None:
-                return "finalize"  # Resume at finalization
+                return "scorecard"  # Resume at scorecard (after validate)
             if validation.get("fact_check_results"):
                 return "validate"  # Resume at validation
             if validation.get("citation_validation"):
@@ -70,20 +82,11 @@ def detect_resume_point(output_dir: Path) -> str:
         except (json.JSONDecodeError, KeyError):
             pass
 
-    # Check citations and TOC using centralized utility
+    # Check for final draft (assembled)
     from src.final_draft import find_final_draft
     final_draft = find_final_draft(output_dir)
     if final_draft and final_draft.stat().st_size > 100:
-        try:
-            content = final_draft.read_text()
-            if "[^1]" in content or "## Citations" in content:
-                # Check if TOC exists
-                if "## Table of Contents" in content:
-                    return "validate_citations"  # Resume at citation validation
-                else:
-                    return "toc"  # Resume at TOC generation
-        except Exception:
-            pass
+        return "validate_citations"  # Final draft exists, resume at validation
 
     # Check enrichment stages
     sections_dir = output_dir / "2-sections"
@@ -91,7 +94,6 @@ def detect_resume_point(output_dir: Path) -> str:
         sections = list(sections_dir.glob("*.md"))
         if len(sections) >= 10:  # All sections exist
             # Check link enrichment (look for markdown links in ANY section)
-            # Try various section name patterns for different outlines
             sample_sections = list(sections_dir.glob("0[2-6]*.md"))  # Any section 02-06
             has_links = False
             for section_file in sample_sections:
@@ -103,10 +105,12 @@ def detect_resume_point(output_dir: Path) -> str:
                         break
 
             if has_links:
-                return "cite"  # Resume at citation enrichment
+                # Links exist, check what's next
+                # After enrich_links comes: enrich_visualizations → toc → revise_summaries →
+                # cleanup_sections → assemble_citations
+                return "toc"  # Resume at TOC (skips visualization which is disabled)
 
             # Check for socials enrichment - look for team/organization section
-            # Try multiple patterns: 04-team.md (default) or 04-organization.md (12Ps)
             team_sections = list(sections_dir.glob("04-*.md"))
             for team_section in team_sections:
                 if team_section.exists():
@@ -119,15 +123,28 @@ def detect_resume_point(output_dir: Path) -> str:
             if header.exists():
                 return "enrich_socials"  # Resume at socials enrichment
 
-            return "enrich_trademark"  # Resume at trademark enrichment
+            return "inject_deck_images"  # Resume at deck image injection (after draft)
 
         # Sections incomplete
         return "draft"  # Resume at drafting
 
-    # Check research
+    # Check for 1-research/ directory (section-specific Perplexity research)
+    research_dir = output_dir / "1-research"
+    if research_dir.exists() and list(research_dir.glob("*-research.md")):
+        # Section research exists, resume at cite (enrichment on research)
+        return "cite"
+
+    # Check for 1-research.json (basic research, no section research yet)
     research_json = output_dir / "1-research.json"
     if research_json.exists() and _is_valid_json(research_json):
-        return "draft"  # Resume at drafting (section research was removed)
+        # Basic research exists but no section research
+        # Check if section_research should run or skip to draft
+        # If no PERPLEXITY_API_KEY, skip section_research and go to draft
+        import os
+        if os.getenv("PERPLEXITY_API_KEY"):
+            return "section_research"  # Resume at section research
+        else:
+            return "draft"  # Skip to draft (no Perplexity key)
 
     # Check deck analysis
     deck_analysis_json = output_dir / "0-deck-analysis.json"
@@ -321,31 +338,51 @@ def execute_from_checkpoint(state: MemoState, resume_from: str) -> MemoState:
         Final state after completion
     """
     from src.agents.research_enhanced import research_agent_enhanced
+    from src.agents.perplexity_section_researcher import perplexity_section_researcher_agent
     from src.agents.writer import writer_agent
+    from src.agents.inject_deck_images import inject_deck_images_agent
     from src.agents.trademark_enrichment import trademark_enrichment_agent
     from src.agents.socials_enrichment import socials_enrichment_agent
     from src.agents.link_enrichment import link_enrichment_agent
     from src.agents.visualization_enrichment import visualization_enrichment_agent
     from src.agents.citation_enrichment import citation_enrichment_agent
     from src.agents.toc_generator import toc_generator_agent
+    from src.agents.revise_summary_sections import revise_summary_sections
+    from src.agents.remove_invalid_sources import remove_invalid_sources_agent
+    from src.agents.citation_assembly import citation_assembly_agent
     from src.agents.citation_validator import citation_validator_agent
     from src.agents.fact_checker import fact_checker_agent
     from src.agents.validator import validator_agent
-    from src.workflow import finalize_memo, human_review
+    from src.agents.scorecard_evaluator import scorecard_evaluator_agent
+    from src.workflow import finalize_memo, human_review, cleanup_research_citations, integrate_scorecard
 
-    # Define agent sequence (matches workflow order)
+    # Define agent sequence (matches workflow.py build_workflow() order)
+    # Full sequence from workflow.py:
+    # deck_analyst → research → section_research → cite → cleanup_research → draft →
+    # inject_deck_images → enrich_trademark → enrich_socials → enrich_links →
+    # enrich_visualizations → toc → revise_summaries → cleanup_sections →
+    # assemble_citations → validate_citations → fact_check → validate →
+    # scorecard → integrate_scorecard → finalize
     agent_sequence = [
         ("research", research_agent_enhanced),
+        ("section_research", perplexity_section_researcher_agent),
+        ("cite", citation_enrichment_agent),
+        ("cleanup_research", cleanup_research_citations),
         ("draft", writer_agent),
+        ("inject_deck_images", inject_deck_images_agent),
         ("enrich_trademark", trademark_enrichment_agent),
         ("enrich_socials", socials_enrichment_agent),
         ("enrich_links", link_enrichment_agent),
         ("enrich_visualizations", visualization_enrichment_agent),
-        ("cite", citation_enrichment_agent),
         ("toc", toc_generator_agent),
+        ("revise_summaries", revise_summary_sections),
+        ("cleanup_sections", remove_invalid_sources_agent),
+        ("assemble_citations", citation_assembly_agent),
         ("validate_citations", citation_validator_agent),
         ("fact_check", fact_checker_agent),
         ("validate", validator_agent),
+        ("scorecard", scorecard_evaluator_agent),
+        ("integrate_scorecard", integrate_scorecard),
         ("finalize", finalize_memo),
     ]
 
