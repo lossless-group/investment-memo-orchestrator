@@ -1,17 +1,22 @@
-"""Schemas package for outline and memo structures."""
+"""
+Reusable schemas for various tools and agents.
 
-from .outline_schema import (
-    OutlineDefinition,
-    OutlineMetadata,
-    SectionDefinition,
-    VocabularyGuide,
-    FirmPreferences,
+These schemas are independent of the memo generation workflow state,
+allowing tools to be used standalone or integrated into multiple systems.
+"""
+
+from .research_pdf import (
+    ParsedCitation,
+    ParsedPDFSection,
+    ParsedPDFData,
+    PDFParseResult,
+    CitationFormat,
 )
 
 __all__ = [
-    "OutlineDefinition",
-    "OutlineMetadata",
-    "SectionDefinition",
-    "VocabularyGuide",
-    "FirmPreferences",
+    "ParsedCitation",
+    "ParsedPDFSection",
+    "ParsedPDFData",
+    "PDFParseResult",
+    "CitationFormat",
 ]

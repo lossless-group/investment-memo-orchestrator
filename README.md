@@ -73,6 +73,7 @@ Many people may not want to manage using an Open Source library and deal with th
 - [v7 Labs | Investment Memo Automations](https://www.v7labs.com/automations/ai-investment-memo-generation)
 - [Stack AI | Investment Memo Generator Template](https://www.stack-ai.com/blog/how-to-build-an-investment-memo-generator)
 - [Bash | Investment Memo Template](https://www.getbash.com/templates/investment-memo)
+- [Hatcher+](https://hq.hatcher.com/)
 
 ## Recent Updates
 
