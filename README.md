@@ -134,10 +134,22 @@ See `io/README.md` for complete firm-scoped IO documentation.
 
 **Phase 2 - Specialized Extractors** (5/5 Complete) ✅
 - [x] Competitive Extractor - Synthesizes battlecards into unified competitive landscape
-- [x] Cap Table Extractor - Ownership structure, shareholders, option pools
+- [x] Cap Table Extractor - Ownership structure, shareholders, option pools, SAFEs, convertible notes
 - [x] Financial Extractor - P&L, projections, key metrics from CSV/Excel
 - [x] Traction Extractor - Customer counts, ARR/MRR, retention, pipeline, partnerships
 - [x] Team Extractor - Founders, leadership, headcount, advisors, board
+
+**Phase 2.1 - Cap Table Extractor Enhancement** (2025-03-09)
+- [x] Multi-sheet Carta export parsing (CS Certificate Ledger + Convertible Ledger)
+- [x] Pre-round vs post-round cap table classification with reasoning
+- [x] SAFE and convertible note extraction (investor, amount, cap, discount, dates)
+- [x] Estimated post-conversion ownership table sorted by ownership %
+- [x] Markdown table generation for memo section insertion
+- [x] Expanded data model (amount_invested, vesting, price_per_share on shareholders)
+- [ ] Option pool extraction from equity ledger
+- [ ] Discount-only SAFE conversion estimation (needs round price)
+- [ ] Post-conversion estimates accounting for new round dilution
+- [ ] Date formatting cleanup from Carta timestamps
 
 **Phase 3 - Data Synthesis** ✅
 - [x] Conflict detection - ARR mismatches, headcount discrepancies, ownership totals
