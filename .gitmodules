@@ -14,3 +14,6 @@
 [submodule "io/two-magnolias"]
 	path = io/two-magnolias
 	url = https://github.com/lossless-group/two-magnolias-secure-data.git
+[submodule "io/humain"]
+	path = io/humain
+	url = git@github.com:lossless-group/humain.git
