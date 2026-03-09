@@ -107,17 +107,25 @@ def main():
         # Find output directory (firm-aware)
         try:
             if args.resume_version:
-                output_dir = PathLib("output") / f"{sanitize_filename(company_name)}-{args.resume_version}"
+                safe_name = sanitize_filename(company_name)
+                if firm:
+                    output_dir = PathLib(f"io/{firm}/deals/{company_name}/outputs/{safe_name}-{args.resume_version}")
+                else:
+                    output_dir = PathLib("output") / f"{safe_name}-{args.resume_version}"
             else:
                 output_dir = get_latest_output_dir(company_name, firm=firm)
 
             if not output_dir or not output_dir.exists():
                 raise FileNotFoundError()
         except FileNotFoundError:
+            if firm:
+                search_path = f"io/{firm}/deals/{company_name}/outputs/"
+            else:
+                search_path = f"output/{sanitize_filename(company_name)}-*"
             console.print(f"[bold red]Error:[/bold red] No artifacts found for '{company_name}'")
-            console.print(f"\nSearched in: output/{sanitize_filename(company_name)}-*")
+            console.print(f"\nSearched in: {search_path}")
             console.print("\nRun the normal workflow first:")
-            console.print(f"  python -m src.main \"{company_name}\"")
+            console.print(f"  python -m src.main \"{company_name}\"" + (f" --firm {firm}" if firm else ""))
             sys.exit(1)
 
         # Delegate to resume script
@@ -126,11 +134,14 @@ def main():
 
         # Import and run resume functions
         import subprocess
-        result = subprocess.run(
-            [sys.executable, "resume-from-last-interruption.py", company_name] +
-            (["--version", args.resume_version] if args.resume_version else []),
-            cwd=Path(__file__).parent.parent
-        )
+        resume_cmd = [sys.executable, "cli/resume_from_interruption.py"]
+        if firm:
+            resume_cmd += ["--firm", firm, "--deal", company_name]
+        else:
+            resume_cmd += [company_name]
+        if args.resume_version:
+            resume_cmd += ["--version", args.resume_version]
+        result = subprocess.run(resume_cmd, cwd=Path(__file__).parent.parent)
         sys.exit(result.returncode)
 
     # Load company/deal data using new path resolution
