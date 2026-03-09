@@ -87,8 +87,14 @@ class ShareholderEntry(TypedDict):
     name: str
     shares: int
     ownership_percentage: float
+    amount_invested: Optional[float]  # Cash contributed for these shares
     share_class: str  # "Common", "Series A", "Series B", etc.
     investor_type: str  # "Founder", "Employee", "VC", "Angel"
+    vesting_schedule: Optional[str]
+    vested_shares: Optional[int]
+    unvested_shares: Optional[int]
+    price_per_share: Optional[float]
+    issue_date: Optional[str]
 
 
 class SAFEEntry(TypedDict):
@@ -98,6 +104,9 @@ class SAFEEntry(TypedDict):
     valuation_cap: Optional[float]
     discount_rate: Optional[float]
     conversion_trigger: str
+    issue_date: Optional[str]
+    pro_rata_rights: Optional[bool]
+    estimated_ownership_percentage: Optional[float]  # Estimated post-conversion ownership
 
 
 class ConvertibleNoteEntry(TypedDict):
@@ -108,6 +117,7 @@ class ConvertibleNoteEntry(TypedDict):
     maturity_date: Optional[str]
     valuation_cap: Optional[float]
     discount_rate: Optional[float]
+    estimated_ownership_percentage: Optional[float]  # Estimated post-conversion ownership
 
 
 class CapTableData(TypedDict):
@@ -115,9 +125,14 @@ class CapTableData(TypedDict):
     document_source: str
     as_of_date: Optional[str]
 
+    # Pre-round vs post-round classification
+    table_type: str  # "pre_round" or "post_round"
+    table_type_reasoning: str  # Why we classified it this way
+
     # Ownership Summary
     total_shares_outstanding: Optional[int]
     fully_diluted_shares: Optional[int]
+    total_capital_raised: Optional[float]  # Sum of all investments
 
     # Shareholders
     shareholders: List[ShareholderEntry]
@@ -135,6 +150,10 @@ class CapTableData(TypedDict):
     # Valuation Context
     last_priced_round_valuation: Optional[float]
     last_priced_round_date: Optional[str]
+
+    # Post-conversion estimates (for pre-round tables with SAFEs/notes)
+    estimated_post_conversion_shares: Optional[int]
+    estimated_post_conversion_ownership: Optional[List[dict]]  # Sorted by ownership desc
 
     extraction_notes: List[str]
 

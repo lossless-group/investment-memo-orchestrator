@@ -26,6 +26,9 @@ dependencies = [
     "google-auth-oauthlib>=1.0.0",  # For OAuth flow
     "google-auth-httplib2>=0.2.0",  # For HTTP authentication
     "google-api-python-client>=2.0.0",  # For Google Drive/Docs API
+    "pandas>=2.0.0",  # For spreadsheet/cap table extraction
+    "openpyxl>=3.1.0",  # For Excel (.xlsx) file reading
+    "pdfplumber>=0.10.0",  # For PDF table extraction (cap tables, datarooms)
 ]
 
 [project.optional-dependencies]
