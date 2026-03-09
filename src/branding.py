@@ -170,7 +170,7 @@ class BrandConfig:
                 )
             # No config specified, use defaults
             print(f"⚠️  Brand config not found: {config_path}")
-            print("   Using default Hypernova branding.")
+            print("   Using plain default branding.")
             print("   Create brand-config.yaml to customize.")
             return cls.get_default_config()
 
@@ -210,25 +210,24 @@ class BrandConfig:
 
     @classmethod
     def get_default_config(cls) -> 'BrandConfig':
-        """Return Hypernova Capital default branding."""
+        """Return plain default branding for firms without brand assets."""
         return cls(
             company=BrandCompany(
-                name="Hypernova Capital",
-                tagline="Network-Driven | High-impact | Transformative venture fund",
-                confidential_footer="This document is confidential and proprietary to {company_name}."
+                name="Investment Memo",
+                tagline="",
+                confidential_footer="This document is confidential. Prepared for internal use only."
             ),
             colors=BrandColors(
-                primary="#1a3a52",      # Navy
-                secondary="#1dd3d3",    # Cyan
-                text_dark="#1a2332",    # Almost black
+                primary="#2d2d2d",      # Charcoal
+                secondary="#4a7c91",    # Muted teal
+                text_dark="#1a1a1a",    # Near black
                 text_light="#6b7280",   # Gray
                 background="#ffffff",   # White
-                background_alt="#f0f0eb"  # Cream
+                background_alt="#f5f5f5"  # Light gray
             ),
             fonts=BrandFonts(
-                family="Arboria",
-                fallback="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-                custom_fonts_dir="templates/fonts/Arboria"
+                family="Inter",
+                fallback="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             )
         )
 

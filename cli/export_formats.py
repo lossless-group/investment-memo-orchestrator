@@ -59,7 +59,7 @@ def convert_to_format(
             str(input_path),
             format,
             outputfile=str(output_path),
-            extra_args=args if args else None
+            extra_args=args
         )
         return output_path
     except Exception as e:

@@ -1,0 +1,22 @@
+# Default Brand Configuration
+# Plain, neutral styling for firms that haven't provided brand assets.
+# To customize, copy this file to brand-{yourfirm}-config.yaml and edit.
+
+company:
+  name: "Investment Memo"
+  tagline: ""
+  confidential_footer: "This document is confidential. Prepared for internal use only."
+
+colors:
+  primary: "#2d2d2d"          # Charcoal
+  secondary: "#4a7c91"        # Muted teal
+  text_dark: "#1a1a1a"        # Near black
+  text_light: "#6b7280"       # Gray
+  background: "#ffffff"       # White
+  background_alt: "#f5f5f5"   # Light gray
+
+fonts:
+  family: "Inter"
+  fallback: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  custom_fonts_dir: null
+  google_fonts_url: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
