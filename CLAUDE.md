@@ -82,12 +82,26 @@ python -m src.main "Fund Name" --type fund --mode consider
 
 # Interactive mode
 python -m src.main
+
+# Force a specific semantic version (instead of auto-incrementing)
+python -m src.main "Company Name" --version v0.1.0
+
+# Fresh start: ignore prior artifacts, generate everything from scratch
+python -m src.main "Company Name" --fresh
+
+# Both: fresh start at a specific version
+python -m src.main "Company Name" --firm humain --fresh --version v0.1.0
 ```
 
 **Without activating**, use `.venv/bin/python` directly:
 ```bash
 .venv/bin/python -m src.main "Company Name"
 ```
+
+**Version & Fresh Flags:**
+- `--version v0.1.0`: Force a specific semantic version instead of auto-incrementing from `versions.json`. Useful for minor/major version bumps (e.g., going from v0.0.4 to v0.1.0).
+- `--fresh`: Start from a clean slate — ignores prior artifacts and research. All agents generate everything from scratch using only the dataroom, deck, and web research as inputs.
+- When combined with `--resume`, `--version` specifies which existing version to resume from.
 
 ### Improving Individual Sections
 

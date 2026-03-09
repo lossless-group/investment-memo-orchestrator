@@ -66,8 +66,13 @@ def main():
     parser.add_argument(
         "--version",
         type=str,
-        dest="resume_version",
-        help="Specific version to resume (e.g., v0.0.3). Only used with --resume."
+        dest="set_version",
+        help="Force a specific version (e.g., v0.1.0). With --resume, resumes that version. Without --resume, creates a new run at that version."
+    )
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Start from a clean slate: ignore prior artifacts and research, generate everything from scratch."
     )
     parser.add_argument(
         "--firm",
@@ -106,12 +111,12 @@ def main():
 
         # Find output directory (firm-aware)
         try:
-            if args.resume_version:
+            if args.set_version:
                 safe_name = sanitize_filename(company_name)
                 if firm:
-                    output_dir = PathLib(f"io/{firm}/deals/{company_name}/outputs/{safe_name}-{args.resume_version}")
+                    output_dir = PathLib(f"io/{firm}/deals/{company_name}/outputs/{safe_name}-{args.set_version}")
                 else:
-                    output_dir = PathLib("output") / f"{safe_name}-{args.resume_version}"
+                    output_dir = PathLib("output") / f"{safe_name}-{args.set_version}"
             else:
                 output_dir = get_latest_output_dir(company_name, firm=firm)
 
@@ -139,8 +144,8 @@ def main():
             resume_cmd += ["--firm", firm, "--deal", company_name]
         else:
             resume_cmd += [company_name]
-        if args.resume_version:
-            resume_cmd += ["--version", args.resume_version]
+        if args.set_version:
+            resume_cmd += ["--version", args.set_version]
         result = subprocess.run(resume_cmd, cwd=Path(__file__).parent.parent)
         sys.exit(result.returncode)
 
@@ -167,6 +172,7 @@ def main():
             console.print(f"[dim]Using legacy paths: data/{company_name}.json[/dim]")
 
     # Initialize company data variables
+    dataroom_path = None
     deck_path = None
     company_description = None
     company_url = None
@@ -185,6 +191,20 @@ def main():
     if deal_ctx.exists():
         try:
             company_data = load_deal_config(deal_ctx)
+
+            # Load dataroom path (resolve relative to deal directory if firm-scoped)
+            dataroom_path = company_data.get("dataroom")
+            if dataroom_path and not deal_ctx.is_legacy:
+                resolved_dataroom = deal_ctx.deal_dir / dataroom_path
+                if resolved_dataroom.exists():
+                    dataroom_path = str(resolved_dataroom)
+                elif deal_ctx.inputs_dir:
+                    resolved_dataroom = deal_ctx.inputs_dir / dataroom_path
+                    if resolved_dataroom.exists():
+                        dataroom_path = str(resolved_dataroom)
+            if dataroom_path and not Path(dataroom_path).exists():
+                console.print(f"[bold yellow]Warning:[/bold yellow] Dataroom specified but not found: {dataroom_path}")
+                dataroom_path = None
 
             # Load deck path (resolve relative to deal directory if firm-scoped)
             deck_path = company_data.get("deck")
@@ -262,6 +282,12 @@ def main():
                 memo_mode = "justify"
                 console.print(f"[bold cyan]Memo mode from config:[/bold cyan] Retrospective Justification")
 
+            # Display dataroom info
+            if dataroom_path:
+                dataroom_dir = Path(dataroom_path)
+                file_count = sum(1 for _ in dataroom_dir.rglob("*") if _.is_file())
+                console.print(f"[bold green]Found dataroom:[/bold green] {dataroom_dir.name} ({file_count} files)")
+
             # Validate deck path
             if deck_path:
                 deck_file = Path(deck_path)
@@ -291,8 +317,14 @@ def main():
     console.print(f"\n[bold green]Starting memo generation for:[/bold green] {company_name}")
     console.print(f"[bold cyan]Type:[/bold cyan] {type_label}")
     console.print(f"[bold cyan]Mode:[/bold cyan] {mode_label}")
+    if args.set_version:
+        console.print(f"[bold cyan]Version:[/bold cyan] {args.set_version} (forced)")
+    if args.fresh:
+        console.print(f"[bold cyan]Fresh:[/bold cyan] Starting from clean slate (ignoring prior artifacts)")
+    if dataroom_path:
+        console.print(f"[bold cyan]Dataroom:[/bold cyan] Analyzing dataroom first")
     if deck_path:
-        console.print(f"[bold cyan]Deck:[/bold cyan] Analyzing pitch deck first")
+        console.print(f"[bold cyan]Deck:[/bold cyan] Analyzing pitch deck")
     console.print()
 
     # Run workflow with progress indicators
@@ -310,6 +342,9 @@ def main():
                 investment_type,
                 memo_mode,
                 firm=firm,
+                force_version=args.set_version,
+                fresh=args.fresh,
+                dataroom_path=dataroom_path,
                 deck_path=deck_path,
                 company_description=company_description,
                 company_url=company_url,
@@ -368,28 +403,45 @@ def main():
         draft_sections = final_state.get("draft_sections", {})
         memo_content = final_memo or draft_sections.get("full_memo", {}).get("content")
 
+        # Fallback: read from the final draft file on disk if state doesn't have content.
+        # This handles the human_review path where agents wrote section files but
+        # didn't populate final_memo or draft_sections in state.
+        if not memo_content:
+            version_output_dir_check = Path(final_state.get("output_dir", ""))
+            if version_output_dir_check.exists():
+                from .final_draft import read_final_draft
+                try:
+                    memo_content = read_final_draft(version_output_dir_check)
+                    if memo_content:
+                        console.print(f"[dim]Loaded memo content from final draft file on disk[/dim]")
+                except Exception:
+                    pass
+
         # Sanitize filename
         safe_name = sanitize_filename(company_name)
 
-        # Initialize version manager (firm-scoped or legacy)
+        # Use the output directory created by the workflow (stored in state)
+        version_output_dir = Path(final_state.get("output_dir", ""))
+
+        # Initialize version manager for recording (firm-scoped or legacy)
         if firm and not deal_ctx.is_legacy:
             version_mgr = VersionManager(firm=firm)
-            output_base = deal_ctx.outputs_dir
         else:
-            output_base = Path("output")
-            version_mgr = VersionManager(output_dir=output_base)
+            version_mgr = VersionManager(output_dir=Path("output"))
 
-        output_base.mkdir(parents=True, exist_ok=True)
-
-        # Get next version number
-        version = version_mgr.get_next_version(safe_name)
+        # Extract version from the output directory name (e.g., "Company-v0.0.3" -> "v0.0.3")
+        from .versioning import MemoVersion
+        import re
+        version_match = re.search(r'(v\d+\.\d+\.\d+)', version_output_dir.name)
+        if version_match:
+            version = MemoVersion.from_string(version_match.group(1))
+        else:
+            version = version_mgr.get_current_version(safe_name)
 
         if memo_content:
             # Determine status
             is_finalized = final_memo is not None
 
-            # Get version output directory
-            version_output_dir = deal_ctx.get_version_output_dir(str(version)) if not deal_ctx.is_legacy else output_base / f"{safe_name}-{version}"
             version_output_dir.mkdir(parents=True, exist_ok=True)
 
             # Final draft is now 6-{Deal}-{Version}.md (single source of truth)

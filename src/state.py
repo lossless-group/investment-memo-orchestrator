@@ -171,6 +171,10 @@ class MemoState(TypedDict):
     outline_name: Optional[str]  # Custom outline name (e.g., "lpcommit-emerging-manager")
     scorecard_name: Optional[str]  # Scorecard name (e.g., "hypernova-early-stage-12Ps")
 
+    # Dataroom analysis
+    dataroom_path: Optional[str]  # Path to dataroom directory
+    dataroom_analysis: Optional[Dict[str, Any]]  # DataroomAnalysis from dataroom analyzer
+
     # Deck analysis (NEW)
     deck_path: Optional[str]
     deck_analysis: Optional[DeckAnalysisData]
@@ -193,6 +197,9 @@ class MemoState(TypedDict):
     # Iteration tracking
     revision_count: int
 
+    # Output directory (set at workflow start, used by all agents)
+    output_dir: Optional[str]  # Path to the version-specific output directory for this run
+
     # Output
     final_memo: Optional[str]
 
@@ -205,6 +212,8 @@ def create_initial_state(
     investment_type: Literal["direct", "fund"] = "direct",
     memo_mode: Literal["consider", "justify"] = "consider",
     firm: Optional[str] = None,
+    output_dir: Optional[str] = None,
+    dataroom_path: Optional[str] = None,
     deck_path: Optional[str] = None,
     company_description: Optional[str] = None,
     company_url: Optional[str] = None,
@@ -224,6 +233,8 @@ def create_initial_state(
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
         firm: Firm name for firm-scoped IO (e.g., "hypernova")
+        output_dir: Path to the version-specific output directory for this run
+        dataroom_path: Optional path to dataroom directory
         deck_path: Optional path to pitch deck PDF
         company_description: Brief description of what the company does
         company_url: Company website URL
@@ -243,6 +254,7 @@ def create_initial_state(
         investment_type=investment_type,
         memo_mode=memo_mode,
         firm=firm,
+        output_dir=output_dir,
         company_description=company_description,
         company_url=company_url,
         company_stage=company_stage,
@@ -252,6 +264,8 @@ def create_initial_state(
         company_trademark_dark=company_trademark_dark,
         outline_name=outline_name,
         scorecard_name=scorecard_name,
+        dataroom_path=dataroom_path,
+        dataroom_analysis=None,
         deck_path=deck_path,
         deck_analysis=None,
         research=None,

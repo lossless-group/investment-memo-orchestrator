@@ -25,21 +25,27 @@ from typing import Literal as LiteralType, Dict, Any
 import os
 from pathlib import Path
 from .state import MemoState
-from .agents.researcher import research_agent
-from .agents.research_enhanced import research_agent_enhanced
-from .agents.deck_analyst import deck_analyst_agent
-from .agents.perplexity_section_researcher import perplexity_section_researcher_agent
-from .agents.writer import writer_agent
-from .agents.trademark_enrichment import trademark_enrichment_agent
-from .agents.socials_enrichment import socials_enrichment_agent
-from .agents.link_enrichment import link_enrichment_agent
-from .agents.visualization_enrichment import visualization_enrichment_agent
-from .agents.citation_enrichment import citation_enrichment_agent
-from .agents.toc_generator import toc_generator_agent
-from .agents.revise_summary_sections import revise_summary_sections
-from .agents.inject_deck_images import inject_deck_images_agent
-from .agents.citation_validator import citation_validator_agent
-from .agents.remove_invalid_sources import (
+
+# Agent imports — ordered by pipeline sequence:
+# Dataroom → Deck → Research → Section Research → Citation Enrichment →
+# Cleanup Research → Writer → Inject Deck Images → Enrichment (trademark, socials, links, viz) →
+# TOC → Revise Summaries → Cleanup Sections → Assemble Citations →
+# Validate Citations → Fact Check → Validate → Scorecard → Integrate Scorecard
+from .agents.dataroom import dataroom_agent                                      # 1. Dataroom analysis (skips if no dataroom)
+from .agents.deck_analyst import deck_analyst_agent                              # 2. Deck analysis (skips if no deck)
+from .agents.researcher import research_agent                                    # 3a. Basic research (fallback)
+from .agents.research_enhanced import research_agent_enhanced                    # 3b. Enhanced research with web search
+from .agents.perplexity_section_researcher import perplexity_section_researcher_agent  # 4. Section-specific research
+from .agents.citation_enrichment import citation_enrichment_agent                # 5. Citation enrichment on research
+from .agents.writer import writer_agent                                          # 7. Section-by-section writing
+from .agents.inject_deck_images import inject_deck_images_agent                  # 8. Inject deck screenshots
+from .agents.trademark_enrichment import trademark_enrichment_agent              # 9. Company trademark insertion
+from .agents.socials_enrichment import socials_enrichment_agent                  # 10. LinkedIn profile links
+from .agents.link_enrichment import link_enrichment_agent                        # 11. Organization hyperlinks
+from .agents.visualization_enrichment import visualization_enrichment_agent      # 12. Visualizations (disabled)
+from .agents.toc_generator import toc_generator_agent                            # 13. Table of Contents
+from .agents.revise_summary_sections import revise_summary_sections              # 14. Revise bookend sections
+from .agents.remove_invalid_sources import (                                     # 6/15. Cleanup gates
     remove_invalid_sources_agent,
     validate_url,
     extract_citation_urls,
@@ -48,10 +54,11 @@ from .agents.remove_invalid_sources import (
     INVALID_HTTP_CODES,
     HALLUCINATION_PATTERNS,
 )
-from .agents.citation_assembly import citation_assembly_agent
-from .agents.fact_checker import fact_checker_agent
-from .agents.validator import validator_agent
-from .agents.scorecard_evaluator import scorecard_evaluator_agent
+from .agents.citation_assembly import citation_assembly_agent                    # 16. Consolidate citations
+from .agents.citation_validator import citation_validator_agent                   # 17. Citation accuracy
+from .agents.fact_checker import fact_checker_agent                              # 18. Fact verification
+from .agents.validator import validator_agent                                     # 19. Quality scoring
+from .agents.scorecard_evaluator import scorecard_evaluator_agent                # 20. Scorecard evaluation
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
 from .versioning import VersionManager
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -78,7 +85,7 @@ def cleanup_research_citations(state: MemoState) -> Dict[str, Any]:
     Returns:
         Updated state with cleanup results
     """
-    from .utils import get_latest_output_dir
+    from .utils import get_output_dir_from_state
 
     company_name = state["company_name"]
     firm = state.get("firm")
@@ -86,9 +93,9 @@ def cleanup_research_citations(state: MemoState) -> Dict[str, Any]:
     print(f"\n🔍 VALIDATION GATE 1: Cleaning research citations for {company_name}...")
     print(f"   (This runs BEFORE writer to prevent hallucination propagation)")
 
-    # Get output directory
+    # Get output directory from state (created at workflow start)
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         return {
             "messages": ["Research cleanup skipped: no output directory found"]
@@ -224,14 +231,14 @@ def finalize_memo(state: MemoState) -> dict:
     Returns:
         Updated state with final_memo set
     """
-    from .utils import get_latest_output_dir
+    from .utils import get_output_dir_from_state
 
     company_name = state["company_name"]
     firm = state.get("firm")
 
-    # Get artifact directory (most recent) - firm-aware
+    # Get artifact directory from state (created at workflow start)
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         raise FileNotFoundError(f"No output directory found for {company_name}")
 
@@ -269,8 +276,7 @@ def human_review(state: MemoState) -> dict:
     Returns:
         Updated state with messages for human reviewer
     """
-    from .utils import get_latest_output_dir
-    from .paths import resolve_deal_context
+    from .utils import get_output_dir_from_state
 
     validation = state.get("validation_results", {}).get("full_memo", {})
     score = state.get("overall_score", 0.0)
@@ -281,23 +287,8 @@ def human_review(state: MemoState) -> dict:
 
     # Save draft artifacts even when it needs review
     try:
-        # Get version manager - firm-aware
-        if firm:
-            ctx = resolve_deal_context(company_name, firm=firm)
-            version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
-        else:
-            version_mgr = VersionManager(Path("output"))
-
-        safe_name = sanitize_filename(company_name)
-        version = version_mgr.get_next_version(safe_name)
-
-        # Get artifact directory - firm-aware
-        if firm:
-            output_dir = ctx.get_version_output_dir(str(version))
-        else:
-            output_dir = Path("output") / f"{safe_name}-{version}"
-
-        output_dir.mkdir(parents=True, exist_ok=True)
+        # Use output directory from state (created at workflow start)
+        output_dir = get_output_dir_from_state(state)
 
         # Get draft content
         draft = state.get("draft_sections", {}).get("full_memo", {})
@@ -349,14 +340,14 @@ def integrate_scorecard(state: MemoState) -> dict:
     Returns:
         Updated state with messages
     """
-    from .utils import get_latest_output_dir
+    from .utils import get_output_dir_from_state
     from pathlib import Path
 
     company_name = state["company_name"]
     firm = state.get("firm")
 
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         return {"messages": ["Scorecard integration skipped: no output directory"]}
 
@@ -474,8 +465,9 @@ def build_workflow() -> StateGraph:
     use_enhanced_research = os.getenv("USE_WEB_SEARCH", "true").lower() == "true"
     research_fn = research_agent_enhanced if use_enhanced_research else research_agent
 
-    # Add agent nodes
-    workflow.add_node("deck_analyst", deck_analyst_agent)  # Deck analyst (always runs, skips if no deck)
+    # Add agent nodes (ordered by pipeline sequence)
+    workflow.add_node("dataroom", dataroom_agent)  # Dataroom analysis (skips if no dataroom)
+    workflow.add_node("deck_analyst", deck_analyst_agent)  # Deck analysis (skips if no deck)
     workflow.add_node("research", research_fn)
     workflow.add_node("section_research", perplexity_section_researcher_agent)  # Section-specific research with citations
     workflow.add_node("cleanup_research", cleanup_research_citations)  # GATE 1: Clean research citations BEFORE writer
@@ -498,10 +490,16 @@ def build_workflow() -> StateGraph:
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
-    # SIMPLIFIED: Always start with deck_analyst (it skips if no deck)
-    workflow.set_entry_point("deck_analyst")
+    # Entry point: dataroom first (skips if no dataroom path)
+    workflow.set_entry_point("dataroom")
 
     # Define edges (workflow sequence)
+    #
+    # PRIORITY ORDER FOR INITIAL DATA GATHERING:
+    # 1. Dataroom analysis (richest source — full document set)
+    # 2. Deck analysis (single pitch deck)
+    # 3. Web research (company URL + web search)
+    # Each step skips gracefully if its input is not provided.
     #
     # ANTI-HALLUCINATION ARCHITECTURE:
     # Two validation gates ensure hallucinated citations never propagate:
@@ -516,10 +514,11 @@ def build_workflow() -> StateGraph:
     #   - Catches any issues from section processing
     #
     # Full sequence:
-    # Deck → Research → Section Research → [CITE on 1-research/] → [GATE 1] → Writer →
+    # Dataroom → Deck → Research → Section Research → [CITE on 1-research/] → [GATE 1] → Writer →
     # Inject Deck Images → Enrichment → TOC → Revise → [GATE 2] → Assembly →
     # Validation → Fact Check → Validate → Scorecard
 
+    workflow.add_edge("dataroom", "deck_analyst")
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "section_research")  # Generate section research with citations
     workflow.add_edge("section_research", "cite")      # Enrich research with additional citations (preserves existing)
@@ -563,6 +562,9 @@ def generate_memo(
     investment_type: LiteralType["direct", "fund"] = "direct",
     memo_mode: LiteralType["consider", "justify"] = "consider",
     firm: str = None,
+    force_version: str = None,
+    fresh: bool = False,
+    dataroom_path: str = None,
     deck_path: str = None,
     company_description: str = None,
     company_url: str = None,
@@ -582,6 +584,9 @@ def generate_memo(
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
         firm: Firm name for firm-scoped IO (e.g., "hypernova")
+        force_version: Force a specific version string (e.g., "v0.1.0") instead of auto-incrementing
+        fresh: If True, start from a clean slate (ignore prior artifacts/research)
+        dataroom_path: Optional path to dataroom directory (richest data source)
         deck_path: Optional path to pitch deck PDF
         company_description: Brief description of what the company does
         company_url: Company website URL
@@ -597,6 +602,34 @@ def generate_memo(
         Final state containing research, draft, validation, scorecard evaluation, and final memo
     """
     from .state import create_initial_state
+    from .artifacts import sanitize_filename, create_artifact_directory
+    from .versioning import MemoVersion
+
+    # Determine version for this run.
+    # --version flag: use the exact version specified
+    # --fresh flag (no --version): auto-increment as usual, but start clean
+    # Default: auto-increment from versions.json
+    safe_name = sanitize_filename(company_name)
+    if firm:
+        version_mgr = VersionManager(firm=firm)
+    else:
+        version_mgr = VersionManager(output_dir=Path("output"))
+
+    if force_version:
+        # Normalize: ensure it starts with 'v'
+        v_str = force_version if force_version.startswith("v") else f"v{force_version}"
+        new_version = MemoVersion.from_string(v_str)
+        print(f"📌 Using forced version: {new_version}")
+    else:
+        new_version = version_mgr.get_next_version(safe_name)
+
+    output_dir = create_artifact_directory(company_name, str(new_version), firm=firm)
+
+    if fresh:
+        print(f"🧹 Fresh run: starting from clean slate at {new_version}")
+        print(f"📁 Created new output directory: {output_dir}")
+    else:
+        print(f"📁 Created new output directory: {output_dir} ({new_version})")
 
     # Create initial state with all company context
     initial_state = create_initial_state(
@@ -604,6 +637,8 @@ def generate_memo(
         investment_type,
         memo_mode,
         firm=firm,
+        output_dir=str(output_dir),
+        dataroom_path=dataroom_path,
         deck_path=deck_path,
         company_description=company_description,
         company_url=company_url,

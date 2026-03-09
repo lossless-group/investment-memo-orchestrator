@@ -500,11 +500,25 @@ python -m src.main "Accel Growth Fund V" --type fund --mode consider
 
 # Interactive mode
 python -m src.main
+
+# Force a specific semantic version (instead of auto-incrementing)
+python -m src.main "Company Name" --version v0.1.0
+
+# Fresh start: ignore prior artifacts, generate from scratch
+python -m src.main "Company Name" --fresh
+
+# Both: fresh start at a specific version with firm
+python -m src.main "Company Name" --firm humain --fresh --version v0.1.0
 ```
 
 **CLI Arguments:**
 - `--type [direct|fund]`: Investment type (default: `direct`)
 - `--mode [justify|consider]`: Memo mode (default: `consider`)
+- `--version <version>`: Force a specific semantic version (e.g., `v0.1.0`) instead of auto-incrementing. With `--resume`, specifies which version to resume.
+- `--fresh`: Start from a clean slate — ignores prior artifacts and research, generates everything from scratch using only the dataroom, deck, and web research as inputs.
+- `--firm <name>`: Firm name for firm-scoped IO (e.g., `hypernova`). Uses `io/{firm}/deals/{deal}/` structure.
+- `--deal <name>`: Deal name (alternative to positional argument)
+- `--resume`: Resume from last checkpoint (skips completed agents)
 
 ### Company Data Files (Optional)
 
