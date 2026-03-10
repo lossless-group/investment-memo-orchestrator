@@ -203,9 +203,10 @@ def citation_assembly_agent(state: MemoState) -> Dict[str, Any]:
 
     print(f"\n📚 Assembling citations for {company_name}...")
 
-    # Get output directory
+    # Get output directory from state (created at workflow start)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         return {
             "messages": ["Citation assembly skipped: no output directory found"]
@@ -214,15 +215,27 @@ def citation_assembly_agent(state: MemoState) -> Dict[str, Any]:
     return assemble_citations(output_dir)
 
 
-def assemble_citations(output_dir: Path) -> Dict[str, Any]:
+def renumber_citations(output_dir: Path) -> Dict[str, Any]:
     """
-    Core citation assembly logic. Can be called independently.
+    Renumber citations in section files and build a consolidated citation block.
+
+    This is the RENUMBERING-ONLY function. It:
+    1. Reads all sections and collects citations
+    2. Builds a sequential renumbering map
+    3. Renumbers inline refs in section files (writes back to disk)
+    4. Removes citation definitions from section files
+    5. Returns the consolidated citation block as a string
+
+    Does NOT assemble the final draft — that's the assembler's job.
 
     Args:
         output_dir: Path to output directory containing 2-sections/
 
     Returns:
-        Dict with messages and stats
+        Dict with:
+          - "citation_block": str — the consolidated citation definitions block
+          - "stats": dict with total_inline_refs, definitions_found, etc.
+          - "messages": list of status messages
     """
     output_dir = Path(output_dir)
     sections_dir = output_dir / "2-sections"
@@ -231,12 +244,11 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
 
     if not sections_dir.exists():
         print("  ⚠️  No sections directory found")
-        return {"messages": ["Citation assembly skipped: no sections directory"]}
+        return {"citation_block": "", "stats": {}, "messages": ["Citation renumbering skipped: no sections directory"]}
 
     # Step 1: Read all sections and collect citations
     print("  📖 Reading sections and collecting citations...")
 
-    all_content_parts = []  # (filename, content) tuples
     all_definitions: Dict[str, str] = {}  # citation_num -> definition
     appearance_order: List[str] = []  # citation numbers in order of first appearance
 
@@ -246,7 +258,6 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
         for num in extract_inline_citations(content):
             if num not in appearance_order:
                 appearance_order.append(num)
-        all_content_parts.append(("header.md", content))
 
     # Process sections in order
     section_files = sorted(sections_dir.glob("*.md"))
@@ -265,8 +276,6 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
             if num not in all_definitions:
                 all_definitions[num] = text
 
-        all_content_parts.append((section_file.name, content))
-
     # Also collect definitions from 1-research/ as fallback source
     # (definitions may have been stripped from sections in previous runs)
     if research_dir.exists():
@@ -280,9 +289,9 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     total_citations = len(appearance_order)
     print(f"  📊 Found {total_citations} unique citations across {len(section_files)} sections")
 
-    # Even with 0 citations, we still need to assemble the final draft
     if total_citations == 0:
-        print("  ℹ️  No citations found - assembling draft without citations block")
+        print("  ℹ️  No citations found")
+        return {"citation_block": "", "stats": {"total_inline_refs": 0, "definitions_found": 0, "missing_definitions": 0, "renumbered": False}, "messages": ["No citations to renumber"]}
 
     # Step 2: Build renumbering map (sequential starting at 1)
     old_to_new: Dict[str, str] = {}
@@ -338,7 +347,61 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
         else:
             print(f"    ⚠️  Warning: No definition found for [^{old_num}] (now [^{new_num}])")
 
-    # Step 5: Assemble final draft
+    # Build citation block string
+    citation_block = ""
+    if renumbered_definitions:
+        citation_block = format_citation_block(
+            renumbered_definitions,
+            sorted(renumbered_definitions.keys(), key=int)
+        )
+
+    defined_count = len(renumbered_definitions)
+    missing_count = total_citations - defined_count
+
+    summary = f"Renumbered {defined_count} citations (sequential 1-{defined_count})"
+    if missing_count > 0:
+        summary += f", {missing_count} missing definitions"
+
+    print(f"\n  ✅ {summary}")
+
+    return {
+        "citation_block": citation_block,
+        "stats": {
+            "total_inline_refs": total_citations,
+            "definitions_found": defined_count,
+            "missing_definitions": missing_count,
+            "renumbered": needs_renumbering,
+        },
+        "messages": [summary],
+    }
+
+
+def assemble_citations(output_dir: Path) -> Dict[str, Any]:
+    """
+    Full citation assembly: renumber citations AND assemble the final draft.
+
+    This is the pipeline-facing function used by the workflow agent.
+    It calls renumber_citations() for the renumbering, then concatenates
+    sections + citation block into the final draft file.
+
+    Args:
+        output_dir: Path to output directory containing 2-sections/
+
+    Returns:
+        Dict with messages and stats
+    """
+    output_dir = Path(output_dir)
+    sections_dir = output_dir / "2-sections"
+    header_file = output_dir / "header.md"
+
+    # Step 1: Renumber citations (stays in its lane)
+    renumber_result = renumber_citations(output_dir)
+    citation_block = renumber_result.get("citation_block", "")
+
+    if not sections_dir.exists():
+        return renumber_result
+
+    # Step 2: Assemble final draft from renumbered sections
     print("  📄 Assembling final draft...")
 
     final_parts = []
@@ -348,15 +411,12 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
         final_parts.append(header_file.read_text())
 
     # Add all sections
+    section_files = sorted(sections_dir.glob("*.md"))
     for section_file in section_files:
         final_parts.append(section_file.read_text())
 
-    # Add consolidated citation block (only if there are citations)
-    if renumbered_definitions:
-        citation_block = format_citation_block(
-            renumbered_definitions,
-            sorted(renumbered_definitions.keys(), key=int)
-        )
+    # Add consolidated citation block at the end
+    if citation_block:
         final_parts.append(citation_block)
 
     # Write final draft
@@ -369,32 +429,18 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
         break
 
     if not final_draft_path:
-        # Create new final draft with version from directory name
         dir_name = output_dir.name
         final_draft_path = output_dir / f"6-{dir_name}.md"
 
     final_draft_path.write_text(final_content)
     print(f"  ✓ Final draft: {final_draft_path.name}")
 
-    # Summary
-    defined_count = len(renumbered_definitions)
-    missing_count = total_citations - defined_count
-
-    summary = f"Assembled {defined_count} citations (sequential 1-{defined_count})"
-    if missing_count > 0:
-        summary += f", {missing_count} missing definitions"
-
-    print(f"\n  ✅ {summary}")
+    stats = renumber_result.get("stats", {})
+    stats["final_draft"] = str(final_draft_path)
 
     return {
-        "messages": [summary],
-        "citation_assembly": {
-            "total_inline_refs": total_citations,
-            "definitions_found": defined_count,
-            "missing_definitions": missing_count,
-            "renumbered": needs_renumbering,
-            "final_draft": str(final_draft_path)
-        }
+        "messages": renumber_result.get("messages", []),
+        "citation_assembly": stats,
     }
 
 

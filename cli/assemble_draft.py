@@ -36,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.artifacts import sanitize_filename
 from src.versioning import VersionManager
-from src.agents.citation_enrichment import renumber_citations_globally
+from src.agents.citation_assembly import renumber_citations
 from src.agents.toc_generator import extract_headers, generate_toc_markdown, insert_toc_after_header
 
 
@@ -84,25 +84,24 @@ def assemble_final_draft(
     section_files = sorted(sections_dir.glob("*.md"))
     log(f"Loading {len(section_files)} sections...")
 
-    sections_data = []
+    # Step 3 & 4: Renumber citations (renumberer stays in its lane)
+    log("Renumbering citations...")
+    renumber_result = renumber_citations(artifact_dir)
+    citation_block = renumber_result.get("citation_block", "")
+
+    # Step 4b: Assemble from renumbered sections (assembler's job)
+    log("Concatenating sections...")
+    section_files = sorted(sections_dir.glob("*.md"))
+    parts = []
+    if header_content:
+        parts.append(header_content)
     for section_file in section_files:
-        # Parse filename: 01-executive-summary.md → (1, "Executive Summary", content)
-        filename = section_file.stem
-        parts = filename.split("-", 1)
-        section_num = int(parts[0])
-        section_name = parts[1].replace("--", " & ").replace("-", " ").title()
-
         with open(section_file) as f:
-            section_content = f.read()
+            parts.append(f.read())
+    if citation_block:
+        parts.append(citation_block)
 
-        sections_data.append((section_num, section_name, section_content))
-
-    # Step 3 & 4: Renumber citations globally and consolidate references
-    log("Renumbering citations globally...")
-    consolidated_content = renumber_citations_globally(sections_data)
-
-    # Combine header + content
-    content = header_content + consolidated_content
+    content = "\n\n".join(parts)
 
     # Step 5: Generate/update Table of Contents
     # First, remove any existing TOC to prevent duplication
