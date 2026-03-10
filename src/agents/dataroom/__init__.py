@@ -7,7 +7,7 @@ diverse document types (pitch decks, financials, legal docs, etc.)
 
 from .document_scanner import scan_dataroom, get_directory_structure
 from .document_classifier import classify_documents
-from .analyzer import analyze_dataroom
+from .dataroom_analyzer import analyze_dataroom, dataroom_agent
 from .dataroom_state import (
     DocumentInventoryItem,
     DataroomAnalysis,
@@ -20,6 +20,7 @@ from .dataroom_state import (
 
 __all__ = [
     "analyze_dataroom",
+    "dataroom_agent",
     "scan_dataroom",
     "get_directory_structure",
     "classify_documents",

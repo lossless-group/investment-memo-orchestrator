@@ -1297,6 +1297,95 @@ def format_team_report(team_data: dict, company_name: str) -> str:
     return md
 
 
+def dataroom_agent(state) -> dict:
+    """
+    LangGraph-compatible wrapper for the dataroom analyzer.
+
+    Runs as the first step in the memo generation pipeline.
+    Skips gracefully if no dataroom_path is provided in state.
+
+    Args:
+        state: MemoState with optional dataroom_path
+
+    Returns:
+        Dict with dataroom_analysis and messages for state merge
+    """
+    dataroom_path = state.get("dataroom_path")
+
+    if not dataroom_path:
+        print("\n⏭️  No dataroom path provided, skipping dataroom analysis")
+        return {
+            "messages": ["Dataroom analysis skipped: no dataroom path provided"]
+        }
+
+    dataroom_dir = Path(dataroom_path)
+    if not dataroom_dir.exists():
+        print(f"\n⚠️  Dataroom path does not exist: {dataroom_path}")
+        return {
+            "messages": [f"Dataroom analysis skipped: path not found ({dataroom_path})"]
+        }
+
+    if not dataroom_dir.is_dir():
+        print(f"\n⚠️  Dataroom path is not a directory: {dataroom_path}")
+        return {
+            "messages": [f"Dataroom analysis skipped: not a directory ({dataroom_path})"]
+        }
+
+    company_name = state["company_name"]
+    firm = state.get("firm")
+
+    # Use the output directory from state (created at workflow start)
+    from ...utils import get_output_dir_from_state
+
+    try:
+        output_dir = get_output_dir_from_state(state)
+    except FileNotFoundError:
+        # Fallback: create directory if state didn't have one
+        from ...versioning import VersionManager
+        from ...artifacts import sanitize_filename, create_artifact_directory
+        safe_name = sanitize_filename(company_name)
+        if firm:
+            vm = VersionManager(firm=firm)
+        else:
+            vm = VersionManager(output_dir=Path("output"))
+        version = vm.get_next_version(safe_name)
+        output_dir = create_artifact_directory(company_name, str(version), firm=firm)
+
+    try:
+        analysis = analyze_dataroom(
+            dataroom_path=str(dataroom_dir),
+            company_name=company_name,
+            output_dir=output_dir,
+            use_llm=True
+        )
+
+        doc_count = analysis.get("document_count", 0)
+        duration = analysis.get("processing_duration_seconds", 0)
+        data_gaps = analysis.get("data_gaps", [])
+        conflicts = analysis.get("conflicts", [])
+
+        summary_parts = [
+            f"Dataroom analysis complete: {doc_count} documents in {duration:.1f}s"
+        ]
+        if data_gaps:
+            summary_parts.append(f"Data gaps identified: {len(data_gaps)}")
+        if conflicts:
+            summary_parts.append(f"Data conflicts found: {len(conflicts)}")
+
+        return {
+            "dataroom_analysis": analysis,
+            "messages": summary_parts
+        }
+
+    except Exception as e:
+        print(f"\n❌ Dataroom analysis failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "messages": [f"Dataroom analysis failed: {str(e)}"]
+        }
+
+
 # CLI entry point for standalone use
 if __name__ == "__main__":
     import sys
