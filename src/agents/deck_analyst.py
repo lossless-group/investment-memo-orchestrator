@@ -21,118 +21,151 @@ from pptx import Presentation  # For PowerPoint files
 from ..state import MemoState, DeckAnalysisData, SectionDraft
 from ..outline_loader import load_outline_for_state
 
-# Mapping from screenshot categories to section filenames
+# Mapping from screenshot categories to section filenames in 0-deck-sections/
 # Used to embed screenshots in the appropriate deck section files
 SCREENSHOT_CATEGORY_TO_SECTION = {
     "team": "deck-team.md",
     "traction": "deck-traction.md",
-    "product": "deck-product.md",
-    "market": "deck-market.md",
-    "competitive": "deck-competitive.md",
-    "architecture": "deck-product.md",  # Merge with product
-    "timeline": "deck-traction.md",     # Merge with traction
-    "general": None,  # No specific section
+    "product-demo": "deck-product.md",
+    "technology": "deck-product.md",
+    "solution": "deck-product.md",
+    "market-size": "deck-market.md",
+    "competitive-positioning": "deck-competitive.md",
+    "competition-landscape": "deck-competitive.md",
+    "unit-economics": "deck-traction.md",
+    "business-model": "deck-traction.md",
+    "fundraising": "deck-traction.md",
+    "financials": "deck-traction.md",
+    "go-to-market": "deck-traction.md",
+    "branding": "deck-product.md",
+    "customer-pain": "deck-product.md",
+    "ideal-customer-profile": "deck-market.md",
+    "overview": None,
+    "problem": None,
+    "value-proposition": None,
+    "partnerships": None,
+    "vision": None,
+    "impact": None,
+    "general": None,
 }
 
-# Mapping from outline section names to deck topic files
-# This is saved to 0-deck-analysis.json so other agents can use it
-# Keys are lowercase section name keywords, values are deck topic names
-SECTION_TO_DECK_TOPICS = {
-    "executive": ["problem", "solution", "funding"],
-    "summary": ["problem", "solution", "funding"],
-    "origins": ["problem", "solution"],
-    "opening": ["business-model", "product", "solution"],
-    "organization": ["team"],
-    "team": ["team"],
-    "people": ["team"],
-    "offering": ["product", "solution"],
-    "product": ["product", "solution"],
-    "technology": ["product", "solution"],
-    "opportunity": ["market", "competitive"],
-    "market": ["market", "competitive"],
-    "traction": ["traction"],
-    "milestones": ["traction"],
-    "funding": ["funding"],
-    "terms": ["funding"],
-    "risks": ["competitive"],
-    "scorecard": ["traction", "team", "market"],
-    "closing": ["funding", "traction"],
-    "assessment": ["funding", "traction"],
-    "gtm": ["gtm"],
-    "strategy": ["gtm", "competitive"],
-}
+# Classification guide path — loaded and passed to Claude Vision for accurate slide classification.
+# See templates/deck-classification-guide.md for the full category definitions.
+CLASSIFICATION_GUIDE_PATH = Path("templates/deck-classification-guide.md")
 
-# Mapping from deck topics to screenshot categories
-# Used to build section_to_screenshots mapping
-DECK_TOPIC_TO_SCREENSHOT_CATEGORY = {
-    "team": "team",
-    "traction": "traction",
-    "product": "product",
-    "market": "market",
-    "competitive": "competitive",
-    "problem": None,  # No dedicated screenshot category
-    "solution": "product",  # Solution screenshots go with product
-    "business-model": None,
-    "funding": None,
-    "gtm": None,
-}
+# Firm-scoped classification guide search paths (checked in order)
+CLASSIFICATION_GUIDE_SEARCH_PATHS = [
+    # io/{firm}/templates/deck-classification-guide.md  (resolved at runtime)
+    "templates/deck-classification-guide.md",
+]
 
 
-def build_section_to_screenshots(screenshots: List[Dict[str, Any]], output_dir: Path) -> Dict[str, List[str]]:
+def load_classification_guide(firm: str = None) -> str:
     """
-    Build a mapping from outline section keywords to screenshot paths.
+    Load the deck slide classification guide markdown.
 
-    This mapping is saved to 0-deck-analysis.json so that the inject_deck_images
-    agent can add screenshots to the appropriate 2-sections/ files.
+    Searches firm-scoped path first, then project-level templates/.
 
     Args:
-        screenshots: List of screenshot metadata dicts with 'category' and 'path'
-        output_dir: Output directory (for building absolute paths)
+        firm: Optional firm name to check io/{firm}/templates/ first
 
     Returns:
-        Dict mapping section keywords to lists of absolute screenshot paths
-        Example: {"organization": ["/path/to/page-14-team.png"], "opportunity": ["/path/to/page-07-market.png"]}
+        Classification guide contents, or empty string if not found
+    """
+    search_paths = []
+
+    if firm:
+        search_paths.append(Path(f"io/{firm}/templates/deck-classification-guide.md"))
+
+    search_paths.append(CLASSIFICATION_GUIDE_PATH)
+
+    for path in search_paths:
+        if path.exists():
+            guide_text = path.read_text()
+            print(f"  📋 Loaded classification guide from {path}", flush=True)
+            return guide_text
+
+    print("  ⚠️  No deck-classification-guide.md found, using inline categories", flush=True)
+    return ""
+
+
+# Categories considered high-signal for the Key Slides gallery in Executive Summary.
+# Lower-priority categories are excluded from Key Slides to keep it focused.
+KEY_SLIDES_PRIORITY_CATEGORIES = [
+    "traction", "unit-economics", "team", "market-size",
+    "competitive-positioning", "product-demo", "technology",
+    "fundraising", "business-model",
+]
+
+# Sections that should NEVER receive deck screenshots (synthesis/summary sections)
+EXCLUDED_SECTIONS = {
+    "scorecard", "recommendation", "closing", "assessment",
+    "investment thesis", "12ps scorecard",
+}
+
+
+def build_section_to_screenshots(
+    screenshots: List[Dict[str, Any]],
+    output_dir: Path
+) -> Dict[str, Any]:
+    """
+    Build a mapping from screenshot categories to their primary section and metadata.
+
+    Each screenshot is assigned to exactly ONE primary section based on its category.
+    The inject_deck_images agent uses this mapping to place images, enforcing the
+    rule that each image appears at most twice (once in its primary section, once
+    optionally in the Executive Summary Key Slides gallery).
+
+    Args:
+        screenshots: List of screenshot metadata dicts with 'category', 'path',
+                    'description', and optionally 'slug'
+        output_dir: Output directory (for building paths)
+
+    Returns:
+        Dict with:
+          - "images": list of image metadata dicts, each with path, category,
+                      slug, description, and primary_section
+          - "key_slides": list of paths for the Executive Summary Key Slides gallery
     """
     if not screenshots:
-        return {}
+        return {"images": [], "key_slides": []}
 
-    # Group screenshots by category
-    category_to_paths: Dict[str, List[str]] = {}
+    images = []
+    key_slides_candidates = []
+
     for ss in screenshots:
         category = ss.get("category", "general")
         if category == "general":
-            continue  # Skip general screenshots - no section mapping
+            continue
 
-        # Build absolute path
-        abs_path = str(output_dir / ss["path"])
+        # Build path relative to project root (not absolute — stays portable)
+        img_path = str(output_dir / ss["path"])
+        slug = ss.get("slug", "")
+        description = ss.get("description", f"Page {ss.get('page_number', '?')} from pitch deck")
 
-        if category not in category_to_paths:
-            category_to_paths[category] = []
-        category_to_paths[category].append(abs_path)
+        image_entry = {
+            "path": img_path,
+            "page_number": ss.get("page_number"),
+            "category": category,
+            "slug": slug,
+            "description": description,
+            "primary_section": category,  # inject agent maps category → section file
+        }
+        images.append(image_entry)
 
-    # Build section to screenshots mapping
-    section_to_screenshots: Dict[str, List[str]] = {}
+        # Collect candidates for Key Slides gallery
+        if category in KEY_SLIDES_PRIORITY_CATEGORIES:
+            key_slides_candidates.append(image_entry)
 
-    for section_keyword, deck_topics in SECTION_TO_DECK_TOPICS.items():
-        screenshots_for_section = []
+    # Select up to 5 key slides, prioritized by category order
+    priority_order = {cat: i for i, cat in enumerate(KEY_SLIDES_PRIORITY_CATEGORIES)}
+    key_slides_candidates.sort(key=lambda x: priority_order.get(x["category"], 99))
+    key_slides = [entry["path"] for entry in key_slides_candidates[:5]]
 
-        for topic in deck_topics:
-            # Get the screenshot category for this deck topic
-            screenshot_category = DECK_TOPIC_TO_SCREENSHOT_CATEGORY.get(topic)
-            if screenshot_category and screenshot_category in category_to_paths:
-                screenshots_for_section.extend(category_to_paths[screenshot_category])
-
-        if screenshots_for_section:
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_paths = []
-            for path in screenshots_for_section:
-                if path not in seen:
-                    seen.add(path)
-                    unique_paths.append(path)
-            section_to_screenshots[section_keyword] = unique_paths
-
-    return section_to_screenshots
+    return {
+        "images": images,
+        "key_slides": key_slides,
+    }
 
 
 # Optional: pdf2image for higher quality rendering (requires Poppler)
@@ -151,7 +184,8 @@ def extract_screenshots_with_timeout(
     pdf_path: str,
     deck_analysis: Dict,
     output_dir: Path,
-    timeout_seconds: int = 90
+    timeout_seconds: int = 90,
+    firm: str = None
 ) -> List[Dict[str, Any]]:
     """
     Extract visual screenshots from deck pages with a timeout.
@@ -164,6 +198,7 @@ def extract_screenshots_with_timeout(
         deck_analysis: Already extracted deck analysis data
         output_dir: Directory where screenshots should be saved
         timeout_seconds: Maximum time to wait for screenshot extraction
+        firm: Optional firm name for firm-scoped classification guide
 
     Returns:
         List of screenshot metadata dicts, or empty list if failed/timed out
@@ -179,7 +214,7 @@ def extract_screenshots_with_timeout(
 
             # Identify which pages have valuable visual content
             print("  Identifying visual pages with Claude Vision...", flush=True)
-            page_selections = identify_visual_pages(pdf_path, deck_analysis, client)
+            page_selections = identify_visual_pages(pdf_path, deck_analysis, client, firm=firm)
 
             if not page_selections:
                 print("  No significant visual content identified", flush=True)
@@ -452,7 +487,8 @@ IMPORTANT:
             deck_path,
             deck_analysis,
             output_dir,  # Pass the exact output_dir from artifact saving
-            timeout_seconds=90  # 90 second timeout for screenshot extraction
+            timeout_seconds=90,  # 90 second timeout for screenshot extraction
+            firm=firm
         )
         if deck_screenshots:
             deck_analysis["screenshots"] = deck_screenshots
@@ -467,10 +503,9 @@ IMPORTANT:
             # STEP 7: Build and save section-to-screenshots mapping
             # This mapping tells inject_deck_images agent which images go in which sections
             print("Building section-to-screenshots mapping...", flush=True)
-            section_to_screenshots = build_section_to_screenshots(deck_screenshots, output_dir)
-            deck_analysis["section_to_deck_topics"] = SECTION_TO_DECK_TOPICS
-            deck_analysis["section_to_screenshots"] = section_to_screenshots
-            print(f"✓ Mapped screenshots to {len(section_to_screenshots)} section keywords", flush=True)
+            screenshot_mapping = build_section_to_screenshots(deck_screenshots, output_dir)
+            deck_analysis["section_to_screenshots"] = screenshot_mapping
+            print(f"✓ Mapped {len(screenshot_mapping.get('images', []))} screenshots for injection", flush=True)
 
             # Re-save deck_analysis.json with screenshots and mappings
             deck_analysis_path = output_dir / "0-deck-analysis.json"
@@ -597,11 +632,16 @@ def extract_deck_screenshots(
             continue
 
         category = selection.get("category", "general")
+        slug = selection.get("slug", "")
         description = selection.get("description", f"Page {page_num + 1}")
 
-        # Generate filename: page-03-team.png
+        # Generate filename: page-03-team-founding-team.png
         safe_category = "".join(c for c in category if c.isalnum() or c == '-').lower()
-        filename = f"page-{page_num + 1:02d}-{safe_category}.png"
+        safe_slug = "".join(c for c in slug if c.isalnum() or c == '-').lower()
+        if safe_slug:
+            filename = f"page-{page_num + 1:02d}-{safe_category}-{safe_slug}.png"
+        else:
+            filename = f"page-{page_num + 1:02d}-{safe_category}.png"
         output_path = screenshots_dir / filename
 
         try:
@@ -646,6 +686,7 @@ def extract_deck_screenshots(
                 "filename": filename,
                 "page_number": page_num + 1,
                 "category": category,
+                "slug": slug,
                 "description": description,
                 "width": width,
                 "height": height
@@ -662,26 +703,23 @@ def extract_deck_screenshots(
 def identify_visual_pages(
     pdf_path: str,
     deck_analysis: Dict[str, Any],
-    client: Anthropic
+    client: Anthropic,
+    firm: str = None
 ) -> List[Dict[str, Any]]:
     """
     Use Claude to identify which pages contain valuable visual content.
 
-    Analyzes the deck to find pages with:
-    - Team photos/org charts
-    - Product screenshots/demos
-    - Market size charts
-    - Traction/growth charts
-    - Competitive landscape diagrams
-    - Architecture/tech diagrams
+    Loads the deck classification guide from templates/deck-classification-guide.md
+    and passes it to Claude Vision for accurate, granular slide classification.
 
     Args:
         pdf_path: Path to PDF file
         deck_analysis: Already extracted deck analysis data
         client: Anthropic client for vision API
+        firm: Optional firm name for firm-scoped classification guide
 
     Returns:
-        List of page selections with category and description
+        List of page selections with category, slug, and description
     """
     doc = fitz.open(pdf_path)
     page_count = len(doc)
@@ -701,13 +739,13 @@ def identify_visual_pages(
     image_contents = []
     for page_num in pages_to_analyze:
         page = doc[page_num]
-        # Low resolution for classification (saves tokens)
-        mat = fitz.Matrix(0.3, 0.3)
+        # 0.5x resolution — readable enough to classify tables, charts, and text
+        mat = fitz.Matrix(0.5, 0.5)
         pix = page.get_pixmap(matrix=mat)
 
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         img_buffer = BytesIO()
-        img.save(img_buffer, format="JPEG", quality=60)
+        img.save(img_buffer, format="JPEG", quality=70)
         img_bytes = img_buffer.getvalue()
         img_b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
 
@@ -722,28 +760,75 @@ def identify_visual_pages(
 
     doc.close()
 
-    # Ask Claude to identify visual pages
-    prompt = f"""Analyze these {len(pages_to_analyze)} pitch deck slides and identify which ones contain valuable VISUAL content that should be saved as screenshots for an investment memo.
+    # Load classification guide
+    classification_guide = load_classification_guide(firm=firm)
+
+    if classification_guide:
+        # Use the full classification guide as context
+        prompt = f"""Analyze these {len(pages_to_analyze)} pitch deck slides and identify which ones contain valuable VISUAL content that should be saved as screenshots for an investment memo.
 
 The slides are numbered in order: {[p + 1 for p in pages_to_analyze]}
 
-Look for these categories of visual content:
-- **team**: Team photos, org charts, founder headshots
-- **product**: Product screenshots, UI mockups, demo screens
-- **traction**: Growth charts, metrics graphs, revenue/user charts
-- **market**: Market size charts, TAM/SAM/SOM diagrams
-- **competitive**: Competitive landscape diagrams, positioning matrices
-- **architecture**: Technical architecture diagrams, system diagrams
-- **timeline**: Roadmap visuals, milestone timelines
+Use the following classification guide to categorize each slide. Read it carefully — it defines the exact categories, what to look for, what NOT to classify as each category, and how to resolve ambiguity.
 
-Return a JSON array of pages to extract. Only include pages with SIGNIFICANT visual value (not just text slides or basic bullet points).
+---
+{classification_guide}
+---
+
+Return a JSON array of pages to extract. Only include pages with SIGNIFICANT visual value — skip title slides, text-only slides, agendas, and legal disclaimers (see "Slides to Skip" in the guide above).
+
+Each entry MUST include "category" (from the guide), "slug" (2-5 word descriptor, lowercase hyphenated, unique across the deck), and "description" (one sentence about the specific visual content).
 
 Format:
 ```json
 [
-  {{"page_number": 3, "category": "team", "description": "Founding team photos with backgrounds"}},
-  {{"page_number": 7, "category": "traction", "description": "MRR growth chart showing 3x YoY growth"}},
-  {{"page_number": 12, "category": "product", "description": "Dashboard UI screenshot"}}
+  {{"page_number": 3, "category": "team", "slug": "founding-team", "description": "Founding team photos with bios and university/company backgrounds"}},
+  {{"page_number": 7, "category": "traction", "slug": "revenue-growth", "description": "MRR growth chart showing 3x YoY growth from $50K to $150K"}},
+  {{"page_number": 14, "category": "unit-economics", "slug": "unit-margins", "description": "Per-unit COGS and margin table showing 72-87% gross margins"}}
+]
+```
+
+Return ONLY the JSON array, no other text. If no pages have significant visual value, return an empty array: []"""
+    else:
+        # Fallback: inline categories if guide file is missing
+        prompt = f"""Analyze these {len(pages_to_analyze)} pitch deck slides and identify which ones contain valuable VISUAL content that should be saved as screenshots for an investment memo.
+
+The slides are numbered in order: {[p + 1 for p in pages_to_analyze]}
+
+Classify each slide into one of these categories:
+- **overview**: Company overview, mission, elevator pitch
+- **problem**: Market/industry problems, status quo failures
+- **customer-pain**: Specific user frustrations, persona pain points
+- **ideal-customer-profile**: Target personas, customer segments, buyer demographics
+- **solution**: How the company solves the problem (conceptual)
+- **product-demo**: Product UI screenshots, app interfaces, physical product photos
+- **value-proposition**: Key benefits, feature highlights, "why us"
+- **technology**: Architecture diagrams, science mechanisms, IP/patents, R&D
+- **business-model**: Revenue model, pricing, monetization strategy
+- **unit-economics**: Margins, COGS, LTV/CAC, per-unit profitability
+- **market-size**: TAM/SAM/SOM, market growth charts
+- **competitive-positioning**: 2x2 matrices, feature comparison grids
+- **competition-landscape**: Competitor lists, market maps
+- **traction**: Growth metrics, revenue charts, milestones
+- **team**: Team photos, org charts, advisor headshots
+- **go-to-market**: GTM strategy, acquisition channels, funnels
+- **fundraising**: Round details, use of funds, investor logos
+- **financials**: Revenue projections, P&L forecasts, runway
+- **partnerships**: Strategic partners, ecosystem diagrams
+- **branding**: Brand positioning, packaging, D2C website
+- **vision**: Big-picture roadmap, long-term vision
+- **impact**: Social impact, ESG, sustainability
+
+Return a JSON array of pages to extract. Only include pages with SIGNIFICANT visual value (not just text slides or bullet points).
+
+Each entry MUST include "category", "slug" (2-5 word descriptor, lowercase hyphenated), and "description".
+
+Format:
+```json
+[
+  {{"page_number": 3, "category": "team", "slug": "founding-team", "description": "Founding team photos with backgrounds"}},
+  {{"page_number": 7, "category": "traction", "slug": "revenue-growth", "description": "MRR growth chart showing 3x YoY growth"}},
+  {{"page_number": 14, "category": "unit-economics", "slug": "unit-margins", "description": "Per-unit margin table with COGS breakdown"}}
 ]
 ```
 
@@ -754,7 +839,7 @@ Return ONLY the JSON array, no other text. If no pages have significant visual v
 
         response = client.messages.create(
             model="claude-sonnet-4-5-20250929",
-            max_tokens=2000,
+            max_tokens=4000,
             messages=[{
                 "role": "user",
                 "content": content_blocks
@@ -783,6 +868,7 @@ Return ONLY the JSON array, no other text. If no pages have significant visual v
                 valid_selections.append({
                     "page_number": int(sel.get("page_number", 1)),
                     "category": str(sel.get("category", "general")),
+                    "slug": str(sel.get("slug", ""))[:50],
                     "description": str(sel.get("description", ""))[:200]
                 })
 
@@ -1012,7 +1098,7 @@ IMPORTANT:
             output_dir = get_output_dir_from_state(state)
 
             # Reuse the client we already have
-            page_selections = identify_visual_pages(pdf_path, deck_analysis, client)
+            page_selections = identify_visual_pages(pdf_path, deck_analysis, client, firm=firm)
 
             if page_selections:
                 print(f"  Found {len(page_selections)} pages with visual content", flush=True)
@@ -1034,10 +1120,9 @@ IMPORTANT:
 
                 # Build and save section-to-screenshots mapping
                 print("Building section-to-screenshots mapping...", flush=True)
-                section_to_screenshots = build_section_to_screenshots(deck_screenshots, output_dir)
-                deck_analysis["section_to_deck_topics"] = SECTION_TO_DECK_TOPICS
-                deck_analysis["section_to_screenshots"] = section_to_screenshots
-                print(f"✓ Mapped screenshots to {len(section_to_screenshots)} section keywords", flush=True)
+                screenshot_mapping = build_section_to_screenshots(deck_screenshots, output_dir)
+                deck_analysis["section_to_screenshots"] = screenshot_mapping
+                print(f"✓ Mapped {len(screenshot_mapping.get('images', []))} screenshots for injection", flush=True)
 
                 # Re-save deck_analysis.json with screenshots and mappings
                 deck_analysis_path = output_dir / "0-deck-analysis.json"
