@@ -113,7 +113,7 @@ def validator_agent(state: MemoState) -> Dict[str, Any]:
     Returns:
         Updated state with validation_results and overall_score
     """
-    from ..utils import get_latest_output_dir
+    from ..utils import get_output_dir_from_state
     from pathlib import Path
 
     company_name = state["company_name"]
@@ -121,7 +121,7 @@ def validator_agent(state: MemoState) -> Dict[str, Any]:
 
     # Read from final draft file (new architecture stores sections in files, not state)
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         raise ValueError("No output directory found. Writer agent must run first.")
 

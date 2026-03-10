@@ -119,12 +119,14 @@ def portfolio_listing_agent(state: MemoState) -> Dict[str, Any]:
     section. Then runs link enrichment so portfolio names get links.
     """
 
+    from ..utils import get_output_dir_from_state
+
     company_name = state["company_name"]
     firm = state.get("firm")
 
-    # Determine latest output directory (firm-aware)
+    # Get output directory from state (created at workflow start)
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         print(f"⊘ Portfolio listing skipped - no output directory for {company_name}")
         return {"messages": ["Portfolio listing skipped - no output directory"]}

@@ -70,7 +70,8 @@ def save_deck_analysis_artifacts(
     company_name: str,
     deck_analysis: Dict[str, Any],
     section_drafts: Dict[str, str],
-    firm: str = None
+    firm: str = None,
+    output_dir: Path = None
 ) -> Path:
     """
     Save deck analysis artifacts with 0- prefix.
@@ -80,30 +81,32 @@ def save_deck_analysis_artifacts(
         deck_analysis: Deck analysis data
         section_drafts: Initial section drafts from deck
         firm: Optional firm name for firm-scoped outputs
+        output_dir: Optional pre-created output directory (preferred)
 
     Returns:
         Path to the output directory where artifacts were saved
     """
-    from .versioning import VersionManager
-    from .paths import resolve_deal_context
-
-    print(f"  [DEBUG] Starting save_deck_analysis_artifacts for {company_name} (firm={firm})", flush=True)
-
-    # Get or create output directory - firm-aware
-    if firm:
-        print(f"  [DEBUG] Resolving deal context...", flush=True)
-        ctx = resolve_deal_context(company_name, firm=firm)
-        print(f"  [DEBUG] Creating version manager...", flush=True)
-        version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+    if output_dir:
+        # Use the pre-created output directory from state
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
     else:
-        version_mgr = VersionManager(Path("output"))
+        # Legacy fallback: create a new version directory
+        from .versioning import VersionManager
+        from .paths import resolve_deal_context
 
-    safe_name = sanitize_filename(company_name)
-    print(f"  [DEBUG] Getting next version for {safe_name}...", flush=True)
-    version = version_mgr.get_next_version(safe_name)
-    print(f"  [DEBUG] Next version: {version}", flush=True)
-    output_dir = create_artifact_directory(company_name, version, firm=firm)
-    print(f"  [DEBUG] Created artifact directory: {output_dir}", flush=True)
+        print(f"  [DEBUG] Starting save_deck_analysis_artifacts for {company_name} (firm={firm})", flush=True)
+
+        if firm:
+            ctx = resolve_deal_context(company_name, firm=firm)
+            version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
+        else:
+            version_mgr = VersionManager(Path("output"))
+
+        safe_name = sanitize_filename(company_name)
+        version = version_mgr.get_next_version(safe_name)
+        output_dir = create_artifact_directory(company_name, version, firm=firm)
+        print(f"  [DEBUG] Created artifact directory: {output_dir}", flush=True)
 
     # Save structured JSON
     print(f"  [DEBUG] Saving 0-deck-analysis.json...", flush=True)

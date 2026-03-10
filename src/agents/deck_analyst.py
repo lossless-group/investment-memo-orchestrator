@@ -435,11 +435,14 @@ IMPORTANT:
     section_drafts_for_disk = {k: v["content"] for k, v in section_drafts.items()}
     # Pass firm from state for firm-scoped output paths
     firm = state.get("firm")
+    # Use output_dir from state (created at workflow start)
+    state_output_dir = state.get("output_dir")
     output_dir = save_deck_analysis_artifacts(
         state["company_name"],
         deck_analysis,
         section_drafts_for_disk,
-        firm=firm
+        firm=firm,
+        output_dir=Path(state_output_dir) if state_output_dir else None
     )
 
     # STEP 5: Extract visual screenshots (async with timeout, non-blocking on failure)
@@ -990,36 +993,23 @@ IMPORTANT:
         section_drafts_for_disk = {k: v["content"] for k, v in section_drafts.items()}
         # Pass firm from state for firm-scoped output paths
         firm = state.get("firm")
+        # Use output_dir from state (created at workflow start)
+        state_output_dir = state.get("output_dir")
         save_deck_analysis_artifacts(
             state["company_name"],
             deck_analysis,
             section_drafts_for_disk,
-            firm=firm
+            firm=firm,
+            output_dir=Path(state_output_dir) if state_output_dir else None
         )
 
         # Extract visual screenshots (vision mode already has client)
         deck_screenshots = []
         print("Identifying visual pages for screenshot extraction...", flush=True)
         try:
-            from ..artifacts import create_artifact_directory
-            from ..versioning import VersionManager
-            from ..artifacts import sanitize_filename
+            from ..utils import get_output_dir_from_state
 
-            safe_name = sanitize_filename(state["company_name"])
-            if firm:
-                from ..paths import resolve_deal_context
-                ctx = resolve_deal_context(state["company_name"], firm=firm)
-                version_mgr = VersionManager(ctx.outputs_dir.parent if ctx.outputs_dir else Path("output"), firm=firm)
-            else:
-                version_mgr = VersionManager(Path("output"))
-
-            # Check if company already has versions tracked
-            if safe_name in version_mgr.versions_data:
-                version = version_mgr.get_current_version(safe_name)
-            else:
-                version = version_mgr.get_next_version(safe_name)
-
-            output_dir = create_artifact_directory(state["company_name"], version, firm=firm)
+            output_dir = get_output_dir_from_state(state)
 
             # Reuse the client we already have
             page_selections = identify_visual_pages(pdf_path, deck_analysis, client)

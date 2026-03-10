@@ -436,9 +436,10 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
 
     print(f"\n🔍 Validating citation URLs for {company_name}...")
 
-    # Get output directory
+    # Get output directory from state (created at workflow start)
+    from ..utils import get_output_dir_from_state
     try:
-        output_dir = get_latest_output_dir(company_name, firm=firm)
+        output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         return {
             "messages": ["Remove invalid sources skipped: no output directory found"]
