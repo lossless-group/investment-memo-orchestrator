@@ -119,11 +119,25 @@ def link_enrichment_agent(state: MemoState) -> Dict[str, Any]:
 
         print(f"  Enriching links: {section_name}...")
 
+        # Extract image embeds BEFORE sending to LLM.
+        # LLMs tend to "correct" file paths (e.g., Metabologic → Metabolic),
+        # so we strip images out, send only text, then restore images after.
+        import re
+        image_pattern = re.compile(r'^!\[[^\]]*\]\([^)]+\)\s*$', re.MULTILINE)
+        image_lines = image_pattern.findall(section_content)
+        # Replace image lines with unique placeholders
+        content_for_llm = section_content
+        image_placeholders = {}
+        for i, img_line in enumerate(image_lines):
+            placeholder = f"__IMAGE_PLACEHOLDER_{i}__"
+            image_placeholders[placeholder] = img_line.strip()
+            content_for_llm = content_for_llm.replace(img_line.strip(), placeholder, 1)
+
         # Create enrichment prompt
         user_prompt = f"""Add hyperlinks to organizations and entities in this {section_name} section for {company_name}.
 
 SECTION CONTENT:
-{section_content}
+{content_for_llm}
 
 INSTRUCTIONS:
 1. Identify all investors, government bodies, partners, competitors, universities, and industry organizations
@@ -131,7 +145,8 @@ INSTRUCTIONS:
 3. Use official websites (firm sites, .gov, .edu domains)
 4. DO NOT change any text - only add links
 5. If unsure about the correct website, skip that entity
-6. Return the COMPLETE section with links added
+6. DO NOT modify any __IMAGE_PLACEHOLDER__ lines - leave them exactly as they are
+7. Return the COMPLETE section with links added
 
 Output the full section with links enriched."""
 
@@ -144,6 +159,10 @@ Output the full section with links enriched."""
         try:
             response = model.invoke(messages)
             enriched_content = response.content
+
+            # Restore image embeds from placeholders
+            for placeholder, original_image in image_placeholders.items():
+                enriched_content = enriched_content.replace(placeholder, original_image)
 
             # Count links added
             original_link_count = section_content.count("](http")
