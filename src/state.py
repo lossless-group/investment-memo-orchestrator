@@ -191,6 +191,9 @@ class MemoState(TypedDict):
     fact_check_results: Optional[Dict[str, Any]]  # Fact-checking results (claims vs sources)
     overall_score: float
 
+    # Table generation
+    tables_generated: Optional[Dict[str, Any]]  # Tables manifest from table_generator agent
+
     # Scorecard evaluation (12Ps)
     scorecard_results: Optional[ScorecardResults]  # Dimension scores and analysis
 

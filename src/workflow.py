@@ -42,7 +42,8 @@ from .agents.inject_deck_images import inject_deck_images_agent                 
 from .agents.trademark_enrichment import trademark_enrichment_agent              # 9. Company trademark insertion
 from .agents.socials_enrichment import socials_enrichment_agent                  # 10. LinkedIn profile links
 from .agents.link_enrichment import link_enrichment_agent                        # 11. Organization hyperlinks
-from .agents.visualization_enrichment import visualization_enrichment_agent      # 12. Visualizations (disabled)
+from .agents.table_generator import table_generator_agent                        # 12. Table generation
+from .agents.visualization_enrichment import visualization_enrichment_agent      # 13. Visualizations (disabled)
 from .agents.toc_generator import toc_generator_agent                            # 13. Table of Contents
 from .agents.revise_summary_sections import revise_summary_sections              # 14. Revise bookend sections
 from .agents.remove_invalid_sources import (                                     # 6/15. Cleanup gates
@@ -476,6 +477,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("enrich_trademark", trademark_enrichment_agent)  # Company trademark insertion
     workflow.add_node("enrich_socials", socials_enrichment_agent)
     workflow.add_node("enrich_links", link_enrichment_agent)
+    workflow.add_node("generate_tables", table_generator_agent)  # Generate markdown tables from structured data + prose
     workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
     workflow.add_node("cite", citation_enrichment_agent)
     workflow.add_node("toc", toc_generator_agent)  # Generate Table of Contents with anchor links
@@ -528,7 +530,8 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("inject_deck_images", "enrich_trademark")  # Then insert company trademark
     workflow.add_edge("enrich_trademark", "enrich_socials")
     workflow.add_edge("enrich_socials", "enrich_links")
-    workflow.add_edge("enrich_links", "enrich_visualizations")
+    workflow.add_edge("enrich_links", "generate_tables")       # Generate tables after links are in place
+    workflow.add_edge("generate_tables", "enrich_visualizations")
     workflow.add_edge("enrich_visualizations", "toc")  # Generate TOC (cite now runs earlier on research)
     workflow.add_edge("toc", "revise_summaries")  # Revise bookend sections based on complete draft
     workflow.add_edge("revise_summaries", "cleanup_sections")  # GATE 2: Clean sections before assembly
