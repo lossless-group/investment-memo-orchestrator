@@ -183,6 +183,8 @@ def main():
     company_trademark_dark = None
     outline_name = None
     scorecard_name = None
+    search_variants = None
+    known_competitors = None
 
     # Default to CLI arguments
     investment_type = args.investment_type
@@ -262,6 +264,14 @@ def main():
             scorecard_name = company_data.get("scorecard")
             if scorecard_name:
                 console.print(f"[bold green]Scorecard:[/bold green] {scorecard_name}")
+
+            # Load competitive research hints
+            search_variants = company_data.get("search_variants")
+            if search_variants:
+                console.print(f"[bold green]Search variants:[/bold green] {len(search_variants)} custom queries")
+            known_competitors = company_data.get("known_competitors")
+            if known_competitors:
+                console.print(f"[bold green]Known competitors:[/bold green] {', '.join(known_competitors)}")
 
             # Read type and mode from JSON if present
             json_type = company_data.get("type", "").lower()
@@ -354,7 +364,9 @@ def main():
                 company_trademark_light=company_trademark_light,
                 company_trademark_dark=company_trademark_dark,
                 outline_name=outline_name,
-                scorecard_name=scorecard_name
+                scorecard_name=scorecard_name,
+                search_variants=search_variants,
+                known_competitors=known_competitors
             )
 
             progress.update(task, description="[bold green]✓ Memo generation complete!")

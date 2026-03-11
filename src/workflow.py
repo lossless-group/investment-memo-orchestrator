@@ -36,6 +36,8 @@ from .agents.deck_analyst import deck_analyst_agent                             
 from .agents.researcher import research_agent                                    # 3a. Basic research (fallback)
 from .agents.research_enhanced import research_agent_enhanced                    # 3b. Enhanced research with web search
 from .agents.perplexity_section_researcher import perplexity_section_researcher_agent  # 4. Section-specific research
+from .agents.competitive_landscape_researcher import competitive_landscape_researcher  # 4b. Competitive landscape discovery
+from .agents.competitive_landscape_evaluator import competitive_landscape_evaluator    # 4c. Competitive landscape evaluation
 from .agents.citation_enrichment import citation_enrichment_agent                # 5. Citation enrichment on research
 from .agents.writer import writer_agent                                          # 7. Section-by-section writing
 from .agents.inject_deck_images import inject_deck_images_agent                  # 8. Inject deck screenshots
@@ -472,6 +474,8 @@ def build_workflow() -> StateGraph:
     workflow.add_node("deck_analyst", deck_analyst_agent)  # Deck analysis (skips if no deck)
     workflow.add_node("research", research_fn)
     workflow.add_node("section_research", perplexity_section_researcher_agent)  # Section-specific research with citations
+    workflow.add_node("competitive_researcher", competitive_landscape_researcher)  # Competitive landscape discovery
+    workflow.add_node("competitive_evaluator", competitive_landscape_evaluator)    # Competitive landscape evaluation
     workflow.add_node("cleanup_research", cleanup_research_citations)  # GATE 1: Clean research citations BEFORE writer
     workflow.add_node("draft", writer_agent)
     workflow.add_node("inject_deck_images", inject_deck_images_agent)  # Inject screenshots from deck into 2-sections/
@@ -518,14 +522,17 @@ def build_workflow() -> StateGraph:
     #   - Catches any issues from section processing
     #
     # Full sequence:
-    # Dataroom → Deck → Research → Section Research → [CITE on 1-research/] → [GATE 1] → Writer →
+    # Dataroom → Deck → Research → Section Research → Competitive Researcher →
+    # Competitive Evaluator → [CITE on 1-research/] → [GATE 1] → Writer →
     # Inject Deck Images → Enrichment → TOC → Revise → [GATE 2] → Assembly →
     # Validation → Fact Check → Validate → Scorecard
 
     workflow.add_edge("dataroom", "deck_analyst")
     workflow.add_edge("deck_analyst", "research")
     workflow.add_edge("research", "section_research")  # Generate section research with citations
-    workflow.add_edge("section_research", "cite")      # Enrich research with additional citations (preserves existing)
+    workflow.add_edge("section_research", "competitive_researcher")  # Discover candidate competitors
+    workflow.add_edge("competitive_researcher", "competitive_evaluator")  # Evaluate and classify competitors
+    workflow.add_edge("competitive_evaluator", "cite")  # Enrich research with additional citations (preserves existing)
     workflow.add_edge("cite", "cleanup_research")      # GATE 1: Validate ALL citations before writer
     workflow.add_edge("cleanup_research", "draft")     # Writer receives CLEAN, citation-enriched research
     workflow.add_edge("draft", "inject_deck_images")  # Inject deck screenshots into 2-sections/
@@ -580,7 +587,9 @@ def generate_memo(
     company_trademark_light: str = None,
     company_trademark_dark: str = None,
     outline_name: str = None,
-    scorecard_name: str = None
+    scorecard_name: str = None,
+    search_variants: list = None,
+    known_competitors: list = None
 ) -> MemoState:
     """
     Main entry point for generating an investment memo.
@@ -654,7 +663,9 @@ def generate_memo(
         company_trademark_light=company_trademark_light,
         company_trademark_dark=company_trademark_dark,
         outline_name=outline_name,
-        scorecard_name=scorecard_name
+        scorecard_name=scorecard_name,
+        search_variants=search_variants,
+        known_competitors=known_competitors
     )
 
     # Build and run workflow

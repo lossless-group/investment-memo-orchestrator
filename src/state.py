@@ -145,6 +145,71 @@ class ScorecardResults(TypedDict, total=False):
     diligence_questions: List[str]  # Questions derived from low scores
 
 
+class CompetitorCandidate(TypedDict, total=False):
+    """Raw competitor candidate discovered by the Competitive Landscape Researcher."""
+    name: str
+    description: str
+    website: Optional[str]
+    founded: Optional[str]
+    funding_total: Optional[str]
+    funding_stage: Optional[str]
+    notable_investors: List[str]
+    employee_count: Optional[str]
+    online_presence: Dict[str, str]  # platform_name → URL
+    key_differentiator: str
+    overlap_description: str
+    source_queries: List[str]
+    source_urls: List[str]
+    from_deck: bool
+    from_dataroom: bool
+
+
+class CompetitiveLandscapeResearch(TypedDict, total=False):
+    """Output of the Competitive Landscape Researcher agent."""
+    candidates: List[CompetitorCandidate]
+    queries_executed: List[str]
+    total_candidates_found: int
+    sources_consulted: int
+    search_variants_used: List[str]
+
+
+class EvaluatedCompetitor(TypedDict, total=False):
+    """Competitor after evaluation and classification."""
+    name: str
+    classification: str  # "direct_competitor", "indirect_competitor", "adjacent", "not_a_competitor"
+    evaluation_reasoning: str
+    same_customer: bool
+    substitutable: bool
+    comparable_pricing: bool
+    comparable_features: bool
+    overlapping_value_propositions: bool
+    market_overlap: bool
+    description: str
+    website: Optional[str]
+    founded: Optional[str]
+    funding_total: Optional[str]
+    funding_stage: Optional[str]
+    notable_investors: List[str]
+    complete_investor_list: List[str]
+    employee_count: Optional[str]
+    online_presence: Dict[str, str]
+    key_differentiator: str
+    from_deck: bool
+    from_dataroom: bool
+    source_urls: List[str]
+
+
+class CompetitiveLandscapeEvaluation(TypedDict, total=False):
+    """Output of the Competitive Landscape Evaluator agent."""
+    evaluated_competitors: List[EvaluatedCompetitor]
+    direct_competitors: List[str]
+    indirect_competitors: List[str]
+    removed_as_non_competitors: List[Dict[str, str]]
+    added_via_gap_analysis: List[str]
+    evaluation_summary: str
+    confidence: str  # "high", "medium", "low"
+
+
 class MemoState(TypedDict):
     """
     Main state object for the investment memo workflow.
@@ -170,6 +235,8 @@ class MemoState(TypedDict):
     company_trademark_dark: Optional[str]  # Path or URL to dark mode company logo/trademark
     outline_name: Optional[str]  # Custom outline name (e.g., "lpcommit-emerging-manager")
     scorecard_name: Optional[str]  # Scorecard name (e.g., "hypernova-early-stage-12Ps")
+    search_variants: Optional[List[str]]  # User-provided search terms for competitive research
+    known_competitors: Optional[List[str]]  # User-provided known competitor names
 
     # Dataroom analysis
     dataroom_path: Optional[str]  # Path to dataroom directory
@@ -190,6 +257,10 @@ class MemoState(TypedDict):
     citation_validation: Optional[CitationValidation]  # Citation accuracy validation
     fact_check_results: Optional[Dict[str, Any]]  # Fact-checking results (claims vs sources)
     overall_score: float
+
+    # Competitive landscape
+    competitive_candidates: Optional[CompetitiveLandscapeResearch]  # Raw candidates from researcher
+    competitive_landscape: Optional[CompetitiveLandscapeEvaluation]  # Validated & classified
 
     # Table generation
     tables_generated: Optional[Dict[str, Any]]  # Tables manifest from table_generator agent
@@ -229,7 +300,9 @@ def create_initial_state(
     company_trademark_light: Optional[str] = None,
     company_trademark_dark: Optional[str] = None,
     outline_name: Optional[str] = None,
-    scorecard_name: Optional[str] = None
+    scorecard_name: Optional[str] = None,
+    search_variants: Optional[List[str]] = None,
+    known_competitors: Optional[List[str]] = None
 ) -> MemoState:
     """
     Create initial state for a new memo generation workflow.
@@ -270,8 +343,12 @@ def create_initial_state(
         company_trademark_dark=company_trademark_dark,
         outline_name=outline_name,
         scorecard_name=scorecard_name,
+        search_variants=search_variants,
+        known_competitors=known_competitors,
         dataroom_path=dataroom_path,
         dataroom_analysis=None,
+        competitive_candidates=None,
+        competitive_landscape=None,
         deck_path=deck_path,
         deck_analysis=None,
         research=None,
