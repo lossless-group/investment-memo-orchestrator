@@ -194,6 +194,9 @@ class MemoState(TypedDict):
     # Table generation
     tables_generated: Optional[Dict[str, Any]]  # Tables manifest from table_generator agent
 
+    # Diagram generation
+    diagrams_generated: Optional[Dict[str, Any]]  # Diagrams manifest from diagram_generator agent
+
     # Scorecard evaluation (12Ps)
     scorecard_results: Optional[ScorecardResults]  # Dimension scores and analysis
 
@@ -277,6 +280,7 @@ def create_initial_state(
         citation_validation=None,
         fact_check_results=None,
         overall_score=0.0,
+        diagrams_generated=None,
         scorecard_results=None,
         revision_count=0,
         final_memo=None,

@@ -212,7 +212,7 @@ sections:
 
 ```bash
 # Mermaid CLI for structured diagrams
-npm install -g @mermaid-js/mermaid-cli
+pnpm add -g @mermaid-js/mermaid-cli
 
 # matplotlib for custom diagrams (already likely in Python deps)
 uv pip install matplotlib

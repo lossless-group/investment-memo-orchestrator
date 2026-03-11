@@ -29,6 +29,7 @@ dependencies = [
     "pandas>=2.0.0",  # For spreadsheet/cap table extraction
     "openpyxl>=3.1.0",  # For Excel (.xlsx) file reading
     "pdfplumber>=0.10.0",  # For PDF table extraction (cap tables, datarooms)
+    "matplotlib>=3.8.0",  # For diagram generation (TAM/SAM/SOM, funnels, etc.)
 ]
 
 [project.optional-dependencies]
