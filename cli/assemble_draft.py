@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.artifacts import sanitize_filename
 from src.versioning import VersionManager
 from src.agents.citation_assembly import renumber_citations
-from src.agents.toc_generator import extract_headers, generate_toc_markdown, insert_toc_after_header
+from src.agents.toc_generator import extract_headers, generate_toc_markdown, insert_toc_after_executive_summary
 
 
 def assemble_final_draft(
@@ -111,7 +111,7 @@ def assemble_final_draft(
     if headers:
         log("Generating Table of Contents...")
         toc = generate_toc_markdown(headers)
-        content = insert_toc_after_header(content, toc)
+        content = insert_toc_after_executive_summary(content, toc)
         h2_count = sum(1 for h in headers if h[0] == 2)
         h3_count = sum(1 for h in headers if h[0] == 3)
         log(f"TOC: {h2_count} sections, {h3_count} subsections")

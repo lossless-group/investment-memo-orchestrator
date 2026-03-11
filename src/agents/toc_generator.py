@@ -126,15 +126,19 @@ def generate_toc_markdown(headers: List[Tuple[int, str, str]]) -> str:
     return "\n".join(toc_lines)
 
 
-def insert_toc_after_header(content: str, toc: str) -> str:
+def insert_toc_after_executive_summary(content: str, toc: str) -> str:
     """
-    Insert TOC after the header section (logo + horizontal rule).
+    Insert TOC after the Executive Summary section, before the next main section.
 
-    The memo structure is:
-    1. Logo/trademark image
-    2. Horizontal rule (---)
-    3. [INSERT TOC HERE]
-    4. Section content
+    The TOC should appear after the Executive Summary content and before the
+    next ## heading (e.g., "## 02. Origins" or "## Business Overview").
+
+    Strategy:
+    1. Find the Executive Summary heading (## ... Executive Summary)
+    2. Find the next ## heading after it
+    3. Insert TOC between them
+
+    Fallback: If no Executive Summary found, insert after the first --- (header/logo).
 
     Args:
         content: Full memo markdown content
@@ -143,24 +147,36 @@ def insert_toc_after_header(content: str, toc: str) -> str:
     Returns:
         Content with TOC inserted
     """
-    # Find the first horizontal rule after the logo
-    # Pattern: logo line(s), then ---, then content
-    hr_pattern = r'^---\s*$'
-
     lines = content.split('\n')
     insert_index = None
 
+    # Phase 1: Find Executive Summary section and the next ## heading after it
+    exec_summary_idx = None
     for i, line in enumerate(lines):
-        if re.match(hr_pattern, line):
-            insert_index = i + 1
-            break
+        h2_match = re.match(r'^##\s+(.+)$', line)
+        if h2_match:
+            header_text = h2_match.group(1).strip().lower()
+            if 'executive summary' in header_text:
+                exec_summary_idx = i
+            elif exec_summary_idx is not None:
+                # This is the next h2 after Executive Summary — insert TOC before it
+                insert_index = i
+                break
+
+    # Phase 2 fallback: insert after first --- (logo/header separator)
+    if insert_index is None:
+        hr_pattern = r'^---\s*$'
+        for i, line in enumerate(lines):
+            if re.match(hr_pattern, line):
+                insert_index = i + 1
+                break
 
     if insert_index is not None:
-        # Insert TOC after the horizontal rule
+        # Insert TOC before the target line
         lines.insert(insert_index, '\n' + toc)
         return '\n'.join(lines)
     else:
-        # Fallback: insert at the beginning
+        # Last fallback: insert at the beginning
         return toc + '\n' + content
 
 
@@ -218,8 +234,8 @@ def toc_generator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     # Generate TOC
     toc = generate_toc_markdown(headers)
 
-    # Insert TOC into content
-    updated_content = insert_toc_after_header(content, toc)
+    # Insert TOC into content (after Executive Summary, before next section)
+    updated_content = insert_toc_after_executive_summary(content, toc)
 
     # Save updated final draft
     with open(final_draft_path, 'w', encoding='utf-8') as f:
