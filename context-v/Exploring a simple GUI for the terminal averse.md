@@ -1,3 +1,23 @@
+---
+title: "Exploring a Simple GUI for the Terminal Averse"
+lede: "Evaluation of GUI stack options for building a lightweight control panel over the existing memo orchestration CLIs and agents."
+date_authored_initial_draft: 2025-11-28
+date_authored_current_draft: 2025-11-28
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: 2025-11-28
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-11-28
+date_modified: 2025-11-28
+tags: [GUI, Desktop-App, UX, CLI, Control-Panel]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Exploring a simple GUI for the terminal‑averse
 
 ## What problem are we actually solving?

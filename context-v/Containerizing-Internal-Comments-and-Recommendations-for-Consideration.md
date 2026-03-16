@@ -1,3 +1,23 @@
+---
+title: "Containerizing Internal Comments and Recommendations for Consideration"
+lede: "Specification for separating LLM process commentary and meta-narration from final memo output into structured internal notes."
+date_authored_initial_draft: 2025-12-05
+date_authored_current_draft: 2025-12-05
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-12-05
+date_modified: 2025-12-05
+tags: [LLM-Output, Meta-Commentary, Memo-Quality, Content-Filtering, Agent-Pipeline]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Containerizing Internal Comments and Recommendations for Consideration
 
 ## The Problem: LLM Process Commentary Leaks Into Final Output

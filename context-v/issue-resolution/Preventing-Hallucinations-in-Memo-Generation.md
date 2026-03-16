@@ -1,3 +1,23 @@
+---
+title: "Preventing Hallucinations in Memo Generation"
+lede: "Critical issue resolution for LLMs fabricating pricing, traction, and business model data for seed-stage startups with limited public information."
+date_authored_initial_draft: 2025-11-22
+date_authored_current_draft: 2025-11-22
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-11-22
+date_modified: 2025-11-22
+tags: [Hallucination, Anti-Hallucination, Perplexity, Seed-Stage, Issue-Resolution]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Issue Resolution: Preventing Hallucinations in Memo Generation
 
 **Date Started**: 2025-11-22

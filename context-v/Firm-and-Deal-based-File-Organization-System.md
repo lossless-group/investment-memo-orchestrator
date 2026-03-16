@@ -1,3 +1,23 @@
+---
+title: "Firm and Deal-Based File Organization System"
+lede: "Implementation progress for migrating output artifacts to firm-scoped directories with git submodule support for private data."
+date_authored_initial_draft: 2025-12-02
+date_authored_current_draft: 2025-12-02
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: 2025-12-02
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Blueprint
+date_created: 2025-12-02
+date_modified: 2025-12-02
+tags: [File-Organization, Firm-Scoping, Git-Submodules, Migration, Path-Resolution]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Firm and Deal-Based File Organization System
 
 ## Implementation Progress

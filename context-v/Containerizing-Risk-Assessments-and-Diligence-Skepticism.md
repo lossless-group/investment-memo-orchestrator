@@ -1,3 +1,23 @@
+---
+title: "Containerizing Risk Assessments and Diligence Skepticism"
+lede: "Specification for separating risk analysis and skeptical commentary from the main memo narrative to preserve business utility for syndication and LP review."
+date_authored_initial_draft: 2025-11-28
+date_authored_current_draft: 2025-11-28
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-11-28
+date_modified: 2025-11-28
+tags: [Risk-Assessment, Diligence, LLM-Output, Memo-Quality, Audience-Management]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Containerizing Risk Assessments and Diligence Skepticism
 
 **Status**: Specification

@@ -1,3 +1,23 @@
+---
+title: "Post-Generation Quality Agents"
+lede: "Mini-spec for four agents that run after the main writing pipeline to reduce redundancy, improve formatting, and enhance output quality."
+date_authored_initial_draft: 2025-12-05
+date_authored_current_draft: 2025-12-05
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: 2025-12-05
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-12-05
+date_modified: 2025-12-05
+tags: [Quality, Post-Processing, Redundancy, Formatting, Agent-Pipeline]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Post-Generation Quality Agents
 
 **Date**: 2025-11-28

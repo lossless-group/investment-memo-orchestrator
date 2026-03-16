@@ -1,3 +1,23 @@
+---
+title: "Tier 1 Anti-Hallucination Test Results: Work Back AI"
+lede: "Test results validating Tier 1 anti-hallucination fixes against a seed-stage company with limited public data."
+date_authored_initial_draft: 2025-11-22
+date_authored_current_draft: 2025-11-22
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Reference
+date_created: 2025-11-22
+date_modified: 2025-11-22
+tags: [Testing, Anti-Hallucination, Work-Back-AI, Seed-Stage, Validation]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Tier 1 Anti-Hallucination Test Results: Work Back AI
 
 **Test Date**: 2025-11-22

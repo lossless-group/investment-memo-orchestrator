@@ -1,3 +1,22 @@
+---
+title: "Extended Markdown Citation System Syntax"
+lede: "Reminder of the preferred GitHub/Obsidian-flavored markdown syntax for citations, footnotes, and reference sections."
+date_authored_initial_draft: 2026-01-28
+date_authored_current_draft: 2026-01-28
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: 2026-01-28
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Reminder
+date_created: 2026-01-28
+date_modified: 2026-01-28
+tags: [Markdown, Citations, Footnotes, Obsidian, Syntax]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
 
 # Extended Markdown Citation Syntax
 

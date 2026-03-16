@@ -1,3 +1,23 @@
+---
+title: "MemoPop Landing Page Specification"
+lede: "Comprehensive spec for building the MemoPop marketing landing page, designed for implementation by AI code assistants."
+date_authored_initial_draft: 2025-12-02
+date_authored_current_draft: 2025-12-02
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: 2025-12-25
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-12-02
+date_modified: 2025-12-25
+tags: [Landing-Page, Marketing, MemoPop, Product, Web-Design]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # MemoPop Landing Page Spec
 
 > A comprehensive spec for building the MemoPop marketing landing page.

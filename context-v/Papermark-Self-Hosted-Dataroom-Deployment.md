@@ -1,3 +1,23 @@
+---
+title: "Papermark Self-Hosted Dataroom Deployment"
+lede: "Deployment specification for Papermark as a self-hosted virtual data room for sharing investment memos and due diligence documents."
+date_authored_initial_draft: 2025-12-08
+date_authored_current_draft: 2025-12-08
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-12-08
+date_modified: 2025-12-08
+tags: [Papermark, Dataroom, Self-Hosted, Deployment, Document-Sharing, Railway]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Papermark Self-Hosted Dataroom Deployment
 
 ## Goal

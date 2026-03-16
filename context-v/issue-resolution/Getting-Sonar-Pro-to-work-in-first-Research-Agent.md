@@ -1,3 +1,23 @@
+---
+title: "Getting Sonar Pro to Work in First Research Agent"
+lede: "Issue resolution for integrating Perplexity Sonar Pro citations into the initial research and section writing passes rather than as post-processing."
+date_authored_initial_draft: 2025-11-21
+date_authored_current_draft: 2025-11-21
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: 2025-11-21
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-11-21
+date_modified: 2025-11-21
+tags: [Perplexity, Sonar-Pro, Research-Agent, Citations, Issue-Resolution]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Issue Resolution: Getting Sonar Pro to Work in Research Agent with Citations in Original Section Development
 
 **Date Started**: 2025-11-21

@@ -1,3 +1,23 @@
+---
+title: "Getting AI to Refocus When Web Research is Empty"
+lede: "Behavioral rules for justify mode when web research returns thin or noisy results, ensuring agents fall back to internal context rather than blocking."
+date_authored_initial_draft: 2025-11-27
+date_authored_current_draft: 2025-11-27
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-11-27
+date_modified: 2025-11-27
+tags: [Justify-Mode, Web-Research, Fallback, Internal-Context, Issue-Resolution]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 You’re describing exactly the right behavior for mode: "justify": when the web is thin or noisy, do not block, just acknowledge it once and then lean fully on internal context.
 
 Here’s how I’d encode that behavior in the system.

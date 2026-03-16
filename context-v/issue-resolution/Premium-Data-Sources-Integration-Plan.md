@@ -1,3 +1,23 @@
+---
+title: "Premium Data Sources Integration Plan"
+lede: "Plan for eliminating generic industry benchmark filler by integrating Perplexity premium data sources with @source syntax."
+date_authored_initial_draft: 2025-11-22
+date_authored_current_draft: 2025-11-22
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Blueprint
+date_created: 2025-11-22
+date_modified: 2025-11-22
+tags: [Premium-Sources, Perplexity, Data-Quality, Research, Issue-Resolution]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Issue Resolution: Premium Data Sources Integration Plan
 
 **Date Created**: 2025-11-22

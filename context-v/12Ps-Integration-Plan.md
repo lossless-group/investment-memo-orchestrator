@@ -1,3 +1,23 @@
+---
+title: "12Ps Framework Integration Plan"
+lede: "Plan for integrating the 12Ps scorecard and outline into the existing memo orchestrator without modifying existing workflow steps."
+date_authored_initial_draft: 2025-11-28
+date_authored_current_draft: 2025-11-28
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Blueprint
+date_created: 2025-11-28
+date_modified: 2025-11-28
+tags: [12Ps, Scorecard, Outline, Integration, Workflow]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # 12Ps Framework Integration Plan
 
 ## Overview

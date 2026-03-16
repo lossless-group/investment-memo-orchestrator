@@ -1,3 +1,23 @@
+---
+title: "Dark Mode Export Guide"
+lede: "Guide for light and dark mode HTML export support in branded investment memos."
+date_authored_initial_draft: 2025-11-17
+date_authored_current_draft: 2025-11-17
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Reference
+date_created: 2025-11-17
+date_modified: 2025-11-17
+tags: [Export, Dark-Mode, Light-Mode, HTML, Branding, CSS]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Dark Mode Export Guide
 
 ## 🌙 Light & Dark Mode Support

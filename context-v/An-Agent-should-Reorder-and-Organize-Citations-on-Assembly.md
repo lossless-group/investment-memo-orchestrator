@@ -1,3 +1,23 @@
+---
+title: "Agent Should Reorder and Organize Citations on Assembly"
+lede: "Specification for globally renumbering and consolidating citations during final memo assembly to eliminate duplicates and gaps."
+date_authored_initial_draft: 2025-12-14
+date_authored_current_draft: 2025-12-14
+date_authored_final_draft: null
+date_first_published: null
+date_last_updated: null
+at_semantic_version: 0.0.0.1
+usage_index: 1
+publish: false
+category: Specification
+date_created: 2025-12-14
+date_modified: 2025-12-14
+tags: [Citations, Assembly, Renumbering, Consolidation, Final-Draft]
+authors:
+  - Michael Staton
+augmented_with: "Claude Code with Claude Opus 4.6"
+---
+
 # Agent Should Reorder and Organize Citations on Assembly
 
 ## Problem Statement
