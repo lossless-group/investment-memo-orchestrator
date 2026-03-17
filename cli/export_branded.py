@@ -241,21 +241,35 @@ def generate_css_from_brand(brand: BrandConfig, base_css_path: Path, dark_mode: 
         css_content = brand_font_faces + '\n\n' + css_content
 
     # Replace color placeholders with brand-specific colors
+    # Use nested theme colors when available and mode-appropriate
+    if dark_mode and brand.colors.dark_theme:
+        bg_color = brand.colors.dark_theme.get('background', brand.colors.background)
+        text_dark_color = brand.colors.dark_theme.get('text_header', brand.colors.text_dark)
+        text_light_color = brand.colors.dark_theme.get('text_body', brand.colors.text_light)
+    elif not dark_mode and brand.colors.light_theme:
+        bg_color = brand.colors.light_theme.get('background', brand.colors.background)
+        text_dark_color = brand.colors.light_theme.get('text_header', brand.colors.text_dark)
+        text_light_color = brand.colors.light_theme.get('text_body', brand.colors.text_light)
+    else:
+        bg_color = brand.colors.background
+        text_dark_color = brand.colors.text_dark
+        text_light_color = brand.colors.text_light
+
     css_content = css_content.replace('--brand-primary: #1a3a52;',
                                      f'--brand-primary: {brand.colors.primary};')
     css_content = css_content.replace('--brand-secondary: #1dd3d3;',
                                      f'--brand-secondary: {brand.colors.secondary};')
     css_content = css_content.replace('--brand-background: #ffffff;',
-                                     f'--brand-background: {brand.colors.background};')
+                                     f'--brand-background: {bg_color};')
     css_content = css_content.replace('--brand-background-alt: #f0f0eb;',
                                      f'--brand-background-alt: {brand.colors.background_alt};')
     css_content = css_content.replace('--brand-text-dark: #1a2332;',
-                                     f'--brand-text-dark: {brand.colors.text_dark};')
+                                     f'--brand-text-dark: {text_dark_color};')
     css_content = css_content.replace('--brand-text-light: #6b7280;',
-                                     f'--brand-text-light: {brand.colors.text_light};')
+                                     f'--brand-text-light: {text_light_color};')
 
     # Replace @page background-color based on mode
-    page_bg = brand.colors.primary if dark_mode else brand.colors.background
+    page_bg = brand.colors.primary if dark_mode else bg_color
     css_content = css_content.replace('background-color: #ffffff; /* Light mode background - will be overridden in dark mode */',
                                      f'background-color: {page_bg};')
     css_content = css_content.replace('background-color: var(--brand-background); /* Light mode */',

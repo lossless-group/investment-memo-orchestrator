@@ -24,13 +24,53 @@ import yaml
 
 @dataclass
 class BrandColors:
-    """Brand color palette (hex codes)."""
+    """Brand color palette (hex codes).
+
+    Supports two config formats:
+    - Flat: primary, secondary, text_dark, text_light, background, background_alt
+    - Nested: primary, secondary, background_alt, light: {background, text_body, text_header},
+              dark: {background, text_body, text_header}
+
+    When nested format is used, light/dark sub-objects are stored and
+    text_dark/text_light/background are derived from the light mode values.
+    """
     primary: str
     secondary: str
     text_dark: str
     text_light: str
     background: str
     background_alt: str
+    # Optional nested theme colors (stored for mode-aware exports)
+    light_theme: Optional[dict] = None
+    dark_theme: Optional[dict] = None
+
+    @classmethod
+    def from_config(cls, colors_data: dict) -> 'BrandColors':
+        """Create BrandColors from config dict, supporting both flat and nested formats."""
+        if 'light' in colors_data or 'dark' in colors_data:
+            # Nested format — extract light/dark sub-objects
+            light = colors_data.get('light', {})
+            dark = colors_data.get('dark', {})
+            return cls(
+                primary=colors_data.get('primary', '#2d2d2d'),
+                secondary=colors_data.get('secondary', '#4a7c91'),
+                text_dark=light.get('text_header', light.get('text_body', '#1a1a1a')),
+                text_light=dark.get('text_body', light.get('text_body', '#6b7280')),
+                background=light.get('background', '#ffffff'),
+                background_alt=colors_data.get('background_alt', '#f5f5f5'),
+                light_theme=light if light else None,
+                dark_theme=dark if dark else None,
+            )
+        else:
+            # Flat format — direct mapping
+            return cls(
+                primary=colors_data['primary'],
+                secondary=colors_data['secondary'],
+                text_dark=colors_data['text_dark'],
+                text_light=colors_data['text_light'],
+                background=colors_data['background'],
+                background_alt=colors_data['background_alt'],
+            )
 
 
 @dataclass
@@ -198,7 +238,7 @@ class BrandConfig:
 
             return cls(
                 company=BrandCompany(**data['company']),
-                colors=BrandColors(**data['colors']),
+                colors=BrandColors.from_config(data['colors']),
                 fonts=BrandFonts(**data['fonts']),
                 logo=logo
             )
