@@ -125,13 +125,9 @@ def validator_agent(state: MemoState) -> Dict[str, Any]:
     except FileNotFoundError:
         raise ValueError("No output directory found. Writer agent must run first.")
 
-    # Find final draft file (could be 6-*.md or 4-final-draft.md)
-    final_draft_path = None
-    for pattern in ["6-*.md", "4-final-draft.md"]:
-        matches = list(output_dir.glob(pattern))
-        if matches:
-            final_draft_path = matches[0]
-            break
+    # Find final draft file using canonical utility
+    from ..final_draft import find_final_draft
+    final_draft_path = find_final_draft(output_dir)
 
     if not final_draft_path or not final_draft_path.exists():
         raise ValueError("No final draft found. Citation assembly must run first.")

@@ -456,9 +456,10 @@ def main():
 
             version_output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Final draft is now 6-{Deal}-{Version}.md (single source of truth)
+            # Final draft uses canonical path from final_draft module
             # The pipeline agents already create this file via citation_enrichment/assemble_draft
-            final_draft_file = version_output_dir / f"6-{safe_name}-{version}.md"
+            from .final_draft import get_final_draft_path
+            final_draft_file = get_final_draft_path(version_output_dir)
 
             # If the pipeline created the file, it's the canonical version
             # Otherwise, write the memo content as the final draft
@@ -467,7 +468,8 @@ def main():
                     f.write(memo_content)
 
             # Record version with the new canonical filename
-            relative_path = version_mgr.get_relative_file_path(safe_name, version, f"6-{safe_name}-{version}.md")
+            from .final_draft import get_final_draft_filename
+            relative_path = version_mgr.get_relative_file_path(safe_name, version, get_final_draft_filename(version_output_dir))
             version_mgr.record_version(
                 safe_name,
                 version,

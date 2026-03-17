@@ -24,7 +24,7 @@ from typing import Optional, Union
 # CONFIGURATION - Change these to update naming convention everywhere
 # =============================================================================
 
-FINAL_DRAFT_PREFIX = "6"
+FINAL_DRAFT_PREFIX = "7"
 LEGACY_FILENAME = "4-final-draft.md"
 
 
@@ -78,10 +78,15 @@ def find_final_draft(output_dir: Path) -> Optional[Path]:
     Returns:
         Path to final draft if found, None otherwise
     """
-    # Try new naming pattern first: 6-{Deal}-{Version}.md
+    # Try current naming pattern first: 7-{Deal}-{Version}.md
     new_pattern_files = list(output_dir.glob(f"{FINAL_DRAFT_PREFIX}-*.md"))
     if new_pattern_files:
         return new_pattern_files[0]
+
+    # Fall back to previous prefix (6-)
+    old_prefix_files = list(output_dir.glob("6-*-v*.md"))
+    if old_prefix_files:
+        return old_prefix_files[0]
 
     # Fall back to legacy naming
     legacy_path = output_dir / LEGACY_FILENAME

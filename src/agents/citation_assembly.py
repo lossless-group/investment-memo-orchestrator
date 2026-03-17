@@ -422,16 +422,9 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     # Write final draft
     final_content = '\n\n'.join(final_parts)
 
-    # Determine final draft filename
-    final_draft_path = None
-    for f in output_dir.glob("6-*.md"):
-        final_draft_path = f
-        break
-
-    if not final_draft_path:
-        dir_name = output_dir.name
-        final_draft_path = output_dir / f"6-{dir_name}.md"
-
+    # Use canonical final draft path from final_draft module
+    from ..final_draft import get_final_draft_path
+    final_draft_path = get_final_draft_path(output_dir)
     final_draft_path.write_text(final_content)
     print(f"  ✓ Final draft: {final_draft_path.name}")
 

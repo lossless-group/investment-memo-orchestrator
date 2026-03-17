@@ -670,6 +670,6 @@ def generate_memo(
 
     # Build and run workflow
     app = build_workflow()
-    final_state = app.invoke(initial_state)
+    final_state = app.invoke(initial_state, config={"recursion_limit": 50})
 
     return final_state
