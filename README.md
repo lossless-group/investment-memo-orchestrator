@@ -50,6 +50,7 @@ Supported by [Hypernova Capital](https://www.hypernova.capital), [Avalanche VC](
 - [Status](#status)
 - [Current Capabilities](#current-capabilities-)
 - [Up Next](#up-next)
+- [Design Documents (context-v)](#design-documents-context-v)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -1125,6 +1126,76 @@ A specialized agent to identify and generate tables from data that would be bett
 - Structured data from decks and datarooms
 
 See `context-vigilance/Table-Generator-Agent-Spec.md` for complete specification.
+
+## Design Documents (context-v)
+
+All specifications, blueprints, issue resolutions, and reference docs live in `context-v/`. Each file has YAML frontmatter with title, category, dates, and tags.
+
+### Specifications & Blueprints
+
+| Created | Category | Title | File |
+|---|---|---|---|
+| 2025-11-16 | Reference | Example Memos | [`Document-Examples.md`](context-v/Document-Examples.md) |
+| 2025-11-16 | Prompts | Generate Investment Memo for Portfolio Company | [`Generate-Investment-Memo-for-Portfolio-Company.md`](context-v/Generate-Investment-Memo-for-Portfolio-Company.md) |
+| 2025-11-16 | Architecture | Multi-Agent Orchestration for Investment Memo Generation | [`Multi-Agent-Orchestration-for-Investment-Memo-Generation.md`](context-v/Multi-Agent-Orchestration-for-Investment-Memo-Generation.md) |
+| 2025-11-17 | Reference | Citation Spacing Improvements | [`Citation-Reminders.md`](context-v/Citation-Reminders.md) |
+| 2025-11-17 | Reference | Dark Mode Export Guide | [`Export-Style-Templates.md`](context-v/Export-Style-Templates.md) |
+| 2025-11-19 | Prompts | Improve Investment Memo Output | [`Improving-Memo-Output.md`](context-v/Improving-Memo-Output.md) |
+| 2025-11-21 | Architecture | Format Memo According to Outline Input | [`Format-Memo-According-to-Template-Input.md`](context-v/Format-Memo-According-to-Template-Input.md) |
+| 2025-11-22 | Blueprint | Preferred Sources Implementation Summary | [`Anti-Hallucination-Fact-Checker-Agent.md`](context-v/Anti-Hallucination-Fact-Checker-Agent.md) |
+| 2025-11-26 | Architecture | Dataroom Analyzer Agent System Plan | [`Dataroom-Analyzer-Agent.md`](context-v/Dataroom-Analyzer-Agent.md) |
+| 2025-11-27 | Architecture | Model Scorecard Agent and Template System | [`Model-Scorecard-Agent-and-Template-System.md`](context-v/Model-Scorecard-Agent-and-Template-System.md) |
+| 2025-11-27 | Infrastructure | Git Submodules for Private Data and Exports | [`Git-Submodules-for-Private-Data-and-Exports.md`](context-v/Git-Submodules-for-Private-Data-and-Exports.md) |
+| 2025-11-27 | Specification | Portfolio Listing Agent and Current Portfolio Section | [`Portfolio-Listing-Agent-and-Current-Portfolio-Section.md`](context-v/Portfolio-Listing-Agent-and-Current-Portfolio-Section.md) |
+| 2025-11-28 | Blueprint | 12Ps Framework Integration Plan | [`12Ps-Integration-Plan.md`](context-v/12Ps-Integration-Plan.md) |
+| 2025-11-28 | Specification | Containerizing Risk Assessments and Diligence Skepticism | [`Containerizing-Risk-Assessments-and-Diligence-Skepticism.md`](context-v/Containerizing-Risk-Assessments-and-Diligence-Skepticism.md) |
+| 2025-11-28 | Specification | Exploring a Simple GUI for the Terminal Averse | [`Exploring a simple GUI for the terminal averse.md`](context-v/Exploring%20a%20simple%20GUI%20for%20the%20terminal%20averse.md) |
+| 2025-11-28 | Specification | Introducing a GUI Native Desktop with Swift | [`Introducing-a-GUI-Native-Desktop-with-Swift.md`](context-v/Introducing-a-GUI-Native-Desktop-with-Swift.md) |
+| 2025-11-28 | Specification | Reorder and Edit Direct Outline | [`Reorder-and-Edit-Direct-Outline.md`](context-v/Reorder-and-Edit-Direct-Outline.md) |
+| 2025-12-02 | Blueprint | Firm and Deal-Based File Organization System | [`Firm-and-Deal-based-File-Organization-System.md`](context-v/Firm-and-Deal-based-File-Organization-System.md) |
+| 2025-12-02 | Specification | Fix Firm-Scoped Output Paths | [`Fix-Firm-Scoped-Output-Paths.md`](context-v/Fix-Firm-Scoped-Output-Paths.md) |
+| 2025-12-02 | Specification | MemoPop Landing Page Specification | [`MemoPop-Landing-Page-Sepcification.md`](context-v/MemoPop-Landing-Page-Sepcification.md) |
+| 2025-12-05 | Specification | Containerizing Internal Comments and Recommendations | [`Containerizing-Internal-Comments-and-Recommendations-for-Consideration.md`](context-v/Containerizing-Internal-Comments-and-Recommendations-for-Consideration.md) |
+| 2025-12-05 | Specification | Disambiguation Management Across Agents | [`Disambiguation-Management-across-Agents.md`](context-v/Disambiguation-Management-across-Agents.md) |
+| 2025-12-05 | Specification | Post-Generation Quality Agents | [`Post-Generation-Quality-Agents.md`](context-v/Post-Generation-Quality-Agents.md) |
+| 2025-12-05 | Specification | Table Generator Agent Specification | [`Table-Generator-Agent-Spec.md`](context-v/Table-Generator-Agent-Spec.md) |
+| 2025-12-08 | Specification | Papermark Self-Hosted Dataroom Deployment | [`Papermark-Self-Hosted-Dataroom-Deployment.md`](context-v/Papermark-Self-Hosted-Dataroom-Deployment.md) |
+| 2025-12-09 | Agent Docs | Deck Analyzer Agent | [`Deck-Analyzer-Agent.md`](context-v/Deck-Analyzer-Agent.md) |
+| 2025-12-14 | Specification | Agent Should Reorder and Organize Citations on Assembly | [`An-Agent-should-Reorder-and-Organize-Citations-on-Assembly.md`](context-v/An-Agent-should-Reorder-and-Organize-Citations-on-Assembly.md) |
+| 2025-12-14 | Specification | Faked Sources from Perplexity | [`Faked-Sources-from-Perplexity.md`](context-v/Faked-Sources-from-Perplexity.md) |
+| 2025-12-15 | Specification | Anti-Hallucination: Source Validation and Removal | [`Anti-Hallucination-Source-Validation-and-Removal.md`](context-v/Anti-Hallucination-Source-Validation-and-Removal.md) |
+| 2025-12-26 | Specification | Vision for Production-Grade MemoPop Monorepo | [`Vision-for-Production-Grade-Memopop-Monorepo.md`](context-v/Vision-for-Production-Grade-Memopop-Monorepo.md) |
+| 2026-01-27 | Specification | PDF Parser Agent Specification | [`PDF-Parser-Agent-Spec.md`](context-v/PDF-Parser-Agent-Spec.md) |
+| 2026-03-09 | Architecture | Introducing a Diagram Generator Agent | [`Introducing-a-Diagram-Generator-Agent.md`](context-v/Introducing-a-Diagram-Generator-Agent.md) |
+| 2026-03-10 | Specification | Introducing a Competitive Landscape Research and Evaluation System | [`Introducing-a-Competitive-Landscape-Research-and-Evaluation-System.md`](context-v/Introducing-a-Competitive-Landscape-Research-and-Evaluation-System.md) |
+| 2026-03-10 | Specification | Introducing a Content Density Mode System | [`Introducing-a-Content-Density-Mode-System.md`](context-v/Introducing-a-Content-Density-Mode-System.md) |
+| 2026-03-10 | Specification | Introducing a Legal Doc Comparator | [`Introducing-a-Legal-Doc-Comparator.md`](context-v/Introducing-a-Legal-Doc-Comparator.md) |
+| 2026-03-10 | Specification | Introducing a Table Generator Agent | [`Introducing-a-Table-Generator-Agent.md`](context-v/Introducing-a-Table-Generator-Agent.md) |
+| 2026-03-10 | Specification | Introducing an Augment Research Writer Agent | [`Introducing-an-Augment-Research-Writer-Agent.md`](context-v/Introducing-an-Augment-Research-Writer-Agent.md) |
+| 2026-03-10 | Specification | Introducing an Enrich Visualizations Agent | [`Introducing-an-Enrich-with-Visualizations-Search-Agent.md`](context-v/Introducing-an-Enrich-with-Visualizations-Search-Agent.md) |
+| 2026-03-13 | Specification | Introducing a KPI Extractor Agent | [`Introducing-a-KPI-Extractor-Agent.md`](context-v/Introducing-a-KPI-Extractor-Agent.md) |
+
+### Issue Resolutions
+
+| Created | Title | File |
+|---|---|---|
+| 2025-11-21 | Getting Sonar Pro to Work in First Research Agent | [`issue-resolution/Getting-Sonar-Pro-to-work-in-first-Research-Agent.md`](context-v/issue-resolution/Getting-Sonar-Pro-to-work-in-first-Research-Agent.md) |
+| 2025-11-21 | Perplexity API Fix - Zero Balance Issue | [`issue-resolution/Perplexity-as-Default-Research-Agent.md`](context-v/issue-resolution/Perplexity-as-Default-Research-Agent.md) |
+| 2025-11-22 | Premium Data Sources Integration Plan | [`issue-resolution/Premium-Data-Sources-Integration-Plan.md`](context-v/issue-resolution/Premium-Data-Sources-Integration-Plan.md) |
+| 2025-11-22 | Perplexity Premium API Calls - Complete Reference | [`issue-resolution/Perplexity-Premium-API-Calls-Reference.md`](context-v/issue-resolution/Perplexity-Premium-API-Calls-Reference.md) |
+| 2025-11-22 | Preventing Hallucinations in Memo Generation | [`issue-resolution/Preventing-Hallucinations-in-Memo-Generation.md`](context-v/issue-resolution/Preventing-Hallucinations-in-Memo-Generation.md) |
+| 2025-11-22 | Tier 1 Anti-Hallucination Test Results: Work Back AI | [`issue-resolution/Tier-1-Test-Results-WorkBack.md`](context-v/issue-resolution/Tier-1-Test-Results-WorkBack.md) |
+| 2025-11-23 | Resume Workflow After Interruption | [`issue-resolution/Resume-Workflow-After-Interruption.md`](context-v/issue-resolution/Resume-Workflow-After-Interruption.md) |
+| 2025-11-27 | Getting AI to Refocus When Web Research is Empty | [`issue-resolution/Getting-AI-to-Refocus-when-Web-Research-is-empty.md`](context-v/issue-resolution/Getting-AI-to-Refocus-when-Web-Research-is-empty.md) |
+| 2025-12-05 | Deck Data Flow Gap Causes Hallucination | [`issue-resolution/Deck-Data-Flow-Gap-Causes-Hallucination.md`](context-v/issue-resolution/Deck-Data-Flow-Gap-Causes-Hallucination.md) |
+| 2025-12-15 | Correct Citation Pipeline Accuracy in Multi-Agent Research | [`issue-resolution/Correct-Citation-Pipeline-Accuracy-in-Multi-Agent-Research.md`](context-v/issue-resolution/Correct-Citation-Pipeline-Accuracy-in-Multi-Agent-Research.md) |
+
+### Reminders
+
+| Created | Title | File |
+|---|---|---|
+| 2025-12-26 | Frontmatter Standards for Context Files | [`reminders/Frontmatter-Standards-for-Context-Files.md`](context-v/reminders/Frontmatter-Standards-for-Context-Files.md) |
+| 2026-01-28 | Extended Markdown Citation System Syntax | [`reminders/Extended-Markdown-Citation-System-Syntax.md`](context-v/reminders/Extended-Markdown-Citation-System-Syntax.md) |
 
 ## Roadmap
 
