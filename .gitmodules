@@ -17,3 +17,7 @@
 [submodule "io/humain"]
 	path = io/humain
 	url = git@github.com:lossless-group/humain.git
+[submodule "io/motley-fool"]
+	path = io/motley-fool
+	url = https://github.com/lossless-group/motley-fool-private.git
+	branch = main
