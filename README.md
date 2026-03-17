@@ -966,32 +966,146 @@ Standalone tools for post-generation improvements and exports. All tools support
 | `cli/evaluate_memo.py` | Re-run validation on existing memo | `python cli/evaluate_memo.py "Company"` |
 | `cli/refocus_section.py` | Refocus section with new guidance | `python cli/refocus_section.py --firm hypernova --deal Blinka "Section"` |
 | `cli/recompile_memo.py` | Recompile memo from sections | `python cli/recompile_memo.py --firm hypernova --deal Blinka` |
+| `cli/generate_tables.py` | Generate markdown tables from state data | `python -m cli.generate_tables "Company" --firm humain` |
 | `cli/export_branded.py` | Export to branded HTML/PDF | `python cli/export_branded.py --firm hypernova --deal Blinka --pdf` |
 | `cli/html-to-pdf.sh` | Convert HTML to PDF | `bash cli/html-to-pdf.sh path/to/memo.html` |
 | `cli/md2docx.py` | Export to Word (.docx) | `python md2docx.py memo.md` |
 
 ## Pipeline Agents Reference
 
-Agents that run as part of the main memo generation workflow (`python -m src.main`).
+The main workflow (`python -m src.main`) orchestrates **26 agents** through a LangGraph state machine. Agents execute sequentially, with two anti-hallucination validation gates and a conditional routing decision at the end.
 
-| Agent | File | Purpose |
-|-------|------|---------|
-| Deck Analyst | `deck_analyst.py` | Extract info from pitch decks (PDF + PowerPoint) |
-| Research | `research_enhanced.py` | Web search via Tavily/Perplexity |
-| Section Research | `perplexity_section_researcher.py` | Section-specific research with citations |
-| Writer | `writer.py` | Draft sections from outline/template |
-| Trademark Enrichment | `trademark_enrichment.py` | Insert company logo into header |
-| Socials Enrichment | `socials_enrichment.py` | Add LinkedIn links to team members |
-| Link Enrichment | `link_enrichment.py` | Add hyperlinks to organizations/entities |
-| Citation Enrichment | `citation_enrichment.py` | Add inline citations via Perplexity |
-| TOC Generator | `toc_generator.py` | Generate Table of Contents |
-| Revise Summaries | `revise_summary_sections.py` | Rewrite bookend sections with accurate metrics |
-| Remove Invalid Sources | `remove_invalid_sources.py` | Validate URLs, remove 404s and hallucinated citations |
-| Citation Assembly | `citation_assembly.py` | Consolidate and renumber citations globally |
-| Citation Validator | `citation_validator.py` | Validate citation accuracy and dates |
-| Fact Checker | `fact_checker.py` | Verify claims against research sources |
-| Validator | `validator.py` | Score memo quality (0-10 scale) |
-| Scorecard Evaluator | `scorecard_evaluator.py` | Evaluate against firm's scorecard template |
+### Workflow Diagram
+
+```
+                         ┌─────────────────────────────────────────────────┐
+                         │           PHASE 1: DATA GATHERING               │
+                         │                                                 │
+                         │  ┌───────────┐  ┌──────────────┐  ┌──────────┐ │
+                         │  │ 1.Dataroom│─▶│2.Deck Analyst│─▶│3.Research│ │
+                         │  └───────────┘  └──────────────┘  └────┬─────┘ │
+                         │                                        │       │
+                         │  ┌──────────────────┐  ┌───────────────┴─────┐ │
+                         │  │5.Competitive     │◀─│4. Section Research  │ │
+                         │  │  Researcher      │  │  (per-section w/    │ │
+                         │  └────────┬─────────┘  │   Perplexity)       │ │
+                         │           │            └─────────────────────┘ │
+                         │  ┌────────▼─────────┐                         │
+                         │  │6.Competitive     │                         │
+                         │  │  Evaluator       │                         │
+                         │  └────────┬─────────┘                         │
+                         └───────────┼─────────────────────────────────────┘
+                                     │
+                         ┌───────────▼─────────────────────────────────────┐
+                         │        PHASE 2: CITATION ENRICHMENT             │
+                         │                                                 │
+                         │  ┌───────────────────┐  ┌─────────────────────┐ │
+                         │  │7. Citation Enrich │─▶│ 8. GATE 1: Cleanup  │ │
+                         │  │  (on 1-research/) │  │  Research Citations │ │
+                         │  └───────────────────┘  └──────────┬──────────┘ │
+                         └────────────────────────────────────┼────────────┘
+                                                              │
+                         ┌────────────────────────────────────▼────────────┐
+                         │          PHASE 3: WRITING & ENRICHMENT          │
+                         │                                                 │
+                         │  ┌────────┐  ┌────────────────┐  ┌───────────┐ │
+                         │  │9.Writer│─▶│10.Inject Deck  │─▶│11.Enrich  │ │
+                         │  │(10 sec)│  │   Images       │  │ Trademark │ │
+                         │  └────────┘  └────────────────┘  └─────┬─────┘ │
+                         │                                        │       │
+                         │  ┌────────────┐  ┌──────────────┐  ┌───▼─────┐ │
+                         │  │14.Enrich   │◀─│13.Link       │◀─│12.Socials│ │
+                         │  │  Tables    │  │  Enrichment  │  │ Enrich  │ │
+                         │  └──────┬─────┘  └──────────────┘  └─────────┘ │
+                         │         │                                       │
+                         │  ┌──────▼───────┐  ┌──────────────┐  ┌───────┐ │
+                         │  │15.Generate   │─▶│16.Enrich     │─▶│17.TOC │ │
+                         │  │  Diagrams    │  │  Visuals     │  │       │ │
+                         │  └──────────────┘  └──────────────┘  └───┬───┘ │
+                         │                                          │     │
+                         │  ┌──────────────────┐                    │     │
+                         │  │18.Revise Summary │◀───────────────────┘     │
+                         │  │   Sections       │                          │
+                         │  └────────┬─────────┘                          │
+                         └───────────┼────────────────────────────────────┘
+                                     │
+                         ┌───────────▼─────────────────────────────────────┐
+                         │         PHASE 4: ASSEMBLY & VALIDATION          │
+                         │                                                 │
+                         │  ┌─────────────────┐  ┌───────────────────────┐ │
+                         │  │19. GATE 2:      │─▶│20. Citation Assembly  │ │
+                         │  │ Cleanup Sections│  │ (consolidate+renumber)│ │
+                         │  └─────────────────┘  └───────────┬───────────┘ │
+                         │                                   │             │
+                         │  ┌──────────────────┐  ┌──────────▼──────────┐  │
+                         │  │22. Fact Checker  │◀─│21. Citation         │  │
+                         │  │                  │  │    Validator        │  │
+                         │  └────────┬─────────┘  └─────────────────────┘  │
+                         │           │                                     │
+                         │  ┌────────▼─────────┐  ┌─────────────────────┐  │
+                         │  │23. Validator     │─▶│24. Scorecard        │  │
+                         │  │  (score 0-10)    │  │    Evaluator        │  │
+                         │  └──────────────────┘  └──────────┬──────────┘  │
+                         │                                   │             │
+                         │  ┌────────────────────────────────▼──────────┐  │
+                         │  │25. Integrate Scorecard                    │  │
+                         │  │  (insert into section 8, reassemble draft)│  │
+                         │  └────────────────────┬──────────────────────┘  │
+                         └───────────────────────┼─────────────────────────┘
+                                                 │
+                                        ┌────────▼────────┐
+                                        │  Score >= 8 ?   │
+                                        └───┬─────────┬───┘
+                                    yes     │         │     no
+                                  ┌─────────▼──┐  ┌───▼──────────┐
+                                  │26.Finalize │  │27.Human      │
+                                  │            │  │   Review     │
+                                  └─────────┬──┘  └───┬──────────┘
+                                            │         │
+                                            ▼         ▼
+                                          ┌─────────────┐
+                                          │     END     │
+                                          └─────────────┘
+```
+
+### Agent Reference Table
+
+| # | Agent | Node | File | Purpose |
+|---|-------|------|------|---------|
+| 1 | Dataroom Analyzer | `dataroom` | `dataroom/` | Scan and extract data from dataroom documents (skips if none) |
+| 2 | Deck Analyst | `deck_analyst` | `deck_analyst.py` | Extract info from pitch decks via Claude Vision (skips if none) |
+| 3 | Research | `research` | `research_enhanced.py` | Web search via Tavily/Perplexity, synthesize findings |
+| 4 | Section Research | `section_research` | `perplexity_section_researcher.py` | Per-section deep research with Perplexity citations |
+| 5 | Competitive Researcher | `competitive_researcher` | `competitive_landscape_researcher.py` | Discover competitor candidates via multi-query Perplexity search |
+| 6 | Competitive Evaluator | `competitive_evaluator` | `competitive_landscape_evaluator.py` | Classify competitors (direct/indirect/adjacent), run gap analysis |
+| 7 | Citation Enrichment | `cite` | `citation_enrichment.py` | Add inline citations to research files via Perplexity Sonar Pro |
+| 8 | **GATE 1**: Cleanup Research | `cleanup_research` | `workflow.py` + `remove_invalid_sources.py` | Validate URLs in `1-research/`, remove 404s and hallucinations before writer |
+| 9 | Writer | `draft` | `writer.py` | Draft 10 sections one at a time from outline/template |
+| 10 | Inject Deck Images | `inject_deck_images` | `inject_deck_images.py` | Place deck screenshots into section files (max 2 per image) |
+| 11 | Trademark Enrichment | `enrich_trademark` | `trademark_enrichment.py` | Insert company logo/trademark into header |
+| 12 | Socials Enrichment | `enrich_socials` | `socials_enrichment.py` | Add LinkedIn profile links to team members |
+| 13 | Link Enrichment | `enrich_links` | `link_enrichment.py` | Add hyperlinks to organizations, investors, partners |
+| 14 | Table Generator | `generate_tables` | `table_generator.py` | Generate markdown tables from structured data (funding, team, market, traction) |
+| 15 | Diagram Generator | `generate_diagrams` | `diagram_generator.py` | Create visual diagrams (TAM/SAM/SOM concentric circles, etc.) |
+| 16 | Visualization Enrichment | `enrich_visualizations` | `visualization_enrichment.py` | Search for and embed relevant visualizations (temporarily disabled) |
+| 17 | TOC Generator | `toc` | `toc_generator.py` | Generate Table of Contents with working anchor links |
+| 18 | Revise Summaries | `revise_summaries` | `revise_summary_sections.py` | Rewrite Executive Summary and Closing Assessment with accurate metrics from full draft |
+| 19 | **GATE 2**: Cleanup Sections | `cleanup_sections` | `remove_invalid_sources.py` | Validate URLs in `2-sections/`, remove invalid citations before assembly |
+| 20 | Citation Assembly | `assemble_citations` | `citation_assembly.py` | Consolidate all citations, renumber globally, assemble final draft |
+| 21 | Citation Validator | `validate_citations` | `citation_validator.py` | Validate citation accuracy, check dates, detect duplicates |
+| 22 | Fact Checker | `fact_check` | `fact_checker.py` | Verify claims against research sources, flag unsourced metrics |
+| 23 | Validator | `validate` | `validator.py` | Score memo quality 0-10, provide specific feedback |
+| 24 | Scorecard Evaluator | `scorecard` | `scorecard_evaluator.py` | Evaluate against firm's 12Ps scorecard template |
+| 25 | Integrate Scorecard | `integrate_scorecard` | `workflow.py` | Insert scorecard into section 8, reassemble final draft |
+| 26 | Finalize | `finalize` | `workflow.py` | Verify final draft, save state snapshot (score >= 8) |
+| 27 | Human Review | `human_review` | `workflow.py` | Prepare memo for human review with issues and suggestions (score < 8) |
+
+### Anti-Hallucination Gates
+
+The pipeline includes two validation gates that prevent hallucinated citations from propagating:
+
+- **GATE 1** (after citation enrichment, before writer): Validates all URLs in `1-research/` files. The writer never sees unverified citations.
+- **GATE 2** (after revise summaries, before assembly): Validates all URLs in `2-sections/` files. Catches any issues introduced during enrichment or revision.
 
 ## Standalone Agents Reference
 
