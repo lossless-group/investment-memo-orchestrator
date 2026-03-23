@@ -384,6 +384,11 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     It calls renumber_citations() for the renumbering, then concatenates
     sections + citation block into the final draft file.
 
+    NOTE: This agent creates the final draft file. The TOC agent runs AFTER
+    this in the workflow to insert the Table of Contents. Do not add TOC
+    logic here — the orchestrator (workflow.py) owns that sequence.
+    See context-v/reminders/Ideal-Orchestration-Agent-Workflow.md
+
     Args:
         output_dir: Path to output directory containing 2-sections/
 

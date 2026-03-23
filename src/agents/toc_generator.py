@@ -180,18 +180,56 @@ def insert_toc_after_executive_summary(content: str, toc: str) -> str:
         return toc + '\n' + content
 
 
+def remove_existing_toc(content: str) -> str:
+    """
+    Remove existing Table of Contents section from content.
+
+    Finds the TOC heading and all list items below it (up to the next
+    ## heading, --- separator, or non-list content) and removes them.
+
+    Args:
+        content: Markdown content
+
+    Returns:
+        Content with TOC removed
+    """
+    # Pattern: ## Table of Contents, followed by list items and optional
+    # trailing blank lines / --- separator, up to next real content
+    toc_pattern = r'## Table of Contents\n(?:[ \t]*-[^\n]*\n)*\n*(?:---\n*)?'
+    return re.sub(toc_pattern, '', content)
+
+
+def extract_existing_toc(content: str) -> str:
+    """
+    Extract the existing TOC block from content, if present.
+
+    Args:
+        content: Markdown content
+
+    Returns:
+        The existing TOC block as a string, or empty string if none found
+    """
+    match = re.search(r'(## Table of Contents\n(?:[ \t]*-[^\n]*\n)*\n*(?:---\n*)?)', content)
+    return match.group(1) if match else ""
+
+
 def toc_generator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Table of Contents Generator Agent.
 
-    Reads the final draft, extracts headers, generates a TOC with anchor links,
-    and inserts it into the document.
+    Context-aware: if a TOC already exists, validates its accuracy and location.
+    Only rewrites if the TOC is missing, incorrect, or misplaced.
+
+    The correct TOC should:
+    - Reflect all current h2/h3 headers in the document
+    - Be located after Executive Summary, before the next section
+    - Have working anchor links
 
     Args:
         state: Current memo state
 
     Returns:
-        Updated state with TOC added to final draft
+        Updated state with TOC validated/added to final draft
     """
     company_name = state["company_name"]
 
@@ -213,37 +251,57 @@ def toc_generator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     # Read final draft
     content = read_final_draft(output_dir)
 
-    # Check if TOC already exists
-    if '## Table of Contents' in content:
-        print("⊘ TOC already exists, skipping generation")
-        return {"messages": ["TOC already exists"]}
+    print("\n📑 Checking Table of Contents...")
 
-    print("\n📑 Generating Table of Contents...")
+    # Strip any existing TOC so we can extract headers from clean content
+    # and generate the correct TOC from scratch
+    content_without_toc = remove_existing_toc(content)
+    had_existing_toc = ('## Table of Contents' in content)
 
-    # Extract headers
-    headers = extract_headers(content)
+    # Extract headers from the clean (TOC-free) content
+    headers = extract_headers(content_without_toc)
 
     if not headers:
         print("⊘ No headers found, skipping TOC generation")
         return {"messages": ["TOC generation skipped - no headers found"]}
 
-    # Count sections and subsections
-    h2_count = sum(1 for h in headers if h[0] == 2)
-    h3_count = sum(1 for h in headers if h[0] == 3)
+    # Generate the correct TOC
+    correct_toc = generate_toc_markdown(headers)
 
-    # Generate TOC
-    toc = generate_toc_markdown(headers)
+    # If a TOC already existed, check if it matches the correct one
+    if had_existing_toc:
+        existing_toc = extract_existing_toc(content)
+        if existing_toc.strip() == correct_toc.strip():
+            # Also verify location: TOC should be before the second h2 heading
+            # (i.e., after Executive Summary). Check it's not at the very end or
+            # in some other wrong spot.
+            toc_pos = content.index('## Table of Contents')
+            # Find the second h2 (first non-TOC, non-exec-summary h2)
+            h2_positions = [m.start() for m in re.finditer(r'^## (?!Table of Contents)', content, re.MULTILINE)]
+            # TOC should be between first and second h2
+            if len(h2_positions) >= 2 and h2_positions[0] < toc_pos < h2_positions[1]:
+                h2_count = sum(1 for h in headers if h[0] == 2)
+                h3_count = sum(1 for h in headers if h[0] == 3)
+                print(f"✓ TOC is accurate and correctly placed ({h2_count} sections, {h3_count} subsections)")
+                return {"messages": [f"TOC validated: {h2_count} sections, {h3_count} subsections (no changes needed)"]}
 
-    # Insert TOC into content (after Executive Summary, before next section)
-    updated_content = insert_toc_after_executive_summary(content, toc)
+        # TOC exists but is wrong or misplaced — will regenerate below
+        print("  ⚠️  Existing TOC is outdated or misplaced, regenerating...")
+
+    # Insert correct TOC into the clean content
+    updated_content = insert_toc_after_executive_summary(content_without_toc, correct_toc)
 
     # Save updated final draft
     with open(final_draft_path, 'w', encoding='utf-8') as f:
         f.write(updated_content)
 
-    print(f"✓ TOC generated: {h2_count} sections, {h3_count} subsections")
+    h2_count = sum(1 for h in headers if h[0] == 2)
+    h3_count = sum(1 for h in headers if h[0] == 3)
+
+    action = "regenerated" if had_existing_toc else "generated"
+    print(f"✓ TOC {action}: {h2_count} sections, {h3_count} subsections")
     print(f"✓ Updated: {final_draft_path}")
 
     return {
-        "messages": [f"TOC generated with {h2_count} sections and {h3_count} subsections"]
+        "messages": [f"TOC {action} with {h2_count} sections and {h3_count} subsections"]
     }

@@ -486,7 +486,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("generate_diagrams", diagram_generator_agent)  # Generate visual diagrams (TAM/SAM/SOM, etc.)
     workflow.add_node("enrich_visualizations", visualization_enrichment_agent)
     workflow.add_node("cite", citation_enrichment_agent)
-    workflow.add_node("toc", toc_generator_agent)  # Generate Table of Contents with anchor links
+    workflow.add_node("toc", toc_generator_agent)  # TOC generation — runs AFTER assemble_citations creates the final draft
     workflow.add_node("revise_summaries", revise_summary_sections)  # Revise Executive Summary & Closing based on full draft
     workflow.add_node("cleanup_sections", remove_invalid_sources_agent)  # GATE 2: Clean section citations before assembly
     workflow.add_node("assemble_citations", citation_assembly_agent)  # Consolidate and renumber citations
@@ -524,8 +524,9 @@ def build_workflow() -> StateGraph:
     # Full sequence:
     # Dataroom → Deck → Research → Section Research → Competitive Researcher →
     # Competitive Evaluator → [CITE on 1-research/] → [GATE 1] → Writer →
-    # Inject Deck Images → Enrichment → TOC → Revise → [GATE 2] → Assembly →
-    # Validation → Fact Check → Validate → Scorecard
+    # Inject Deck Images → Enrichment → Revise → [GATE 2] → Assembly → TOC →
+    # Validate Citations → Fact Check → Validate → Scorecard → Integrate Scorecard
+    # See: context-v/reminders/Ideal-Orchestration-Agent-Workflow.md
 
     workflow.add_edge("dataroom", "deck_analyst")
     workflow.add_edge("deck_analyst", "research")
@@ -542,11 +543,11 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("enrich_links", "generate_tables")       # Generate tables after links are in place
     workflow.add_edge("generate_tables", "generate_diagrams")       # Generate diagrams after tables
     workflow.add_edge("generate_diagrams", "enrich_visualizations")
-    workflow.add_edge("enrich_visualizations", "toc")  # Generate TOC (cite now runs earlier on research)
-    workflow.add_edge("toc", "revise_summaries")  # Revise bookend sections based on complete draft
+    workflow.add_edge("enrich_visualizations", "revise_summaries")  # Revise bookend sections based on complete draft
     workflow.add_edge("revise_summaries", "cleanup_sections")  # GATE 2: Clean sections before assembly
-    workflow.add_edge("cleanup_sections", "assemble_citations")  # Consolidate and renumber citations
-    workflow.add_edge("assemble_citations", "validate_citations")  # Validate assembled citations
+    workflow.add_edge("cleanup_sections", "assemble_citations")  # Consolidate, renumber citations, and CREATE final draft file
+    workflow.add_edge("assemble_citations", "toc")  # Generate TOC (runs AFTER assembly creates the final draft)
+    workflow.add_edge("toc", "validate_citations")  # Validate assembled citations
     workflow.add_edge("validate_citations", "fact_check")  # Fact-check claims against research sources
     workflow.add_edge("fact_check", "validate")
     workflow.add_edge("validate", "scorecard")  # Run scorecard evaluation after validation
