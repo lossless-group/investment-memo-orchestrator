@@ -1,0 +1,1006 @@
+# Alpha Partners 7 Cs Investment Memo Outline
+# Framework built around seven critical investment criteria, each starting with "C"
+# Designed for systematic evaluation of direct investment opportunities
+
+metadata:
+  outline_type: "direct_investment"
+  version: "1.0.0"
+  description: "7-section memo framework evaluating investments through the 7 Cs: Capital Syndicate, Category Leadership, CAGR, Capital Efficiency, Colossal Market Size, Counter Cyclicality, and Cash on Cash Return Probability"
+  date_created: "2026-03-23"
+  source: "Alpha Partners 7 Cs Framework"
+  compatible_modes: ["consider", "justify"]
+  notes: |
+    The 7 Cs framework provides a structured lens for evaluating whether a company
+    meets the bar across seven dimensions that collectively predict outsized venture
+    returns at early to mid growth stage of private market financing rounds (typically Series C - E). 
+    Each C is independently assessed, then synthesized in the recommendation.
+
+# Global vocabulary (applies to all sections)
+vocabulary:
+  financial:
+    preferred:
+      - term: "annual recurring revenue (ARR)"
+        first_use: "annual recurring revenue (ARR)"
+        subsequent: "ARR"
+        definition: "Yearly value of recurring revenue contracts"
+
+      - term: "monthly recurring revenue (MRR)"
+        first_use: "monthly recurring revenue (MRR)"
+        subsequent: "MRR"
+        definition: "Monthly value of recurring revenue contracts"
+
+      - term: "compound annual growth rate (CAGR)"
+        first_use: "compound annual growth rate (CAGR)"
+        subsequent: "CAGR"
+        definition: "Year-over-year growth rate compounded over multiple periods"
+
+      - term: "customer acquisition cost (CAC)"
+        first_use: "customer acquisition cost (CAC)"
+        subsequent: "CAC"
+        definition: "Total sales and marketing cost to acquire one customer"
+
+      - term: "lifetime value (LTV)"
+        first_use: "lifetime value (LTV)"
+        subsequent: "LTV"
+        definition: "Total revenue expected from a customer over the relationship"
+
+      - term: "burn rate"
+        usage: "Monthly cash expenditure net of revenue"
+
+      - term: "cash on cash return"
+        definition: "Ratio of total cash distributions received to total cash invested"
+        usage: "Use to express realized or projected return multiples"
+
+      - term: "gross margin"
+        usage: "Use 'gross margin' not 'gross profit margin' for conciseness"
+
+    avoid:
+      - term: "revenue"
+        instead: "Specify ARR, MRR, or total revenue"
+        reason: "Ambiguous whether recurring or one-time"
+
+      - term: "growth"
+        instead: "Specify CAGR, MoM growth, or YoY growth with percentage"
+        reason: "Unquantified growth claims are meaningless"
+
+  market:
+    preferred:
+      - term: "total addressable market (TAM)"
+        first_use: "total addressable market (TAM)"
+        subsequent: "TAM"
+        definition: "Total market demand for a product/service"
+
+      - term: "serviceable addressable market (SAM)"
+        first_use: "serviceable addressable market (SAM)"
+        subsequent: "SAM"
+        definition: "Portion of TAM targeted by company's products/services"
+
+      - term: "serviceable obtainable market (SOM)"
+        first_use: "serviceable obtainable market (SOM)"
+        subsequent: "SOM"
+        definition: "Realistic near-term market share the company can capture"
+
+      - term: "category leader"
+        definition: "Company that defines or dominates a market category"
+        usage: "Must be substantiated with market share data or analyst recognition"
+
+    avoid:
+      - term: "huge market"
+        instead: "Provide TAM with $ figure and source"
+        reason: "Vague and unprofessional"
+
+      - term: "rapidly growing"
+        instead: "Specify CAGR percentage with timeframe"
+        reason: "Subjective and imprecise"
+
+      - term: "market leader"
+        instead: "Provide market share data or analyst ranking"
+        reason: "Requires substantiation"
+
+  team:
+    preferred:
+      - term: "founder-market fit"
+        definition: "Alignment between founder background and market opportunity"
+
+      - term: "domain expertise"
+        usage: "Use when discussing specialized knowledge in industry or technical area"
+
+    avoid:
+      - term: "rockstar team"
+        instead: "Describe specific credentials and experience"
+        reason: "Promotional and meaningless"
+
+      - term: "world-class"
+        instead: "Cite specific achievements that demonstrate quality"
+        reason: "Overused and subjective"
+
+  recommendation:
+    required_terms:
+      - "PASS"
+      - "CONSIDER"
+      - "COMMIT"
+
+    forbidden_terms:
+      - "Maybe"
+      - "Likely"
+      - "Strong Consider"
+      - "Soft Pass"
+
+  phrases_to_avoid:
+    promotional:
+      - phrase: "unique opportunity"
+        reason: "Overused, everything is called unique"
+
+      - phrase: "disruptive"
+        reason: "Buzzword, define specific disruption mechanism"
+
+      - phrase: "poised to"
+        reason: "Speculation without evidence"
+
+    vague:
+      - phrase: "significant traction"
+        reason: "Quantify with specific metrics"
+
+      - phrase: "strong growth"
+        reason: "Provide percentage and timeframe"
+
+      - phrase: "large market"
+        reason: "Provide TAM with dollar figure"
+
+    speculative:
+      - phrase: "could potentially"
+        reason: "State what is likely with evidence"
+
+      - phrase: "has the potential to"
+        reason: "Focus on what they have achieved"
+
+  style_rules:
+    tone: "Professional, analytical, evidence-driven - not promotional"
+    voice: "Active voice preferred: 'The team built' not 'was built by'"
+    tense: "Present tense for current state, past tense for completed actions"
+
+    numbers:
+      - "Spell out numbers one through nine"
+      - "Use numerals for 10 and above"
+      - "Use numerals for all metrics and financial figures"
+      - "Use dollar signs: $5M not 5M dollars"
+      - "Use percentages: 30% not thirty percent"
+
+    abbreviations:
+      - "Define all acronyms on first use"
+      - "Use acronyms on subsequent uses for conciseness"
+      - "Exception: Very common terms (CEO, IPO, VC) need not be defined"
+
+    citations:
+      - "Obsidian-style: [^1], [^2], [^3]"
+      - "Place after punctuation with space: 'text. [^1]'"
+      - "Multiple citations with spaces: 'text. [^1] [^2]'"
+      - "Format: [^1]: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD"
+
+# Section definitions — one section per C
+sections:
+  - number: 1
+    name: "Capital Syndicate"
+    filename: "01-capital-syndicate.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Assessment of the investor syndicate backing the company: who is at the table,
+      the quality and relevance of co-investors, signal strength from lead investors,
+      follow-on capacity, and strategic value each investor brings beyond capital.
+      A strong capital syndicate de-risks execution and signals institutional conviction.
+
+    guiding_questions:
+      - "Who is leading this round? What is their track record in this sector?"
+      - "Who are the co-investors? What signal does their participation send?"
+      - "What is the total follow-on capacity of the syndicate?"
+      - "Which investors bring strategic value beyond capital (customers, partnerships, recruiting, domain expertise)?"
+      - "Are there any notable investors from prior rounds? What is their follow-on commitment?"
+      - "Is there institutional investor participation, or is the syndicate primarily angel-driven?"
+      - "How does the syndicate compare to best-in-class rounds at this stage?"
+      - "Are there any red flags in the investor base (tourist investors, misaligned incentives, absentee leads)?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Investor profiles, funding history
+        - "@pitchbook"      # Deal terms, co-investor data
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+          - "techcrunch.com"
+        exclude:
+          - "*.vc-guide.com"
+          - "*.investment-advice.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Lead investor name, fund, and sector track record"
+        - "Co-investor list with fund names and relevant credentials"
+        - "Follow-on capacity assessment (estimated reserves)"
+        - "Strategic value add per investor (specific, not generic)"
+        - "Prior round investors and their follow-on stance"
+        - "Syndicate quality assessment vs stage-appropriate benchmark"
+
+      preferred_terms:
+        - "lead investor (not lead)"
+        - "co-investor (not syndicate member)"
+        - "follow-on capacity (not reserves)"
+        - "strategic value add (not value-add or value added)"
+        - "signal strength (not signaling)"
+
+      structure_template:
+        - "Lead Investor: [Name, fund, sector track record, check size]"
+        - "Co-Investors: [Names with relevant credentials and check sizes]"
+        - "Prior Round Investors: [Names and follow-on commitment]"
+        - "Follow-On Capacity: [Estimated total reserves from syndicate]"
+        - "Strategic Value: [Specific capabilities each key investor brings]"
+        - "Syndicate Assessment: [Quality vs benchmark for stage]"
+
+      avoid:
+        - "Top-tier VCs (name them)"
+        - "Notable angels (name them)"
+        - "Strong syndicate (quantify and substantiate)"
+        - "Smart money (describe the specific strategic value)"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of syndicate quality, signal, and follow-on support"
+        required_analysis:
+          - "Lead investor credibility in this sector"
+          - "Co-investor signal strength and strategic fit"
+          - "Follow-on capacity adequacy for next 2-3 rounds"
+          - "Red flags: tourist investors, weak lead, misalignment"
+
+      justify:
+        emphasis: "Syndicate strengths that gave confidence in the investment"
+        required_analysis:
+          - "Lead investor track record that de-risked the bet"
+          - "Strategic co-investors and their contributions"
+          - "Follow-on commitments secured"
+
+    validation_criteria:
+      - "Lead investor named with fund and sector credentials"
+      - "All co-investors named (not generic descriptions)"
+      - "Follow-on capacity estimated with basis"
+      - "Strategic value add is specific per investor"
+      - "Prior round investors and follow-on stance noted"
+      - "No promotional language without evidence"
+
+  - number: 2
+    name: "Category Leadership"
+    filename: "02-category-leadership.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Evaluation of the company's position and trajectory toward defining or
+      dominating its market category. Assesses whether the company is creating
+      a new category, capturing an existing one, or is a fast follower. Examines
+      brand positioning, competitive differentiation, and the path to becoming
+      the reference company in its space.
+
+    guiding_questions:
+      - "Is the company creating a new category or competing for leadership in an existing one?"
+      - "What is the company's current market position? (market share, ranking, analyst recognition)"
+      - "What is the competitive landscape? Name the top 3-5 competitors and differentiation."
+      - "What is the company's defensibility: IP, network effects, switching costs, data advantage, brand?"
+      - "Does the company have a category-defining, or category-leading brand and customer reach? (press coverage, analyst recognition, customer mindshare)?"
+      - "What is the company's brand positioning strategy to signal maintained category leadership?"
+      - "How far ahead (or behind) is the company relative to nearest competitors?"
+      - "What would it take for a well-funded competitor to replicate their position?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@cbinsights"     # Market maps, competitive intelligence
+        - "@gartner"        # Magic quadrant, analyst rankings
+        - "@pitchbook"      # Market analysis, competitor data
+        - "@techcrunch"     # Category coverage, industry positioning
+      domains:
+        include:
+          - "cbinsights.com"
+          - "gartner.com"
+          - "pitchbook.com"
+          - "techcrunch.com"
+          - "forrester.com"
+          - "[company-domain]"
+        exclude:
+          - "*.top10.com"
+          - "*.best-of.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Category definition (new vs existing)"
+        - "Current market position with evidence (share, rank, analyst placement)"
+        - "3-5 named competitors with specific differentiation"
+        - "Defensibility assessment (IP, network effects, switching costs, data, brand)"
+        - "Category-defining signals (press, analyst, customer mindshare)"
+        - "Replicability assessment (how hard to copy)"
+
+      preferred_terms:
+        - "category leadership (not market leadership without substantiation)"
+        - "competitive differentiation (not competitive advantage without specifics)"
+        - "barriers to entry (not moats unless describing specific structural type)"
+        - "network effects (specify: direct, indirect, data)"
+        - "switching costs (specify: financial, procedural, relational)"
+        - "category creation (for genuinely new markets)"
+
+      structure_template:
+        - "Category Definition: [New category or existing? What defines it?]"
+        - "Market Position: [Current share, rank, or positioning evidence]"
+        - "Competitive Landscape: [3-5 named competitors with differentiation]"
+        - "Defensibility: [IP, network effects, switching costs, data, brand]"
+        - "Category Signals: [Press, analyst recognition, customer mindshare]"
+        - "Replicability: [How hard for a well-funded competitor to catch up?]"
+
+      avoid:
+        - "Market leader (without share data or analyst ranking)"
+        - "No real competition (there always is)"
+        - "First mover advantage (rarely durable — explain the structural advantage)"
+        - "Disruptive (describe the specific mechanism of displacement)"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of category position and path to leadership"
+        required_analysis:
+          - "Is this truly a category leader or aspirational?"
+          - "Competitive gaps and threats"
+          - "Defensibility strength (existing vs aspirational)"
+          - "Time horizon to category dominance"
+
+      justify:
+        emphasis: "Category positioning that justified the investment"
+        required_analysis:
+          - "Evidence of category leadership at time of investment"
+          - "Defensibility factors that supported long-term positioning"
+          - "Competitive advantages that gave conviction"
+
+    validation_criteria:
+      - "Category clearly defined (new vs existing)"
+      - "Market position substantiated with data"
+      - "At least 3 competitors named with differentiation"
+      - "Defensibility assessed across multiple dimensions"
+      - "Category-defining signals cited (or absence noted)"
+      - "Replicability honestly assessed"
+      - "No promotional language without evidence"
+
+  - number: 3
+    name: "CAGR (Compound Annual Revenue Growth)"
+    filename: "03-cagr.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Quantitative analysis of the company's revenue growth trajectory. Evaluates
+      historical CAGR, forward growth projections, growth drivers, and
+      sustainability of the growth rate. Compares growth to stage-appropriate
+      benchmarks and assesses whether the trajectory supports a venture-scale outcome.
+
+    guiding_questions:
+      - "What is the company's historical revenue CAGR? Over what time period?"
+      - "What is the current ARR/MRR? What was it 12 and 24 months ago?"
+      - "What is the projected growth rate for the next 12-24 months? What drives the projection?"
+      - "How does the growth rate compare to top-quartile companies at this stage?"
+      - "Is growth accelerating, steady, or decelerating? What is the trend?"
+      - "What are the primary growth drivers (new customers, expansion, pricing, new products)?"
+      - "Is the growth rate sustainable? What are the constraints on continued growth?"
+      - "What is the net revenue retention (NRR) rate?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Revenue data, growth indicators
+        - "@pitchbook"      # Growth benchmarks, comparables
+        - "@sacra"          # Private company revenue estimates
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+          - "sacra.com"
+          - "techcrunch.com"
+          - "[company-domain]"
+        exclude:
+          - "*.growth-hacking.com"
+          - "*.saas-metrics.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Historical CAGR with specific percentage and time period"
+        - "Current ARR/MRR with 12-month and 24-month prior comparisons"
+        - "Forward growth projections with drivers"
+        - "Growth rate benchmarking vs stage peers"
+        - "Growth trend (accelerating/steady/decelerating)"
+        - "Primary growth drivers breakdown"
+        - "Net revenue retention (NRR) if available"
+        - "Growth sustainability assessment"
+
+      preferred_terms:
+        - "compound annual growth rate (CAGR) (define on first use)"
+        - "net revenue retention (NRR) (define on first use)"
+        - "revenue expansion (not upsell)"
+        - "growth trajectory (not growth story)"
+
+      critical_rules:
+        - "ALWAYS quantify growth: '120% YoY CAGR' not 'strong growth'"
+        - "ALWAYS specify time period: 'over 24 months' not 'recently'"
+        - "If revenue not disclosed, state explicitly and assess available proxies"
+        - "Distinguish organic growth from growth via acquisition or pricing changes"
+        - "Compare to stage-appropriate benchmarks, not absolute standards"
+
+      structure_template:
+        - "Current Revenue: [ARR/MRR with date]"
+        - "Historical Growth: [CAGR % over specific period, with prior figures]"
+        - "Growth Trend: [Accelerating/Steady/Decelerating with evidence]"
+        - "Growth Drivers: [New customers, expansion, pricing, products — % contribution each]"
+        - "Forward Projections: [12-24 month targets with basis]"
+        - "Benchmark Comparison: [vs top-quartile at stage]"
+        - "Sustainability: [Constraints and runway for continued growth]"
+
+      avoid:
+        - "Strong growth (give CAGR %)"
+        - "Impressive trajectory (quantify)"
+        - "Hypergrowth (define the threshold you're using)"
+        - "Revenue not disclosed — with no proxies assessed"
+
+    mode_specific:
+      consider:
+        emphasis: "Rigorous quantitative assessment of growth trajectory and sustainability"
+        required_analysis:
+          - "Historical CAGR with trend direction"
+          - "Growth driver decomposition"
+          - "Benchmark comparison (is this top-quartile for stage?)"
+          - "Sustainability risks and constraints"
+          - "Path to venture-scale revenue"
+
+      justify:
+        emphasis: "Growth metrics that validated the investment thesis"
+        required_analysis:
+          - "CAGR at time of investment"
+          - "Growth drivers we believed would sustain"
+          - "How growth compared to underwriting assumptions"
+          - "Post-investment growth trajectory"
+
+    validation_criteria:
+      - "CAGR stated with specific percentage and time period"
+      - "Current revenue quantified (or explicitly unavailable)"
+      - "12-month and 24-month prior revenue stated for comparison"
+      - "Growth trend direction identified with evidence"
+      - "Growth drivers decomposed (not just total growth)"
+      - "Forward projection stated with basis"
+      - "Stage-appropriate benchmark comparison included"
+      - "NO vague growth language"
+
+  - number: 4
+    name: "Capital Efficiency"
+    filename: "04-capital-efficiency.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Analysis of how efficiently the company converts invested capital into
+      revenue, growth, and enterprise value. Examines burn rate, unit economics,
+      capital raised vs revenue generated, and operational efficiency. Determines
+      whether the company can reach key milestones without excessive dilution.
+
+    guiding_questions:
+      - "What is the total capital raised to date? What is the current ARR?"
+      - "What is the burn multiple (net burn / net new ARR)?"
+      - "What are the unit economics (CAC, LTV, LTV:CAC ratio, payback period)?"
+      - "What is the gross margin? How does it compare to best-in-class for the sector?"
+      - "What is the current monthly burn rate? What is the runway in months?"
+      - "How much capital is required to reach the next major milestone?"
+      - "What is the capital efficiency ratio (ARR / total capital raised)?"
+      - "How does capital efficiency compare to top-quartile companies at this stage?"
+      - "Is the company approaching or already at contribution margin positivity?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Capital efficiency benchmarks, burn rates
+        - "@crunchbase"     # Funding history, capital raised
+        - "@sacra"          # Private company financial estimates
+      domains:
+        include:
+          - "pitchbook.com"
+          - "crunchbase.com"
+          - "sacra.com"
+          - "[company-domain]"
+        exclude:
+          - "*.startup-tips.com"
+          - "*.finance-guide.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Total capital raised to date"
+        - "Capital efficiency ratio (ARR / total capital raised)"
+        - "Burn multiple (net burn / net new ARR) or equivalent"
+        - "Unit economics: CAC, LTV, LTV:CAC ratio, payback period"
+        - "Gross margin with sector benchmark comparison"
+        - "Monthly burn rate and runway in months"
+        - "Capital required to next milestone"
+        - "Path to contribution margin positivity"
+
+      preferred_terms:
+        - "capital efficiency ratio (not efficiency)"
+        - "burn multiple (not burn rate alone — ratio to new revenue matters)"
+        - "payback period (not time to recoup)"
+        - "contribution margin (not unit margin)"
+        - "runway (always in months with basis)"
+
+      critical_rules:
+        - "ALWAYS state total capital raised alongside revenue metrics"
+        - "ALWAYS calculate capital efficiency ratio if inputs are available"
+        - "If unit economics unavailable, state explicitly and note what's missing"
+        - "Compare to stage-appropriate benchmarks, not absolute standards"
+        - "Distinguish between cash burn and GAAP losses"
+
+      structure_template:
+        - "Capital Raised: [Total to date, by round]"
+        - "Capital Efficiency Ratio: [ARR / total capital raised]"
+        - "Burn Multiple: [Net burn / net new ARR, with trend]"
+        - "Unit Economics: [CAC, LTV, LTV:CAC, payback period]"
+        - "Gross Margin: [Current % vs sector benchmark]"
+        - "Burn & Runway: [Monthly burn, months of runway]"
+        - "Path to Milestone: [Capital needed, milestone targeted]"
+
+      avoid:
+        - "Lean operation (quantify the burn and efficiency)"
+        - "Capital-efficient (provide the ratio)"
+        - "Good unit economics (provide specific CAC, LTV, ratio)"
+        - "Plenty of runway (state months explicitly)"
+
+    mode_specific:
+      consider:
+        emphasis: "Rigorous assessment of capital efficiency and path to milestones"
+        required_analysis:
+          - "Capital efficiency ratio vs stage benchmarks"
+          - "Burn multiple trend (improving or worsening?)"
+          - "Unit economics trajectory"
+          - "Runway sufficiency for next milestone"
+          - "Dilution implications at current efficiency"
+
+      justify:
+        emphasis: "Capital efficiency metrics that supported the investment decision"
+        required_analysis:
+          - "Capital efficiency at time of investment"
+          - "Unit economics trajectory we underwrote"
+          - "Burn and runway assumptions"
+          - "Post-investment efficiency improvements"
+
+    validation_criteria:
+      - "Total capital raised stated with breakdown"
+      - "Capital efficiency ratio calculated or data gap noted"
+      - "Burn multiple stated or data gap noted"
+      - "Unit economics quantified (CAC, LTV, ratio, payback)"
+      - "Gross margin stated with benchmark comparison"
+      - "Burn rate and runway in months stated"
+      - "Capital to next milestone estimated"
+      - "NO vague efficiency claims without numbers"
+
+  - number: 5
+    name: "Colossal Market Size"
+    filename: "05-colossal-market-size.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Analysis of the market opportunity, with emphasis on whether the total
+      addressable market is large enough to support a venture-scale outcome.
+      Evaluates TAM, SAM, SOM with methodology, market growth rate, and the
+      company's realistic path to capturing meaningful share. The bar is
+      "colossal" — markets must be large enough that even modest share produces
+      outsized returns.
+
+    guiding_questions:
+      - "What is the TAM? What methodology was used (top-down, bottom-up, or value-theory)?"
+      - "What is the SAM? How is it segmented from TAM?"
+      - "What is the realistic SOM over the next 5-7 years?"
+      - "What is the market CAGR? Over what forecast period?"
+      - "What are the key market tailwinds driving growth?"
+      - "Are there market creation dynamics (is the company expanding the market itself)?"
+      - "Is the TAM large enough to support a $1B+ outcome at realistic market share?"
+      - "What are the key assumptions behind the market sizing? How sensitive are they?"
+      - "Are there adjacent markets the company could expand into?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@statista"       # Market size data, forecasts
+        - "@gartner"        # Market analysis, forecasts
+        - "@cbinsights"     # Market maps, sizing
+        - "@pitchbook"      # Market analysis
+        - "@grandviewresearch"  # Market reports
+      domains:
+        include:
+          - "statista.com"
+          - "gartner.com"
+          - "cbinsights.com"
+          - "pitchbook.com"
+          - "grandviewresearch.com"
+          - "marketsandmarkets.com"
+          - "fortunebusinessinsights.com"
+        exclude:
+          - "*.top10.com"
+          - "*.market-guide.com"
+
+    section_vocabulary:
+      required_elements:
+        - "TAM with $ figure, source, and methodology"
+        - "SAM with $ figure and segmentation logic"
+        - "SOM with $ figure and capture assumptions"
+        - "Market CAGR with timeframe and source"
+        - "Key tailwinds driving market growth"
+        - "Market creation dynamics (if applicable)"
+        - "Path to venture-scale outcome at realistic share"
+        - "Adjacent market expansion opportunities"
+
+      preferred_terms:
+        - "total addressable market (TAM) (define on first use)"
+        - "serviceable addressable market (SAM) (define on first use)"
+        - "serviceable obtainable market (SOM) (define on first use)"
+        - "market CAGR (not market growth rate without CAGR)"
+        - "market tailwinds (not trends alone)"
+        - "market creation (when company expands the market itself)"
+
+      critical_rules:
+        - "TAM MUST include source and methodology (top-down, bottom-up, value-theory)"
+        - "NEVER state TAM without a credible third-party source"
+        - "Distinguish company's claimed TAM from independently verified TAM"
+        - "SAM must explain segmentation from TAM"
+        - "SOM must be realistic, not aspirational"
+        - "Market size must support $1B+ outcome thesis or flag insufficient size"
+
+      structure_template:
+        - "TAM: [$X with source, methodology, and forecast year]"
+        - "SAM: [$X with segmentation logic from TAM]"
+        - "SOM: [$X with realistic capture assumptions]"
+        - "Market Growth: [CAGR % over timeframe with source]"
+        - "Tailwinds: [3-5 specific market drivers]"
+        - "Market Creation: [Is the company expanding the market? How?]"
+        - "Venture-Scale Path: [Can realistic share capture support $1B+ outcome?]"
+        - "Adjacent Markets: [Expansion opportunities and timing]"
+
+      avoid:
+        - "Billion-dollar market (give specific TAM with source)"
+        - "Massive opportunity (quantify with TAM/SAM/SOM)"
+        - "Rapidly growing market (give CAGR %)"
+        - "Company's TAM slide (verify independently)"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of market size credibility and venture-scale potential"
+        required_analysis:
+          - "TAM credibility (methodology and source quality)"
+          - "SAM/SOM realism (not aspirational)"
+          - "Market growth sustainability"
+          - "Path to $1B+ outcome at realistic share"
+          - "Sensitivity analysis on key assumptions"
+
+      justify:
+        emphasis: "Market size and dynamics that justified the investment"
+        required_analysis:
+          - "TAM at time of investment and current"
+          - "Market growth thesis we believed in"
+          - "Why market size supported fund economics"
+
+    validation_criteria:
+      - "TAM stated with $ figure, source, and methodology"
+      - "SAM stated with segmentation logic"
+      - "SOM stated with capture assumptions"
+      - "Market CAGR quantified with timeframe and source"
+      - "At least 3 tailwinds identified"
+      - "Venture-scale outcome path articulated"
+      - "Adjacent markets identified (or absence noted)"
+      - "NO unsourced market size claims"
+
+  - number: 6
+    name: "Counter Cyclicality"
+    filename: "06-counter-cyclicality.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Assessment of the company's resilience to macroeconomic downturns,
+      market cycles, and external shocks. Evaluates whether the business model
+      is counter-cyclical, recession-resistant, or exposed to cyclical risk.
+      Examines revenue durability, customer stickiness in downturns, and
+      historical or analogous performance through economic stress.
+
+    guiding_questions:
+      - "Is the product/service a 'must-have' or 'nice-to-have' for customers?"
+      - "How would customer demand behave in a recession or downturn?"
+      - "Is the business model counter-cyclical, recession-resistant, or cyclically exposed?"
+      - "What is the revenue model's durability (contracts, switching costs, mission-critical nature)?"
+      - "How did comparable companies or sectors perform in the 2020 COVID downturn? 2022 rate-hike cycle?"
+      - "What percentage of revenue is contractually recurring vs transactional?"
+      - "Does the company serve sectors that increase spending in downturns (e.g., compliance, security, cost optimization)?"
+      - "What is the customer concentration risk? Would losing the top 3 customers be existential?"
+      - "Are there regulatory or structural tailwinds that persist regardless of economic cycle?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@bloomberg"      # Macroeconomic data, cycle analysis
+        - "@cbinsights"     # Sector performance through cycles
+        - "@pitchbook"      # VC market data through cycles
+      domains:
+        include:
+          - "bloomberg.com"
+          - "cbinsights.com"
+          - "pitchbook.com"
+          - "mckinsey.com"
+          - "bain.com"
+          - "[company-domain]"
+        exclude:
+          - "*.recession-proof.com"
+          - "*.economic-forecast.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Cyclicality classification (counter-cyclical, recession-resistant, or cyclically exposed)"
+        - "Must-have vs nice-to-have assessment with evidence"
+        - "Revenue durability analysis (contracts, switching costs, mission-critical)"
+        - "Downturn scenario analysis (how demand and revenue would behave)"
+        - "Historical or analogous performance through economic stress"
+        - "Customer concentration risk assessment"
+        - "Structural tailwinds independent of economic cycle"
+
+      preferred_terms:
+        - "counter-cyclical (business that benefits from downturns)"
+        - "recession-resistant (business relatively unaffected by downturns)"
+        - "cyclically exposed (business vulnerable to downturns)"
+        - "revenue durability (not revenue stability)"
+        - "mission-critical (not essential without evidence)"
+        - "customer concentration (specify % of revenue from top customers)"
+
+      structure_template:
+        - "Cyclicality Classification: [Counter-cyclical / Recession-resistant / Cyclically exposed]"
+        - "Must-Have Assessment: [Evidence for/against must-have status]"
+        - "Revenue Durability: [Contract structure, switching costs, mission-critical nature]"
+        - "Downturn Scenario: [How would demand and revenue behave?]"
+        - "Historical Evidence: [Performance of company or comparables through past cycles]"
+        - "Customer Concentration: [Top customer % of revenue, diversification]"
+        - "Cycle-Independent Tailwinds: [Regulatory, structural, demographic]"
+
+      avoid:
+        - "Recession-proof (nothing is truly proof — use resistant)"
+        - "Essential service (substantiate with evidence of customer behavior)"
+        - "Diversified customer base (quantify concentration)"
+        - "Downturns don't affect us (provide evidence)"
+
+    mode_specific:
+      consider:
+        emphasis: "Honest assessment of cyclical risk and downside protection"
+        required_analysis:
+          - "Cyclicality classification with evidence"
+          - "Downturn scenario with revenue impact estimate"
+          - "Customer concentration risk quantified"
+          - "Comparable performance through past downturns"
+          - "Worst-case assessment"
+
+      justify:
+        emphasis: "Cyclical resilience that gave confidence in the investment"
+        required_analysis:
+          - "Why we believed the business was resilient"
+          - "Downturn scenario we underwrote"
+          - "Evidence that validated resilience thesis"
+
+    validation_criteria:
+      - "Cyclicality classified with supporting evidence"
+      - "Must-have vs nice-to-have assessed with customer evidence"
+      - "Revenue durability analyzed (contracts, switching costs)"
+      - "Downturn scenario articulated with estimated revenue impact"
+      - "Historical or analogous downturn performance cited"
+      - "Customer concentration quantified (or explicitly unavailable)"
+      - "NO unsupported recession-proof claims"
+
+  - number: 7
+    name: "Cash on Cash Return Probability"
+    filename: "07-cash-on-cash-return-probability.md"
+    target_length:
+      min_words: 500
+      max_words: 700
+      ideal_words: 600
+
+    description: |
+      Probabilistic assessment of the investment's return potential, including
+      scenario analysis, exit path evaluation, and fund economics fit. Evaluates
+      the likelihood and magnitude of cash-on-cash returns under bull, base, and
+      bear cases. Also serves as the recommendation section with a clear
+      PASS/CONSIDER/COMMIT verdict.
+
+    guiding_questions:
+      - "What is the entry valuation? Is it reasonable relative to stage, traction, and comparables?"
+      - "What are the bull, base, and bear case return scenarios? (cash-on-cash multiple for each)"
+      - "What are the most likely exit paths? (acquisition, IPO, secondary)"
+      - "Who are the most likely acquirers? At what valuation range?"
+      - "What comparable exits have occurred in this space? At what multiples?"
+      - "What is the probability-weighted expected return?"
+      - "How does this investment fit within the fund's return model? Can it return the fund?"
+      - "What is the expected hold period to exit?"
+      - "What is the dilution risk through future rounds?"
+      - "What are the 2-3 biggest risks to achieving the return thesis?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Exit data, valuation comps, multiples
+        - "@crunchbase"     # Comparable funding and exits
+        - "@cbinsights"     # Exit analysis, acquirer patterns
+      domains:
+        include:
+          - "pitchbook.com"
+          - "crunchbase.com"
+          - "cbinsights.com"
+          - "techcrunch.com"
+          - "sec.gov"
+        exclude:
+          - "*.investment-advice.com"
+          - "*.stock-picks.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Entry valuation with reasonableness assessment"
+        - "Bull case: scenario, probability, cash-on-cash multiple"
+        - "Base case: scenario, probability, cash-on-cash multiple"
+        - "Bear case: scenario, probability, cash-on-cash multiple"
+        - "Probability-weighted expected return"
+        - "Exit paths with most likely acquirers or IPO thesis"
+        - "Comparable exits in sector with multiples"
+        - "Fund economics fit (can this return the fund?)"
+        - "Expected hold period"
+        - "Dilution risk assessment"
+        - "Top 2-3 risks to return thesis"
+        - "Clear recommendation: PASS, CONSIDER, or COMMIT"
+        - "1-2 sentence rationale"
+        - "Next steps with timeline"
+
+      preferred_terms:
+        - "cash-on-cash return (not cash on cash or CoC)"
+        - "entry valuation (not price or valuation alone)"
+        - "probability-weighted expected return (not expected return)"
+        - "exit multiple (not exit valuation without basis)"
+        - "hold period (not time to exit)"
+        - "dilution risk (not dilution without risk framing)"
+
+      critical_rules:
+        - "ALWAYS provide bull/base/bear scenarios with probability estimates"
+        - "ALWAYS state entry valuation and comparable valuation data"
+        - "Cash-on-cash multiples must be calculated, not asserted"
+        - "Exit paths must name specific acquirers or cite comparable IPOs"
+        - "Recommendation MUST be one of: PASS, CONSIDER, COMMIT"
+        - "No hedging language in recommendation"
+
+      structure_template:
+        - "Entry Valuation: [Pre-money, round size, instrument]"
+        - "Valuation Assessment: [Reasonable vs comps and stage?]"
+        - "Bull Case: [Scenario, probability %, cash-on-cash multiple]"
+        - "Base Case: [Scenario, probability %, cash-on-cash multiple]"
+        - "Bear Case: [Scenario, probability %, cash-on-cash multiple]"
+        - "Probability-Weighted Return: [Expected cash-on-cash multiple]"
+        - "Exit Paths: [Acquirers, IPO, secondary — with comparable exits]"
+        - "Fund Economics: [Does this fit the fund model?]"
+        - "Hold Period: [Expected years to exit]"
+        - "Dilution Risk: [Future rounds and impact on returns]"
+        - "Key Risks: [Top 2-3 risks to return thesis]"
+        - "---"
+        - "Recommendation: [PASS / CONSIDER / COMMIT]"
+        - "Rationale: [1-2 sentences]"
+        - "Next Steps: [Specific actions with timeline]"
+
+      avoid:
+        - "Huge return potential (quantify with multiples)"
+        - "Attractive valuation (compare to specific data)"
+        - "Multiple exit options (name the acquirers)"
+        - "Ambiguous recommendation language"
+
+    mode_specific:
+      consider:
+        emphasis: "Rigorous probabilistic return analysis with clear recommendation"
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+        required_analysis:
+          - "Entry valuation reasonableness vs comps"
+          - "Three-scenario analysis with probabilities"
+          - "Exit path specificity (named acquirers, comparable exits)"
+          - "Fund economics fit"
+          - "Dilution and hold period assessment"
+          - "Top risks with mitigation potential"
+
+        pass:
+          rationale_focus: "Return probability insufficient for the risk"
+          required_elements:
+            - "Primary reason for pass"
+            - "What would need to change to reconsider"
+
+        consider:
+          rationale_focus: "Return probability attractive but key questions remain"
+          required_elements:
+            - "What is compelling about the return profile"
+            - "Specific diligence items to resolve"
+            - "Timeline for decision"
+
+        commit:
+          rationale_focus: "Return probability strong across scenarios"
+          required_elements:
+            - "Why the risk/reward is compelling"
+            - "How downside is protected"
+            - "Next steps for closing"
+
+      justify:
+        emphasis: "Return thesis that drove the investment decision"
+        recommendation_options: ["COMMIT"]
+        required_analysis:
+          - "Entry valuation rationale at time of investment"
+          - "Return scenarios we underwrote"
+          - "Exit thesis we believed in"
+          - "How the investment has tracked vs underwriting"
+
+    validation_criteria:
+      - "Entry valuation stated with comparables"
+      - "Bull/base/bear scenarios with probabilities and multiples"
+      - "Probability-weighted expected return calculated"
+      - "Exit paths with named acquirers or IPO comps"
+      - "Fund economics fit addressed"
+      - "Hold period estimated"
+      - "Dilution risk assessed"
+      - "Top 2-3 risks identified"
+      - "Recommendation stated explicitly (PASS/CONSIDER/COMMIT)"
+      - "Rationale is 1-2 sentences"
+      - "Next steps are specific and actionable"
+      - "No hedging language in recommendation"
+
+# Cross-section requirements
+cross_section_requirements:
+  citation_consistency:
+    description: "Citations must follow Obsidian style across all sections"
+    format: "[^1], [^2], [^3]"
+    spacing: "One space before citation after punctuation"
+    consolidation: "All citations renumbered globally and consolidated at end"
+
+  length_balance:
+    description: "Sections should be roughly proportional"
+    guideline: "No section should be 2x length of average section"
+
+  terminology_consistency:
+    description: "Use same terms throughout memo"
+    examples:
+      - "If 'Series A' in one section, not 'Series A round' in another"
+      - "If 'ARR' defined once, use 'ARR' not 'annual recurring revenue' after"
+      - "Consistent company name throughout"
+
+  narrative_flow:
+    description: "The 7 Cs build a cumulative investment case"
+    sequence:
+      - "Capital Syndicate: Who is backing this and what signal does it send?"
+      - "Category Leadership: Is this company positioned to own its market?"
+      - "CAGR: Is revenue growing fast enough for venture-scale returns?"
+      - "Capital Efficiency: Is the company converting capital into growth efficiently?"
+      - "Colossal Market Size: Is the market large enough to support a big outcome?"
+      - "Counter Cyclicality: Will the business hold up through economic stress?"
+      - "Cash on Cash Return Probability: Does the math work for our fund? What is our verdict?"
+
+  seven_cs_framework:
+    description: "Each C is independently assessed and collectively synthesized"
+    factors:
+      - name: "Capital Syndicate"
+        core_question: "Is the right money at the table?"
+      - name: "Category Leadership"
+        core_question: "Can this company own its category?"
+      - name: "CAGR"
+        core_question: "Is revenue growing fast enough?"
+      - name: "Capital Efficiency"
+        core_question: "Is capital being deployed wisely?"
+      - name: "Colossal Market Size"
+        core_question: "Is the market big enough?"
+      - name: "Counter Cyclicality"
+        core_question: "Will this survive a downturn?"
+      - name: "Cash on Cash Return Probability"
+        core_question: "Does the return math work?"

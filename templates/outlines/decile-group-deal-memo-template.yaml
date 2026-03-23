@@ -1,0 +1,882 @@
+# Decile Group Deal Memo Outline
+# Based on the Decile Group "deal memo questions" template
+# Adapted for the Investment Memo Orchestrator pipeline
+
+metadata:
+  outline_type: "direct_investment"
+  version: "1.0.0"
+  description: "7-section deal memo structure based on Decile Group's deal memo questions framework"
+  date_created: "2026-03-18"
+  source: "Template-from-Decile-Group.pdf"
+  compatible_modes: ["consider", "justify"]
+
+# Global vocabulary (applies to all sections)
+vocabulary:
+  financial:
+    preferred:
+      - term: "annual recurring revenue (ARR)"
+        first_use: "annual recurring revenue (ARR)"
+        subsequent: "ARR"
+        definition: "Yearly value of recurring revenue contracts"
+
+      - term: "monthly recurring revenue (MRR)"
+        first_use: "monthly recurring revenue (MRR)"
+        subsequent: "MRR"
+        definition: "Monthly value of recurring revenue contracts"
+
+      - term: "customer acquisition cost (CAC)"
+        first_use: "customer acquisition cost (CAC)"
+        subsequent: "CAC"
+        definition: "Total sales and marketing cost to acquire one customer"
+
+      - term: "lifetime value (LTV)"
+        first_use: "lifetime value (LTV)"
+        subsequent: "LTV"
+        definition: "Total revenue expected from a customer over relationship"
+
+      - term: "unit economics"
+        usage: "Ratio of LTV to CAC, gross margin, and contribution margin"
+
+      - term: "gross margin"
+        usage: "Use 'gross margin' not 'gross profit margin' for conciseness"
+
+    avoid:
+      - term: "revenue"
+        instead: "Specify ARR, MRR, or total revenue"
+        reason: "Ambiguous whether recurring or one-time"
+
+      - term: "sales"
+        instead: "Use 'revenue' or 'bookings'"
+        reason: "'Sales' can mean revenue or sales team"
+
+  market:
+    preferred:
+      - term: "total addressable market (TAM)"
+        first_use: "total addressable market (TAM)"
+        subsequent: "TAM"
+        definition: "Total market demand for a product/service"
+
+      - term: "serviceable addressable market (SAM)"
+        first_use: "serviceable addressable market (SAM)"
+        subsequent: "SAM"
+        definition: "Portion of TAM targeted by company's products/services"
+
+      - term: "compound annual growth rate (CAGR)"
+        first_use: "compound annual growth rate (CAGR)"
+        subsequent: "CAGR"
+        definition: "Annual growth rate over multiple years"
+
+      - term: "competitive advantage"
+        usage: "Use 'competitive advantage' not 'moat' unless technical moat"
+
+      - term: "barriers to entry"
+        usage: "Structural factors that prevent new competitors from entering"
+
+    avoid:
+      - term: "huge market"
+        instead: "Provide TAM with $ figure and source"
+        reason: "Vague and unprofessional"
+
+      - term: "rapidly growing"
+        instead: "Specify CAGR percentage"
+        reason: "Subjective and imprecise"
+
+  team:
+    preferred:
+      - term: "founder-market fit"
+        definition: "Alignment between founder background and market opportunity"
+        usage: "Assess whether founders uniquely positioned to solve this problem"
+
+      - term: "domain expertise"
+        usage: "Use when discussing specialized knowledge in industry or technical area"
+
+      - term: "go-to-market expertise"
+        usage: "For sales/marketing capabilities"
+
+    avoid:
+      - term: "rockstar team"
+        instead: "Describe specific credentials and experience"
+        reason: "Promotional and meaningless"
+
+      - term: "world-class"
+        instead: "Cite specific achievements that demonstrate quality"
+        reason: "Overused and subjective"
+
+  ethics:
+    preferred:
+      - term: "Mensarius Oath"
+        definition: "Ethical commitment framework for responsible investing and business conduct"
+        usage: "Reference when discussing company's ethical commitments and positive impact"
+
+      - term: "positive impact"
+        usage: "Concrete ways the company's products/services benefit society or the planet"
+
+  recommendation:
+    required_terms:
+      - "PASS"
+      - "CONSIDER"
+      - "COMMIT"
+
+    forbidden_terms:
+      - "Maybe"
+      - "Likely"
+      - "Strong Consider"
+      - "Soft Pass"
+
+  phrases_to_avoid:
+    promotional:
+      - phrase: "unique opportunity"
+        reason: "Overused, everything is called unique"
+
+      - phrase: "disruptive"
+        reason: "Buzzword, define specific disruption"
+
+      - phrase: "passionate team"
+        reason: "Expected, focus on competence not passion"
+
+      - phrase: "poised to"
+        reason: "Speculation without evidence"
+
+    vague:
+      - phrase: "significant traction"
+        reason: "Quantify with specific metrics"
+
+      - phrase: "strong growth"
+        reason: "Provide percentage and timeframe"
+
+      - phrase: "large market"
+        reason: "Provide TAM with dollar figure"
+
+      - phrase: "several customers"
+        reason: "Give exact number"
+
+    speculative:
+      - phrase: "could potentially"
+        reason: "Anything 'could' happen, state what is likely"
+
+      - phrase: "has the potential to"
+        reason: "Focus on what they have achieved"
+
+  style_rules:
+    tone: "Professional, analytical, balanced - not promotional"
+    voice: "Active voice preferred: 'The team built' not 'was built by'"
+    tense: "Present tense for current state, past tense for completed actions"
+
+    numbers:
+      - "Spell out numbers one through nine"
+      - "Use numerals for 10 and above"
+      - "Use numerals for all metrics and financial figures"
+      - "Use dollar signs: $5M not 5M dollars"
+      - "Use percentages: 30% not thirty percent"
+
+    abbreviations:
+      - "Define all acronyms on first use"
+      - "Use acronyms on subsequent uses for conciseness"
+      - "Exception: Very common terms (CEO, IPO, VC) need not be defined"
+
+    citations:
+      - "Obsidian-style: [^1], [^2], [^3]"
+      - "Place after punctuation with space: 'text. [^1]'"
+      - "Multiple citations with spaces: 'text. [^1] [^2]'"
+      - "Format: [^1]: YYYY, MMM DD. [Title](URL). Published: YYYY-MM-DD"
+
+# Section definitions
+sections:
+  - number: 1
+    name: "Overview"
+    filename: "01-overview.md"
+    target_length:
+      min_words: 300
+      max_words: 500
+      ideal_words: 400
+
+    description: |
+      High-level overview of the company, the problem it solves, its product
+      or service, the target market and market size, and the key investment
+      terms. Should orient the reader on the fundamental opportunity.
+
+    guiding_questions:
+      - "What problem is the company solving?"
+      - "What is the product/service? How does it solve the pain point/need?"
+      - "Describe the market (and size) that the company will penetrate or create."
+      - "What are the key terms of the investment (instrument, type of round, round size, valuation)?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Company overview, funding, deal terms
+        - "@pitchbook"      # Valuation, deal terms, market context
+        - "@techcrunch"     # Product details, news
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+          - "techcrunch.com"
+          - "[company-domain]"
+        exclude:
+          - "*.startup-tips.com"
+          - "*.top10.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Clear problem statement (specific pain point with evidence)"
+        - "Product/service description (how it solves the problem)"
+        - "Market size (TAM with source or methodology)"
+        - "Key investment terms (instrument, round type, round size, valuation)"
+
+      preferred_terms:
+        - "value proposition (not unique selling point)"
+        - "total addressable market (TAM) (define acronym)"
+        - "pre-money valuation (specify pre or post)"
+        - "pain point (not problem alone)"
+
+      avoid:
+        - "Vague problem statements: addresses a big need"
+        - "Undefined market size: billion-dollar market"
+        - "Missing investment terms: omitting valuation or round size"
+        - "Promotional language: revolutionary solution"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective framing of the opportunity with balanced assessment"
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+
+      justify:
+        emphasis: "Clear articulation of what made this opportunity compelling"
+        recommendation_options: ["COMMIT"]
+
+    validation_criteria:
+      - "Problem statement is specific and evidence-backed"
+      - "Product/service clearly described in plain language"
+      - "Market size quantified with TAM and source"
+      - "Investment terms stated (instrument, round, size, valuation)"
+      - "No promotional or speculative language"
+      - "Reads as standalone orientation to the deal"
+
+  - number: 2
+    name: "Why Invest"
+    filename: "02-why-invest.md"
+    target_length:
+      min_words: 500
+      max_words: 700
+      ideal_words: 600
+
+    description: |
+      The core investment conviction: top reasons to invest, the key external
+      bet required for success, fund thesis alignment, fund economics fit,
+      the investor's value add, and how this round advances the company to
+      a significant milestone that attracts follow-on capital.
+
+    guiding_questions:
+      - "What is your conviction? List the top 3 reasons to invest."
+      - "What is 'the bet' - what needs to happen externally for this investment to succeed?"
+      - "How does this investment fit within your fund thesis?"
+      - "How does this investment fit within your fund's economic model? Will it return for your fund?"
+      - "How do you add value beyond the investment?"
+      - "How does this investment round bring the company to a significant milestone where next-round investors will be motivated to invest?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@pitchbook"      # Comparable deals, fund economics
+        - "@cbinsights"     # Market intelligence, trends
+        - "@crunchbase"     # Funding rounds, follow-on patterns
+      domains:
+        include:
+          - "pitchbook.com"
+          - "cbinsights.com"
+          - "crunchbase.com"
+          - "[company-domain]"
+        exclude:
+          - "*.vc-guide.com"
+          - "*.investment-advice.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Top 3 reasons to invest (numbered, specific)"
+        - "The bet (external factors required for success)"
+        - "Fund thesis alignment (how deal fits strategy)"
+        - "Fund economics fit (return potential relative to fund model)"
+        - "Value add beyond capital (specific capabilities)"
+        - "Milestone this round enables (and follow-on investor appeal)"
+
+      preferred_terms:
+        - "investment conviction (not gut feeling or instinct)"
+        - "fund thesis alignment (not portfolio fit)"
+        - "fund economics (not return expectations)"
+        - "value add (not value-add or value added)"
+        - "follow-on capital (not next round for the capital itself)"
+
+      structure_template:
+        - "Top 3 Reasons to Invest: [numbered list with evidence]"
+        - "The Bet: [1-2 paragraphs on external success factors]"
+        - "Fund Thesis Fit: [how deal aligns with strategy]"
+        - "Fund Economics: [return potential and fund model fit]"
+        - "Our Value Add: [specific capabilities beyond capital]"
+        - "Milestone Path: [what this round achieves and why follow-on investors will care]"
+
+      avoid:
+        - "Vague conviction: great team, big market"
+        - "Unquantified return claims: huge potential"
+        - "Generic value add: we help with introductions"
+        - "Missing the bet: ignoring what must go right externally"
+
+    mode_specific:
+      consider:
+        emphasis: "Balanced assessment of conviction vs uncertainty"
+        required_analysis:
+          - "Top 3 reasons with supporting evidence"
+          - "Honest assessment of 'the bet' and its probability"
+          - "Fund thesis alignment strength"
+          - "Fund economics analysis (can this return the fund?)"
+          - "Value add realism (what can we actually deliver?)"
+          - "Milestone achievability assessment"
+
+      justify:
+        emphasis: "Clear conviction narrative with evidence of thesis validation"
+        required_analysis:
+          - "Top 3 reasons that drove the investment decision"
+          - "Why we believed 'the bet' would pay off"
+          - "How deal advanced fund thesis"
+          - "Fund economics rationale"
+          - "Value add delivered or planned"
+
+    validation_criteria:
+      - "Exactly 3 investment reasons listed with evidence"
+      - "'The bet' explicitly stated (external success factors)"
+      - "Fund thesis alignment explained specifically"
+      - "Fund economics addressed (return potential quantified)"
+      - "Value add is specific, not generic"
+      - "Milestone path and follow-on investor logic articulated"
+      - "No promotional language without supporting data"
+
+  - number: 3
+    name: "Situation & Market Overview"
+    filename: "03-situation--market-overview.md"
+    target_length:
+      min_words: 500
+      max_words: 700
+      ideal_words: 600
+
+    description: |
+      Comprehensive market and competitive analysis: target geography and
+      demographics, market timing, competitive landscape and differentiation,
+      barriers to entry, defensibility/moat, macroeconomic risk factors, and
+      regulatory considerations.
+
+    guiding_questions:
+      - "What is the company's target geography/demographic?"
+      - "Is the company entering the market at the right time? Why?"
+      - "Who are their main competitors? What is the company's competitive advantage/unique value proposition/key differentiation that sets them apart?"
+      - "What barriers to entry does the business face?"
+      - "What is the moat the business is creating — or will create?"
+      - "What are the macroeconomic risk factors for the company?"
+      - "What standards or regulations have a high impact on this business (either positive or negative)? How will the business mitigate or capitalize on these?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@statista"       # Market size, statistics, forecasts
+        - "@cbinsights"     # Market trends, competitive intelligence
+        - "@pitchbook"      # Market analysis, deal data
+        - "@bloomberg"      # Macroeconomic factors
+      domains:
+        include:
+          - "statista.com"
+          - "cbinsights.com"
+          - "pitchbook.com"
+          - "gartner.com"
+          - "bloomberg.com"
+          - "crunchbase.com"
+        exclude:
+          - "*.top10.com"
+          - "*.market-guide.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Target geography and demographic"
+        - "Market timing analysis (why now)"
+        - "3-5 named competitors with differentiation"
+        - "Barriers to entry assessment"
+        - "Moat or defensibility analysis"
+        - "Macroeconomic risk factors"
+        - "Regulatory landscape and impact"
+
+      preferred_terms:
+        - "total addressable market (TAM) (define acronym)"
+        - "competitive advantage (not moat unless discussing structural defensibility)"
+        - "barriers to entry (not moats for entry difficulty)"
+        - "market timing (not first mover advantage without analysis)"
+        - "defensibility (not moat on first use)"
+        - "regulatory landscape (not regulatory environment)"
+
+      avoid:
+        - "Vague market sizes: billion-dollar market (without specific figure)"
+        - "Unsupported timing claims: perfect timing (without trend evidence)"
+        - "Generic competitors: large incumbents (without names)"
+        - "Buzzwords: blue ocean, first mover (without analysis)"
+        - "Dismissive of regulatory risk: not a concern"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of market dynamics, timing, and competitive positioning"
+        required_analysis:
+          - "Target market specificity (geography, demo, size)"
+          - "Market timing evidence (why now, not earlier or later)"
+          - "Competitive analysis with named companies"
+          - "Barriers to entry honest assessment"
+          - "Moat evaluation (real vs aspirational)"
+          - "Macroeconomic headwinds and tailwinds"
+          - "Regulatory risk with mitigation"
+
+      justify:
+        emphasis: "Market opportunity that justified investment with supporting data"
+        required_analysis:
+          - "Market size and growth that made opportunity attractive"
+          - "Timing factors that created the window"
+          - "Competitive advantages that position for leadership"
+          - "Defensibility factors that protect the investment"
+
+    validation_criteria:
+      - "Target geography/demographic explicitly stated"
+      - "Market timing supported with trend data or evidence"
+      - "At least 3 competitors named with differentiation"
+      - "Barriers to entry assessed (for and against)"
+      - "Moat/defensibility analyzed (real vs aspirational)"
+      - "Macroeconomic risks identified"
+      - "Regulatory impact addressed (positive and/or negative)"
+      - "No vague market claims without data"
+
+  - number: 4
+    name: "Team"
+    filename: "04-team.md"
+    target_length:
+      min_words: 400
+      max_words: 600
+      ideal_words: 500
+
+    description: |
+      Assessment of the founding team's qualifications, leadership potential,
+      talent acquisition ability, skill gaps, long-term relationship fit,
+      and any management issues. Focuses on founder-market fit and ability
+      to scale the business.
+
+    guiding_questions:
+      - "Why is this the right team? What relevant experience and expertise do the founders bring to the table? Do they understand the customer?"
+      - "Do you believe the founders can successfully lead the business to scale? Can the founders attract, recruit, and motivate top talent?"
+      - "What skills are missing from the management team? From the overall company? Does the business have a plan to address these gaps?"
+      - "Are these founders people with whom you can have a positive relationship over the next 4-10 years?"
+      - "Describe any management team issues."
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Team bios, previous companies
+        - "@linkedin"       # Professional backgrounds
+      domains:
+        include:
+          - "linkedin.com"
+          - "crunchbase.com"
+          - "[company-domain]/about"
+          - "[company-domain]/team"
+        exclude:
+          - "*.hiring-tips.com"
+          - "*.team-building.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Founder names with titles and backgrounds"
+        - "Relevant experience and customer understanding"
+        - "Scalability assessment (can they lead at scale?)"
+        - "Talent acquisition capability"
+        - "Skill gaps with plan to address"
+        - "Investor-founder relationship fit (4-10 year horizon)"
+        - "Management team issues (if any)"
+
+      preferred_terms:
+        - "founder-market fit (not founder fit)"
+        - "domain expertise (not industry experience for technical knowledge)"
+        - "scalability (ability to lead growing organization)"
+        - "talent acquisition (not hiring for strategic assessment)"
+        - "skill gaps (not weaknesses)"
+
+      structure_template:
+        - "Founders: [Name, title, relevant experience for each]"
+        - "Customer Understanding: [evidence founders know the customer]"
+        - "Scale Readiness: [can they lead to scale? recruit talent?]"
+        - "Skill Gaps: [what's missing and plan to address]"
+        - "Relationship Fit: [4-10 year partnership assessment]"
+        - "Management Issues: [any concerns, or None identified]"
+
+      avoid:
+        - "rockstar, world-class, exceptional (without evidence)"
+        - "Strong team, experienced team (without specifics)"
+        - "Passionate about X (focus on competence)"
+        - "Missing relationship assessment (4-10 year lens)"
+
+    mode_specific:
+      consider:
+        emphasis: "Objective assessment of team capability, gaps, and relationship fit"
+        required_analysis:
+          - "Founder-market fit assessment with evidence"
+          - "Scale readiness evaluation"
+          - "Talent acquisition track record or ability"
+          - "Honest gap analysis with plan viability"
+          - "Relationship fit candid assessment"
+          - "Management red flags (if any)"
+
+      justify:
+        emphasis: "Team capabilities that gave confidence in the investment"
+        required_analysis:
+          - "Founder strengths that de-risked the investment"
+          - "Evidence of customer understanding"
+          - "Why we believed they could scale"
+          - "How gaps were addressed or accepted"
+
+    validation_criteria:
+      - "All founders named with titles and backgrounds"
+      - "Customer understanding assessed with evidence"
+      - "Scale readiness evaluated (not assumed)"
+      - "Talent acquisition ability addressed"
+      - "Skill gaps identified with plan to address"
+      - "4-10 year relationship fit discussed"
+      - "Management issues noted (even if none)"
+      - "No promotional language without evidence"
+
+  - number: 5
+    name: "Business, Economics & Ethics"
+    filename: "05-business-economics--ethics.md"
+    target_length:
+      min_words: 500
+      max_words: 700
+      ideal_words: 600
+
+    description: |
+      Evaluation of the company's path to venture-scale growth including
+      go-to-market strategy, unit economics and business model, product
+      roadmap and KPIs, exit potential, and ethical/impact considerations
+      including alignment with the Mensarius Oath.
+
+    guiding_questions:
+      - "Evaluate the key aspects that will bring the company to significant market presence and growth to venture scale. This includes geographic/market segments, brand strategy, GTM strategy, sales strategy, and channels/partnerships."
+      - "What are the current and target unit economics of the business? What is the business model?"
+      - "What are the key business and product milestones over the next 12-24 months? Has the business articulated a roadmap with KPIs and capital requirements?"
+      - "What is the company's potential exit plan?"
+      - "Does the company support the Mensarius Oath? How do the company's products/services positively impact life on our planet?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Business model, milestones
+        - "@techcrunch"     # GTM strategy, product news
+        - "@pitchbook"      # Exit comparables, M&A data
+        - "@statista"       # Market segment data
+      domains:
+        include:
+          - "[company-domain]"
+          - "crunchbase.com"
+          - "techcrunch.com"
+          - "pitchbook.com"
+          - "statista.com"
+        exclude:
+          - "*.business-model-guide.com"
+          - "*.startup-tips.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Path to venture scale (GTM, channels, partnerships)"
+        - "Current unit economics (CAC, LTV, gross margin) or explicit statement if unavailable"
+        - "Target unit economics (where they aim to be)"
+        - "Business model description (how they make money)"
+        - "12-24 month roadmap with KPIs and capital requirements"
+        - "Exit potential (acquirers, IPO path, comparable exits)"
+        - "Mensarius Oath alignment and positive impact assessment"
+
+      preferred_terms:
+        - "go-to-market strategy (GTM) (define on first use)"
+        - "unit economics (not economics alone)"
+        - "customer acquisition cost (CAC) (define acronym)"
+        - "lifetime value (LTV) (define acronym)"
+        - "gross margin (not gross profit margin)"
+        - "key performance indicators (KPIs) (define on first use)"
+        - "exit potential (not exit strategy for early-stage)"
+        - "positive impact (for ethical/social assessment)"
+
+      structure_template:
+        - "Path to Scale: [GTM, segments, brand, channels, partnerships]"
+        - "Unit Economics: [Current vs target CAC, LTV, margins]"
+        - "Business Model: [Revenue streams, pricing]"
+        - "12-24 Month Roadmap: [Milestones, KPIs, capital needs]"
+        - "Exit Potential: [Comparable exits, acquirer landscape, timeline]"
+        - "Impact & Ethics: [Mensarius Oath, positive planetary impact]"
+
+      avoid:
+        - "Vague GTM: we'll use digital marketing"
+        - "Missing unit economics without acknowledging the gap"
+        - "Unsubstantiated exit claims: $1B exit potential"
+        - "Superficial impact claims: we're making the world better"
+
+    mode_specific:
+      consider:
+        emphasis: "Critical assessment of business model viability and ethical alignment"
+        required_analysis:
+          - "GTM strategy feasibility and evidence"
+          - "Unit economics trajectory (improving or not?)"
+          - "Roadmap ambition vs resources"
+          - "Exit potential realism (comparable exits in space)"
+          - "Genuine vs performative impact claims"
+
+      justify:
+        emphasis: "Business model and growth strategy that validated the investment"
+        required_analysis:
+          - "GTM strategy that gave confidence in scaling"
+          - "Unit economics that supported fund model"
+          - "Roadmap progress since investment"
+          - "Exit potential that supported return thesis"
+          - "Impact alignment with LP values"
+
+    validation_criteria:
+      - "GTM strategy described with specific channels and segments"
+      - "Unit economics stated (current and target) or explicitly noted as unavailable"
+      - "Business model clearly articulated"
+      - "12-24 month roadmap with specific KPIs"
+      - "Exit potential discussed with comparables"
+      - "Mensarius Oath / positive impact addressed"
+      - "No vague growth claims without supporting strategy"
+
+  - number: 6
+    name: "Fundraising Round"
+    filename: "06-fundraising-round.md"
+    target_length:
+      min_words: 300
+      max_words: 500
+      ideal_words: 400
+
+    description: |
+      Details on the current fundraising round: use of funds, cash position
+      and runway, co-investors and previous investors, and investment
+      document timeline.
+
+    guiding_questions:
+      - "What is the use of funds?"
+      - "What is their current cash on hand, if available? How much runway does the company have?"
+      - "Who are the other major investors in this round? Who are the noteworthy previous investors?"
+      - "When do you need to sign the investment documents?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@crunchbase"     # Funding history, investors
+        - "@pitchbook"      # Deal terms, co-investors
+        - "@sec"            # Regulatory filings (if public)
+      domains:
+        include:
+          - "crunchbase.com"
+          - "pitchbook.com"
+          - "sec.gov"
+          - "techcrunch.com"
+        exclude:
+          - "*.fundraising-guide.com"
+          - "*.cap-table.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Use of funds breakdown (allocation by category)"
+        - "Cash on hand (if available) or explicit statement if not disclosed"
+        - "Runway in months (if available) or explicit statement if not disclosed"
+        - "Co-investors in current round (named)"
+        - "Notable previous investors (named with round)"
+        - "Investment document signing timeline"
+
+      preferred_terms:
+        - "use of funds (not use of proceeds)"
+        - "cash runway (not runway alone)"
+        - "co-investors (not syndicate members)"
+        - "signing timeline (not closing timeline for document execution)"
+
+      critical_rules:
+        - "ONLY state cash on hand if disclosed by company or in pitch deck"
+        - "ONLY state runway if explicitly provided — DO NOT calculate"
+        - "Name specific investors, not 'notable angels' or 'top-tier VCs'"
+        - "State signing deadline if known, or 'Timeline not disclosed'"
+
+      avoid:
+        - "Vague use of funds: growth and operations"
+        - "Estimated runway without source"
+        - "Unnamed investors: leading VC firms"
+        - "Missing signing timeline without noting it"
+
+    mode_specific:
+      consider:
+        emphasis: "Assessment of round structure, investor quality, and timeline pressure"
+        required_analysis:
+          - "Use of funds alignment with company priorities"
+          - "Runway sufficiency to next milestone"
+          - "Co-investor quality and signal"
+          - "Timeline pressure assessment"
+
+      justify:
+        emphasis: "Round details that supported the investment decision"
+        required_analysis:
+          - "Use of funds that aligned with growth plan"
+          - "Investor syndicate quality"
+          - "Why timeline worked for our process"
+
+    validation_criteria:
+      - "Use of funds broken down by category"
+      - "Cash on hand stated or explicitly noted as unavailable"
+      - "Runway stated or explicitly noted as unavailable"
+      - "Co-investors named (not generic descriptions)"
+      - "Previous investors named with rounds"
+      - "Signing timeline stated or noted as not disclosed"
+      - "No speculative financial figures"
+
+  - number: 7
+    name: "Flags"
+    filename: "07-flags.md"
+    target_length:
+      min_words: 200
+      max_words: 400
+      ideal_words: 300
+
+    description: |
+      Critical due diligence flags and governance considerations: cap table
+      health, potential conflicts of interest, and entity structure
+      implications. Also serves as the recommendation section.
+
+    guiding_questions:
+      - "Does the cap table reflect best practices and support the capital journey?"
+      - "Do you hold any economic interest in this company?"
+      - "Is the company currently or will become a limited liability company, limited partnership, or other passthrough entity?"
+
+    preferred_sources:
+      perplexity_at_syntax:
+        - "@sec"            # Entity filings, disclosures
+        - "@pitchbook"      # Cap table data, governance
+      domains:
+        include:
+          - "sec.gov"
+          - "pitchbook.com"
+          - "[company-domain]"
+        exclude:
+          - "*.legal-guide.com"
+
+    section_vocabulary:
+      required_elements:
+        - "Cap table assessment (best practices, founder dilution, option pool)"
+        - "Conflict of interest disclosure (economic interest held or not)"
+        - "Entity structure (C-corp, LLC, LP, passthrough implications)"
+        - "Clear recommendation (PASS/CONSIDER/COMMIT)"
+        - "1-2 sentence rationale"
+        - "Next steps with timeline"
+
+      preferred_terms:
+        - "cap table (not capitalization table after first use)"
+        - "option pool (not ESOP for startup context)"
+        - "passthrough entity (for LLC, LP tax implications)"
+        - "conflict of interest (not COI)"
+        - "PASS (all caps)"
+        - "CONSIDER (all caps)"
+        - "COMMIT (all caps)"
+
+      required_format:
+        flags: "[Cap table, conflicts, entity structure assessments]"
+        recommendation: "Recommendation: [PASS/CONSIDER/COMMIT]"
+        rationale: "[1-2 sentence rationale]"
+        next_steps: "[Bullet list with timeline]"
+
+      critical_rules:
+        - "Conflict of interest MUST be disclosed honestly"
+        - "Cap table issues MUST be flagged (excessive dilution, dead equity)"
+        - "Entity structure tax implications MUST be noted"
+        - "Recommendation MUST be one of: PASS, CONSIDER, COMMIT"
+        - "No hedging language in recommendation"
+
+      avoid:
+        - "Dismissive of cap table issues: looks fine"
+        - "Omitting conflict disclosure"
+        - "Ignoring entity structure implications"
+        - "Ambiguous recommendations"
+
+    mode_specific:
+      consider:
+        emphasis: "Honest assessment of flags with clear recommendation"
+        recommendation_options: ["PASS", "CONSIDER", "COMMIT"]
+
+        pass:
+          rationale_focus: "Critical flags or issues that prevent investment"
+          required_elements:
+            - "Primary reason for pass"
+            - "What would need to change"
+
+        consider:
+          rationale_focus: "Flags are manageable but warrant deeper diligence"
+          required_elements:
+            - "What is compelling despite flags"
+            - "Specific diligence items to resolve flags"
+            - "Timeline for decision"
+
+        commit:
+          rationale_focus: "Flags are acceptable given the opportunity"
+          required_elements:
+            - "How flags were assessed and accepted"
+            - "Next steps for closing"
+            - "Timeline to close"
+
+      justify:
+        emphasis: "Flags that were evaluated during investment process"
+        recommendation_options: ["COMMIT"]
+
+        commit:
+          rationale_focus: "How flags were addressed in the investment decision"
+          required_elements:
+            - "How cap table issues were resolved or accepted"
+            - "Conflict disclosure"
+            - "Entity structure assessment"
+            - "Key factors that drove the COMMIT decision"
+
+    validation_criteria:
+      - "Cap table assessed (best practices, dilution, option pool)"
+      - "Conflict of interest disclosed (yes/no with details)"
+      - "Entity structure identified with tax implications noted"
+      - "Recommendation stated explicitly (PASS/CONSIDER/COMMIT)"
+      - "Rationale is 1-2 sentences"
+      - "Next steps are specific and actionable"
+      - "No flags dismissed without justification"
+      - "No hedging language"
+
+# Cross-section requirements
+cross_section_requirements:
+  citation_consistency:
+    description: "Citations must follow Obsidian style across all sections"
+    format: "[^1], [^2], [^3]"
+    spacing: "One space before citation after punctuation"
+    consolidation: "All citations renumbered globally and consolidated at end"
+
+  length_balance:
+    description: "Sections should be roughly proportional"
+    guideline: "No section should be 2x length of average section"
+
+  terminology_consistency:
+    description: "Use same terms throughout memo"
+    examples:
+      - "If 'Series A' in one section, not 'Series A round' in another"
+      - "If 'ARR' defined once, use 'ARR' not 'annual recurring revenue' after"
+      - "Consistent company name throughout"
+
+  narrative_flow:
+    description: "Sections should build on each other logically"
+    sequence:
+      - "Overview orients reader on the deal"
+      - "Why Invest builds conviction case"
+      - "Situation & Market provides market evidence"
+      - "Team evaluates execution capability"
+      - "Business, Economics & Ethics assesses viability and impact"
+      - "Fundraising Round details the current opportunity"
+      - "Flags addresses governance and concludes with recommendation"
+
+  decile_group_specific:
+    description: "Unique elements from the Decile Group framework"
+    elements:
+      - "'The bet' must be explicitly stated in Why Invest"
+      - "Fund economics fit must be addressed (will it return for the fund?)"
+      - "Milestone path to follow-on must be articulated"
+      - "Mensarius Oath / positive impact must be assessed"
+      - "4-10 year founder relationship fit must be evaluated"
+      - "Cap table best practices must be assessed"
+      - "Conflict of interest must be disclosed"
+      - "Entity structure passthrough implications must be noted"
