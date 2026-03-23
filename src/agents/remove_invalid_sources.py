@@ -31,6 +31,7 @@ Runs BEFORE: writer
 """
 
 import re
+import json
 import urllib.request
 import urllib.error
 import ssl
@@ -136,6 +137,107 @@ def extract_citation_urls(content: str) -> Dict[str, str]:
             citations[citation_num] = url
 
     return citations
+
+
+def extract_citation_details(content: str, source_file: str = "") -> List[Dict[str, str]]:
+    """
+    Extract full citation details including title, URL, and definition text.
+
+    Args:
+        content: Markdown content with citations
+        source_file: Name of the file these citations came from
+
+    Returns:
+        List of dicts with: citation_num, url, title, full_definition, source_file
+    """
+    citations = []
+
+    # Full citation definition pattern:
+    # [^1]: 2024, Jan 15. [Title](URL). Source. Published: ...
+    pattern = r'\[\^(\d+)\]:\s*(.+?)(?=\n\[\^|\n\n|\Z)'
+
+    for match in re.finditer(pattern, content, re.DOTALL):
+        citation_num = match.group(1)
+        full_definition = match.group(2).strip()
+
+        # Extract URL and title from the definition
+        url_match = re.search(r'\[([^\]]+)\]\((https?://[^)]+)\)', full_definition)
+        url = url_match.group(2) if url_match else ""
+        title = url_match.group(1) if url_match else ""
+
+        citations.append({
+            "citation_num": citation_num,
+            "url": url,
+            "title": title,
+            "full_definition": full_definition,
+            "source_file": source_file
+        })
+
+    return citations
+
+
+def save_source_validation_log(
+    output_dir: Path,
+    citation_details: List[Dict[str, str]],
+    validation_results: Dict[str, tuple],
+    valid_citations: Set[str],
+    invalid_citations: Set[str],
+    potentially_valid: Set[str],
+    gate_name: str = "cleanup_sections"
+) -> None:
+    """
+    Save a comprehensive source validation log for the source cataloger.
+
+    Args:
+        output_dir: Output directory
+        citation_details: Full citation details (url, title, definition, source_file)
+        validation_results: Dict mapping citation num to (http_code, status)
+        valid_citations: Set of valid citation numbers
+        invalid_citations: Set of invalid citation numbers
+        potentially_valid: Set of uncertain citation numbers
+        gate_name: Which cleanup gate produced this log
+    """
+    log_entries = []
+
+    for detail in citation_details:
+        num = detail["citation_num"]
+        http_code, status_text = validation_results.get(num, (0, "not checked"))
+
+        if num in valid_citations:
+            validation_status = "valid"
+        elif num in invalid_citations:
+            validation_status = "removed"
+        elif num in potentially_valid:
+            validation_status = "uncertain"
+        else:
+            validation_status = "not checked"
+
+        log_entries.append({
+            "citation_num": num,
+            "url": detail.get("url", ""),
+            "title": detail.get("title", ""),
+            "full_definition": detail.get("full_definition", ""),
+            "source_file": detail.get("source_file", ""),
+            "http_code": http_code,
+            "http_status": status_text,
+            "validation_status": validation_status,
+            "gate": gate_name
+        })
+
+    log_path = output_dir / f"source-validation-log-{gate_name}.json"
+
+    # Append to existing log if present (multiple gates write to different files)
+    with open(log_path, "w") as f:
+        json.dump({
+            "gate": gate_name,
+            "total_sources": len(log_entries),
+            "valid": len(valid_citations),
+            "removed": len(invalid_citations),
+            "uncertain": len(potentially_valid),
+            "sources": log_entries
+        }, f, indent=2, ensure_ascii=False)
+
+    print(f"  📋 Source validation log saved: {log_path.name}")
 
 
 def remove_citation_references(content: str, citations_to_remove: Set[str]) -> str:
@@ -504,6 +606,31 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
                 potentially_valid.add(num)
 
     print(f"  Results: {len(valid_citations)} valid, {len(potentially_valid)} uncertain, {len(invalid_citations)} invalid")
+
+    # Collect full citation details for source validation log
+    all_citation_details = []
+    for scan_dir in [research_dir, sections_dir]:
+        if scan_dir.exists():
+            for md_file in sorted(scan_dir.glob("*.md")):
+                all_citation_details.extend(
+                    extract_citation_details(md_file.read_text(), md_file.name)
+                )
+    header_file = output_dir / "header.md"
+    if header_file.exists():
+        all_citation_details.extend(
+            extract_citation_details(header_file.read_text(), "header.md")
+        )
+
+    # Save source validation log (captures ALL sources: valid, invalid, uncertain)
+    save_source_validation_log(
+        output_dir,
+        all_citation_details,
+        validation_results,
+        valid_citations,
+        invalid_citations,
+        potentially_valid,
+        gate_name="cleanup_sections"
+    )
 
     if not invalid_citations:
         print("  ✓ No invalid citations to remove")

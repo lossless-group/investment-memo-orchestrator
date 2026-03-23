@@ -144,21 +144,38 @@ This is where the system defends against hallucinated metrics, unsourced claims,
 claim found → checked for accuracy → found better source → updated claim → added citation → logged change
 ```
 
-**Artifact trail for fact-checking:**
+**Artifact trail for fact-checking and source catalog:**
 - `4-fact-check.json` — Raw claim extraction with sourcing status (mechanical)
 - `4-fact-check.md` — Human-readable version
 - `4-fact-check-verified.json` — Claims enriched with LLM verification results
 - `4-fact-check-verified.md` — Human-readable verification report
 - `4-corrections-log.json` — Full traceability: old claim → finding → new claim → new citation
 - `4-corrections-log.md` — Human-readable corrections report
+- `source-validation-log-cleanup_sections.json` — URL validation results from cleanup gate
+- `3-source-catalog/` — Per-section complete source lists (see below)
+
+### Phase 8b: Source Catalog
+
+| Order | Agent | Input | Output | Notes |
+|-------|-------|-------|--------|-------|
+| 26 | `source_catalog` | All artifacts (research, sections, validation logs, fact-check results) | `3-source-catalog/{section}-Complete-Source-List.md` | Compiles comprehensive per-section source lists. Every source the pipeline encountered is cataloged with its status: included, excluded, hallucinated, verified, etc. Valuable for analysts who want to iterate on the research. |
+
+**Source statuses:**
+- **Included** — In the final memo with inline citation
+- **Added by Correction** — Found by LLM verification to fix an inaccurate claim
+- **Valid but Not Cited** — Passed URL validation but wasn't used
+- **Found in Research** — Discovered during research phase
+- **Excluded — Uncertain** — Removed due to 403/401/timeout (may be behind paywall)
+- **Excluded — Invalid** — URL returned 404 or other definitive error
+- **Hallucinated** — Fabricated URL detected by hallucination patterns
 
 ### Phase 9: Scorecard & Finalization
 
 | Order | Agent | Input | Output | Notes |
 |-------|-------|-------|--------|-------|
-| 26 | `scorecard` | Final draft + research | `5-scorecard/12Ps-scorecard.md` | 12Ps evaluation. |
-| 27 | `integrate_scorecard` | Scorecard + section 8 | Updated final draft | Replaces section 8 with scorecard, **reassembles final draft** (calls `cli/assemble_draft.py` which includes TOC). |
-| 28 | `finalize` OR `human_review` | Final draft | State snapshot | Score >= 8 finalizes; < 8 routes to human review. |
+| 27 | `scorecard` | Final draft + research | `5-scorecard/12Ps-scorecard.md` | 12Ps evaluation. |
+| 28 | `integrate_scorecard` | Scorecard + section 8 | Updated final draft | Replaces section 8 with scorecard, **reassembles final draft** (calls `cli/assemble_draft.py` which includes TOC). |
+| 29 | `finalize` OR `human_review` | Final draft | State snapshot | Score >= 8 finalizes; < 8 routes to human review. |
 
 ---
 
@@ -199,7 +216,7 @@ revise_summaries →
 cleanup_sections (GATE 2) →
 assemble_citations → toc →
 validate_citations → fact_check → fact_verify → fact_correct →
-validate →
+source_catalog → validate →
 scorecard → integrate_scorecard →
 [conditional: finalize | human_review] → END
 ```

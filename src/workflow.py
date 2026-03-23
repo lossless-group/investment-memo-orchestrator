@@ -63,6 +63,7 @@ from .agents.citation_validator import citation_validator_agent                 
 from .agents.fact_checker import fact_checker_agent                              # 18. Fact extraction (mechanical)
 from .agents.fact_verifier import fact_verifier_agent                            # 18b. Fact verification (LLM via Perplexity)
 from .agents.fact_corrector import fact_corrector_agent                          # 18c. Fact correction (LLM applies fixes)
+from .agents.source_cataloger import source_cataloger_agent                      # 18d. Source catalog (per-section source lists)
 from .agents.validator import validator_agent                                     # 19. Quality scoring
 from .agents.scorecard_evaluator import scorecard_evaluator_agent                # 20. Scorecard evaluation
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
@@ -496,6 +497,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("fact_check", fact_checker_agent)  # Fact extraction: mechanical claim identification
     workflow.add_node("fact_verify", fact_verifier_agent)  # Fact verification: LLM verifies claims via Perplexity
     workflow.add_node("fact_correct", fact_corrector_agent)  # Fact correction: LLM applies fixes to sections
+    workflow.add_node("source_catalog", source_cataloger_agent)  # Compile per-section complete source lists
     workflow.add_node("validate", validator_agent)
     workflow.add_node("scorecard", scorecard_evaluator_agent)  # 12Ps scorecard evaluation
     workflow.add_node("integrate_scorecard", integrate_scorecard)  # Integrate scorecard into section 8
@@ -530,7 +532,7 @@ def build_workflow() -> StateGraph:
     # Competitive Evaluator → [CITE on 1-research/] → [GATE 1] → Writer →
     # Inject Deck Images → Enrichment → Revise → [GATE 2] → Assembly → TOC →
     # Validate Citations → Fact Check → Fact Verify → Fact Correct →
-    # Validate → Scorecard → Integrate Scorecard
+    # Source Catalog → Validate → Scorecard → Integrate Scorecard
     # See: context-v/reminders/Ideal-Orchestration-Agent-Workflow.md
 
     workflow.add_edge("dataroom", "deck_analyst")
@@ -556,7 +558,8 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("validate_citations", "fact_check")  # Extract claims (mechanical regex)
     workflow.add_edge("fact_check", "fact_verify")  # Verify claims via Perplexity Sonar Pro
     workflow.add_edge("fact_verify", "fact_correct")  # Apply corrections to section files
-    workflow.add_edge("fact_correct", "validate")
+    workflow.add_edge("fact_correct", "source_catalog")  # Compile per-section source lists
+    workflow.add_edge("source_catalog", "validate")
     workflow.add_edge("validate", "scorecard")  # Run scorecard evaluation after validation
     workflow.add_edge("scorecard", "integrate_scorecard")  # Integrate scorecard into section 8 and reassemble final draft
 
