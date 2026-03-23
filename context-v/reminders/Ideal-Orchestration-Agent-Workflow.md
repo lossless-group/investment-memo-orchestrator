@@ -125,21 +125,40 @@ These agents modify individual section files in `2-sections/`. Order matters whe
 | 19 | `assemble_citations` | `2-sections/` + `header.md` + `1-research/` | **Final draft file** (`7-{Deal}-{Version}.md`) | Renumbers citations globally, concatenates all sections, appends consolidated citation block. **This creates the final draft file.** |
 | 20 | `toc` | Final draft file | Updated final draft file | Reads assembled draft, extracts headers, generates TOC, inserts after Executive Summary. **MUST run after assembly creates the file.** |
 
-### Phase 8: Validation
+### Phase 8: Validation & Fact-Check Pipeline
 
-| Order | Agent | Input | Output | Notes |
-|-------|-------|-------|--------|-------|
-| 21 | `validate_citations` | Final draft | `3-validation.json` | Checks citation accuracy, dates, duplicates. |
-| 22 | `fact_check` | Final draft + research | Fact-check results | Verifies claims against research sources. |
-| 23 | `validate` | Final draft | Validation score (0-10) | Quality scoring. |
+The fact-check pipeline is a three-step process: **extract → verify → correct**.
+
+This is where the system defends against hallucinated metrics, unsourced claims, and inaccurate data. The mechanical extractor identifies claims, the LLM verifier checks them against real sources, and the LLM corrector surgically fixes the section files.
+
+| Order | Agent | Input | Output | Uses LLM? | Notes |
+|-------|-------|-------|--------|-----------|-------|
+| 21 | `validate_citations` | Final draft | `3-validation.json` | No | Checks citation format, dates, URL accessibility, duplicates. |
+| 22 | `fact_check` | `2-sections/` + research | `4-fact-check.json` + `.md` | No (regex) | **EXTRACT**: Identifies claims (metrics, financials, dates, names) and checks if they have citations or appear in research data. Flags unsourced/suspicious claims. |
+| 23 | `fact_verify` | `4-fact-check.json` | `4-fact-check-verified.json` + `.md` | **Yes** (Perplexity Sonar Pro) | **VERIFY**: Sends suspicious/critical claims to Perplexity for independent real-time verification. Each claim gets: confirmed / contradicted / corrected / unverifiable. Finds better sources. |
+| 24 | `fact_correct` | `4-fact-check-verified.json` + `2-sections/` | Updated sections + `4-corrections-log.json` + `.md` | **Yes** (Claude) | **CORRECT**: Surgically updates specific sentences in section files with verified corrections. Adds new citations. Does NOT rewrite sections wholesale. |
+| 25 | `validate` | Final draft | Validation score (0-10) | Yes | Quality scoring. |
+
+**Traceability chain** (logged in `4-corrections-log.json`):
+```
+claim found → checked for accuracy → found better source → updated claim → added citation → logged change
+```
+
+**Artifact trail for fact-checking:**
+- `4-fact-check.json` — Raw claim extraction with sourcing status (mechanical)
+- `4-fact-check.md` — Human-readable version
+- `4-fact-check-verified.json` — Claims enriched with LLM verification results
+- `4-fact-check-verified.md` — Human-readable verification report
+- `4-corrections-log.json` — Full traceability: old claim → finding → new claim → new citation
+- `4-corrections-log.md` — Human-readable corrections report
 
 ### Phase 9: Scorecard & Finalization
 
 | Order | Agent | Input | Output | Notes |
 |-------|-------|-------|--------|-------|
-| 24 | `scorecard` | Final draft + research | `5-scorecard/12Ps-scorecard.md` | 12Ps evaluation. |
-| 25 | `integrate_scorecard` | Scorecard + section 8 | Updated final draft | Replaces section 8 with scorecard, **reassembles final draft** (calls `cli/assemble_draft.py` which includes TOC). |
-| 26 | `finalize` OR `human_review` | Final draft | State snapshot | Score >= 8 finalizes; < 8 routes to human review. |
+| 26 | `scorecard` | Final draft + research | `5-scorecard/12Ps-scorecard.md` | 12Ps evaluation. |
+| 27 | `integrate_scorecard` | Scorecard + section 8 | Updated final draft | Replaces section 8 with scorecard, **reassembles final draft** (calls `cli/assemble_draft.py` which includes TOC). |
+| 28 | `finalize` OR `human_review` | Final draft | State snapshot | Score >= 8 finalizes; < 8 routes to human review. |
 
 ---
 
@@ -179,12 +198,15 @@ generate_tables → generate_diagrams → enrich_visualizations →
 revise_summaries →
 cleanup_sections (GATE 2) →
 assemble_citations → toc →
-validate_citations → fact_check → validate →
+validate_citations → fact_check → fact_verify → fact_correct →
+validate →
 scorecard → integrate_scorecard →
 [conditional: finalize | human_review] → END
 ```
 
-**The golden rule**: `toc` runs after `assemble_citations`, never before.
+**Golden rules**:
+- `toc` runs after `assemble_citations`, never before.
+- `fact_check → fact_verify → fact_correct` always run as a chain. The verifier needs the extractor's output; the corrector needs the verifier's output.
 
 ---
 
