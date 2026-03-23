@@ -652,6 +652,33 @@ Return valid JSON only."""
         else:
             raise ValueError(f"Could not parse research data as JSON: {content[:200]}...")
 
+    # ══════════════════════════════════════════════════════════════════
+    # MECHANICAL DISAMBIGUATION ENFORCEMENT
+    # The LLM may have ignored disambiguation instructions and included
+    # data from wrong-company domains. Override known fields and warn.
+    # ══════════════════════════════════════════════════════════════════
+    if company_url and "company" in research_data:
+        llm_website = research_data["company"].get("website", "")
+        if llm_website and llm_website != company_url:
+            # Check if the LLM returned a disambiguation-excluded URL
+            llm_domain = llm_website.replace("https://", "").replace("http://", "").replace("www.", "").rstrip("/").split("/")[0]
+            is_excluded = any(llm_domain == excl or excl in llm_domain for excl in disambiguation_excludes)
+            if is_excluded:
+                print(f"  ⚠️  DISAMBIGUATION OVERRIDE: LLM returned website '{llm_website}' which is an excluded domain")
+                print(f"     Forcing correct website: {company_url}")
+            else:
+                print(f"  ⚠️  DISAMBIGUATION OVERRIDE: LLM returned website '{llm_website}', expected '{company_url}'")
+                print(f"     Forcing correct website: {company_url}")
+        # Always force the known-correct URL from state
+        research_data["company"]["website"] = company_url
+
+    if company_name and "company" in research_data:
+        # Force the correct company name (LLM may have used the wrong entity's name)
+        llm_name = research_data["company"].get("name", "")
+        if llm_name and company_name.lower() not in llm_name.lower():
+            print(f"  ⚠️  DISAMBIGUATION OVERRIDE: LLM returned company name '{llm_name}', expected '{company_name}'")
+            research_data["company"]["name"] = company_name
+
     # Add web search metadata to research data
     if search_provider:
         research_data["web_search_metadata"] = {
