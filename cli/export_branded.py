@@ -382,10 +382,12 @@ def create_html_template(
     body_class = ' class="dark-mode"' if dark_mode else ''
 
     # Handle logo - use SVG if available, otherwise text-based
+    # The header always has a dark background (--brand-primary), so always use
+    # the dark_mode (white/light) logo for contrast. The light_mode logo is for
+    # use on light backgrounds (e.g., body content), not the header.
     logo_html = brand.company.name
     if brand.logo:
-        # Use appropriate logo based on theme
-        logo_path_str = brand.logo.dark_mode if dark_mode else brand.logo.light_mode
+        logo_path_str = brand.logo.dark_mode or brand.logo.light_mode
         if logo_path_str:
             # Check if it's a URL or local path
             if logo_path_str.startswith(('http://', 'https://')):

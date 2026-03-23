@@ -84,14 +84,14 @@ html:has(body.dark-mode) {
 
 body.dark-mode {
     background: var(--brand-primary);
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode h1,
 body.dark-mode h2,
 body.dark-mode h3,
 body.dark-mode h4 {
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode h1 {
@@ -99,7 +99,7 @@ body.dark-mode h1 {
 }
 
 body.dark-mode .memo-title {
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode .memo-subtitle {
@@ -116,13 +116,13 @@ body.dark-mode .memo-meta-label {
 }
 
 body.dark-mode .memo-meta-value {
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode blockquote {
     background: rgba(29, 211, 211, 0.1);
     border-left-color: var(--brand-secondary);
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode code {
@@ -135,7 +135,7 @@ body.dark-mode pre {
 }
 
 body.dark-mode pre code {
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode table thead {
@@ -164,7 +164,7 @@ body.dark-mode .footnotes {
 }
 
 body.dark-mode .footnotes h2 {
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode .memo-footer {
@@ -173,7 +173,7 @@ body.dark-mode .memo-footer {
 }
 
 body.dark-mode .memo-footer-logo {
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 body.dark-mode a {
@@ -195,7 +195,7 @@ body.dark-mode img {
 /* Header/Cover Page */
 .memo-header {
     background: var(--brand-primary);
-    color: var(--brand-background);
+    color: var(--brand-text-light);
     padding: 3rem 2rem;
     margin: 0; /* No negative margin needed - let it sit within page margins */
     text-align: center;
@@ -224,6 +224,23 @@ body.dark-mode img {
 
 .memo-logo-accent {
     color: var(--brand-secondary);
+}
+
+/* Header children inherit light text from .memo-header to contrast dark background.
+   The generic .memo-title, .memo-subtitle, .memo-meta rules below set colors for
+   body content; these scoped overrides ensure header elements stay readable. */
+.memo-header .memo-title,
+.memo-header .memo-subtitle,
+.memo-header .memo-tagline,
+.memo-header .memo-meta-value {
+    color: inherit;
+}
+.memo-header .memo-meta-label {
+    color: var(--brand-secondary);
+}
+.memo-header .memo-meta {
+    border-top-color: var(--brand-text-light);
+    border-bottom-color: var(--brand-text-light);
 }
 
 .memo-tagline {
@@ -404,7 +421,7 @@ table {
 
 thead {
     background: var(--brand-primary);
-    color: var(--brand-background);
+    color: var(--brand-text-light);
 }
 
 th {
