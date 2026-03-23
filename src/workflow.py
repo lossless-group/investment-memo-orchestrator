@@ -400,29 +400,24 @@ def integrate_scorecard(state: MemoState) -> dict:
         word_count = final_draft_path.read_text().split()
         print(f"  ✓ Reassembled final draft with citations and TOC: {len(word_count)} words")
         return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(word_count)} words)"]}
-    except ImportError:
-        # Fallback to basic assembly if cli module not available
-        from .final_draft import get_final_draft_path
-        final_draft_path = get_final_draft_path(output_dir)
+    except ImportError as e:
+        print(f"  ⚠️  cli.assemble_draft not available ({e}), using inline assembly")
+        # Fallback: inline assembly with citations + TOC
+        from .agents.citation_assembly import assemble_citations
+        from .agents.toc_generator import toc_generator_agent
 
-        # Preserve logo/header from existing draft if present
-        content = ""
-        if final_draft_path.exists():
-            existing = final_draft_path.read_text()
-            first_line = existing.split('\n')[0]
-            if first_line.startswith('!['):
-                content = first_line + '\n\n'
+        # Step 1: Assemble with citation renumbering (creates the final draft file)
+        assemble_result = assemble_citations(output_dir)
 
-        # Assemble all sections in order
-        for section_file in sorted(sections_dir.glob("*.md")):
-            if section_file.name == "header.md":
-                continue
-            content += section_file.read_text() + '\n\n'
+        # Step 2: Generate TOC on the assembled draft
+        toc_result = toc_generator_agent(state)
 
-        final_draft_path.write_text(content)
-        print(f"  ✓ Reassembled final draft (basic): {len(content.split())} words")
+        from .final_draft import find_final_draft
+        final_draft_path = find_final_draft(output_dir)
+        word_count = len(final_draft_path.read_text().split()) if final_draft_path else 0
+        print(f"  ✓ Reassembled final draft with TOC (fallback): {word_count} words")
 
-        return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(content.split())} words)"]}
+        return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({word_count} words)"]}
 
 
 def router_node(state: MemoState) -> dict:
