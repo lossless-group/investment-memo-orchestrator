@@ -300,19 +300,26 @@ There may be multiple companies named "{company_name}". You MUST research the CO
         if research_notes:
             disambiguation_block += f"- Research notes: {research_notes}\n"
 
-        # Add explicit exclusion list for wrong entities
+        # Explicit exclusion list for commonly confused entities
         if disambiguation_excludes and len(disambiguation_excludes) > 0:
-            disambiguation_block += "\nEXCLUDED DOMAINS (WRONG COMPANIES - DO NOT USE):\n"
+            disambiguation_block += f"""
+WARNING — COMMONLY CONFUSED ORGANIZATIONS:
+Research agents often find similar-sounding organizations, then incorrectly include
+information about them in the research. The following have been identified as confusing
+and require disambiguation. These are NOT {company_name}:
+"""
             for domain in disambiguation_excludes:
-                disambiguation_block += f"- {domain} (WRONG company, different entity)\n"
+                disambiguation_block += f"- {domain} — This is a DIFFERENT organization, NOT {company_name}\n"
 
-        disambiguation_block += """
-DISAMBIGUATION RULES:
-1. ONLY use sources that reference THIS specific company
-2. If you find funding/revenue data for a DIFFERENT company with the same name, DISCARD IT
-3. Cross-reference company website to verify you have the correct entity
-4. If a source is from an EXCLUDED DOMAIN listed above, ignore it completely
-5. If unsure, state "Data not verified for this entity" rather than include wrong data
+        disambiguation_block += f"""
+MANDATORY RULES FOR DISAMBIGUATION:
+1. Do NOT include any information sourced from the excluded domains listed above.
+2. Do NOT reference, cite, or describe the organizations at those domains.
+3. If a search result comes from one of those domains, SKIP IT entirely.
+4. If you cannot find information about {company_name} specifically (website: {company_url or 'see description'}),
+   say "Data not available" rather than substituting information from a similar-sounding organization.
+5. The ONLY correct company is at {company_url or 'the URL in the description'}.
+6. Cross-reference the company website to verify you have the correct entity before writing.
 """
 
     query = f"""Research and write comprehensive content for the "{section_def.name}" section of an investment memo about {company_name}.

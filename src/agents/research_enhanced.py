@@ -343,12 +343,25 @@ def research_agent_enhanced(state: MemoState) -> Dict[str, Any]:
         if research_notes:
             disambiguation_parts.append(f"Notes: {research_notes}")
 
-        # NEW: Add explicit exclusion list for wrong entities
+        # Explicit exclusion list for commonly confused entities
         if disambiguation_excludes and len(disambiguation_excludes) > 0:
-            exclusion_block = "\nEXCLUDED ENTITIES - DO NOT USE DATA FROM THESE DOMAINS:"
+            exclusion_block = f"""
+WARNING — COMMONLY CONFUSED ORGANIZATIONS:
+Research agents often find similar-sounding organizations, then incorrectly include
+information about them in the research. The following have been identified as confusing
+and require disambiguation. These are NOT {company_name}:
+"""
             for domain in disambiguation_excludes:
-                exclusion_block += f"\n- {domain} (WRONG company, different entity)"
-            exclusion_block += "\n\nIf you find information from these domains, DISCARD IT completely."
+                exclusion_block += f"- {domain} — This is a DIFFERENT organization, NOT {company_name}\n"
+            exclusion_block += f"""
+MANDATORY RULES FOR DISAMBIGUATION:
+1. Do NOT include any information sourced from the domains listed above.
+2. Do NOT reference, cite, or describe the organizations at those domains.
+3. If a search result comes from one of those domains, SKIP IT entirely.
+4. If you cannot find information about {company_name} specifically (website: {company_url or 'see description'}),
+   say "Data not available" rather than substituting information from a similar-sounding organization.
+5. The ONLY correct company is at {company_url or 'the URL in the description'}.
+"""
             disambiguation_parts.append(exclusion_block)
             print(f"Exclusion list added: {', '.join(disambiguation_excludes)}")
 
