@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{company_name}} — Investment Summary</title>
+<style>
+@page {
+    size: letter;
+    margin: 0;
+}
+:root {
+    --brand-primary: {{brand_primary}};
+    --brand-secondary: {{brand_secondary}};
+    --brand-background: {{brand_background}};
+    --brand-background-alt: {{brand_background_alt}};
+    --brand-text-dark: {{brand_text_dark}};
+    --brand-text-light: {{brand_text_light}};
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    width: 8.5in;
+    height: 11in;
+    overflow: hidden;
+    font-family: {{brand_font_family}}, {{brand_font_fallback}};
+    font-size: 9pt;
+    line-height: 1.35;
+    color: var(--brand-text-dark);
+    background: var(--brand-background);
+}
+
+/* Grid Layout */
+.one-pager {
+    display: grid;
+    grid-template-columns: 2.3in 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+        "sidebar header"
+        "sidebar main"
+        "footer  footer";
+    height: 11in;
+    width: 8.5in;
+    overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+    grid-area: sidebar;
+    background: var(--brand-primary);
+    color: var(--brand-text-light);
+    padding: 0.3in 0.2in;
+    display: flex;
+    flex-direction: column;
+    gap: 0.12in;
+    overflow: hidden;
+}
+.sidebar-logo {
+    text-align: center;
+    margin-bottom: 0.08in;
+}
+.sidebar-logo img {
+    max-width: 1.6in;
+    height: auto;
+}
+.sidebar-company-name {
+    font-size: 12pt;
+    font-weight: 700;
+    text-align: center;
+    color: #ffffff;
+}
+.sidebar-tagline {
+    font-size: 7.5pt;
+    text-align: center;
+    opacity: 0.8;
+    font-style: italic;
+    margin-bottom: 0.06in;
+}
+.sidebar-divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.25);
+    margin: 0.04in 0;
+}
+.sidebar-card {
+    margin-bottom: 0.04in;
+}
+.sidebar-card-header {
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--brand-secondary);
+    margin-bottom: 0.03in;
+}
+.sidebar-field {
+    margin-bottom: 0.06in;
+}
+.sidebar-label {
+    font-size: 6.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--brand-secondary);
+}
+.sidebar-value {
+    font-size: 9.5pt;
+    font-weight: 400;
+    color: #ffffff;
+}
+.sidebar-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.03in;
+}
+.sidebar-metric-label {
+    font-size: 7.5pt;
+    color: rgba(255,255,255,0.75);
+}
+.sidebar-metric-value {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--brand-secondary);
+}
+.sidebar-cap-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.02in;
+}
+.sidebar-cap-name {
+    font-size: 7.5pt;
+    color: rgba(255,255,255,0.8);
+}
+.sidebar-cap-pct {
+    font-size: 8.5pt;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+/* ── Header ── */
+.header {
+    grid-area: header;
+    padding: 0.25in 0.3in 0.15in 0.3in;
+    border-bottom: 2px solid var(--brand-secondary);
+}
+.headline {
+    font-size: 15pt;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--brand-primary);
+    margin-bottom: 0.1in;
+}
+.key-bullets {
+    list-style: none;
+    padding: 0;
+}
+.key-bullets li {
+    font-size: 9.5pt;
+    line-height: 1.35;
+    padding-left: 0.15in;
+    position: relative;
+    margin-bottom: 0.04in;
+}
+.key-bullets li::before {
+    content: "▪";
+    color: var(--brand-secondary);
+    position: absolute;
+    left: 0;
+    font-size: 8pt;
+}
+.key-bullets strong {
+    font-weight: 700;
+}
+
+/* ── Main Area ── */
+.main {
+    grid-area: main;
+    padding: 0.15in 0.3in 0.1in 0.3in;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1in;
+    overflow: hidden;
+}
+.card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.1in;
+}
+.card {
+    border: 1px solid var(--brand-background-alt);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.card-full {
+    grid-column: 1 / -1;
+}
+.card-header {
+    background: var(--brand-primary);
+    color: #ffffff;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2.5px 7px;
+}
+.card-body {
+    padding: 5px 7px;
+    font-size: 8.5pt;
+    line-height: 1.3;
+    max-height: 1.1in;
+    overflow: hidden;
+}
+.card-body-tall {
+    max-height: 1.4in;
+}
+.card-body ul {
+    list-style: none;
+    padding: 0;
+}
+.card-body li {
+    padding-left: 0.1in;
+    position: relative;
+    margin-bottom: 0.02in;
+}
+.card-body li::before {
+    content: "•";
+    color: var(--brand-secondary);
+    position: absolute;
+    left: 0;
+}
+.card-body .figure {
+    font-weight: 700;
+    font-size: 9.5pt;
+    color: var(--brand-primary);
+}
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 1.5px 0;
+    border-bottom: 1px solid var(--brand-background-alt);
+}
+.stat-row:last-child {
+    border-bottom: none;
+}
+.stat-category {
+    font-size: 7.5pt;
+    color: var(--brand-text-dark);
+}
+.stat-value {
+    font-size: 8pt;
+    text-align: right;
+    flex: 1;
+    margin-left: 0.1in;
+}
+.stat-figure {
+    font-weight: 700;
+    color: var(--brand-primary);
+}
+
+/* Syndicate pills */
+.syndicate-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 3px;
+}
+.pill {
+    background: var(--brand-background-alt);
+    color: var(--brand-text-dark);
+    font-size: 7pt;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+.pill-lead {
+    background: var(--brand-secondary);
+    color: #ffffff;
+}
+
+/* Recommendation callout */
+.recommendation {
+    border: 2px solid var(--brand-secondary);
+    border-radius: 3px;
+    padding: 6px 8px;
+}
+.recommendation-verdict {
+    font-size: 8pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--brand-secondary);
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+.recommendation-text {
+    font-size: 8.5pt;
+    line-height: 1.3;
+}
+
+/* Sources */
+.sources {
+    font-size: 6.5pt;
+    color: var(--brand-text-dark);
+    opacity: 0.6;
+    margin-top: auto;
+}
+
+/* ── Footer ── */
+.footer {
+    grid-area: footer;
+    background: var(--brand-primary);
+    color: rgba(255,255,255,0.8);
+    padding: 0.08in 0.25in;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 6.5pt;
+}
+.footer-logo img {
+    height: 18px;
+    width: auto;
+}
+.footer-contact {
+    display: flex;
+    gap: 0.2in;
+}
+.footer-confidential {
+    font-style: italic;
+    opacity: 0.7;
+}
+
+/* Dark mode */
+body.dark-mode {
+    background: var(--brand-primary);
+    color: var(--brand-text-light);
+}
+body.dark-mode .header {
+    border-bottom-color: var(--brand-secondary);
+}
+body.dark-mode .headline {
+    color: var(--brand-text-light);
+}
+body.dark-mode .card {
+    border-color: rgba(255,255,255,0.15);
+}
+body.dark-mode .card-body {
+    background: rgba(255,255,255,0.03);
+}
+body.dark-mode .card-body .figure,
+body.dark-mode .stat-figure {
+    color: var(--brand-secondary);
+}
+body.dark-mode .stat-row {
+    border-bottom-color: rgba(255,255,255,0.1);
+}
+body.dark-mode .pill {
+    background: rgba(255,255,255,0.12);
+    color: var(--brand-text-light);
+}
+body.dark-mode .recommendation {
+    background: rgba(255,255,255,0.03);
+}
+body.dark-mode .sources {
+    color: var(--brand-text-light);
+}
+</style>
+</head>
+<body class="{{body_class}}">
+<div class="one-pager">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-logo">{{company_logo}}</div>
+        <div class="sidebar-company-name">{{company_name}}</div>
+        <div class="sidebar-tagline">{{company_tagline}}</div>
+        <hr class="sidebar-divider">
+
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">Deal Overview</div>
+            {{sidebar_deal_fields}}
+        </div>
+
+        <hr class="sidebar-divider">
+
+        <div class="sidebar-card" data-slot="key_metrics">
+            <div class="sidebar-card-header">Key Metrics</div>
+            {{sidebar_metrics}}
+        </div>
+
+        <div class="sidebar-card" data-slot="cap_table">
+            <hr class="sidebar-divider">
+            <div class="sidebar-card-header">Cap Table</div>
+            {{sidebar_cap_table}}
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="headline">{{headline_thesis}}</div>
+        <ul class="key-bullets">
+            {{key_bullets_html}}
+        </ul>
+    </div>
+
+    <!-- Main Area -->
+    <div class="main">
+        <div class="card-grid">
+            <div class="card" data-slot="market_stats">
+                <div class="card-header">Market Opportunity</div>
+                <div class="card-body card-body-tall">
+                    {{market_stats_html}}
+                </div>
+            </div>
+
+            <div class="card" data-slot="technology_summary">
+                <div class="card-header">Technology & Product</div>
+                <div class="card-body card-body-tall">
+                    {{technology_summary}}
+                </div>
+            </div>
+
+            <div class="card" data-slot="competitive_positioning">
+                <div class="card-header">Competitive Landscape</div>
+                <div class="card-body">
+                    {{competitive_positioning}}
+                </div>
+            </div>
+
+            <div class="card" data-slot="traction_milestones">
+                <div class="card-header">Traction & Milestones</div>
+                <div class="card-body">
+                    <ul>{{traction_milestones_html}}</ul>
+                </div>
+            </div>
+
+            <div class="card card-full" data-slot="syndicate">
+                <div class="card-header">Syndicate & Investors</div>
+                <div class="card-body">
+                    <div class="syndicate-pills">{{syndicate_pills_html}}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="recommendation" data-slot="recommendation">
+            <div class="recommendation-verdict">{{recommendation_verdict}}</div>
+            <div class="recommendation-text">{{recommendation}}</div>
+        </div>
+
+        <div class="sources" data-slot="top_sources">Sources: {{top_sources}}</div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="footer-logo">{{vc_firm_logo}}</div>
+        <div class="footer-contact">{{footer_contact}}</div>
+        <div class="footer-confidential">Proprietary & Confidential</div>
+    </div>
+
+</div>
+</body>
+</html>

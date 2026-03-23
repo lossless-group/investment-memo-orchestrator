@@ -59,6 +59,7 @@ from .agents.remove_invalid_sources import (                                    
     HALLUCINATION_PATTERNS,
 )
 from .agents.citation_assembly import citation_assembly_agent                    # 16. Consolidate citations
+from .agents.citation_spacing import citation_spacing_agent                      # 16b. Fix citation spacing
 from .agents.citation_validator import citation_validator_agent                   # 17. Citation accuracy
 from .agents.fact_checker import fact_checker_agent                              # 18. Fact extraction (mechanical)
 from .agents.fact_verifier import fact_verifier_agent                            # 18b. Fact verification (LLM via Perplexity)
@@ -66,6 +67,7 @@ from .agents.fact_corrector import fact_corrector_agent                         
 from .agents.source_cataloger import source_cataloger_agent                      # 18d. Source catalog (per-section source lists)
 from .agents.validator import validator_agent                                     # 19. Quality scoring
 from .agents.scorecard_evaluator import scorecard_evaluator_agent                # 20. Scorecard evaluation
+from .agents.one_pager_generator import one_pager_generator_agent               # 21. One-pager summary
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
 from .versioning import VersionManager
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -488,6 +490,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("revise_summaries", revise_summary_sections)  # Revise Executive Summary & Closing based on full draft
     workflow.add_node("cleanup_sections", remove_invalid_sources_agent)  # GATE 2: Clean section citations before assembly
     workflow.add_node("assemble_citations", citation_assembly_agent)  # Consolidate and renumber citations
+    workflow.add_node("fix_citation_spacing", citation_spacing_agent)  # Fix citation spacing in final draft
     workflow.add_node("validate_citations", citation_validator_agent)  # Citation accuracy validator
     workflow.add_node("fact_check", fact_checker_agent)  # Fact extraction: mechanical claim identification
     workflow.add_node("fact_verify", fact_verifier_agent)  # Fact verification: LLM verifies claims via Perplexity
@@ -496,6 +499,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("validate", validator_agent)
     workflow.add_node("scorecard", scorecard_evaluator_agent)  # 12Ps scorecard evaluation
     workflow.add_node("integrate_scorecard", integrate_scorecard)  # Integrate scorecard into section 8
+    workflow.add_node("one_pager", one_pager_generator_agent)  # Generate single-page visual summary
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
 
@@ -549,7 +553,8 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("revise_summaries", "cleanup_sections")  # GATE 2: Clean sections before assembly
     workflow.add_edge("cleanup_sections", "assemble_citations")  # Consolidate, renumber citations, and CREATE final draft file
     workflow.add_edge("assemble_citations", "toc")  # Generate TOC (runs AFTER assembly creates the final draft)
-    workflow.add_edge("toc", "validate_citations")  # Validate assembled citations
+    workflow.add_edge("toc", "fix_citation_spacing")  # Fix citation spacing in final draft
+    workflow.add_edge("fix_citation_spacing", "validate_citations")  # Validate assembled citations
     workflow.add_edge("validate_citations", "fact_check")  # Extract claims (mechanical regex)
     workflow.add_edge("fact_check", "fact_verify")  # Verify claims via Perplexity Sonar Pro
     workflow.add_edge("fact_verify", "fact_correct")  # Apply corrections to section files
@@ -557,10 +562,11 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("source_catalog", "validate")
     workflow.add_edge("validate", "scorecard")  # Run scorecard evaluation after validation
     workflow.add_edge("scorecard", "integrate_scorecard")  # Integrate scorecard into section 8 and reassemble final draft
+    workflow.add_edge("integrate_scorecard", "one_pager")  # Generate one-page visual summary
 
-    # Conditional edge after scorecard integration
+    # Conditional edge after one-pager generation
     workflow.add_conditional_edges(
-        "integrate_scorecard",
+        "one_pager",
         should_continue,
         {
             "finalize": "finalize",
