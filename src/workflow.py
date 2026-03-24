@@ -67,6 +67,7 @@ from .agents.fact_corrector import fact_corrector_agent                         
 from .agents.source_cataloger import source_cataloger_agent                      # 18d. Source catalog (per-section source lists)
 from .agents.validator import validator_agent                                     # 19. Quality scoring
 from .agents.scorecard_evaluator import scorecard_evaluator_agent                # 20. Scorecard evaluation
+from .agents.scorecard_navigator import scorecard_navigator_agent               # 20b. Scorecard nav table in Executive Summary
 from .agents.one_pager_generator import one_pager_generator_agent               # 21. One-pager summary
 from .artifacts import sanitize_filename, save_final_draft, save_state_snapshot
 from .versioning import VersionManager
@@ -393,31 +394,15 @@ def integrate_scorecard(state: MemoState) -> dict:
         scorecard_content = scorecard_file.read_text()
         section_8_file.write_text(scorecard_content)
 
-    # Reassemble final draft using canonical assembly (handles citations + TOC)
+    # Reassemble final draft (citations only — TOC runs as final step in workflow)
     try:
-        from cli.assemble_draft import assemble_final_draft
-        from rich.console import Console
-        console = Console()
-        final_draft_path = assemble_final_draft(output_dir, console)
-        word_count = final_draft_path.read_text().split()
-        print(f"  ✓ Reassembled final draft with citations and TOC: {len(word_count)} words")
-        return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({len(word_count)} words)"]}
-    except ImportError as e:
-        print(f"  ⚠️  cli.assemble_draft not available ({e}), using inline assembly")
-        # Fallback: inline assembly with citations + TOC
         from .agents.citation_assembly import assemble_citations
-        from .agents.toc_generator import toc_generator_agent
-
-        # Step 1: Assemble with citation renumbering (creates the final draft file)
         assemble_result = assemble_citations(output_dir)
-
-        # Step 2: Generate TOC on the assembled draft
-        toc_result = toc_generator_agent(state)
 
         from .final_draft import find_final_draft
         final_draft_path = find_final_draft(output_dir)
         word_count = len(final_draft_path.read_text().split()) if final_draft_path else 0
-        print(f"  ✓ Reassembled final draft with TOC (fallback): {word_count} words")
+        print(f"  ✓ Reassembled final draft: {word_count} words")
 
         return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({word_count} words)"]}
 
@@ -499,6 +484,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("validate", validator_agent)
     workflow.add_node("scorecard", scorecard_evaluator_agent)  # 12Ps scorecard evaluation
     workflow.add_node("integrate_scorecard", integrate_scorecard)  # Integrate scorecard into section 8
+    workflow.add_node("scorecard_nav", scorecard_navigator_agent)  # Scorecard overview table in Executive Summary
     workflow.add_node("one_pager", one_pager_generator_agent)  # Generate single-page visual summary
     workflow.add_node("finalize", finalize_memo)
     workflow.add_node("human_review", human_review)
@@ -552,8 +538,7 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("enrich_visualizations", "revise_summaries")  # Revise bookend sections based on complete draft
     workflow.add_edge("revise_summaries", "cleanup_sections")  # GATE 2: Clean sections before assembly
     workflow.add_edge("cleanup_sections", "assemble_citations")  # Consolidate, renumber citations, and CREATE final draft file
-    workflow.add_edge("assemble_citations", "toc")  # Generate TOC (runs AFTER assembly creates the final draft)
-    workflow.add_edge("toc", "fix_citation_spacing")  # Fix citation spacing in final draft
+    workflow.add_edge("assemble_citations", "fix_citation_spacing")  # Fix citation spacing in final draft
     workflow.add_edge("fix_citation_spacing", "validate_citations")  # Validate assembled citations
     workflow.add_edge("validate_citations", "fact_check")  # Extract claims (mechanical regex)
     workflow.add_edge("fact_check", "fact_verify")  # Verify claims via Perplexity Sonar Pro
@@ -562,7 +547,9 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("source_catalog", "validate")
     workflow.add_edge("validate", "scorecard")  # Run scorecard evaluation after validation
     workflow.add_edge("scorecard", "integrate_scorecard")  # Integrate scorecard into section 8 and reassemble final draft
-    workflow.add_edge("integrate_scorecard", "one_pager")  # Generate one-page visual summary
+    workflow.add_edge("integrate_scorecard", "scorecard_nav")  # Insert scorecard overview table into Executive Summary
+    workflow.add_edge("scorecard_nav", "toc")  # TOC is FINAL content step — runs after all content changes are done
+    workflow.add_edge("toc", "one_pager")  # Generate one-page visual summary
 
     # Conditional edge after one-pager generation
     workflow.add_conditional_edges(

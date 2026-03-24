@@ -424,11 +424,30 @@ def save_section_artifact(output_dir: Path, section_number: int,
         section_name: Name of the section
         content: Section content
     """
+    import re
+
     sections_dir = output_dir / "2-sections"
     filename = f"{section_number:02d}-{sanitize_filename(section_name).lower()}.md"
 
+    # Deduplicate leading heading from LLM output. The LLM sometimes includes
+    # a section header despite being told not to. We add the canonical
+    # "## N. Section Name" header ourselves, so if the LLM also wrote one
+    # that's redundant (same words as the section name), strip it.
+    # If the LLM heading adds different words, leave it as a subsection.
+    content = content.strip()
+    leading_heading = re.match(r'^(#{1,3})\s*(?:\d+\.\s*)?(.+?)\s*\n', content)
+    if leading_heading:
+        llm_heading_text = leading_heading.group(2).strip().lower()
+        canonical_text = section_name.strip().lower()
+        # Strip if the LLM heading is essentially the same as the section name
+        # (exact match, or one contains the other)
+        if (llm_heading_text == canonical_text
+                or canonical_text in llm_heading_text
+                or llm_heading_text in canonical_text):
+            content = content[leading_heading.end():].lstrip('\n')
+
     with open(sections_dir / filename, "w") as f:
-        f.write(f"# {section_name}\n\n")
+        f.write(f"## {section_number}. {section_name}\n\n")
         f.write(content)
 
 

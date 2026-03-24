@@ -52,24 +52,32 @@ def slugify(text: str) -> str:
 
 def extract_headers(content: str) -> List[Tuple[int, str, str]]:
     """
-    Extract all h2 and h3 headers from markdown content.
+    Extract all h1, h2, and h3 headers from markdown content.
 
     Args:
         content: Markdown content
 
     Returns:
         List of tuples: (level, header_text, anchor_slug)
-        level: 2 for h2, 3 for h3
+        level: 1 for h1, 2 for h2, 3 for h3
     """
     headers = []
 
-    # Match h2 (##) and h3 (###) headers
     # Skip headers that are part of citations section
     in_citations = False
 
     for line in content.split('\n'):
-        # Match h2 headers (## Header) - these reset the in_citations flag
-        h2_match = re.match(r'^##\s+(.+)$', line)
+        # Match h1 headers (# Header) — but not ## or ###
+        h1_match = re.match(r'^#\s+(.+)$', line)
+        if h1_match:
+            header_text = h1_match.group(1).strip()
+            slug = slugify(header_text)
+            headers.append((1, header_text, slug))
+            in_citations = False
+            continue
+
+        # Match h2 headers (## Header) — but not ###
+        h2_match = re.match(r'^##\s+(?!#)(.+)$', line)
         if h2_match:
             header_text = h2_match.group(1).strip()
             # Skip "Table of Contents" header
@@ -77,7 +85,7 @@ def extract_headers(content: str) -> List[Tuple[int, str, str]]:
                 continue
             slug = slugify(header_text)
             headers.append((2, header_text, slug))
-            in_citations = False  # Reset when entering new main section
+            in_citations = False
             continue
 
         # Check if we've entered a citations subsection (within a section)
@@ -103,6 +111,9 @@ def generate_toc_markdown(headers: List[Tuple[int, str, str]]) -> str:
     """
     Generate markdown Table of Contents from headers.
 
+    Uses numbered (ordered) lists with indentation reflecting header hierarchy.
+    h1 = top-level, h2 = one indent, h3 = two indents.
+
     Args:
         headers: List of (level, header_text, anchor_slug) tuples
 
@@ -111,12 +122,29 @@ def generate_toc_markdown(headers: List[Tuple[int, str, str]]) -> str:
     """
     toc_lines = ["## Table of Contents\n"]
 
-    for level, header_text, slug in headers:
-        # Indent subsections (h3)
-        indent = "  " if level == 3 else ""
+    # Build a mapping from actual header levels to sequential depth values
+    # e.g., if we have h1 and h3 (no h2), map h1->0, h3->1 (not h3->2)
+    if not headers:
+        return ""
+    levels_present = sorted(set(h[0] for h in headers))
+    level_to_depth = {lvl: i for i, lvl in enumerate(levels_present)}
 
-        # Create markdown link
-        toc_lines.append(f"{indent}- [{header_text}](#{slug})")
+    # Track counters per indent level for numbered lists
+    counters = {}
+
+    for level, header_text, slug in headers:
+        depth = level_to_depth[level]
+        indent = "   " * depth  # 3 spaces per level (markdown ordered list nesting)
+
+        # Reset deeper counters when a higher-level heading appears
+        for d in list(counters.keys()):
+            if d > depth:
+                del counters[d]
+
+        counters[depth] = counters.get(depth, 0) + 1
+
+        # Create numbered markdown link
+        toc_lines.append(f"{indent}{counters[depth]}. [{header_text}](#{slug})")
 
     # Add horizontal rule after TOC to separate from content
     toc_lines.append("")
@@ -193,10 +221,14 @@ def remove_existing_toc(content: str) -> str:
     Returns:
         Content with TOC removed
     """
-    # Pattern: ## Table of Contents, followed by list items and optional
-    # trailing blank lines / --- separator, up to next real content
-    toc_pattern = r'## Table of Contents\n(?:[ \t]*-[^\n]*\n)*\n*(?:---\n*)?'
-    return re.sub(toc_pattern, '', content)
+    # Pattern: ## Table of Contents heading, followed by list items (bulleted or numbered,
+    # possibly indented), blank lines, and optional trailing --- separator.
+    # Remove ALL occurrences to prevent duplicates from multi-pass assembly.
+    toc_pattern = r'## Table of Contents\n(?:[ \t]*(?:-|\d+\.)[^\n]*\n)*\n*(?:---\n*)?'
+    result = content
+    while re.search(toc_pattern, result):
+        result = re.sub(toc_pattern, '', result, count=1)
+    return result
 
 
 def extract_existing_toc(content: str) -> str:
@@ -209,7 +241,7 @@ def extract_existing_toc(content: str) -> str:
     Returns:
         The existing TOC block as a string, or empty string if none found
     """
-    match = re.search(r'(## Table of Contents\n(?:[ \t]*-[^\n]*\n)*\n*(?:---\n*)?)', content)
+    match = re.search(r'(## Table of Contents\n(?:[ \t]*(?:-|\d+\.)[^\n]*\n)*\n*(?:---\n*)?)', content)
     return match.group(1) if match else ""
 
 

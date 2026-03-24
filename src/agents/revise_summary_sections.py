@@ -307,18 +307,23 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     final_draft_path = find_final_draft(output_dir)
     sections_dir = output_dir / "2-sections"
 
-    if not final_draft_path:
-        print("⊘ Summary revision skipped - no final draft found")
-        return {"messages": ["Summary revision skipped - no final draft"]}
-
     if not sections_dir.exists():
         print("⊘ Summary revision skipped - no sections directory")
         return {"messages": ["Summary revision skipped - no sections directory"]}
 
     print("\n📝 Revising summary sections based on complete memo...")
 
-    # Read the complete final draft
-    full_memo = read_final_draft(output_dir)
+    # Read content: prefer final draft, fall back to concatenating section files
+    if final_draft_path:
+        full_memo = read_final_draft(output_dir)
+    else:
+        # No final draft yet (runs before assembly) — build from section files
+        print("  ℹ No final draft yet, reading from section files...")
+        section_files = sorted(sections_dir.glob("*.md"))
+        if not section_files:
+            print("⊘ Summary revision skipped - no section files found")
+            return {"messages": ["Summary revision skipped - no section files"]}
+        full_memo = "\n\n---\n\n".join(f.read_text() for f in section_files)
 
     # Extract key data from the memo
     funding_data = extract_funding_data(full_memo)
@@ -338,70 +343,91 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
 
     messages = []
 
-    # Revise Executive Summary
-    exec_file = find_section_file(sections_dir, ["executive", "summary", "01-"])
-    if exec_file:
+    # Revise Executive Summary (or create one if the outline didn't include it)
+    exec_file = find_section_file(sections_dir, ["executive-summary", "executive_summary"])
+    creating_exec = False
+    if not exec_file:
+        # No executive summary exists — create one as 00-executive-summary.md
+        # This ensures every memo gets an executive summary regardless of outline structure
+        exec_file = sections_dir / "00-executive-summary.md"
+        creating_exec = True
+        print(f"\n  📝 Creating Executive Summary (not in outline)...")
+    else:
         print(f"\n  📝 Revising Executive Summary...")
 
-        exec_prompt = EXEC_SUMMARY_PROMPT.format(
-            target_words=exec_summary_words,
-            full_memo=full_memo[:50000],  # Limit to avoid token overflow
-            funding=funding_data,
-            traction=traction_data,
-            market=market_data
-        )
+    exec_prompt = EXEC_SUMMARY_PROMPT.format(
+        target_words=exec_summary_words,
+        full_memo=full_memo[:50000],  # Limit to avoid token overflow
+        funding=funding_data,
+        traction=traction_data,
+        market=market_data
+    )
 
-        try:
-            response = llm.invoke(exec_prompt)
-            revised_exec = response.content
+    try:
+        response = llm.invoke(exec_prompt)
+        revised_exec = response.content
 
-            # Ensure proper header format
-            if not revised_exec.strip().startswith("#"):
-                revised_exec = "# Executive Summary\n\n" + revised_exec
+        # Ensure proper header format
+        if not revised_exec.strip().startswith("#"):
+            revised_exec = "# Executive Summary\n\n" + revised_exec
 
-            # Save revised section
-            exec_file.write_text(revised_exec)
-            word_count = len(revised_exec.split())
-            print(f"  ✓ Revised Executive Summary ({word_count} words)")
-            messages.append(f"Revised Executive Summary ({word_count} words)")
+        # Save revised or new section
+        exec_file.write_text(revised_exec)
+        word_count = len(revised_exec.split())
+        action = "Created" if creating_exec else "Revised"
+        print(f"  ✓ {action} Executive Summary ({word_count} words) → {exec_file.name}")
+        messages.append(f"{action} Executive Summary ({word_count} words)")
 
-        except Exception as e:
-            print(f"  ⚠️  Failed to revise Executive Summary: {e}")
-            messages.append(f"Failed to revise Executive Summary: {e}")
+    except Exception as e:
+        print(f"  ⚠️  Failed to {'create' if creating_exec else 'revise'} Executive Summary: {e}")
+        messages.append(f"Failed to {'create' if creating_exec else 'revise'} Executive Summary: {e}")
+
+    # Revise Closing Assessment (or create one if the outline didn't include it)
+    closing_file = find_section_file(sections_dir, ["closing-assessment", "closing_assessment", "recommendation"])
+    creating_closing = False
+    if not closing_file:
+        # No closing section exists — create one after the last numbered section
+        # Find the highest numbered section to place closing after it
+        existing_sections = sorted(sections_dir.glob("*.md"))
+        if existing_sections:
+            last_num = existing_sections[-1].name.split("-")[0]
+            try:
+                next_num = int(last_num) + 1
+            except ValueError:
+                next_num = 99
+        else:
+            next_num = 99
+        closing_file = sections_dir / f"{next_num:02d}-closing-assessment.md"
+        creating_closing = True
+        print(f"\n  📝 Creating Closing Assessment (not in outline)...")
     else:
-        print("  ⊘ No Executive Summary section found")
-
-    # Revise Closing Assessment
-    closing_file = find_section_file(sections_dir, ["closing", "assessment", "recommendation", "10-"])
-    if closing_file:
         print(f"\n  📝 Revising Closing Assessment...")
 
-        closing_prompt = CLOSING_PROMPT.format(
-            mode=memo_mode,
-            full_memo=full_memo[:50000],
-            strengths=strengths,
-            risks=risks
-        )
+    closing_prompt = CLOSING_PROMPT.format(
+        mode=memo_mode,
+        full_memo=full_memo[:50000],
+        strengths=strengths,
+        risks=risks
+    )
 
-        try:
-            response = llm.invoke(closing_prompt)
-            revised_closing = response.content
+    try:
+        response = llm.invoke(closing_prompt)
+        revised_closing = response.content
 
-            # Ensure proper header format
-            if not revised_closing.strip().startswith("#"):
-                revised_closing = "# Closing Assessment\n\n" + revised_closing
+        # Ensure proper header format
+        if not revised_closing.strip().startswith("#"):
+            revised_closing = "# Closing Assessment\n\n" + revised_closing
 
-            # Save revised section
-            closing_file.write_text(revised_closing)
-            word_count = len(revised_closing.split())
-            print(f"  ✓ Revised Closing Assessment ({word_count} words)")
-            messages.append(f"Revised Closing Assessment ({word_count} words)")
+        # Save revised or new section
+        closing_file.write_text(revised_closing)
+        word_count = len(revised_closing.split())
+        action = "Created" if creating_closing else "Revised"
+        print(f"  ✓ {action} Closing Assessment ({word_count} words) → {closing_file.name}")
+        messages.append(f"{action} Closing Assessment ({word_count} words)")
 
-        except Exception as e:
-            print(f"  ⚠️  Failed to revise Closing Assessment: {e}")
-            messages.append(f"Failed to revise Closing Assessment: {e}")
-    else:
-        print("  ⊘ No Closing Assessment section found")
+    except Exception as e:
+        print(f"  ⚠️  Failed to {'create' if creating_closing else 'revise'} Closing Assessment: {e}")
+        messages.append(f"Failed to {'create' if creating_closing else 'revise'} Closing Assessment: {e}")
 
     # Reassemble final draft with revised sections
     print("\n  🔄 Reassembling final draft...")
