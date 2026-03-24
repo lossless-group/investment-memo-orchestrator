@@ -107,17 +107,16 @@ html, body {
     color: #ffffff;
 }
 .sidebar-metric {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 0.03in;
+    margin-bottom: 0.04in;
 }
 .sidebar-metric-label {
-    font-size: 7.5pt;
-    color: rgba(255,255,255,0.75);
+    font-size: 6pt;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: rgba(255,255,255,0.6);
 }
 .sidebar-metric-value {
-    font-size: 10pt;
+    font-size: 8.5pt;
     font-weight: 700;
     color: var(--brand-secondary);
 }
@@ -140,26 +139,30 @@ html, body {
 /* ── Header ── */
 .header {
     grid-area: header;
-    padding: 0.25in 0.3in 0.15in 0.3in;
+    padding: 0.15in 0.25in 0.1in 0.25in;
     border-bottom: 2px solid var(--brand-secondary);
+    max-height: 2.2in;
+    overflow: hidden;
 }
 .headline {
-    font-size: 15pt;
+    font-size: 11pt;
     font-weight: 700;
     line-height: 1.25;
     color: var(--brand-primary);
-    margin-bottom: 0.1in;
+    margin-bottom: 0.08in;
+    max-height: 0.55in;
+    overflow: hidden;
 }
 .key-bullets {
     list-style: none;
     padding: 0;
 }
 .key-bullets li {
-    font-size: 9.5pt;
-    line-height: 1.35;
-    padding-left: 0.15in;
+    font-size: 8pt;
+    line-height: 1.3;
+    padding-left: 0.12in;
     position: relative;
-    margin-bottom: 0.04in;
+    margin-bottom: 0.03in;
 }
 .key-bullets li::before {
     content: "▪";
@@ -175,16 +178,16 @@ html, body {
 /* ── Main Area ── */
 .main {
     grid-area: main;
-    padding: 0.15in 0.3in 0.1in 0.3in;
+    padding: 0.1in 0.25in 0.08in 0.25in;
     display: flex;
     flex-direction: column;
-    gap: 0.1in;
+    gap: 0.06in;
     overflow: hidden;
 }
 .card-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.1in;
+    gap: 0.06in;
 }
 .card {
     border: 1px solid var(--brand-background-alt);
@@ -204,14 +207,14 @@ html, body {
     padding: 2.5px 7px;
 }
 .card-body {
-    padding: 5px 7px;
-    font-size: 8.5pt;
-    line-height: 1.3;
-    max-height: 1.1in;
+    padding: 4px 6px;
+    font-size: 7.5pt;
+    line-height: 1.25;
+    max-height: 0.9in;
     overflow: hidden;
 }
 .card-body-tall {
-    max-height: 1.4in;
+    max-height: 1.1in;
 }
 .card-body ul {
     list-style: none;
