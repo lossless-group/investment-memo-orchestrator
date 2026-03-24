@@ -126,14 +126,24 @@ def insert_nav_into_executive_summary(draft_content: str, nav_table: str) -> str
     2. End of first section (before second ## heading)
     3. After first --- separator
     """
-    # Strategy 1: Find Executive Summary section, insert before the next ## heading
+    # Strategy 1: Find Executive Summary heading (any level: #, ##, ###)
+    # then insert at the end of the Executive Summary — just before the
+    # first ## numbered section heading (e.g., "## 1. Capital Syndicate")
     exec_match = re.search(
-        r'(##+\s+(?:\d+\.\s+)?Executive Summary\b.*?)(\n##+\s)',
+        r'^#{1,6}\s+(?:\d+\.\s+)?Executive Summary\b',
         draft_content,
-        re.DOTALL | re.IGNORECASE
+        re.MULTILINE | re.IGNORECASE
     )
     if exec_match:
-        insert_pos = exec_match.end(1)
+        after_exec = draft_content[exec_match.end():]
+        # Find the first ## numbered section (the start of memo body content)
+        next_section = re.search(r'\n##\s+\d+\.', after_exec)
+        if next_section:
+            insert_pos = exec_match.end() + next_section.start()
+        else:
+            # Fallback: first ## heading of any kind
+            next_any = re.search(r'\n##\s', after_exec)
+            insert_pos = exec_match.end() + next_any.start() if next_any else len(draft_content)
         return draft_content[:insert_pos] + "\n\n" + nav_table + "\n" + draft_content[insert_pos:]
 
     # Strategy 2: Insert before the second ## heading (end of first section)

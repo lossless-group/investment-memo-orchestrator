@@ -446,6 +446,19 @@ def save_section_artifact(output_dir: Path, section_number: int,
                 or llm_heading_text in canonical_text):
             content = content[leading_heading.end():].lstrip('\n')
 
+    # Normalize heading hierarchy: the section header is ## (h2), so any
+    # headings in the LLM content must be h3 or lower. Demote # → ###,
+    # ## → ###, and leave ### and below as-is. This preserves the full
+    # 6-level heading structure (## section > ### subsection > #### etc.)
+    def demote_heading(match):
+        hashes = match.group(1)
+        rest = match.group(2)
+        if len(hashes) <= 2:
+            return f"### {rest}"  # # or ## → ###
+        return match.group(0)    # ### and below stay as-is
+
+    content = re.sub(r'^(#{1,6})\s+(.+)$', demote_heading, content, flags=re.MULTILINE)
+
     with open(sections_dir / filename, "w") as f:
         f.write(f"## {section_number}. {section_name}\n\n")
         f.write(content)

@@ -65,12 +65,19 @@ def extract_headers(content: str) -> List[Tuple[int, str, str]]:
 
     # Skip headers that are part of citations section
     in_citations = False
+    # Track whether we've seen the first h1 — it's the document title
+    # (e.g., "# Solugen") and should not appear in the TOC since the
+    # export script extracts it for the HTML header.
+    seen_first_h1 = False
 
     for line in content.split('\n'):
         # Match h1 headers (# Header) — but not ## or ###
         h1_match = re.match(r'^#\s+(.+)$', line)
         if h1_match:
             header_text = h1_match.group(1).strip()
+            if not seen_first_h1:
+                seen_first_h1 = True
+                continue  # Skip document title
             slug = slugify(header_text)
             headers.append((1, header_text, slug))
             in_citations = False

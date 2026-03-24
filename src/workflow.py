@@ -395,16 +395,15 @@ def integrate_scorecard(state: MemoState) -> dict:
         section_8_file.write_text(scorecard_content)
 
     # Reassemble final draft (citations only — TOC runs as final step in workflow)
-    try:
-        from .agents.citation_assembly import assemble_citations
-        assemble_result = assemble_citations(output_dir)
+    from .agents.citation_assembly import assemble_citations
+    assemble_result = assemble_citations(output_dir)
 
-        from .final_draft import find_final_draft
-        final_draft_path = find_final_draft(output_dir)
-        word_count = len(final_draft_path.read_text().split()) if final_draft_path else 0
-        print(f"  ✓ Reassembled final draft: {word_count} words")
+    from .final_draft import find_final_draft
+    final_draft_path = find_final_draft(output_dir)
+    word_count = len(final_draft_path.read_text().split()) if final_draft_path else 0
+    print(f"  ✓ Reassembled final draft: {word_count} words")
 
-        return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({word_count} words)"]}
+    return {"messages": [f"Scorecard integrated into section 8, final draft reassembled ({word_count} words)"]}
 
 
 def router_node(state: MemoState) -> dict:

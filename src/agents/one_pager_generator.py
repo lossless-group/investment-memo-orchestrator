@@ -183,9 +183,10 @@ The VC firm is the author/presenter. The company being invested in is the subjec
 LAYOUT REQUIREMENTS:
 1. Two-column layout: left sidebar (~28-30% width) for deal overview data, right main area for narrative
 2. The sidebar top should read as "{brand_config.company.name} is syndicating an investment in {state.get('company_name', '')}":
-   - VC FIRM LOGO first (the presenter) via %%VC_FIRM_LOGO%% placeholder
+   - VC FIRM LOGO first (the presenter) via %%VC_FIRM_LOGO%% placeholder — ensure it has at least 0.3in padding above it so it's not clipped at the top edge
    - A small label like "is syndicating" or "presents" in subtle text
    - Then the COMPANY LOGO via %%COMPANY_LOGO%% placeholder
+   - Both logos must be fully visible — no clipping, no overflow hidden cutting them off
    - The company tagline in small text below the logo
    - Do NOT add a large text header with the company name — the logo already communicates the identity. If the logo is clear and legible, a redundant text header wastes space.
    - Then deal overview fields (stage, round, valuation, etc.), key metrics, and cap table highlights if available
@@ -204,8 +205,10 @@ LAYOUT REQUIREMENTS:
 TECHNICAL REQUIREMENTS:
 - Self-contained HTML with all CSS inline in a <style> block
 - Use @page {{ size: letter; margin: 0; }} for PDF export
-- For PRINT/PDF: Set html/body to exactly 8.5in x 11in with overflow: hidden
-- For SCREEN: Allow scrolling so the page is viewable in a browser. Use a @media screen rule that sets overflow: auto and min-height instead of fixed height
+- Set the .page-container (or equivalent wrapper) to exactly width: 8.5in; min-height: 11in
+- For print: @page {{ size: letter; margin: 0; }} and overflow: hidden on the wrapper
+- For screen: @media screen {{ .page-container {{ overflow: visible; margin: 0 auto; box-shadow: 0 2px 20px rgba(0,0,0,0.15); }} }} so it looks like a centered page in the browser
+- The two-column grid must have a fixed total width of 8.5in — do not let columns expand beyond this
 - Use CSS grid or flexbox for layout
 - All text must be sized to fit on one page — be conservative with font sizes
 - Use the brand colors consistently throughout

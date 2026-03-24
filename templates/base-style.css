@@ -195,7 +195,7 @@ body.dark-mode img {
 /* Header/Cover Page */
 .memo-header {
     background: var(--brand-primary);
-    color: var(--brand-text-light);
+    color: #FFFFFF;
     padding: 3rem 2rem;
     margin: 0; /* No negative margin needed - let it sit within page margins */
     text-align: center;

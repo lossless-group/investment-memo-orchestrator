@@ -61,14 +61,6 @@ def add_uncited_footnotes(html_content: str, md_content: str) -> str:
     footnote_section_pattern = r'(<section id="footnotes"[^>]*>.*?<ol>)(.*?)(</ol>.*?</section>)'
     match = re.search(footnote_section_pattern, html_content, re.DOTALL)
 
-    if not match:
-        print("⚠️  No footnotes section found in HTML")
-        return html_content
-
-    section_start = match.group(1)
-    existing_list = match.group(2)
-    section_end = match.group(3)
-
     # Generate HTML for uncited footnotes
     uncited_html = []
     for num in sorted(uncited.keys()):
@@ -77,18 +69,42 @@ def add_uncited_footnotes(html_content: str, md_content: str) -> str:
         # Convert markdown links to HTML if present
         content = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2">\1</a>', content)
 
-        # Create list item without backref (since it's not cited)
+        # Create list item (no backref since it's not cited inline)
         uncited_html.append(
-            f'        <li id="fn{num}"><p>{content} '
-            f'<em style="color: var(--brand-text-light); font-size: 0.9em;">(Uncited)</em></p></li>'
+            f'        <li id="fn{num}"><p>{content}</p></li>'
         )
 
-    # Insert uncited footnotes at the end of the list
-    new_list = existing_list.rstrip() + '\n' + '\n'.join(uncited_html) + '\n        '
-    new_section = section_start + new_list + section_end
+    if match:
+        # Footnotes section exists — append uncited entries to existing list
+        section_start = match.group(1)
+        existing_list = match.group(2)
+        section_end = match.group(3)
 
-    # Replace the footnotes section
-    html_content = re.sub(footnote_section_pattern, new_section, html_content, flags=re.DOTALL)
+        new_list = existing_list.rstrip() + '\n' + '\n'.join(uncited_html) + '\n        '
+        new_section = section_start + new_list + section_end
+
+        html_content = re.sub(footnote_section_pattern, new_section, html_content, flags=re.DOTALL)
+    else:
+        # No footnotes section exists (pandoc excluded it because zero inline refs).
+        # Create the entire section and insert before closing </div></body>.
+        new_section = (
+            '\n<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">\n'
+            '<h2>References</h2>\n'
+            '<ol>\n'
+            + '\n'.join(uncited_html) + '\n'
+            '</ol>\n'
+            '</section>\n'
+        )
+
+        # Insert before the memo-footer or closing </div>
+        footer_pattern = r'(<div class="memo-footer">)'
+        footer_match = re.search(footer_pattern, html_content)
+        if footer_match:
+            html_content = html_content[:footer_match.start()] + new_section + html_content[footer_match.start():]
+        else:
+            # Fallback: insert before closing </div></body>
+            close_pattern = r'(</div>\s*</body>)'
+            html_content = re.sub(close_pattern, new_section + r'\1', html_content, count=1)
 
     print(f"✓ Added {len(uncited)} uncited footnote(s) to HTML")
 

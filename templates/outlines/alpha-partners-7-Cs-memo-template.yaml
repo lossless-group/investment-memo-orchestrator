@@ -183,9 +183,9 @@ sections:
     name: "Capital Syndicate"
     filename: "01-capital-syndicate.md"
     target_length:
-      min_words: 400
-      max_words: 600
-      ideal_words: 500
+      min_words: 800
+      max_words: 1200
+      ideal_words: 1000
 
     description: |
       Assessment of the investor syndicate backing the company: who is at the table,
@@ -274,9 +274,9 @@ sections:
     name: "Category Leadership"
     filename: "02-category-leadership.md"
     target_length:
-      min_words: 400
-      max_words: 600
-      ideal_words: 500
+      min_words: 800
+      max_words: 1200
+      ideal_words: 1000
 
     description: |
       Evaluation of the company's position and trajectory toward defining or
@@ -373,9 +373,9 @@ sections:
     name: "CAGR (Compound Annual Revenue Growth)"
     filename: "03-cagr.md"
     target_length:
-      min_words: 400
-      max_words: 600
-      ideal_words: 500
+      min_words: 800
+      max_words: 1200
+      ideal_words: 1000
 
     description: |
       Quantitative analysis of the company's revenue growth trajectory. Evaluates
@@ -480,9 +480,9 @@ sections:
     name: "Capital Efficiency"
     filename: "04-capital-efficiency.md"
     target_length:
-      min_words: 400
-      max_words: 600
-      ideal_words: 500
+      min_words: 800
+      max_words: 1200
+      ideal_words: 1000
 
     description: |
       Analysis of how efficiently the company converts invested capital into
@@ -588,9 +588,9 @@ sections:
     name: "Colossal Market Size"
     filename: "05-colossal-market-size.md"
     target_length:
-      min_words: 400
-      max_words: 600
-      ideal_words: 500
+      min_words: 800
+      max_words: 1200
+      ideal_words: 1000
 
     description: |
       Analysis of the market opportunity, with emphasis on whether the total
@@ -705,9 +705,9 @@ sections:
     name: "Counter Cyclicality"
     filename: "06-counter-cyclicality.md"
     target_length:
-      min_words: 400
-      max_words: 600
-      ideal_words: 500
+      min_words: 800
+      max_words: 1200
+      ideal_words: 1000
 
     description: |
       Assessment of the company's resilience to macroeconomic downturns,
@@ -807,9 +807,9 @@ sections:
     name: "Cash on Cash Return Probability"
     filename: "07-cash-on-cash-return-probability.md"
     target_length:
-      min_words: 500
-      max_words: 700
-      ideal_words: 600
+      min_words: 1000
+      max_words: 1400
+      ideal_words: 1200
 
     description: |
       Probabilistic assessment of the investment's return potential, including
