@@ -12,6 +12,8 @@ Supported by [Hypernova Capital](https://www.hypernova.capital), [Avalanche VC](
 
 - [Similar Services](#similar-services)
 - [Recent Updates](#recent-updates)
+  - [Interactive CLI Application (`memopop`) (v0.5.2)](#2026-03-24-interactive-cli-application-memopop-v052)
+  - [LLM Fact-Check Pipeline, Source Catalogs, One-Pager (v0.5.0–v0.5.2)](#2026-03-23-llm-fact-check-pipeline-source-catalogs-one-pager-v050v052)
   - [Firm-Scoped IO System (v0.3.0)](#2025-12-03-firm-scoped-io-system-v030)
   - [Dataroom Analyzer Agent System](#2025-11-26-dataroom-analyzer-agent-system)
   - [Premium Data Sources Integration](#2025-11-22-premium-data-sources-integration)
@@ -77,6 +79,52 @@ Many people may not want to manage using an Open Source library and deal with th
 - [Hatcher+](https://hq.hatcher.com/)
 
 ## Recent Updates
+
+### 2026-03-24: Interactive CLI Application (`memopop`) (v0.5.2)
+
+**A guided terminal application** that replaces the need to know 15+ CLI commands. Single entry point with auto-discovery of firms, deals, and versions:
+
+```bash
+# Activate your venv, then:
+memopop
+```
+
+```
+╭─────────────────────────────────────────────────────────╮
+│                                                         │
+│   Investment Memo Orchestrator                          │
+│   v0.5.2 · 33 agents · Powered by Claude + Perplexity  │
+│                                                         │
+╰─────────────────────────────────────────────────────────╯
+
+? What would you like to do?
+  ❯ 📝  Generate a new investment memo
+    📄  Generate a one-pager summary
+    📤  Export an existing memo (HTML / PDF / Word)
+    🔧  Improve a specific section
+    🔄  Integrate content from versions
+    📊  Run a specific agent
+```
+
+**Capabilities:**
+- **Generate**: Firm → deal → version strategy (fresh/resume) → confirmation → pipeline run → post-run actions
+- **Export**: Select format (HTML+PDF, Word, one-pager, all) and mode (light/dark/both)
+- **Improve**: Select a section, improve with Perplexity Sonar Pro
+- **Integrate**: Review sources, competitive landscape, table proposals across versions
+- **Agent runner**: Run any individual agent on existing output
+
+Built with [Rich](https://github.com/Textualize/rich) + [questionary](https://github.com/tmbo/questionary). No flags, no file paths required.
+
+### 2026-03-23: LLM Fact-Check Pipeline, Source Catalogs, One-Pager (v0.5.0–v0.5.2)
+
+- **Fact-check pipeline**: Three-step extract → verify (Perplexity) → correct (Claude) chain with full traceability
+- **Source catalogs**: Per-section complete source lists documenting every source the pipeline encountered
+- **One-pager generator**: Claude-designed single-page visual summary (agent + CLI)
+- **Citation spacing agent**: Mechanical regex fixer for markdown citation formatting
+- **TOC fixes**: Resolved Table of Contents being destroyed during scorecard integration
+- **Disambiguation**: Mechanical post-synthesis override for company identity
+
+See [v0.5.2 release notes](changelog/releases/v0.5.2-release-notes.md) for full details.
 
 ### 2025-12-03: Firm-Scoped IO System (v0.3.0)
 
@@ -477,7 +525,19 @@ Get API keys:
 
 ### Usage
 
-The system supports two investment types and two memo modes:
+#### Interactive Mode (Recommended)
+
+The easiest way to use the system — a guided terminal app that discovers your firms, deals, and versions automatically:
+
+```bash
+memopop
+```
+
+No flags, no file paths, no command knowledge required. Follow the prompts.
+
+#### Command Line
+
+For scripting or advanced use, the system supports direct CLI invocation with two investment types and two memo modes:
 
 **Investment Types:**
 - `direct`: Direct startup investment (default)
