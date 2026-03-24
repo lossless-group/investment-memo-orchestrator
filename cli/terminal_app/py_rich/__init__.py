@@ -1,0 +1,1 @@
+# Rich-based terminal app

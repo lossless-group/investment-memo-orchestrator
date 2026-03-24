@@ -30,7 +30,11 @@ dependencies = [
     "openpyxl>=3.1.0",  # For Excel (.xlsx) file reading
     "pdfplumber>=0.10.0",  # For PDF table extraction (cap tables, datarooms)
     "matplotlib>=3.8.0",  # For diagram generation (TAM/SAM/SOM, funnels, etc.)
+    "questionary>=2.0.0",  # For interactive CLI prompts
 ]
+
+[project.scripts]
+memopop = "cli.terminal_app.py_rich.app:main"
 
 [project.optional-dependencies]
 dev = [
@@ -38,6 +42,9 @@ dev = [
     "black>=24.0.0",
     "ruff>=0.1.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["src*", "cli*"]
 
 [build-system]
 requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
