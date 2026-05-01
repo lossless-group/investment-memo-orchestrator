@@ -53,6 +53,12 @@ output/
 output/*
 output/logs/
 
+# Sidecar server log mirrors (one file per run for easy "send me a log" support)
+.logs/
+
+# Added by MemoPop — firm data is private
+# (idempotent with the firm-creation action's appended rule)
+/io/*/
 
 exports/
 exports/*

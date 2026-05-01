@@ -573,6 +573,16 @@ sup {
         page-break-after: avoid;
     }
 
+    /* TOC gets its own page: break before it and before the first real section after it */
+    #table-of-contents {
+        page-break-before: always;
+    }
+
+    /* Each major section starts on a new page */
+    h2:not(#table-of-contents) {
+        page-break-before: always;
+    }
+
     p, blockquote, li {
         page-break-inside: avoid;
     }

@@ -1,5 +1,5 @@
-# Hypernova Capital Brand Configuration
-# This is the official branding for Hypernova Capital
+# Avalanche Brand Configuration
+# This is the official branding for Avalanche
 
 company:
   name: "Avalanche"
@@ -29,8 +29,8 @@ fonts:
   header_weight: 700  # Bold for headers
 
 logo:
-  light_mode: "templates/trademarks/trademark__Avalanche--Dark-Mode.webp"
-  dark_mode: "templates/trademarks/trademark__Avalanche--Dark-Mode.webp"
+  light_mode: "https://ik.imagekit.io/xvpgfijuw/Avalanche-Embeds/trademark__Avalanche--Brand.png"
+  dark_mode: "https://ik.imagekit.io/xvpgfijuw/Avalanche-Embeds/trademark__Avalanche--Dark-Mode.png"
   width: "180px"
   height: "60px"
   alt: "Avalanche"

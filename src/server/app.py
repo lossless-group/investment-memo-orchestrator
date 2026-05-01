@@ -1,0 +1,259 @@
+"""FastAPI app exposing the orchestrator over HTTP."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from sse_starlette.sse import EventSourceResponse
+
+from ..paths import get_io_root
+from .jobs import Job, JobRegistry
+from .models import (
+    ArtifactInfo,
+    ArtifactList,
+    CreateMemoRequest,
+    CreateMemoResponse,
+    JobStatus,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    loop = asyncio.get_running_loop()
+    registry = JobRegistry(loop)
+    app.state.registry = registry
+    try:
+        yield
+    finally:
+        registry.shutdown()
+
+
+app = FastAPI(
+    title="Investment Memo Orchestrator API",
+    version="0.1.0",
+    description=(
+        "HTTP surface for the Investment Memo Orchestrator. Wraps `generate_memo()` "
+        "as background jobs with Server-Sent Event log streaming. Designed to run as "
+        "a local sidecar from the orchestrator repo root."
+    ),
+    lifespan=lifespan,
+)
+
+# Permissive CORS for local sidecar use: Tauri webviews, dev frontends on localhost.
+# Hosted deployments will need to tighten this.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=(
+        r"^("
+        r"http://localhost(:\d+)?|"
+        r"http://127\.0\.0\.1(:\d+)?|"
+        r"tauri://localhost|"
+        r"http://tauri\.localhost(:\d+)?"
+        r")$"
+    ),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def _registry(app: FastAPI) -> JobRegistry:
+    return app.state.registry  # type: ignore[no-any-return]
+
+
+def _to_status(job: Job) -> JobStatus:
+    return JobStatus(
+        job_id=job.job_id,
+        status=job.status,  # type: ignore[arg-type]
+        company_name=job.request.company_name,
+        firm=job.request.firm,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        output_dir=job.output_dir,
+        version=job.version,
+        error=job.error,
+    )
+
+
+@app.get("/healthz")
+async def healthz() -> dict:
+    return {
+        "ok": True,
+        "service": "investment-memo-orchestrator",
+        "cwd": str(Path.cwd()),
+    }
+
+
+@app.post("/memos", response_model=CreateMemoResponse, status_code=202)
+async def create_memo(request: CreateMemoRequest) -> CreateMemoResponse:
+    # If the run is firm-scoped, ensure io/{firm}/deals/{deal}/inputs/deal.json
+    # exists before kicking off the job. Without it, paths.resolve_deal_context()
+    # silently falls back to legacy `output/` and the run lands outside the firm.
+    scaffold_firm_deal_dir(request)
+    job = _registry(app).submit(request)
+    return CreateMemoResponse(job_id=job.job_id, status=job.status)  # type: ignore[arg-type]
+
+
+def scaffold_firm_deal_dir(request: CreateMemoRequest) -> None:
+    """Create `io/{firm}/deals/{deal}/inputs/deal.json` from request fields, if missing.
+
+    Idempotent: a pre-existing `inputs/deal.json` (e.g., from CLI use) is preserved
+    untouched. Only the directory tree is created lazily.
+
+    No-op when `firm` is not provided (legacy / unscoped runs).
+    """
+    if not request.firm or not request.company_name:
+        return
+
+    io_root = get_io_root()
+    deal_dir = io_root / request.firm / "deals" / request.company_name
+    inputs_dir = deal_dir / "inputs"
+    deal_json = inputs_dir / "deal.json"
+
+    inputs_dir.mkdir(parents=True, exist_ok=True)
+
+    if deal_json.exists():
+        return
+
+    config: dict[str, object] = {
+        "type": request.investment_type,
+        "mode": request.memo_mode,
+    }
+    if request.company_url:
+        config["url"] = request.company_url
+    if request.company_description:
+        config["description"] = request.company_description
+    if request.company_stage:
+        config["stage"] = request.company_stage
+    if request.research_notes:
+        config["notes"] = request.research_notes
+    if request.deck_path:
+        config["deck"] = request.deck_path
+    if request.dataroom_path:
+        config["dataroom"] = request.dataroom_path
+    if request.outline_name:
+        config["outline"] = request.outline_name
+    if request.scorecard_name:
+        config["scorecard"] = request.scorecard_name
+    if request.company_trademark_light:
+        config["trademark_light"] = request.company_trademark_light
+    if request.company_trademark_dark:
+        config["trademark_dark"] = request.company_trademark_dark
+
+    deal_json.write_text(json.dumps(config, indent=2) + "\n")
+
+
+@app.get("/memos", response_model=list[JobStatus])
+async def list_jobs() -> list[JobStatus]:
+    return [_to_status(j) for j in _registry(app).list()]
+
+
+@app.get("/memos/{job_id}", response_model=JobStatus)
+async def get_job(job_id: str) -> JobStatus:
+    job = _registry(app).get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    return _to_status(job)
+
+
+@app.get("/memos/{job_id}/events")
+async def stream_events(job_id: str, request: Request) -> EventSourceResponse:
+    job = _registry(app).get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+
+    async def event_iter():
+        async for event in job.bus.subscribe():
+            if await request.is_disconnected():
+                return
+            yield {"data": json.dumps(event)}
+
+    return EventSourceResponse(event_iter())
+
+
+@app.get("/memos/{job_id}/artifacts", response_model=ArtifactList)
+async def list_artifacts(job_id: str) -> ArtifactList:
+    job = _registry(app).get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    if not job.output_dir:
+        return ArtifactList(output_dir=None, files=[])
+    out = Path(job.output_dir)
+    if not out.exists():
+        raise HTTPException(status_code=404, detail="output dir does not exist on disk")
+    files = [
+        ArtifactInfo(path=str(p.relative_to(out)), size=p.stat().st_size)
+        for p in sorted(out.rglob("*"))
+        if p.is_file()
+    ]
+    return ArtifactList(output_dir=str(out), files=files)
+
+
+def resolve_artifact_path(out: Path, sub: str) -> Path:
+    """Resolve `sub` underneath `out`, rejecting path traversal.
+
+    Returns the resolved absolute path. Raises HTTPException(400) if the
+    requested subpath escapes the directory (e.g., `../../etc/passwd`).
+    """
+    out_resolved = out.resolve()
+    target = (out_resolved / sub).resolve()
+    try:
+        target.relative_to(out_resolved)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="path escapes job output directory") from e
+    return target
+
+
+@app.get("/memos/{job_id}/artifacts/{path:path}")
+async def get_artifact(job_id: str, path: str) -> FileResponse:
+    job = _registry(app).get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    if not job.output_dir:
+        raise HTTPException(status_code=404, detail="job has no output yet")
+    target = resolve_artifact_path(Path(job.output_dir), path)
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(str(target))
+
+
+def run() -> None:
+    """Process entry point for `python -m src.server`."""
+    import argparse
+
+    import uvicorn
+
+    parser = argparse.ArgumentParser(description="Investment Memo Orchestrator API server")
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("MEMOPOP_HOST", "127.0.0.1"),
+        help="Bind host (default: 127.0.0.1; set MEMOPOP_HOST to override)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("MEMOPOP_PORT", "8765")),
+        help="Bind port (default: 8765; set MEMOPOP_PORT to override)",
+    )
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Auto-reload on code changes (development only)",
+    )
+    args = parser.parse_args()
+
+    uvicorn.run(
+        "src.server.app:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        log_level="info",
+    )

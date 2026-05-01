@@ -31,10 +31,14 @@ dependencies = [
     "pdfplumber>=0.10.0",  # For PDF table extraction (cap tables, datarooms)
     "matplotlib>=3.8.0",  # For diagram generation (TAM/SAM/SOM, funnels, etc.)
     "questionary>=2.0.0",  # For interactive CLI prompts
+    "fastapi>=0.110.0",  # HTTP API surface (src/server)
+    "uvicorn[standard]>=0.27.0",  # ASGI server for FastAPI
+    "sse-starlette>=2.0.0",  # Server-Sent Events for streaming job logs
 ]
 
 [project.scripts]
 memopop = "cli.terminal_app.py_rich.app:main"
+memopop-server = "src.server.app:run"
 
 [project.optional-dependencies]
 dev = [
@@ -49,6 +53,10 @@ include = ["src*", "cli*"]
 [build-system]
 requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.black]
 line-length = 100

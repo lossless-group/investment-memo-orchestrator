@@ -13,8 +13,9 @@ Supports both:
 
 import json
 import os
+import re
 from pathlib import Path
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 from datetime import datetime
 
 
@@ -222,22 +223,73 @@ class VersionManager:
         """
         Get the next version number for a company's memo.
 
+        Considers BOTH the recorded history in versions.json AND any existing
+        version directories on disk, then increments the maximum. This makes
+        the version-bump robust to artifacts that were moved manually, runs
+        that crashed before recording, or version files that were lost — we
+        will never silently overwrite an existing `{Company}-vX.Y.Z/` directory.
+
         Args:
             company_name: Sanitized company name
 
         Returns:
             Next version number to use
         """
-        if company_name not in self.versions_data:
-            # First version
+        candidates: List[MemoVersion] = []
+
+        # 1. Latest from versions.json (when recorded).
+        if company_name in self.versions_data:
+            latest = self.versions_data[company_name]["latest_version"]
+            candidates.append(MemoVersion.from_string(latest))
+
+        # 2. Highest version directory present on disk.
+        candidates.extend(self._scan_disk_versions(company_name))
+
+        if not candidates:
             return MemoVersion(0, 0, 1)
 
-        # Get latest version
-        latest = self.versions_data[company_name]["latest_version"]
-        version = MemoVersion.from_string(latest)
+        # MemoVersion doesn't implement __lt__, so use a tuple key for max().
+        highest = max(candidates, key=lambda v: (v.major, v.minor, v.patch))
+        return highest.increment_patch()
 
-        # Increment patch version for new iteration
-        return version.increment_patch()
+    def _scan_disk_versions(self, company_name: str) -> List[MemoVersion]:
+        """Find existing `{company_name}-vX.Y.Z` directories under our scope.
+
+        For firm mode, walks every `io/{firm}/deals/*/outputs/` (covers the
+        common case where deal_name == company_name plus the rare case of
+        deal_name diverging from the sanitized company_name).
+        For legacy mode, scans the top-level `output/` directory directly.
+        """
+        pattern = re.compile(rf"^{re.escape(company_name)}-v(\d+)\.(\d+)\.(\d+)$")
+        found: List[MemoVersion] = []
+
+        if self.firm and self.firm_dir:
+            deals_root = self.firm_dir / "deals"
+            if deals_root.exists():
+                for deal_dir in deals_root.iterdir():
+                    if not deal_dir.is_dir():
+                        continue
+                    outputs = deal_dir / "outputs"
+                    if outputs.is_dir():
+                        found.extend(self._match_version_dirs(outputs, pattern))
+        elif self.output_dir and self.output_dir.exists():
+            found.extend(self._match_version_dirs(self.output_dir, pattern))
+
+        return found
+
+    @staticmethod
+    def _match_version_dirs(parent: Path, pattern: "re.Pattern[str]") -> List[MemoVersion]:
+        out: List[MemoVersion] = []
+        try:
+            for p in parent.iterdir():
+                if not p.is_dir():
+                    continue
+                m = pattern.match(p.name)
+                if m:
+                    out.append(MemoVersion(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+        except OSError:
+            pass
+        return out
 
     def get_current_version(self, company_name: str) -> MemoVersion:
         """
