@@ -22,9 +22,11 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from .events import JobEventBus, LogSink
+from .file_watcher import FileWatcher
 from .log_persistence import persist_job_logs
 from .milestones import MilestoneExtractor
 from .models import CreateMemoRequest
@@ -77,16 +79,47 @@ class JobRegistry:
 
     def submit(self, request: CreateMemoRequest) -> Job:
         job_id = uuid.uuid4().hex[:12]
-        # Accumulate every published event into the job's events_log so we can
-        # write the full run to disk at completion, regardless of bus backlog cap.
         events_log: list[dict] = []
-        bus = JobEventBus(self._loop, tap=events_log.append)
+        # The watcher is created lazily when the orchestrator prints
+        # "📁 Created new output directory: ...". A list-as-mutable-cell holds
+        # the instance because the tap closure runs synchronously inside
+        # bus.publish, which the worker thread invokes — we need to mutate
+        # outer state from there without rebinding.
+        watcher_holder: list[Optional[FileWatcher]] = [None]
+
+        def tap(event: dict) -> None:
+            events_log.append(event)
+            if watcher_holder[0] is not None:
+                return
+            if event.get("type") != "log":
+                return
+            line = event.get("line")
+            if not isinstance(line, str):
+                return
+            m = _OUTPUT_DIR_RE.search(line)
+            if not m:
+                return
+            output_dir_str = m.group(1).strip()
+            if not output_dir_str:
+                return
+            with self._lock:
+                if not job.output_dir:
+                    job.output_dir = output_dir_str
+            watcher = FileWatcher(self._loop, bus, Path(output_dir_str))
+            watcher.start()
+            watcher_holder[0] = watcher
+
+        bus = JobEventBus(self._loop, tap=tap)
         job = Job(
             job_id=job_id,
             request=request,
             bus=bus,
             events_log=events_log,
         )
+        # Stash the watcher holder on the job so _run's finally can stop it.
+        # (Annotated dynamically — Job is a dataclass and we don't want to
+        # widen its public fields just for this internal hand-off.)
+        job._watcher_holder = watcher_holder  # type: ignore[attr-defined]
         with self._lock:
             self._jobs[job_id] = job
         bus.publish({"type": "status", "status": "queued"})
@@ -95,6 +128,9 @@ class JobRegistry:
 
     def _run(self, job: Job) -> None:
         bus = job.bus
+        watcher_holder: list[Optional[FileWatcher]] = getattr(
+            job, "_watcher_holder", [None]
+        )
 
         def transition(status: str) -> None:
             with self._lock:
@@ -168,6 +204,14 @@ class JobRegistry:
             bus.publish({"type": "error", "message": str(exc), "traceback": tb})
             transition("failed")
         finally:
+            # Stop the file watcher first so it doesn't keep emitting after the
+            # bus closes. The stop is async (signals an asyncio.Event on the
+            # FastAPI loop); the watcher task drains naturally on its next
+            # iteration tick. We don't block here — late events just land in
+            # the persisted log via the tap, which is already drained.
+            if watcher_holder[0] is not None:
+                watcher_holder[0].stop()
+
             # Always persist the captured events to disk — both inside the run's
             # output dir (when known) and in the global mirror. Best-effort: any
             # filesystem error here is swallowed so we don't mask the real run
