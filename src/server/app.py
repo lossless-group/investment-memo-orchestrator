@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -175,8 +176,34 @@ async def save_brand(request: SaveBrandRequest) -> dict:
     return {"firm": request.firm.strip(), "path": str(path)}
 
 
+_FS_HOSTILE_RE = re.compile(r'[\/\\:*?"<>|\x00-\x1f]')
+
+
+def _slugify_deal(name: str) -> str:
+    """Path-safe deal slug. Mirrors apps/memopop-native/src/lib/slugify.ts's
+    `dealSlug`: preserve case, whitespace runs → single hyphen, strip
+    filesystem-hostile characters, collapse and trim hyphens.
+
+    Defensive — the native client already slugifies before submitting, but
+    every CLI path or future client should land here too. The on-disk rule
+    is "no spaces in deal directory names"; this is the boundary that
+    enforces it."""
+    stripped = _FS_HOSTILE_RE.sub("", name)
+    hyphenated = re.sub(r"\s+", "-", stripped)
+    collapsed = re.sub(r"-+", "-", hyphenated)
+    return collapsed.strip("-")
+
+
 @app.post("/memos", response_model=CreateMemoResponse, status_code=202)
 async def create_memo(request: CreateMemoRequest) -> CreateMemoResponse:
+    # Slugify the company / deal name before anything touches disk. Mutating
+    # the validated request is fine here — Pydantic doesn't lock it.
+    request.company_name = _slugify_deal(request.company_name)
+    if not request.company_name:
+        raise HTTPException(
+            status_code=400,
+            detail="company_name is empty after slugification (rejected characters)",
+        )
     # If the run is firm-scoped, ensure io/{firm}/deals/{deal}/inputs/deal.json
     # exists before kicking off the job. Without it, paths.resolve_deal_context()
     # silently falls back to legacy `output/` and the run lands outside the firm.
@@ -194,6 +221,14 @@ async def resume_memo(request: ResumeMemoRequest) -> CreateMemoResponse:
     Returns a fresh job_id; the SSE stream and artifact endpoints work the
     same as for a fresh run.
     """
+    # Same slugify treatment as create_memo — keeps lookups consistent if a
+    # caller hands us "Mercury Bank" instead of "Mercury-Bank".
+    request.company_name = _slugify_deal(request.company_name)
+    if not request.company_name:
+        raise HTTPException(
+            status_code=400,
+            detail="company_name is empty after slugification",
+        )
     try:
         job = _registry(app).submit_resume(request)
     except FileNotFoundError as e:
