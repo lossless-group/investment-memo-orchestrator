@@ -46,7 +46,13 @@ class FileWatcher:
     ) -> None:
         self._loop = loop
         self._bus = bus
-        self._output_dir = output_dir
+        # awatch always yields absolute, fully-resolved paths. The orchestrator
+        # emits a *relative* path in "📁 Created new output directory: ..."
+        # (e.g. io/alpha-partners/...), so resolve here to match — otherwise
+        # every relative_to() comparison raises ValueError and live events get
+        # silently dropped on the floor. (Initial snapshot still worked
+        # because rglob preserves the input form, masking the bug.)
+        self._output_dir = output_dir.resolve()
         self._stop_event: Optional[asyncio.Event] = None
 
     def start(self) -> None:
