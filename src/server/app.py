@@ -11,9 +11,11 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from ..paths import get_io_root
+from .brand_fetch import fetch_brand_from_url, save_brand_config
 from .jobs import Job, JobRegistry
 from .models import (
     ArtifactInfo,
@@ -90,6 +92,57 @@ async def healthz() -> dict:
         "service": "investment-memo-orchestrator",
         "cwd": str(Path.cwd()),
     }
+
+
+# --- Brand setup actions ---
+
+
+class FetchBrandRequest(BaseModel):
+    firm: str
+    url: str
+
+
+class SaveBrandRequest(BaseModel):
+    firm: str
+    config: dict
+
+
+@app.post("/actions/fetch-brand")
+async def fetch_brand(request: FetchBrandRequest) -> dict:
+    """Run the Claude tool-use loop on `url` and return a structured brand config.
+
+    Does NOT write to disk. The caller (the desktop UI) shows the result to the
+    user for review/edit, then POSTs the confirmed version to /actions/save-brand.
+
+    The blocking Claude call runs in a worker thread so the FastAPI loop stays
+    responsive to the long /memos SSE streams.
+    """
+    if not request.firm.strip():
+        raise HTTPException(status_code=400, detail="firm is required")
+    if not request.url.strip():
+        raise HTTPException(status_code=400, detail="url is required")
+
+    try:
+        config = await asyncio.to_thread(
+            fetch_brand_from_url, request.firm.strip(), request.url.strip()
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return {"firm": request.firm.strip(), "config": config}
+
+
+@app.post("/actions/save-brand")
+async def save_brand(request: SaveBrandRequest) -> dict:
+    """Write the user-confirmed brand config to disk. Merges with any existing file."""
+    if not request.firm.strip():
+        raise HTTPException(status_code=400, detail="firm is required")
+    if not isinstance(request.config, dict):
+        raise HTTPException(status_code=400, detail="config must be an object")
+
+    path = save_brand_config(request.firm.strip(), request.config)
+    return {"firm": request.firm.strip(), "path": str(path)}
 
 
 @app.post("/memos", response_model=CreateMemoResponse, status_code=202)

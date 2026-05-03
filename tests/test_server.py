@@ -17,6 +17,12 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from src.server.app import app, resolve_artifact_path, scaffold_firm_deal_dir
+from src.server.brand_fetch import (
+    _drop_empty,
+    _normalize_hex,
+    _shape_brand_config,
+    save_brand_config,
+)
 from src.server.events import JobEventBus, LogSink
 from src.server.log_persistence import persist_job_logs
 from src.server.milestones import MilestoneExtractor
@@ -421,6 +427,105 @@ def test_version_manager_first_run_is_v001(tmp_path):
 
     vm = VersionManager(firm="alpha-partners", io_root=tmp_path / "io")
     assert str(vm.get_next_version("BrandNewCo")) == "v0.0.1"
+
+
+def test_normalize_hex_handles_real_world_inputs():
+    """Color values from Claude can come back in many shapes — coerce them all to #rrggbb."""
+    assert _normalize_hex("#5b21b6") == "#5b21b6"
+    assert _normalize_hex("5b21b6") == "#5b21b6"  # missing leading #
+    assert _normalize_hex("#5B21B6") == "#5b21b6"  # uppercase
+    assert _normalize_hex("#abc") == "#aabbcc"  # 3-char shorthand expands
+    assert _normalize_hex("not a color") is None
+    assert _normalize_hex("") is None
+    assert _normalize_hex(None) is None
+    assert _normalize_hex(42) is None
+
+
+def test_drop_empty_recursively_strips_blanks():
+    """The shaping helper should never write empty strings or empty dicts to YAML."""
+    cleaned = _drop_empty({
+        "a": "value",
+        "b": "",
+        "c": None,
+        "d": {
+            "x": "kept",
+            "y": "",
+            "z": {},
+        },
+        "e": {},
+    })
+    assert cleaned == {"a": "value", "d": {"x": "kept"}}
+
+
+def test_shape_brand_config_normalizes_and_drops_empties():
+    """Claude's flat output maps to nested YAML with hex normalization and no empty fields."""
+    shaped = _shape_brand_config(
+        firm="alpha-partners",
+        claude_output={
+            "company_name": "Alpha Partners",
+            "company_legal_entity_name": "",  # empty → dropped
+            "tagline": "Forward-thinking capital.",
+            "primary_color": "5b21b6",  # missing # → normalized
+            "secondary_color": "",  # dropped
+            "accent_color": "#ABC",  # 3-char → expanded
+            "background": "#ffffff",
+            "font_family": "Inter",
+            "google_fonts_url": "https://fonts.googleapis.com/css2?family=Inter",
+            "header_font_family": "Space Grotesk",
+            "logo_light_url": "https://alphapartners.com/logo.svg",
+            "logo_dark_url": "",  # dropped
+            "logo_alt_text": "",  # falls back to company_name
+            "confidence_notes": "Confident on colors and logo. Legal name not surfaced.",
+        },
+    )
+
+    assert shaped["company"]["name"] == "Alpha Partners"
+    assert "legal_entity_name" not in shaped["company"]
+    assert shaped["company"]["tagline"] == "Forward-thinking capital."
+
+    assert shaped["colors"]["primary"] == "#5b21b6"
+    assert "secondary" not in shaped["colors"]
+    assert shaped["colors"]["accent"] == "#aabbcc"
+
+    assert shaped["fonts"]["family"] == "Inter"
+    assert shaped["fonts"]["header_family"] == "Space Grotesk"
+
+    assert shaped["logo"]["light_mode"] == "https://alphapartners.com/logo.svg"
+    assert "dark_mode" not in shaped["logo"]
+    assert shaped["logo"]["alt"] == "Alpha Partners"  # fell back from empty alt
+
+    assert shaped["_meta"]["confidence_notes"].startswith("Confident on colors")
+
+
+def test_save_brand_config_preserves_conventional_name(tmp_path, monkeypatch):
+    """The firm-creation scaffold writes company.conventional_name. Brand save must
+    preserve it even if the incoming config doesn't carry that field."""
+    monkeypatch.setenv("MEMO_IO_ROOT", str(tmp_path / "io"))
+    cfg_dir = tmp_path / "io" / "alpha-partners" / "configs"
+    cfg_dir.mkdir(parents=True)
+    existing = cfg_dir / "brand-alpha-partners-config.yaml"
+    existing.write_text(
+        "company:\n  conventional_name: Alpha\n",
+        encoding="utf-8",
+    )
+
+    new_config = {
+        "company": {
+            "name": "Alpha Partners Capital",
+            "tagline": "Forward-thinking capital.",
+        },
+        "colors": {"primary": "#5b21b6"},
+    }
+    written = save_brand_config("alpha-partners", new_config)
+    assert written == existing  # same path
+
+    import yaml as _yaml
+    saved = _yaml.safe_load(existing.read_text())
+    # conventional_name preserved AND new fields merged in
+    assert saved["company"]["conventional_name"] == "Alpha"
+    assert saved["company"]["name"] == "Alpha Partners Capital"
+    assert saved["company"]["tagline"] == "Forward-thinking capital."
+    assert saved["colors"]["primary"] == "#5b21b6"
 
 
 def test_artifact_path_traversal_rejected(tmp_path):
