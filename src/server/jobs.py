@@ -432,7 +432,14 @@ _VERSION_RE = re.compile(r"(v\d+\.\d+\.\d+)")
 # Matches both fresh runs ("📁 Created new output directory: ...") and resume
 # runs ("📁 Resuming from output directory: ..."). The same line drives both
 # the file-watcher start (in the bus tap) and post-failure output_dir recovery.
-_OUTPUT_DIR_RE = re.compile(r"(?:Created new|Resuming from) output directory:\s+(\S+)")
+#
+# Path capture is lazy + end-anchored with an optional " (vN.M.K)" suffix —
+# the path contains spaces when deal names do (e.g., "Mercury Bank"), so a
+# greedy \S+ would truncate at the first space and the file watcher would
+# silently watch a non-existent directory.
+_OUTPUT_DIR_RE = re.compile(
+    r"(?:Created new|Resuming from) output directory: (.+?)(?: \(.+\))?$"
+)
 
 
 def _extract_version(output_dir: str) -> Optional[str]:
