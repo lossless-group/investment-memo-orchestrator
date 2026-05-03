@@ -38,12 +38,20 @@ class JobEventBus:
         self._subscribers: list[asyncio.Queue] = []
         self._closed = False
         self._tap = tap  # callable(dict) -> None
+        # Monotonic per-job sequence stamped onto every published event. Lets
+        # SSE clients dedup the backlog replay that subscribe() does on every
+        # (re)connection — without this, an EventSource reconnect causes the
+        # client to re-append the last MAX_BACKLOG events and any timer derived
+        # from events[0] snaps forward.
+        self._seq = 0
 
     def publish(self, event: dict) -> None:
         """Append to backlog and fan out to live subscribers. Safe from any thread."""
         if "ts" not in event:
             event["ts"] = datetime.now(timezone.utc).isoformat()
         with self._lock:
+            self._seq += 1
+            event["seq"] = self._seq
             self._backlog.append(event)
             subs = list(self._subscribers)
         if self._tap is not None:

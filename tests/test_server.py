@@ -127,6 +127,12 @@ async def test_event_bus_replays_backlog_to_late_subscribers():
     assert received[2]["line"] == "researching"
     assert received[3]["line"] == "writing"
 
+    # Every published event carries a monotonic seq. Clients use it to dedup
+    # the backlog replay that subscribe() does on every (re)connect, so an
+    # EventSource reconnect can't double-count events.
+    seqs = [e["seq"] for e in received]
+    assert seqs == [1, 2, 3, 4]
+
 
 # --- Path-traversal guard on artifact endpoint ---
 
