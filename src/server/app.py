@@ -108,6 +108,35 @@ class SaveBrandRequest(BaseModel):
     config: dict
 
 
+@app.get("/firms/{firm}/brand-config")
+async def get_brand_config(firm: str) -> dict:
+    """Read the firm's brand-config YAML and return it as JSON.
+
+    Path: io/{firm}/configs/brand-{firm}-config.yaml. 404 if missing — clients
+    should route the user to the brand-setup flow in that case rather than
+    rendering an empty design-system view.
+    """
+    import yaml as _yaml
+
+    from ..paths import get_io_root
+
+    if not firm or "/" in firm or ".." in firm:
+        raise HTTPException(status_code=400, detail="invalid firm slug")
+    path = get_io_root() / firm / "configs" / f"brand-{firm}-config.yaml"
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"brand config not found at {path} — run brand setup first",
+        )
+    try:
+        config = _yaml.safe_load(path.read_text()) or {}
+    except _yaml.YAMLError as e:
+        raise HTTPException(
+            status_code=500, detail=f"YAML parse error in {path}: {e}"
+        ) from e
+    return {"firm": firm, "path": str(path), "config": config}
+
+
 @app.post("/actions/fetch-brand")
 async def fetch_brand(request: FetchBrandRequest) -> dict:
     """Run the Claude tool-use loop on `url` and return a structured brand config.
@@ -224,6 +253,87 @@ def scaffold_firm_deal_dir(request: CreateMemoRequest) -> None:
 @app.get("/memos", response_model=list[JobStatus])
 async def list_jobs() -> list[JobStatus]:
     return [_to_status(j) for j in _registry(app).list()]
+
+
+@app.get("/memos/incomplete")
+async def list_incomplete_memos(firm: str | None = None) -> dict:
+    """List memo runs that have on-disk checkpoints to resume from.
+
+    For each deal under `io/{firm}/deals/`, looks at the *latest* version's
+    output_dir and asks `detect_resume_point` whether it's resumable. If yes,
+    surfaces it. Older versions of the same deal are ignored — once you've
+    started a new version, the previous one is considered abandoned.
+
+    `firm` is optional. When omitted, scans every firm under `io/`.
+
+    Registered before `/memos/{job_id}` so FastAPI doesn't try to match
+    "incomplete" as a job_id path param.
+    """
+    from datetime import datetime, timezone
+
+    from cli.resume_from_interruption import detect_resume_point
+
+    from ..paths import get_io_root
+
+    io_root = get_io_root()
+    if not io_root.exists():
+        return {"incomplete": []}
+
+    if firm:
+        firm_dirs = [io_root / firm]
+    else:
+        firm_dirs = [d for d in io_root.iterdir() if d.is_dir()]
+
+    results: list[dict] = []
+    for firm_dir in firm_dirs:
+        if not firm_dir.is_dir():
+            continue
+        deals_dir = firm_dir / "deals"
+        if not deals_dir.is_dir():
+            continue
+        for deal_dir in deals_dir.iterdir():
+            if not deal_dir.is_dir():
+                continue
+            outputs_dir = deal_dir / "outputs"
+            if not outputs_dir.is_dir():
+                continue
+            # Pick the latest version (highest mtime). Older versions of the
+            # same deal are intentionally ignored — once a newer one exists,
+            # the older is considered abandoned.
+            version_dirs = [v for v in outputs_dir.iterdir() if v.is_dir()]
+            if not version_dirs:
+                continue
+            latest = max(version_dirs, key=lambda v: v.stat().st_mtime)
+            try:
+                point = detect_resume_point(latest)
+            except Exception:
+                continue
+            if point in ("complete", "start"):
+                continue
+            mtime = latest.stat().st_mtime
+            version = _extract_version_from_name(latest.name)
+            results.append(
+                {
+                    "firm": firm_dir.name,
+                    "deal": deal_dir.name,
+                    "version": version,
+                    "output_dir": str(latest),
+                    "resume_point": point,
+                    "last_modified": datetime.fromtimestamp(
+                        mtime, tz=timezone.utc
+                    ).isoformat(),
+                }
+            )
+
+    results.sort(key=lambda r: r["last_modified"], reverse=True)
+    return {"incomplete": results}
+
+
+def _extract_version_from_name(dir_name: str) -> str | None:
+    import re as _re
+
+    m = _re.search(r"(v\d+\.\d+\.\d+)", dir_name)
+    return m.group(1) if m else None
 
 
 @app.get("/memos/{job_id}", response_model=JobStatus)
