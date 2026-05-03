@@ -30,6 +30,17 @@ class CreateMemoRequest(BaseModel):
     force_version: Optional[str] = None
 
 
+class ResumeMemoRequest(BaseModel):
+    """Payload accepted by `POST /memos/resume`. Picks up an interrupted run from the
+    last on-disk checkpoint detected by `cli/resume_from_interruption.detect_resume_point`."""
+
+    company_name: str = Field(..., min_length=1, description="Deal / company name to resume")
+    firm: Optional[str] = Field(None, description="Firm slug for firm-scoped IO")
+    version: Optional[str] = Field(
+        None, description="Specific version to resume (e.g., 'v0.0.6'). Defaults to latest."
+    )
+
+
 class CreateMemoResponse(BaseModel):
     job_id: str
     status: Literal["queued", "running", "completed", "failed"]

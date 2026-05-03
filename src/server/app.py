@@ -23,6 +23,7 @@ from .models import (
     CreateMemoRequest,
     CreateMemoResponse,
     JobStatus,
+    ResumeMemoRequest,
 )
 
 
@@ -152,6 +153,22 @@ async def create_memo(request: CreateMemoRequest) -> CreateMemoResponse:
     # silently falls back to legacy `output/` and the run lands outside the firm.
     scaffold_firm_deal_dir(request)
     job = _registry(app).submit(request)
+    return CreateMemoResponse(job_id=job.job_id, status=job.status)  # type: ignore[arg-type]
+
+
+@app.post("/memos/resume", response_model=CreateMemoResponse, status_code=202)
+async def resume_memo(request: ResumeMemoRequest) -> CreateMemoResponse:
+    """Pick up an interrupted run from the latest on-disk checkpoint.
+
+    Detects the resume point automatically (validation done, sections drafted,
+    research done, etc.) and continues from there — no redundant API spend.
+    Returns a fresh job_id; the SSE stream and artifact endpoints work the
+    same as for a fresh run.
+    """
+    try:
+        job = _registry(app).submit_resume(request)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     return CreateMemoResponse(job_id=job.job_id, status=job.status)  # type: ignore[arg-type]
 
 
