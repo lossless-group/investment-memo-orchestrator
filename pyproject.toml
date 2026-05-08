@@ -15,6 +15,7 @@ dependencies = [
     "tavily-python>=0.3.0",  # Web search for research
     "httpx>=0.27.0",  # For web fetching
     "beautifulsoup4>=4.12.0",  # For HTML parsing
+    "firecrawl-py>=2.0.0",  # Web crawling for team roster extraction
     "openai>=1.0.0",  # Optional: for Perplexity API (uses OpenAI SDK)
     "PyMuPDF>=1.24.0",  # For PDF deck analysis (imported as fitz)
     "pdf2image>=1.17.0",  # For high-quality PDF page rendering (wraps Poppler)
