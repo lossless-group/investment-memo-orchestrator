@@ -64,6 +64,7 @@ Many people may not want to manage using an Open Source library and deal with th
 
 #### Dedicated Private Markets AI Platforms
 - [Deck](https://www.hellodeck.ai/)
+- [Inven](https://www.inven.ai/)
 - [Deliverables](https://deliverables.ai/)
 - [Blueflame AI](https://www.blueflame.ai/)
 - [Pascal AI](https://www.pascalailabs.com/)
