@@ -1,3 +1,6 @@
+[submodule "io/alpha-partners"]
+	path = io/alpha-partners
+	url = https://github.com/lossless-group/alpha-partners-vault.git
 [submodule "io/hypernova"]
 	path = io/hypernova
 	url = https://github.com/lossless-group/hypernova-secure-data.git
@@ -21,6 +24,3 @@
 	path = io/motley-fool
 	url = https://github.com/lossless-group/motley-fool-private.git
 	branch = main
-[submodule "io/alpha-partners"]
-	path = io/alpha-partners
-	url = https://github.com/lossless-group/alpha-partners-vault.git
