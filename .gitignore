@@ -35,6 +35,9 @@ wheels/
 *.swo
 *~
 
+# Claude Code per-user settings (machine-local permissions/MCP toggles)
+.claude/settings.local.json
+
 # Testing
 .pytest_cache/
 .coverage
