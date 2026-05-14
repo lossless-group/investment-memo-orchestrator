@@ -176,6 +176,55 @@ async def save_brand(request: SaveBrandRequest) -> dict:
     return {"firm": request.firm.strip(), "path": str(path)}
 
 
+class CurateSourcesRequest(BaseModel):
+    firm: str
+    deal: str
+
+
+@app.post("/actions/curate-sources")
+async def curate_sources(request: CurateSourcesRequest) -> dict:
+    """Merge every version's 3-source-catalog into one best-of catalog on disk.
+
+    Writes ``io/{firm}/deals/{deal}/exports/best-of-sources/`` and returns a
+    summary of what was produced. Pure filesystem work — no LLM calls — but
+    runs in a worker thread anyway because parsing 9 sections × 8 versions of
+    markdown can do a few hundred regex matches and we don't want to block
+    the event loop while a long SSE stream is open on the same process.
+    """
+    from ..curation import curate_best_sources
+
+    firm = request.firm.strip()
+    deal = request.deal.strip()
+    if not firm:
+        raise HTTPException(status_code=400, detail="firm is required")
+    if not deal:
+        raise HTTPException(status_code=400, detail="deal is required")
+
+    try:
+        result = await asyncio.to_thread(curate_best_sources, firm, deal)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    return {
+        "firm": firm,
+        "deal": deal,
+        "output_dir": str(result.output_dir),
+        "versions_scanned": result.versions_scanned,
+        "total_unique_sources": result.total_unique_sources,
+        "total_section_entries": result.total_section_entries,
+        "sections": [
+            {
+                "number": s.number,
+                "slug": s.slug,
+                "source_count": len(s.sources),
+            }
+            for s in result.sections
+        ],
+    }
+
+
 _FS_HOSTILE_RE = re.compile(r'[\/\\:*?"<>|\x00-\x1f]')
 
 
