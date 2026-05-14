@@ -2,9 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Companion file:** `AGENTS.md` (same directory) is the operating contract for the **runtime LLM agents** in the pipeline (Researcher, Writer, Fact-Checker, etc.). This file is for **Claude Code as a co-developer** — how to navigate, what to edit, conventions. Different audience. If you're editing prompts that ship inside the pipeline, read AGENTS.md.
+
 ## Project Overview
 
-Investment Memo Orchestrator: A multi-agent system using LangGraph to generate professional investment memos for Hypernova Capital. The system coordinates specialized AI agents that research, write, enrich, cite, and validate investment memos for both direct startup investments and LP fund commitments.
+Investment Memo Orchestrator: A multi-agent system using LangGraph to generate professional investment memos. The system coordinates specialized AI agents that research, write, enrich, cite, and validate investment memos for both direct startup investments and LP fund commitments.
+
+**Goal**: every run produces a workable first draft an investment analyst can pick up, spot-check, and send to a partner without rewriting from scratch.
+
+## Architectural direction (2026-05)
+
+Two recent explorations capture where the pipeline is heading. New code should respect these directions; legacy code is being migrated:
+
+1. **Retrieval and generation are being split into separate agents.** Today's `research_enhanced.py` both searches *and* writes prose, which is why it hallucinates URLs. The target architecture: a **Source Harvester** that only calls tools and emits a validated corpus, and a **Section Writer** that only writes prose, citing the corpus by ID. The writer never has a search tool. See `context-v/explorations/Separating-Retrieval-from-Generation-in-Agent-Pipelines.md`.
+
+2. **Cross-run source curation exists as a safety net but is not the fix.** The MemoPop native app has a "✨ Curate Best Sources" button that merges every version's `3-source-catalog/` into one best-of set (`exports/best-of-sources/Master-Sources.md`). This catches the residue. The real fix is making bad URLs structurally impossible upstream (direction #1). See `context-v/explorations/Curating-only-valid-Sources-across-Runs.md`.
+
+3. **The outline file is the section taxonomy contract.** Cross-version drift in section names (v0.0.1 had `01-overview/02-origins`; v0.0.7 has `00-executive-summary/01-capital-syndicate`) caused real downstream pain. Agents do not reshape the taxonomy mid-run. See AGENTS.md §1.
+
+4. **Agents fail with markers, not prose.** When data is missing, emit `<needs-source>` / `<insufficient-data>` markers — never apologetic prose, never "user should…" notes, never meta-commentary about the process. See AGENTS.md §5 and §6.
+
+When working on the pipeline, prefer changes that move it toward these directions over changes that work around the current shape.
 
 ## Recent Changes (2025-11-20)
 
@@ -723,3 +741,18 @@ uv pip install -e .
 - **Outlines** (`templates/outlines/`) = Content structure (what to write, which sources to use)
 - **Brand Configs** (`templates/brand-configs/`) = Visual styling (how it looks when exported)
 - **Templates** (`templates/*.md`) = Fallback for legacy markdown-based structure
+
+## Local RAG over the Lossless corpus (ChromaDB)
+
+A local Chroma database is wired into Claude Code via the `chroma` MCP server. Four collections aggregate prior Lossless work across the whole tree:
+
+- `context-vigilance-corpus` — section-chunked `context-v/` files across every repo
+- `lossless-changelog`        — every `<repo>/changelog/` entry, cross-repo
+- `claude-code-sessions`      — every prior Claude Code message turn
+- `claude-code-tool-traces`   — every prior tool invocation, with success/error flag
+
+**Use it before answering from training data.** When the user asks a question that prior work might answer — *"what did we decide about X"*, *"when did we ship X"*, *"why did we choose X over Y"*, *"has this errored before"*, *"where did we put X"* — call `mcp__chroma__chroma_query_documents` against the most relevant collection (start with `n_results=5`). If results cover the question, synthesize an answer and cite `source_path` + timestamp + `source_repo_slug` for every claim. If there is a gap, run one more focused query. **Cap at 5 chroma queries per question** — if the corpus has no answer, say so explicitly rather than silently falling back to training data.
+
+The full algorithm (decompose → execute → evaluate → synthesize, plus `where`-filter patterns, anti-patterns, and when NOT to use it) lives in the `search-lossless-corpus` skill, which auto-loads when the question matches the trigger shapes. This block is the backstop so the corpus is known to exist even when the skill description does not match.
+
+Ingestion lives under `ai-labs/context-vigilance-kit/scripts/` (`ingest-all.sh` is the master). Do not re-ingest as a side effect of unrelated work — the user runs it deliberately.
