@@ -210,7 +210,7 @@ async def curate_sources(request: CurateSourcesRequest) -> dict:
     return {
         "firm": firm,
         "deal": deal,
-        "output_dir": str(result.output_dir),
+        "output_dir": str(result.output_dir.resolve()),
         "versions_scanned": result.versions_scanned,
         "total_unique_sources": result.total_unique_sources,
         "total_section_entries": result.total_section_entries,
