@@ -298,8 +298,11 @@ def validate_citation(citation_num: str, citation_text: str) -> Tuple[List[Dict[
             "message": f"Invalid date format: {str(e)}"
         })
 
-    # 4. Check URL accessibility (optional - can be slow)
-    if extracted_url and len(issues) == 0:  # Only check URL if no other issues
+    # 4. Check URL accessibility — runs on every citation with a URL,
+    # regardless of other issues. The prior `len(issues) == 0` guard
+    # self-disabled this check on most real citations because date
+    # warnings are common, masking the very URL failures we cared about.
+    if extracted_url:
         try:
             req = urllib.request.Request(
                 extracted_url,

@@ -32,10 +32,7 @@ Runs BEFORE: writer
 
 import re
 import json
-import urllib.request
-import urllib.error
-import ssl
-import time
+import httpx
 from typing import Dict, Any, List, Tuple, Set
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -59,52 +56,128 @@ HALLUCINATION_PATTERNS = [
     r'\{[^}]+\}',              # Template variables like {article-id}
 ]
 
+# HTTP 200 body phrases that indicate the page is actually missing.
+# Used by validate_url() to catch "soft 404s" — pages that return a
+# successful status code but whose body says the content is gone.
+SOFT_404_PHRASES = [
+    "page not found",
+    "we couldn't find",
+    "we can't find that page",
+    "this article is no longer available",
+    "this content is no longer available",
+    "page has moved or been removed",
+    "this content doesn't exist",
+    "the page you're looking for",
+    "oops! that page",
+    "sorry, this article",
+    "404 - not found",
+]
+
+# HTTP 200 body phrases that indicate a paywall or login wall.
+# Until a reputable-publisher allow-list is wired (Phase 1 step 4 of the
+# Trustworthy-Citations rollout plan), all paywalled responses are dropped.
+PAYWALL_PHRASES = [
+    "sign in to continue reading",
+    "sign in to read",
+    "subscribe to continue",
+    "subscribe to read",
+    "this content is for subscribers",
+    "log in to read",
+    "create an account to continue",
+    "start your free trial",
+    "register to read",
+    "become a subscriber",
+]
+
+# Sentinel codes returned by validate_url() for content-based verdicts.
+# Kept negative to avoid any collision with real HTTP status codes.
+HALLUCINATION_PATTERN = -1
+SOFT_404_BODY = -2
+PAYWALL_STUB = -3
+
+# Codes that mean "drop this citation outright" (no analyst review).
+CONTENT_INVALID_CODES = {HALLUCINATION_PATTERN, SOFT_404_BODY, PAYWALL_STUB}
+
 
 def validate_url(url: str, timeout: int = 8) -> Tuple[str, int, str]:
     """
-    Validate a single URL by making an HTTP request.
+    Validate a URL by fetching it and inspecting both status code and body.
+
+    Three layers of check:
+      1. Hallucination-pattern preflight (regex; no network call).
+      2. HTTPS GET with a Range header (read first ~32KB). Follow redirects.
+      3. For HTTP 200 with an HTML body, sniff for soft-404 / paywall phrases.
+
+    Non-HTML responses (PDF, JSON, plain text) are not body-sniffed — a 200
+    from a real PDF is a real source.
 
     Args:
         url: URL to validate
         timeout: Request timeout in seconds
 
     Returns:
-        Tuple of (url, http_code, status_message)
-        http_code is 0 for connection errors, -1 for hallucination patterns
+        Tuple of (url, code, status_message), where code is:
+          - real HTTP status code (200, 404, 500, ...) for actual responses
+          - HALLUCINATION_PATTERN (-1) for preflight regex matches
+          - SOFT_404_BODY (-2)         HTTP 200 but body says the page is gone
+          - PAYWALL_STUB (-3)          HTTP 200 but body is a paywall / login wall
+          - 0                          connection failure / unexpected error
     """
-    # Check for obvious hallucination patterns first
+    # Layer 1: hallucination-pattern preflight (no network)
     for pattern in HALLUCINATION_PATTERNS:
         if re.search(pattern, url, re.IGNORECASE):
-            return (url, -1, f"Hallucination pattern detected: {pattern}")
+            return (url, HALLUCINATION_PATTERN, f"Hallucination pattern: {pattern}")
 
+    # Layers 2 + 3: real HTTP GET with body sniff
     try:
-        # Create SSL context that doesn't verify (some sites have cert issues)
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-
-        req = urllib.request.Request(
-            url,
-            method='HEAD',  # Use HEAD to avoid downloading full content
+        with httpx.Client(
+            follow_redirects=True,
+            timeout=timeout,
+            verify=False,  # tolerate cert issues; we're not authenticating
             headers={
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-            }
-        )
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Range": "bytes=0-32768",
+            },
+        ) as client:
+            response = client.get(url)
 
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as response:
-            return (url, response.getcode(), "OK")
+        code = response.status_code
 
-    except urllib.error.HTTPError as e:
-        return (url, e.code, f"HTTP {e.code}")
+        # Non-2xx: report the code, no body sniff.
+        if code >= 400:
+            return (url, code, f"HTTP {code}")
 
-    except urllib.error.URLError as e:
-        # Connection failed - could be DNS, network, etc.
-        return (url, 0, f"Connection failed: {str(e.reason)[:50]}")
+        # Non-HTML responses (PDF, JSON, plain text, etc.) aren't body-sniffed.
+        content_type = response.headers.get("content-type", "").lower()
+        if "html" not in content_type:
+            return (url, code, f"HTTP {code} ({content_type or 'non-html'})")
 
+        # HTML body sniff
+        try:
+            body_text = response.text.lower()
+        except UnicodeDecodeError:
+            body_text = response.content.decode("utf-8", errors="ignore").lower()
+
+        for phrase in SOFT_404_PHRASES:
+            if phrase in body_text:
+                return (url, SOFT_404_BODY, f"Soft 404: body contains '{phrase}'")
+
+        for phrase in PAYWALL_PHRASES:
+            if phrase in body_text:
+                return (url, PAYWALL_STUB, f"Paywall: body contains '{phrase}'")
+
+        return (url, code, f"HTTP {code} (body verified)")
+
+    except httpx.HTTPError as e:
+        return (url, 0, f"HTTP error: {str(e)[:80]}")
     except Exception as e:
-        return (url, 0, f"Error: {str(e)[:50]}")
+        return (url, 0, f"Error: {str(e)[:80]}")
 
 
 def extract_citation_urls(content: str) -> Dict[str, str]:
@@ -590,7 +663,7 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
                 _, http_code, status = future.result()
                 validation_results[num] = (http_code, status)
 
-                if http_code == -1:  # Hallucination pattern
+                if http_code in CONTENT_INVALID_CODES:  # hallucination, soft-404, or paywall stub
                     invalid_citations.add(num)
                 elif http_code in INVALID_HTTP_CODES:
                     invalid_citations.add(num)
@@ -784,7 +857,7 @@ def remove_invalid_sources_standalone(output_dir: Path) -> Dict[str, Any]:
                 _, http_code, status = future.result()
                 validation_results[num] = (http_code, status)
 
-                if http_code == -1:
+                if http_code in CONTENT_INVALID_CODES:  # hallucination, soft-404, or paywall stub
                     invalid_citations.add(num)
                 elif http_code in INVALID_HTTP_CODES:
                     invalid_citations.add(num)

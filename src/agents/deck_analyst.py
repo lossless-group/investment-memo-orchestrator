@@ -8,7 +8,6 @@ that subsequent agents can build upon.
 from pathlib import Path
 from typing import Dict, List, Any
 from langchain_anthropic import ChatAnthropic
-from pypdf import PdfReader
 import json
 import base64
 import os
@@ -521,14 +520,18 @@ IMPORTANT:
 
 
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """Extract text from PDF using pypdf."""
-    reader = PdfReader(pdf_path)
+    """Extract text from PDF using PyMuPDF (fitz).
+
+    Switched from pypdf — fitz is already a hard dep here (used by
+    extract_deck_screenshots) and pypdf is not installed in the .venv.
+    For image-based PDFs both libs return empty strings; the <1000-char
+    threshold in analyze_deck then routes to analyze_pdf_with_vision.
+    """
     text_content = []
-
-    for page_num, page in enumerate(reader.pages, 1):
-        page_text = page.extract_text()
-        text_content.append(f"--- PAGE {page_num} ---\n{page_text}\n")
-
+    with fitz.open(pdf_path) as doc:
+        for page_num, page in enumerate(doc, 1):
+            page_text = page.get_text() or ""
+            text_content.append(f"--- PAGE {page_num} ---\n{page_text}\n")
     return "\n".join(text_content)
 
 

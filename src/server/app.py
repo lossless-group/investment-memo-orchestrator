@@ -8,6 +8,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -225,6 +226,144 @@ async def curate_sources(request: CurateSourcesRequest) -> dict:
     }
 
 
+@app.get("/firms/{firm}/deals/{deal}/config")
+async def get_deal_config(firm: str, deal: str) -> dict:
+    """Return the parsed deal config for a firm-scoped deal.
+
+    Used by the desktop UI's "Run MemoPop" action on an already-configured deal:
+    the client replays these fields back into POST /memos so the run honors
+    everything the user (or a prior session) put in deal.json — url, notes,
+    deck, trademarks, outline, scorecard — instead of running with bare defaults.
+
+    Resolution mirrors resolve_deal_context: accepts either
+    io/{firm}/deals/{deal}/inputs/deal.json (canonical) or
+    io/{firm}/deals/{deal}/{deal}.json (hand-rolled, Metabologic convention).
+    """
+    from ..paths import resolve_deal_context, load_deal_config
+
+    if not firm or "/" in firm or ".." in firm:
+        raise HTTPException(status_code=400, detail="invalid firm slug")
+    if not deal or "/" in deal or ".." in deal:
+        raise HTTPException(status_code=400, detail="invalid deal slug")
+
+    ctx = resolve_deal_context(deal, firm=firm)
+    if not ctx.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"deal config not found for {firm}/{deal}",
+        )
+    try:
+        config = load_deal_config(ctx)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return {
+        "firm": firm,
+        "deal": deal,
+        "config_path": str(ctx.deal_json_path) if ctx.deal_json_path else None,
+        "config": config,
+    }
+
+
+class ExportMemoRequest(BaseModel):
+    firm: str
+    deal: str
+    version: Optional[str] = None  # None → latest
+    mode: Literal["light", "dark"] = "dark"
+    pdf: bool = True
+
+
+@app.post("/actions/export-memo")
+async def export_memo(request: ExportMemoRequest) -> dict:
+    """Render a memo version to branded HTML (and optionally PDF).
+
+    Shells out to cli/export_branded.py because that script already orchestrates
+    pandoc + the branding module + WeasyPrint with all the brand-config edge
+    cases handled. Going through a subprocess (vs. importing main()) avoids
+    sys.argv contamination and process-wide pandoc state.
+
+    Writes to io/{firm}/deals/{deal}/exports/{mode}/. Returns the resolved
+    file paths so the UI can offer "Open in Finder" / "Open file" actions.
+    """
+    import asyncio
+    import subprocess
+    from ..paths import get_io_root
+
+    firm = request.firm.strip()
+    deal = request.deal.strip()
+    if not firm or "/" in firm or ".." in firm:
+        raise HTTPException(status_code=400, detail="invalid firm slug")
+    if not deal or "/" in deal or ".." in deal:
+        raise HTTPException(status_code=400, detail="invalid deal slug")
+
+    repo_root = Path(__file__).resolve().parents[2]
+    venv_python = repo_root / ".venv" / "bin" / "python"
+    script = repo_root / "cli" / "export_branded.py"
+    if not venv_python.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"orchestrator venv python not found at {venv_python}",
+        )
+
+    cmd: list[str] = [
+        str(venv_python), str(script),
+        "--firm", firm,
+        "--deal", deal,
+        "--mode", request.mode,
+    ]
+    if request.version:
+        cmd += ["--version", request.version]
+    if request.pdf:
+        cmd.append("--pdf")
+
+    def _run() -> subprocess.CompletedProcess:
+        return subprocess.run(
+            cmd,
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="export timed out after 300s")
+
+    if result.returncode != 0:
+        # Surface the script's stderr/stdout in the message so the UI can show
+        # the user what went wrong (missing 4-final-draft.md, brand config not
+        # found, WeasyPrint dylib issue, etc.).
+        tail = (result.stderr or result.stdout or "").strip().splitlines()[-20:]
+        raise HTTPException(
+            status_code=500,
+            detail="export_branded.py failed:\n" + "\n".join(tail),
+        )
+
+    # Discover the files just written. The script always lands them under
+    # exports/{mode}/ for firm-scoped runs.
+    exports_dir = get_io_root() / firm / "deals" / deal / "exports" / request.mode
+    html_files = sorted(exports_dir.glob("*.html")) if exports_dir.exists() else []
+    pdf_files = sorted(exports_dir.glob("*.pdf")) if exports_dir.exists() else []
+
+    # Prefer the just-modified files (most recent mtime) in case older exports
+    # are also present.
+    def _newest(paths: list[Path]) -> Optional[str]:
+        if not paths:
+            return None
+        return str(max(paths, key=lambda p: p.stat().st_mtime).resolve())
+
+    return {
+        "firm": firm,
+        "deal": deal,
+        "mode": request.mode,
+        "version": request.version,
+        "exports_dir": str(exports_dir.resolve()),
+        "html_path": _newest(html_files),
+        "pdf_path": _newest(pdf_files) if request.pdf else None,
+        "log_tail": (result.stdout or "").strip().splitlines()[-30:],
+    }
+
+
 _FS_HOSTILE_RE = re.compile(r'[\/\\:*?"<>|\x00-\x1f]')
 
 
@@ -300,10 +439,15 @@ def scaffold_firm_deal_dir(request: CreateMemoRequest) -> None:
     deal_dir = io_root / request.firm / "deals" / request.company_name
     inputs_dir = deal_dir / "inputs"
     deal_json = inputs_dir / "deal.json"
+    # Hand-rolled deals (Metabologic convention) put the config at
+    # {deal_dir}/{deal_name}.json instead of inputs/deal.json — resolve_deal_context
+    # accepts either. Don't shadow that file by writing a partial inputs/deal.json
+    # from the POST payload; the on-disk version has richer notes/url/trademarks.
+    legacy_deal_json = deal_dir / f"{request.company_name}.json"
 
     inputs_dir.mkdir(parents=True, exist_ok=True)
 
-    if deal_json.exists():
+    if deal_json.exists() or legacy_deal_json.exists():
         return
 
     config: dict[str, object] = {
