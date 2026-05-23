@@ -501,12 +501,26 @@ def perplexity_section_researcher_agent(state: MemoState) -> Dict[str, Any]:
     that include inline citations and citation lists. The writer will then polish
     these research files while preserving all citations.
 
+    Codified-source short-circuit: if the deal has
+    `inputs/Sources.md` with `mode: codified`, this agent delegates the
+    entire per-section research step to `codified_section_researcher_agent`
+    and skips Perplexity. The analyst's hand-curated source list replaces
+    broad search end-to-end.
+
     Args:
         state: Current memo state
 
     Returns:
         Updated state with section research completed
     """
+    # Codified-source short-circuit must run before any Perplexity setup so
+    # we don't burn an API key check or outline load if the analyst has
+    # written Sources.md.
+    from .codified_section_researcher import codified_section_researcher_agent
+    codified_result = codified_section_researcher_agent(state)
+    if codified_result is not None:
+        return codified_result
+
     company_name = state["company_name"]
     firm = state.get("firm")
     company_description = state.get("company_description", "")
