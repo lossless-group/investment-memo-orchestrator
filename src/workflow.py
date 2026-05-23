@@ -39,6 +39,7 @@ from .agents.perplexity_section_researcher import perplexity_section_researcher_
 from .agents.competitive_landscape_researcher import competitive_landscape_researcher  # 4b. Competitive landscape discovery
 from .agents.competitive_landscape_evaluator import competitive_landscape_evaluator    # 4c. Competitive landscape evaluation
 from .agents.citation_enrichment import citation_enrichment_agent                # 5. Citation enrichment on research
+from .agents.source_aggregator import source_aggregator_agent                    # 6. Aggregate URLs → Sources.md draft; HALT for analyst curation (unless codified)
 from .agents.writer import writer_agent                                          # 7. Section-by-section writing
 from .agents.inject_deck_images import inject_deck_images_agent                  # 8. Inject deck screenshots
 from .agents.trademark_enrichment import trademark_enrichment_agent              # 9. Company trademark insertion
@@ -461,6 +462,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("competitive_researcher", competitive_landscape_researcher)  # Competitive landscape discovery
     workflow.add_node("competitive_evaluator", competitive_landscape_evaluator)    # Competitive landscape evaluation
     workflow.add_node("cleanup_research", cleanup_research_citations)  # GATE 1: Clean research citations BEFORE writer
+    workflow.add_node("aggregate_sources", source_aggregator_agent)    # Aggregate broad-search URLs into a curated Sources.md draft; HALT for analyst (unless codified mode active)
     workflow.add_node("draft", writer_agent)
     workflow.add_node("inject_deck_images", inject_deck_images_agent)  # Inject screenshots from deck into 2-sections/
     workflow.add_node("enrich_trademark", trademark_enrichment_agent)  # Company trademark insertion
@@ -526,7 +528,8 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("competitive_researcher", "competitive_evaluator")  # Evaluate and classify competitors
     workflow.add_edge("competitive_evaluator", "cite")  # Enrich research with additional citations (preserves existing)
     workflow.add_edge("cite", "cleanup_research")      # GATE 1: Validate ALL citations before writer
-    workflow.add_edge("cleanup_research", "draft")     # Writer receives CLEAN, citation-enriched research
+    workflow.add_edge("cleanup_research", "aggregate_sources")  # Aggregate URLs into Sources.md draft; halts for curation unless codified mode active
+    workflow.add_edge("aggregate_sources", "draft")    # Writer receives CLEAN, validated, (post-curation) research
     workflow.add_edge("draft", "inject_deck_images")  # Inject deck screenshots into 2-sections/
     workflow.add_edge("inject_deck_images", "enrich_trademark")  # Then insert company trademark
     workflow.add_edge("enrich_trademark", "enrich_socials")
