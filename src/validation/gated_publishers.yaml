@@ -1,0 +1,157 @@
+# Reputable publishers whose paywalled / login-walled content is treated as
+# `verified-gated` rather than dropped during URL validation. Also serves as
+# the seed list for URL-drift recovery's `site:<domain>` queries and as an
+# input to per-section `preferred_sources` blocks in outlines.
+#
+# Used by:
+#   - src/agents/remove_invalid_sources.py (validate_url body-sniff allow-list)
+#   - src/validation/url_recovery.py        (Step 5 recovery queries)
+#   - src/agents/research_enhanced.py       (codified Sources.md defaults)
+#   - templates/outlines/*.yaml             (per-section preferred_sources)
+#
+# Categories are advisory — the validator only consumes `domains`. Categories
+# help with per-section routing (e.g., Team sections favor professional
+# socials, Market Context sections favor analyst firms).
+#
+# Conservative by design — this list grows when a real source clears the
+# bar, not on speculation. If you're adding a publisher, leave a `notes`
+# field if there's anything non-obvious about how the validator should
+# treat it (e.g., frequent URL drift, hosted-under-shared-domain).
+
+publishers:
+
+  # ──────────────── Tier-1 news ────────────────
+
+  - name: "Wall Street Journal"
+    domains: [wsj.com]
+    category: news
+
+  - name: "Financial Times"
+    domains: [ft.com]
+    category: news
+
+  - name: "New York Times"
+    domains: [nytimes.com]
+    category: news
+
+  - name: "Washington Post"
+    domains: [washingtonpost.com]
+    category: news
+
+  - name: "The Economist"
+    domains: [economist.com]
+    category: news
+
+  - name: "Reuters"
+    domains: [reuters.com]
+    category: news
+
+  - name: "Bloomberg"
+    domains: [bloomberg.com]
+    category: news
+    notes: "Paywalled by default; legitimate financial primary source."
+
+  - name: "CNBC"
+    domains: [cnbc.com]
+    category: news
+
+  - name: "Forbes"
+    domains: [forbes.com]
+    category: news
+
+  - name: "Inc Magazine"
+    domains: [inc.com]
+    category: news
+
+  - name: "Wired"
+    domains: [wired.com]
+    category: news
+
+  - name: "The Atlantic"
+    domains: [theatlantic.com]
+    category: news
+    notes: "Formerly 'Atlantic Monthly'."
+
+  - name: "The New Republic"
+    domains: [newrepublic.com]
+    category: news
+
+  - name: "TechCrunch"
+    domains: [techcrunch.com]
+    category: trade-press
+
+  # ──────────────── Industry analyst firms ────────────────
+
+  - name: "McKinsey & Company"
+    domains: [mckinsey.com]
+    category: analyst
+    notes: "Frequent URL drift — high-value Step 5 recovery target. Real reports often subscription-walled."
+
+  - name: "McKinsey Global Institute"
+    domains: [mckinsey.com]
+    category: analyst
+    path_hints: ["/mgi", "/featured-insights/mckinsey-global-institute"]
+    notes: "Hosted under mckinsey.com; shares domain with McKinsey & Company. Brand-level distinction; path_hints aid future disambiguation."
+
+  - name: "Gartner"
+    domains: [gartner.com]
+    category: analyst
+    notes: "Real reports use canonical slug + ID; bare-ID URLs (gartner.com/en/documents/<id>$) are LLM fabrications caught upstream in HALLUCINATION_PATTERNS."
+
+  - name: "Forrester"
+    domains: [forrester.com]
+    category: analyst
+    notes: "Same pattern as Gartner — real reports have slug + RES-id; bare RES-id URLs are LLM fabrications."
+
+  - name: "CB Insights"
+    domains: [cbinsights.com]
+    category: analyst
+
+  - name: "Cambridge Associates"
+    domains: [cambridgeassociates.com]
+    category: analyst
+
+  - name: "PitchBook"
+    domains: [pitchbook.com]
+    category: analyst
+
+  - name: "Tracxn"
+    domains: [tracxn.com]
+    category: analyst
+
+  - name: "AlphaSense"
+    domains: [alpha-sense.com]
+    category: analyst
+
+  - name: "Accenture"
+    domains: [accenture.com]
+    category: analyst
+
+  # ──────────────── Public institutions / multilaterals ────────────────
+
+  - name: "The World Bank"
+    domains: [worldbank.org, documents1.worldbank.org]
+    category: institutional
+
+  - name: "OECD"
+    domains: [oecd.org, oecd-ilibrary.org]
+    category: institutional
+
+  - name: "US Small Business Administration"
+    domains: [sba.gov]
+    category: institutional
+
+  - name: "DARPA"
+    domains: [darpa.mil]
+    category: institutional
+
+  - name: "Future Investment Initiative"
+    domains: [fii-institute.org]
+    category: institutional
+    notes: "Event series + research institute (Saudi PIF)."
+
+  # ──────────────── Think tanks ────────────────
+
+  - name: "New America"
+    domains: [newamerica.org]
+    category: think-tank
