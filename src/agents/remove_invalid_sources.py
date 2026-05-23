@@ -463,7 +463,7 @@ def _swap_citation_url_in_file(
 
 
 def _run_recovery_pass(
-    invalid_citations: Set[str],
+    invalid_urls: Set[str],
     research_dir: Path,
     sections_dir: Path,
     output_dir: Path,
@@ -472,29 +472,29 @@ def _run_recovery_pass(
     indent: str = "",
 ) -> Tuple[Set[str], List[Dict[str, Any]]]:
     """
-    For each citation in `invalid_citations`, attempt URL-drift recovery.
-    For successful recoveries, swap the URL in all source files where that
-    citation appears.
+    For each invalid URL, attempt URL-drift recovery. For successful
+    recoveries, swap the URL in every source file where that URL appears
+    (under each file's own local citation number).
 
-    No-ops silently if `invalid_citations` is empty or if `TAVILY_API_KEY`
-    is unset (a single warning is printed in the latter case so the analyst
+    No-ops silently if `invalid_urls` is empty or if `TAVILY_API_KEY` is
+    unset (a single warning is printed in the latter case so the analyst
     knows why no recoveries happened).
 
     Args:
-        invalid_citations: Set of citation numbers classified as invalid by
-            the validator. NOT mutated — caller does set arithmetic on the
-            returned recovered set.
+        invalid_urls: Set of URLs classified as invalid by the validator.
+            NOT mutated — caller does set arithmetic on the returned
+            recovered set.
         research_dir / sections_dir / output_dir: Standard agent dirs.
-        citation_details: Optional pre-collected list (from
-            `_collect_all_citation_details`). If absent, collected here.
-        indent: Prefix for terminal output lines, so the agent path (2-space
-            indent) and the CLI path (no indent) align naturally.
+        citation_details: Optional pre-collected per-occurrence rows
+            (from `_collect_all_citation_details`). If absent, collected here.
+        indent: Prefix for terminal output lines, so the agent path
+            (2-space indent) and the CLI path (no indent) align naturally.
 
     Returns:
-        (recovered_citations, recoveries_log) where recoveries_log is a list
-        of records ready to drop into the source-validation log JSON.
+        (recovered_urls, recoveries_log) where recoveries_log is a list of
+        records ready to drop into the source-validation log JSON.
     """
-    if not invalid_citations:
+    if not invalid_urls:
         return set(), []
 
     if not os.environ.get("TAVILY_API_KEY"):
@@ -512,26 +512,29 @@ def _run_recovery_pass(
             research_dir, sections_dir, output_dir,
         )
 
-    # Group details by citation_num (a citation may appear in multiple files;
-    # all rows share the same metadata, but we need every source_path to
-    # rewrite each occurrence).
-    details_by_num: Dict[str, List[Dict[str, Any]]] = {}
+    # Group per-occurrence rows by URL. A single URL may appear in multiple
+    # files under different per-file local citation numbers; all rows share
+    # the same metadata (title/publisher/etc.) but each carries its own
+    # source_path + local citation_num for the file rewrite step.
+    rows_by_url: Dict[str, List[Dict[str, Any]]] = {}
     for detail in citation_details:
-        details_by_num.setdefault(detail["citation_num"], []).append(detail)
+        url = detail.get("url")
+        if url:
+            rows_by_url.setdefault(url, []).append(detail)
 
-    recovered_citations: Set[str] = set()
+    recovered_urls: Set[str] = set()
     recoveries: List[Dict[str, Any]] = []
 
     print(
         f"\n{indent}🔄 Attempting URL-drift recovery for "
-        f"{len(invalid_citations)} invalid citation(s)..."
+        f"{len(invalid_urls)} invalid URL(s)..."
     )
 
-    for num in sorted(invalid_citations, key=int):
-        rows = details_by_num.get(num)
+    for url in sorted(invalid_urls):
+        rows = rows_by_url.get(url, [])
         if not rows:
             continue
-        first = rows[0]
+        first = rows[0]  # all rows for this URL share metadata
         if not first.get("title"):
             continue  # No title → no query → no recovery
 
@@ -540,35 +543,36 @@ def _run_recovery_pass(
             publisher=first.get("publisher", ""),
             author=first.get("author", ""),
             published_date=first.get("published_date", ""),
-            original_url=first.get("url", ""),
+            original_url=url,
         )
 
         result = attempt_url_recovery(metadata)
         if not result:
             continue
 
-        # Swap the URL in every file where this citation appears
+        # Swap the URL in every file where this URL appears, using each
+        # file's own local citation number.
         for row in rows:
             source_path_str = row.get("source_path")
             if not source_path_str:
                 continue
             _swap_citation_url_in_file(
                 Path(source_path_str),
-                num,
-                metadata.original_url,
+                row["citation_num"],
+                url,
                 result.recovered_url,
             )
 
-        recovered_citations.add(num)
+        recovered_urls.add(url)
         recoveries.append({
-            "citation_num": num,
-            "original_url": metadata.original_url,
+            "original_url": url,
             "recovered_url": result.recovered_url,
             "claimed_title": result.claimed_title,
             "matched_title": result.matched_title,
             "jaccard": result.jaccard,
             "via_query": result.via_query,
             "via_provider": result.via_provider,
+            "files_swapped": sorted({r["source_file"] for r in rows if r.get("source_file")}),
         })
 
     if recoveries:
@@ -576,60 +580,64 @@ def _run_recovery_pass(
             f"\n{indent}✨ Recovered URLs (source legitimate, URL had drifted):"
         )
         for rec in recoveries:
-            print(
-                f"{indent}  [^{rec['citation_num']}] title match "
-                f"{rec['jaccard']:.2f}"
-            )
+            print(f"{indent}  title match {rec['jaccard']:.2f}")
             print(f"{indent}    old: {rec['original_url'][:80]}")
             print(f"{indent}    new: {rec['recovered_url'][:80]}")
+            if rec.get("files_swapped"):
+                print(f"{indent}    files: {', '.join(rec['files_swapped'])}")
     else:
         print(f"{indent}  (no recoveries this run)")
 
-    return recovered_citations, recoveries
+    return recovered_urls, recoveries
 
 
 def write_redacted_hallucinations_log(
     output_dir: Path,
-    invalid_citations: Set[str],
+    invalid_urls: Set[str],
     citation_details: List[Dict[str, Any]],
     validation_results: Dict[str, Tuple[int, str]],
     *,
-    citation_urls: Optional[Dict[str, str]] = None,
     deal: str = "",
     firm: str = "",
 ) -> Optional[Path]:
     """
-    Write a markdown file documenting each dropped citation so the analyst
-    can investigate manually — google the claimed title, find the real source
-    if one exists, and re-insert it (via a future `inputs/Sources.md` or by
-    direct edit).
+    Write a markdown worksheet documenting each dropped URL so the analyst
+    can investigate manually — google the claimed title, find the real
+    source if one exists, and re-insert it via a future `inputs/Sources.md`
+    or by direct edit.
 
     The premise: a dropped URL doesn't always mean a dropped *source*. The
-    LLM may have fabricated the URL while the underlying article it was
-    trying to cite actually exists. Recovery (Step 5) catches the easy
-    drifted-URL cases automatically; this log captures the rest so the
-    analyst has a clear worksheet rather than a black hole.
+    LLM may have fabricated the URL while the underlying article actually
+    exists. Recovery (Step 5) catches the easy drifted-URL cases
+    automatically; this log captures the rest so the analyst has a clear
+    worksheet rather than a black hole.
 
     Args:
         output_dir: Where to write `redacted-hallucinations.md`.
-        invalid_citations: Post-recovery set of citation numbers that got
-            dropped (recovered citations are NOT included).
-        citation_details: Full citation details (one row per file occurrence).
-        validation_results: Per-citation `(http_code, status_text)` from validate_url.
+        invalid_urls: Set of URLs that got dropped (post-recovery; recovered
+            URLs are NOT included).
+        citation_details: Per-occurrence rows from
+            `_collect_all_citation_details`. One URL may have many rows (the
+            same URL appearing in multiple files under different local
+            citation numbers); each row contributes to the per-card
+            "Appeared in" list.
+        validation_results: URL-keyed `{url: (http_code, status_text)}`.
         deal: Optional deal name for the frontmatter.
         firm: Optional firm slug for the frontmatter.
 
     Returns:
-        Path to the written file, or None if nothing was dropped.
+        Path to the written file, or None if `invalid_urls` is empty.
     """
-    if not invalid_citations:
+    if not invalid_urls:
         return None
 
-    # Group details by citation_num so we can list all source files where
-    # each dropped citation appeared.
-    details_by_num: Dict[str, List[Dict[str, Any]]] = {}
+    # Group per-occurrence rows by URL. Each invalid URL produces one card;
+    # all (file, num) pairs for that URL go into the card's "Appeared in" list.
+    rows_by_url: Dict[str, List[Dict[str, Any]]] = {}
     for detail in citation_details:
-        details_by_num.setdefault(detail["citation_num"], []).append(detail)
+        url = detail.get("url")
+        if url:
+            rows_by_url.setdefault(url, []).append(detail)
 
     today = datetime.now().date().isoformat()
 
@@ -643,7 +651,7 @@ def write_redacted_hallucinations_log(
         lines.append(f"firm: {firm}")
     lines.append(f"date_created: {today}")
     lines.append(f"date_modified: {today}")
-    lines.append(f"total_dropped: {len(invalid_citations)}")
+    lines.append(f"total_dropped: {len(invalid_urls)}")
     lines.append("category: Redaction-Log")
     lines.append("---")
     lines.append("")
@@ -663,65 +671,61 @@ def write_redacted_hallucinations_log(
     )
     lines.append("")
 
-    for num in sorted(invalid_citations, key=int):
-        rows = details_by_num.get(num, [])
+    for url in sorted(invalid_urls):
+        rows = rows_by_url.get(url, [])
+        http_code, status_text = validation_results.get(url, (0, "unknown"))
+
         if not rows:
-            # Shouldn't normally happen — citation was dropped but never
-            # collected. Surface a minimal entry so the analyst sees the loss.
-            http_code, status_text = validation_results.get(num, (0, "unknown"))
-            lines.append(f"## [^{num}] — {status_text}")
+            # URL classified invalid but isn't in citation_details. Shouldn't
+            # happen normally; surface a minimal entry so the loss is visible.
+            lines.append(f"## (no metadata) — {url[:80]}")
             lines.append("")
-            lines.append(f"**Verdict:** `{status_text}` (HTTP code: `{http_code}`)")
-            lines.append("")
-            lines.append("*(No citation details collected — investigate `state.json` or the original 2-sections/ files.)*")
+            lines.append(f"- **Original URL:** <{url}>")
+            lines.append(f"- **Verdict:** `{status_text}` (HTTP code: `{http_code}`)")
+            lines.append(
+                "- **Appeared in:** *(no citation_details row found — inspect "
+                "state.json or the original 2-sections/ files)*"
+            )
             lines.append("")
             lines.append("---")
             lines.append("")
             continue
 
-        # Disambiguate when the same citation_num is reused across files
-        # with different URLs (per-file numbering, not globally unique).
-        # Prefer the row whose URL matches the one that was actually
-        # validated (citation_urls[num]); fall back to the first row.
-        validated_url = (citation_urls or {}).get(num, "")
-        chosen_row = next(
-            (r for r in rows if r.get("url") == validated_url),
-            rows[0],
-        )
-        url = chosen_row.get("url", "") or validated_url
-        title = chosen_row.get("title", "")
-        publisher = chosen_row.get("publisher", "")
-        published_date = chosen_row.get("published_date", "")
-        http_code, status_text = validation_results.get(num, (0, "unknown"))
-        # Source-file list: only the files where the validated URL actually
-        # appeared, not every file that happened to use the same [^N].
-        if validated_url:
-            relevant_rows = [r for r in rows if r.get("url") == validated_url] or rows
-        else:
-            relevant_rows = rows
-        source_files = sorted({r.get("source_file", "") for r in relevant_rows if r.get("source_file")})
+        # All rows for this URL share the same metadata; pick the first.
+        first = rows[0]
+        title = first.get("title", "")
+        publisher = first.get("publisher", "")
+        published_date = first.get("published_date", "")
+        # Per-file occurrence list with each file's own local citation number.
+        appearances = sorted({
+            (r.get("source_file", ""), r.get("citation_num", ""))
+            for r in rows
+            if r.get("source_file")
+        })
 
-        # Header: prefer title; fall back to citation number.
         if title:
-            lines.append(f"## [^{num}] — {title}")
+            lines.append(f"## {title}")
         else:
-            lines.append(f"## [^{num}] — (no title extracted)")
+            lines.append(f"## (no title extracted) — {url[:60]}")
         lines.append("")
 
-        if url:
-            lines.append(f"- **Original URL:** <{url}>")
+        lines.append(f"- **Original URL:** <{url}>")
         if publisher:
             lines.append(f"- **Claimed publisher:** {publisher}")
         if published_date:
             lines.append(f"- **Claimed published date:** {published_date}")
         lines.append(f"- **Verdict:** `{status_text}` (HTTP code: `{http_code}`)")
-        if source_files:
-            lines.append("- **Appeared in:** " + ", ".join(f"`{f}`" for f in source_files))
+        if appearances:
+            apps_str = ", ".join(f"`{f}` [^{n}]" for f, n in appearances)
+            lines.append(f"- **Appeared in:** {apps_str}")
 
         # Recovery-attempted note. _run_recovery_pass only attempts when title
         # is present; mirror that here so the analyst knows what happened.
         if title:
-            lines.append("- **Recovery attempt:** Tavily searched, no candidate cleared the title-match threshold of 0.6 Jaccard.")
+            lines.append(
+                "- **Recovery attempt:** Tavily searched, no candidate "
+                "cleared the title-match threshold of 0.6 Jaccard."
+            )
         else:
             lines.append("- **Recovery attempt:** Skipped — no title available to search.")
         lines.append("")
@@ -730,7 +734,7 @@ def write_redacted_hallucinations_log(
         if title:
             q_general = quote_plus(f'"{title}"')
             lines.append(f"**Google:** <https://www.google.com/search?q={q_general}>")
-            host = _extract_host(url) if url else ""
+            host = _extract_host(url)
             if host:
                 q_site = quote_plus(f'"{title}" site:{host}')
                 lines.append("")
@@ -783,27 +787,30 @@ def save_source_validation_log(
     log_entries = []
 
     for detail in citation_details:
-        num = detail["citation_num"]
-        http_code, status_text = validation_results.get(num, (0, "not checked"))
+        num = detail["citation_num"]                    # per-file local number
+        url = detail.get("url", "")                     # globally-unique key
+        # validation_results is URL-keyed (one entry per unique URL the
+        # validator processed). Per-row status is decided by URL membership.
+        http_code, status_text = validation_results.get(url, (0, "not checked"))
 
         # Order matters: recovered > gated > valid. Gated is a subset of valid;
         # we want the more specific label to win.
-        if num in recovered_citations:
+        if url in recovered_citations:
             validation_status = "recovered"
-        elif num in gated_citations:
+        elif url in gated_citations:
             validation_status = "verified-gated"
-        elif num in valid_citations:
+        elif url in valid_citations:
             validation_status = "valid"
-        elif num in invalid_citations:
+        elif url in invalid_citations:
             validation_status = "removed"
-        elif num in potentially_valid:
+        elif url in potentially_valid:
             validation_status = "uncertain"
         else:
             validation_status = "not checked"
 
         log_entries.append({
             "citation_num": num,
-            "url": detail.get("url", ""),
+            "url": url,
             "title": detail.get("title", ""),
             "publisher": detail.get("publisher", ""),
             "author": detail.get("author", ""),
@@ -822,12 +829,13 @@ def save_source_validation_log(
     with open(log_path, "w") as f:
         json.dump({
             "gate": gate_name,
-            "total_sources": len(log_entries),
-            "valid": len(valid_citations),
-            "gated": len(gated_citations),
-            "removed": len(invalid_citations),
-            "uncertain": len(potentially_valid),
-            "recovered": len(recovered_citations),
+            "total_sources": len(log_entries),                # per-occurrence rows
+            "unique_urls_validated": len(validation_results), # distinct URLs the validator processed
+            "valid_urls": len(valid_citations),
+            "gated_urls": len(gated_citations),
+            "removed_urls": len(invalid_citations),
+            "uncertain_urls": len(potentially_valid),
+            "recovered_urls": len(recovered_citations),
             "sources": log_entries,
             "recoveries": recoveries,
         }, f, indent=2, ensure_ascii=False)
@@ -994,33 +1002,76 @@ def reorder_directory_citations(directory: Path) -> int:
 
 def collect_all_citation_urls(output_dir: Path) -> Dict[str, str]:
     """
-    Collect all citation URLs from research and section files.
+    Collect the set of UNIQUE citation URLs across all research/sections/header
+    files, keyed by URL (both key and value).
 
-    Args:
-        output_dir: Output directory path
+    Why URL-keyed:
+        Previously this returned `{citation_num: url}`. But per-file citation
+        numbers are NOT globally unique — every section file uses its own
+        local `[^1]` through `[^N]`. The old `.update()` merge collapsed
+        every later file's `[^1]` over the previous file's, throwing away
+        ~95% of the actual URLs before they could be validated. URL-keying
+        ensures every distinct URL gets validated exactly once.
 
     Returns:
-        Dict mapping citation number to URL
+        Dict mapping URL to URL (i.e. a set in dict form). The redundant
+        key=value shape is kept so callers that iterate `.items()` continue
+        to receive a `(something, url)` pair where the second element is
+        the URL to validate.
     """
-    all_citations = {}
+    # Source of truth for per-occurrence rows is _collect_all_citation_details;
+    # we just extract the unique URL set from it.
+    occurrences = _collect_all_citation_details(
+        output_dir / "1-research",
+        output_dir / "2-sections",
+        output_dir,
+    )
+    return {row["url"]: row["url"] for row in occurrences if row.get("url")}
 
-    # Collect from 1-research/ files
-    research_dir = output_dir / "1-research"
-    if research_dir.exists():
-        for f in research_dir.glob("*.md"):
-            content = f.read_text()
-            citations = extract_citation_urls(content)
-            all_citations.update(citations)
 
-    # Collect from 2-sections/ files
-    sections_dir = output_dir / "2-sections"
-    if sections_dir.exists():
-        for f in sections_dir.glob("*.md"):
-            content = f.read_text()
-            citations = extract_citation_urls(content)
-            all_citations.update(citations)
+def _per_file_nums_for_invalid_urls(
+    invalid_urls: Set[str],
+    occurrences: List[Dict[str, Any]],
+) -> Dict[Path, Set[str]]:
+    """
+    Given a set of invalid URLs and the list of all per-occurrence rows
+    (from `_collect_all_citation_details`), build a per-file map of citation
+    numbers to remove from each file.
 
-    return all_citations
+    A URL may appear in multiple files under different per-file local numbers;
+    this resolver finds every (file, num) pair referencing an invalid URL so
+    the existing per-file num remover can target each occurrence precisely.
+    """
+    per_file: Dict[Path, Set[str]] = {}
+    for row in occurrences:
+        if row.get("url") in invalid_urls and row.get("source_path"):
+            path = Path(row["source_path"])
+            per_file.setdefault(path, set()).add(row["citation_num"])
+    return per_file
+
+
+def remove_invalid_url_citations(
+    invalid_urls: Set[str],
+    occurrences: List[Dict[str, Any]],
+) -> Tuple[int, int]:
+    """
+    Remove every citation reference (and its definition) whose URL is in
+    `invalid_urls` from every file where it appears.
+
+    Returns:
+        (files_modified, total_refs_removed)
+    """
+    if not invalid_urls:
+        return (0, 0)
+
+    per_file = _per_file_nums_for_invalid_urls(invalid_urls, occurrences)
+    files_modified = 0
+    total_refs = 0
+    for path, nums in per_file.items():
+        if remove_invalid_citations_from_file(path, nums):
+            files_modified += 1
+            total_refs += len(nums)
+    return (files_modified, total_refs)
 
 
 def remove_invalid_citations_from_directory(directory: Path, invalid_citations: Set[str]) -> int:
@@ -1175,50 +1226,52 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
     print(f"  Validating URLs (parallel, {min(10, len(citation_urls))} workers)...")
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_citation = {
-            executor.submit(validate_url, url): (num, url)
-            for num, url in citation_urls.items()
+        # citation_urls is URL-keyed (see collect_all_citation_urls). Iterate
+        # the keys (= the unique URLs we need to validate).
+        future_to_url = {
+            executor.submit(validate_url, url): url
+            for url in citation_urls
         }
 
-        for future in as_completed(future_to_citation):
-            num, url = future_to_citation[future]
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
             try:
                 _, http_code, status = future.result()
-                validation_results[num] = (http_code, status)
+                validation_results[url] = (http_code, status)
 
                 if http_code in CONTENT_INVALID_CODES:  # hallucination, soft-404, or paywall stub
-                    invalid_citations.add(num)
+                    invalid_citations.add(url)
                 elif http_code == VERIFIED_GATED:
                     # Paywalled, but publisher is on the reputable allow-list.
                     # Counts as valid for downstream logic; tracked separately
                     # so the analyst sees "you have N sources behind paywalls."
-                    gated_citations.add(num)
-                    valid_citations.add(num)
+                    gated_citations.add(url)
+                    valid_citations.add(url)
                 elif http_code in INVALID_HTTP_CODES:
-                    invalid_citations.add(num)
+                    invalid_citations.add(url)
                 elif http_code in POTENTIALLY_VALID_CODES:
-                    potentially_valid.add(num)
+                    potentially_valid.add(url)
                 elif http_code == 0:  # Connection error
-                    potentially_valid.add(num)  # Keep but warn
+                    potentially_valid.add(url)  # Keep but warn
                 else:
-                    valid_citations.add(num)
+                    valid_citations.add(url)
 
             except Exception as e:
-                print(f"    Warning: Error validating [^{num}]: {e}")
-                potentially_valid.add(num)
+                print(f"    Warning: Error validating {url[:60]}: {e}")
+                potentially_valid.add(url)
 
     gated_note = f" ({len(gated_citations)} gated)" if gated_citations else ""
     print(
         f"  Results (pre-recovery): {len(valid_citations)} valid{gated_note}, "
-        f"{len(potentially_valid)} uncertain, {len(invalid_citations)} invalid"
+        f"{len(potentially_valid)} uncertain, {len(invalid_citations)} invalid "
+        f"(across {len(citation_urls)} unique URLs)"
     )
 
     if gated_citations:
         print("\n  🔒 Gated sources (kept, require subscription to verify):")
-        for num in sorted(gated_citations, key=int):
-            cit_url = citation_urls.get(num, "")
-            host = _extract_host(cit_url) or "?"
-            print(f"    [^{num}] {host} — {cit_url[:80]}")
+        for url in sorted(gated_citations):
+            host = _extract_host(url) or "?"
+            print(f"    {host} — {url[:80]}")
 
     # Collect full citation details (used by both recovery and the validation log)
     all_citation_details = _collect_all_citation_details(
@@ -1265,37 +1318,30 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
         print("  ✓ No invalid citations to remove")
         return {"messages": [msg]}
 
-    # Log remaining invalid citations
-    print(f"\n  🗑️  Removing {len(invalid_citations)} invalid citations:")
-    for num in sorted(invalid_citations, key=int):
-        code, status = validation_results.get(num, (0, "Unknown"))
-        url = citation_urls.get(num, "Unknown URL")
-        print(f"    [^{num}]: {status} - {url[:60]}...")
+    # Log remaining invalid URLs
+    print(f"\n  🗑️  Removing {len(invalid_citations)} invalid URL(s):")
+    for url in sorted(invalid_citations):
+        code, status = validation_results.get(url, (0, "Unknown"))
+        print(f"    {status} — {url[:80]}")
 
     # ═══════════════════════════════════════════════════════════════════
-    # STEP 2: REMOVE INVALID CITATIONS (NO RENUMBERING YET)
+    # STEP 2: REMOVE INVALID URL CITATIONS (NO RENUMBERING YET)
     # Files will have GAPS after this step - that's expected!
+    # We resolve each invalid URL to every (file, citation_num) pair it
+    # appears under, then remove those per-file numbers from those files.
     # ═══════════════════════════════════════════════════════════════════
 
-    print(f"\n  📝 PASS 1: Removing invalid citations (no renumbering)...")
+    print(f"\n  📝 PASS 1: Removing invalid URLs from source files (no renumbering)...")
+    files_modified, refs_removed = remove_invalid_url_citations(
+        invalid_citations, all_citation_details,
+    )
+    if refs_removed:
+        print(
+            f"    ✓ Removed {refs_removed} citation reference(s) "
+            f"across {files_modified} file(s)"
+        )
 
-    # Remove from 1-research/ files
-    if research_dir.exists():
-        research_removed = remove_invalid_citations_from_directory(research_dir, invalid_citations)
-        if research_removed:
-            print(f"    ✓ Removed citations from {research_removed} research files")
-
-    # Remove from 2-sections/ files
-    if sections_dir.exists():
-        sections_removed = remove_invalid_citations_from_directory(sections_dir, invalid_citations)
-        if sections_removed:
-            print(f"    ✓ Removed citations from {sections_removed} section files")
-
-    # Remove from header.md if it exists
     header_file = output_dir / "header.md"
-    if header_file.exists():
-        if remove_invalid_citations_from_file(header_file, invalid_citations):
-            print(f"    ✓ Removed citations from header.md")
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 3: REORDER CITATIONS (AFTER ALL REMOVAL IS COMPLETE)
@@ -1342,19 +1388,18 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
     # manually — the URL may be fabricated but the underlying source real.
     redacted_path = write_redacted_hallucinations_log(
         output_dir,
-        invalid_citations,
+        invalid_citations,           # URL set
         all_citation_details,
-        validation_results,
-        citation_urls=citation_urls,
+        validation_results,           # URL-keyed
         deal=company_name or "",
         firm=firm or "",
     )
     if redacted_path:
         print(f"  📝 Redaction worksheet saved: {redacted_path.name}")
 
-    # Calculate remaining citations
+    # Calculate remaining URLs (post-recovery, post-removal)
     remaining_count = len(citation_urls) - len(invalid_citations)
-    summary = f"Removed {len(invalid_citations)} invalid citations, {remaining_count} remaining"
+    summary = f"Removed {len(invalid_citations)} invalid URL(s), {remaining_count} remaining"
     if recovered_citations:
         summary += f" ({len(recovered_citations)} recovered to new URLs)"
     print(f"\n  ✅ {summary}")
@@ -1422,48 +1467,49 @@ def remove_invalid_sources_standalone(output_dir: Path) -> Dict[str, Any]:
     print(f"Validating URLs (parallel, {min(10, len(citation_urls))} workers)...")
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_citation = {
-            executor.submit(validate_url, url): (num, url)
-            for num, url in citation_urls.items()
+        # citation_urls is URL-keyed; iterate the unique URLs.
+        future_to_url = {
+            executor.submit(validate_url, url): url
+            for url in citation_urls
         }
 
-        for future in as_completed(future_to_citation):
-            num, url = future_to_citation[future]
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
             try:
                 _, http_code, status = future.result()
-                validation_results[num] = (http_code, status)
+                validation_results[url] = (http_code, status)
 
                 if http_code in CONTENT_INVALID_CODES:  # hallucination, soft-404, or paywall stub
-                    invalid_citations.add(num)
+                    invalid_citations.add(url)
                 elif http_code == VERIFIED_GATED:
                     # Paywalled, but publisher is on the reputable allow-list.
-                    gated_citations.add(num)
-                    valid_citations.add(num)
+                    gated_citations.add(url)
+                    valid_citations.add(url)
                 elif http_code in INVALID_HTTP_CODES:
-                    invalid_citations.add(num)
+                    invalid_citations.add(url)
                 elif http_code in POTENTIALLY_VALID_CODES:
-                    potentially_valid.add(num)
+                    potentially_valid.add(url)
                 elif http_code == 0:
-                    potentially_valid.add(num)
+                    potentially_valid.add(url)
                 else:
-                    valid_citations.add(num)
+                    valid_citations.add(url)
 
             except Exception as e:
-                print(f"  Warning: Error validating [^{num}]: {e}")
-                potentially_valid.add(num)
+                print(f"  Warning: Error validating {url[:60]}: {e}")
+                potentially_valid.add(url)
 
     gated_note = f" ({len(gated_citations)} gated)" if gated_citations else ""
     print(
         f"Results (pre-recovery): {len(valid_citations)} valid{gated_note}, "
-        f"{len(potentially_valid)} uncertain, {len(invalid_citations)} invalid"
+        f"{len(potentially_valid)} uncertain, {len(invalid_citations)} invalid "
+        f"(across {len(citation_urls)} unique URLs)"
     )
 
     if gated_citations:
         print("\n🔒 Gated sources (kept, require subscription to verify):")
-        for num in sorted(gated_citations, key=int):
-            cit_url = citation_urls.get(num, "")
-            host = _extract_host(cit_url) or "?"
-            print(f"  [^{num}] {host} — {cit_url[:80]}")
+        for url in sorted(gated_citations):
+            host = _extract_host(url) or "?"
+            print(f"  {host} — {url[:80]}")
 
     # Collect citation details NOW (pre-removal) so both recovery and the
     # redaction worksheet can reference the original citation rows. After
@@ -1501,30 +1547,25 @@ def remove_invalid_sources_standalone(output_dir: Path) -> Dict[str, Any]:
             "recoveries": recoveries,
         }
 
-    # Log remaining invalid citations
-    print(f"\n🗑️  Removing {len(invalid_citations)} invalid citations:")
-    for num in sorted(invalid_citations, key=int):
-        code, status = validation_results.get(num, (0, "Unknown"))
-        url = citation_urls.get(num, "Unknown URL")
-        print(f"  [^{num}]: {status} - {url[:60]}...")
+    # Log remaining invalid URLs
+    print(f"\n🗑️  Removing {len(invalid_citations)} invalid URL(s):")
+    for url in sorted(invalid_citations):
+        code, status = validation_results.get(url, (0, "Unknown"))
+        print(f"  {status} — {url[:80]}")
 
-    # PASS 1: Remove invalid citations
-    print(f"\n📝 PASS 1: Removing invalid citations...")
-
-    if research_dir.exists():
-        research_removed = remove_invalid_citations_from_directory(research_dir, invalid_citations)
-        if research_removed:
-            print(f"  ✓ Removed from {research_removed} research files")
-
-    if sections_dir.exists():
-        sections_removed = remove_invalid_citations_from_directory(sections_dir, invalid_citations)
-        if sections_removed:
-            print(f"  ✓ Removed from {sections_removed} section files")
+    # PASS 1: Remove invalid URL citations (resolves each invalid URL to
+    # every (file, citation_num) pair it appears under)
+    print(f"\n📝 PASS 1: Removing invalid URLs from source files...")
+    files_modified, refs_removed = remove_invalid_url_citations(
+        invalid_citations, cli_citation_details,
+    )
+    if refs_removed:
+        print(
+            f"  ✓ Removed {refs_removed} citation reference(s) "
+            f"across {files_modified} file(s)"
+        )
 
     header_file = output_dir / "header.md"
-    if header_file.exists():
-        if remove_invalid_citations_from_file(header_file, invalid_citations):
-            print(f"  ✓ Removed from header.md")
 
     # PASS 2: Reorder citations
     print(f"\n🔢 PASS 2: Reordering citations...")
@@ -1557,20 +1598,19 @@ def remove_invalid_sources_standalone(output_dir: Path) -> Dict[str, Any]:
             print(f"⚠️  Run manually: python -m cli.assemble_draft {output_dir}")
 
     # Write a worksheet for dropped citations so the analyst can investigate
-    # manually. Uses the citation_details collected BEFORE removal so per-
-    # citation_num lookups still point at the original rows.
+    # manually. Uses the citation_details collected BEFORE removal so the
+    # rows still anchor to the original URLs.
     redacted_path = write_redacted_hallucinations_log(
         output_dir,
-        invalid_citations,
+        invalid_citations,           # URL set
         cli_citation_details,
-        validation_results,
-        citation_urls=citation_urls,
+        validation_results,           # URL-keyed
     )
     if redacted_path:
         print(f"📝 Redaction worksheet saved: {redacted_path.name}")
 
     remaining = len(citation_urls) - len(invalid_citations)
-    summary_line = f"Removed {len(invalid_citations)} invalid citations, {remaining} remaining"
+    summary_line = f"Removed {len(invalid_citations)} invalid URL(s), {remaining} remaining"
     if recovered_citations:
         summary_line += f" ({len(recovered_citations)} recovered to new URLs)"
     print(f"\n✅ {summary_line}")
