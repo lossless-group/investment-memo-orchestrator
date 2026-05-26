@@ -587,6 +587,19 @@ sup {
         page-break-inside: avoid;
     }
 
+    /* TOC list items must be allowed to break across pages, otherwise the
+       outermost <li> (which contains all nested subsection items) is too tall
+       to fit on the partial page below the "Table of Contents" heading, and
+       WeasyPrint pushes the entire list to the next page — leaving the
+       heading stranded alone on its own page. Allow internal breaks so the
+       list flows immediately after the heading. */
+    #table-of-contents + ol,
+    #table-of-contents + ol li,
+    #table-of-contents + ol ol,
+    #table-of-contents + ol ol li {
+        page-break-inside: auto;
+    }
+
     a {
         color: var(--brand-secondary);
         border-bottom: none;

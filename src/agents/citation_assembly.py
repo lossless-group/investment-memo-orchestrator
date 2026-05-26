@@ -43,7 +43,7 @@ def extract_inline_citations(content: str) -> List[str]:
     ordered = []
 
     # Match both numeric and alphanumeric citation keys
-    for match in re.finditer(r'\[\^([a-zA-Z0-9_]+)\](?!:)', content):
+    for match in re.finditer(r'\[\^([a-zA-Z0-9_-]+)\](?!:)', content):
         key = match.group(1)
         if key not in seen:
             seen.add(key)
@@ -68,7 +68,7 @@ def extract_citation_definitions(content: str) -> Dict[str, str]:
 
     # Match citation definitions: [^key]: ... (until next [^ or end of content)
     # Handles numeric and alphanumeric keys
-    pattern = r'^\[\^([a-zA-Z0-9_]+)\]:\s*(.+?)(?=^\[\^|\Z)'
+    pattern = r'^\[\^([a-zA-Z0-9_-]+)\]:\s*(.+?)(?=^\[\^|\Z)'
 
     for match in re.finditer(pattern, content, re.MULTILINE | re.DOTALL):
         key = match.group(1)
@@ -97,14 +97,14 @@ def remove_citation_definitions_from_content(content: str) -> str:
 
     for line in lines:
         # Check if this line starts a citation definition (numeric or alphanumeric)
-        if re.match(r'^\[\^[a-zA-Z0-9_]+\]:', line):
+        if re.match(r'^\[\^[a-zA-Z0-9_-]+\]:', line):
             in_citation_block = True
             continue
 
         # Check if we're continuing a multi-line citation
         if in_citation_block:
             # If line is empty or starts with new citation, stay in block
-            if line.strip() == '' or re.match(r'^\[\^[a-zA-Z0-9_]+\]:', line):
+            if line.strip() == '' or re.match(r'^\[\^[a-zA-Z0-9_-]+\]:', line):
                 continue
             # If line starts with content (not indented continuation), exit block
             if not line.startswith(' ') and not line.startswith('\t'):
@@ -134,6 +134,26 @@ def renumber_inline_citations(content: str, old_to_new: Dict[str, str]) -> str:
 
     Handles both numeric and alphanumeric citation keys.
 
+    Uses a single-pass callable-based substitution so that each match is
+    independently rewritten based on the map. Two bugs the current
+    implementation defends against:
+
+    1. The previous sequential str.replace approach was vulnerable to a
+       cascading-replacement bug: when [^notes1] -> [^1] ran, the resulting
+       [^1] could then be caught by the next rule [^1] -> [^3], etc.,
+       collapsing many distinct citations to a single number. The single-pass
+       replacer below visits each marker exactly once.
+
+    2. The previous `(?!:)` negative lookahead also excluded inline citations
+       followed by an English colon — e.g., "three claims [^notes1]:" at the
+       end of a list-introducing sentence — leaving them as orphan markers
+       in the body. The fix here matches every [^X] marker, then asks "is
+       this actually a definition?" by checking for the structural pattern
+       of definitions: at the start of a line, followed by `: ` (colon and
+       space, which separates a definition's key from its body). Inline
+       citations at the end of an English sentence — even when followed by
+       a colon — are correctly renumbered.
+
     Args:
         content: Markdown content
         old_to_new: Mapping from old citation keys to new ones
@@ -144,25 +164,28 @@ def renumber_inline_citations(content: str, old_to_new: Dict[str, str]) -> str:
     if not old_to_new:
         return content
 
-    # Sort by key length descending to avoid replacement conflicts
-    # (replace [^deck] before [^1], and [^100] before [^10] before [^1])
-    def sort_key(key):
-        # Longer keys first, then by numeric value or alphabetically
-        try:
-            return (-len(key), int(key), '')
-        except ValueError:
-            return (-len(key), 0, key)
-
-    for old_key in sorted(old_to_new.keys(), key=sort_key):
-        new_key = old_to_new[old_key]
-        # Replace inline references [^key] (not definitions [^key]:)
-        content = re.sub(
-            rf'\[\^{re.escape(old_key)}\](?!:)',
-            f'[^{new_key}]',
-            content
+    def replacer(match: re.Match) -> str:
+        start = match.start()
+        end = match.end()
+        text = match.string
+        # A definition is `[^X]:` at the start of a line followed by a space.
+        # Inline citations at end-of-sentence (e.g., "claims [^X]:") are NOT
+        # at the start of a line and should be renumbered.
+        at_line_start = (start == 0 or text[start - 1] == '\n')
+        followed_by_colon_space = (
+            end + 1 < len(text)
+            and text[end] == ':'
+            and text[end + 1] in (' ', '\t')
         )
+        if at_line_start and followed_by_colon_space:
+            # Definition — leave the body as-is so format_citation_block can
+            # rewrite from the renumbered_definitions dict later.
+            return match.group(0)
+        old_key = match.group(1)
+        new_key = old_to_new.get(old_key, old_key)
+        return f'[^{new_key}]'
 
-    return content
+    return re.sub(r'\[\^([a-zA-Z0-9_-]+)\]', replacer, content)
 
 
 def format_citation_block(citations: Dict[str, str], ordered_nums: List[str]) -> str:
