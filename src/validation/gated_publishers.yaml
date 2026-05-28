@@ -127,6 +127,11 @@ publishers:
     domains: [accenture.com]
     category: analyst
 
+  - name: "Deloitte"
+    domains: [deloitte.com, www2.deloitte.com]
+    category: analyst
+    notes: "Deloitte Insights (the research arm) is hosted under deloitte.com and www2.deloitte.com/insights — both treated as the same brand."
+
   # ──────────────── Public institutions / multilaterals ────────────────
 
   - name: "The World Bank"

@@ -332,19 +332,31 @@ def renumber_citations(output_dir: Path) -> Dict[str, Any]:
     else:
         print(f"  ✓ Citations already sequential (1-{total_citations})")
 
-    # Step 3: Process each section - remove definitions and renumber inline refs
-    print("  ✏️  Processing sections...")
+    # Step 3: Process each section.
+    #
+    # IMPORTANT: section files are the durable source of truth for *both* prose
+    # and the inline citation IDs they reference. Section files keep their
+    # semantic IDs (`[^chroma-site]`, `[^notes1]`, etc.) — they are NEVER
+    # renumbered in place. The assembler only:
+    #   (a) strips local `[^X]:` definitions from section files (defs belong
+    #       in 1-research/, not duplicated in sections), and
+    #   (b) writes a renumbered copy of the content into the assembled final
+    #       draft (the renumbering happens at assembly time, not section time).
+    #
+    # If we wrote renumbered IDs back to section files here, every assembler
+    # run would replace the durable semantic IDs with numeric IDs that depend
+    # on the current run's appearance_order. Section files would then have
+    # `[^12]`, `[^13]`, etc. with no matching `[^12]:` / `[^13]:` definitions
+    # in research, and the next assembler run would orphan them. See
+    # context-v/skills/manage-memo-citations and adhoc-edits-workflow.
+    print("  ✏️  Processing sections (strip defs only — inline IDs preserved)...")
 
     for section_file in section_files:
         content = section_file.read_text()
         original = content
 
-        # Remove citation definitions from section
+        # Strip [^X]: definitions from section files (they belong in research).
         content = remove_citation_definitions_from_content(content)
-
-        # Renumber inline references
-        if needs_renumbering:
-            content = renumber_inline_citations(content, old_to_new)
 
         if content != original:
             section_file.write_text(content)
@@ -389,6 +401,7 @@ def renumber_citations(output_dir: Path) -> Dict[str, Any]:
 
     return {
         "citation_block": citation_block,
+        "old_to_new": old_to_new,  # Section files keep semantic IDs; assemble_citations() applies this map in memory at concat time.
         "stats": {
             "total_inline_refs": total_citations,
             "definitions_found": defined_count,
@@ -422,26 +435,38 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     sections_dir = output_dir / "2-sections"
     header_file = output_dir / "header.md"
 
-    # Step 1: Renumber citations (stays in its lane)
+    # Step 1: Renumber citations (stays in its lane). Section files keep
+    # their semantic IDs (`[^chroma-site]`, etc.) — the assembler does NOT
+    # rewrite section files with the renumbered IDs. The old→new map comes
+    # back here and gets applied in memory when we concatenate the final draft.
     renumber_result = renumber_citations(output_dir)
     citation_block = renumber_result.get("citation_block", "")
+    old_to_new: Dict[str, str] = renumber_result.get("old_to_new", {})
 
     if not sections_dir.exists():
         return renumber_result
 
-    # Step 2: Assemble final draft from renumbered sections
+    # Step 2: Assemble final draft. For each section, apply the renumber map
+    # in memory so the rendered output uses sequential numerics ([^1], [^2], …)
+    # while the on-disk section files keep their durable semantic IDs.
     print("  📄 Assembling final draft...")
 
     final_parts = []
 
-    # Add header if exists
+    # Add header if exists (also renumbered in memory)
     if header_file.exists():
-        final_parts.append(header_file.read_text())
+        header_content = header_file.read_text()
+        if old_to_new:
+            header_content = renumber_inline_citations(header_content, old_to_new)
+        final_parts.append(header_content)
 
-    # Add all sections
+    # Add all sections, applying the renumber map in memory.
     section_files = sorted(sections_dir.glob("*.md"))
     for section_file in section_files:
-        final_parts.append(section_file.read_text())
+        section_content = section_file.read_text()
+        if old_to_new:
+            section_content = renumber_inline_citations(section_content, old_to_new)
+        final_parts.append(section_content)
 
     # Add consolidated citation block at the end
     if citation_block:
