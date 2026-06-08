@@ -24,3 +24,6 @@
 	path = io/motley-fool
 	url = https://github.com/lossless-group/motley-fool-private.git
 	branch = main
+[submodule "io/alpha-jwc"]
+	path = io/alpha-jwc
+	url = https://github.com/lossless-group/alpha-jwc-secure.git
