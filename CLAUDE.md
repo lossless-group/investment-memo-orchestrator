@@ -38,6 +38,32 @@ When working on the pipeline, prefer changes that move it toward these direction
 
 See `changelog/2025-11-20_01.md` for complete details.
 
+## Changelog scope — what belongs here vs. in a client repo
+
+The orchestrator's `changelog/` documents the orchestrator's own work: pipeline code, agents, prompts, outlines, templates, brand-config schema, CLI scripts, documentation in `context-v/`, issue-resolution notes, specs, agent-skills, and the structural decisions that govern the firm-private submodules under `io/<firm>/`.
+
+The orchestrator's `changelog/` does **NOT** describe content changes that occurred inside a firm-private submodule (`io/alpha-jwc/`, `io/alpha-partners/`, `io/avalanche/`, `io/humain/`, `io/hypernova/`, etc.). Examples of what to keep out of this changelog:
+
+- A specific memo version's edits (e.g., "Panthalassa v0.0.3 strips X from the Diligence section")
+- Brand-config tweaks inside `io/<firm>/configs/`
+- New deal setups (`io/<firm>/deals/<deal>/...`) including deck inputs, source curation, output drafts
+- Hand-curated sources, fact-check corrections, redacted-hallucinations lists
+- Anything an analyst would consider client-confidential
+
+Those changes belong in **that firm's own `changelog/` inside its private submodule**. If the firm's submodule has no `changelog/` yet, scaffold one there (per `changelog-conventions`) rather than promoting the content out into the orchestrator's log.
+
+### Why this matters
+
+Each `io/<firm>/` submodule is private precisely because its contents are the firm's IP — deal flow, analyst judgement, customized outlines, sourcing strategy. Describing that work in the orchestrator's public-ish changelog leaks the signal even if the content itself stays in the private repo. The submodule pointer bump (`git diff` showing `io/<firm>` advancing) is unavoidable when the orchestrator commit advances it, but the **changelog narrative** should stay client-side.
+
+### What about the submodule pointer bump itself?
+
+Mention it as a one-liner (`Also included: io/<firm> submodule bump to <sha>`), don't write a paragraph about what's in that sha. If the orchestrator commit doesn't need to advance the submodule pointer (because the firm's work is independent of the orchestrator change), don't bundle them — let the bump happen in its own quiet commit, or stay in the firm's submodule until the orchestrator legitimately needs to pin the new sha.
+
+### Skills and issue-resolution that came from client work
+
+A pattern discovered while editing a client memo (e.g., the "thesis bleed" failure mode) lives at the orchestrator level as an agent-skill or issue-resolution doc — the *pattern* is reusable across firms even though the *example* came from one. The changelog can describe the new skill without describing the client memo that surfaced it. Reference the skill, not the memo.
+
 ## Ongoing Troubleshooting
 
 1. **Issue**: Dependencies keep disappearing after running `uv pip install -e .`  We need to find a way to have .venv activate effectively when initially running commands, and to ensure the program continues to be active with dependencies.
