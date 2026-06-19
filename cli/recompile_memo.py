@@ -83,6 +83,26 @@ def assemble_sections(artifact_dir: Path) -> Path:
     return final_draft
 
 
+def run_hydrate_section_citations(artifact_dir: Path) -> None:
+    """Pull missing citation definitions from 1-research/ into each
+    2-sections/*.md file BEFORE assembly. Without this, refs whose defs
+    live in research files end up as orphans in the exported memo.
+    Idempotent; safe to run every time."""
+    script_path = Path(__file__).parent / "utils" / "hydrate_section_citations.py"
+    if not script_path.exists():
+        print(
+            "Warning: hydrate_section_citations.py not found; section citations may be orphaned in export."
+        )
+        return
+
+    cmd = [sys.executable, str(script_path), str(artifact_dir)]
+    print("Running:", " ".join(cmd))
+    # Exit code 2 means "orphans reported"; that's informational, not failure.
+    result = subprocess.run(cmd, text=True)
+    if result.returncode not in (0, 2):
+        print("Warning: hydrate_section_citations.py exited with unexpected status")
+
+
 def run_consolidate_citations(final_draft: Path) -> None:
     """Run the consolidate_citations CLI on the given final draft."""
     script_path = Path(__file__).parent / "utils" / "consolidate_citations.py"
@@ -196,6 +216,10 @@ def main() -> None:
         sys.exit(1)
 
     print(f"Artifact directory: {artifact_dir}")
+
+    # Hydrate per-section ### Citations from 1-research/ BEFORE assembly,
+    # so consolidate_citations sees every def it needs.
+    run_hydrate_section_citations(artifact_dir)
 
     # Assemble sections
     final_draft = assemble_sections(artifact_dir)

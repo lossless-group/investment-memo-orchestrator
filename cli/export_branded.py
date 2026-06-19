@@ -413,16 +413,13 @@ def create_html_template(
         if 'hypernova' in brand.company.name.lower():
             logo_html = 'Hypern<span class="memo-logo-accent">o</span>va'
 
-    # Generate Google Fonts links if specified
+    # Generate Google Fonts links if specified.
+    # Preconnect <link> tags are intentionally omitted: pandoc --embed-resources
+    # treats them as fetchable resources and dies on the bare-host 404.
     google_fonts_html = ""
     if brand.fonts.google_fonts_url:
-        google_fonts_html += f'    <link rel="preconnect" href="https://fonts.googleapis.com">\n'
-        google_fonts_html += f'    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
         google_fonts_html += f'    <link href="{brand.fonts.google_fonts_url}" rel="stylesheet">\n'
     if brand.fonts.header_google_fonts_url and brand.fonts.header_google_fonts_url != brand.fonts.google_fonts_url:
-        if not google_fonts_html:  # Add preconnect if not already added
-            google_fonts_html += f'    <link rel="preconnect" href="https://fonts.googleapis.com">\n'
-            google_fonts_html += f'    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
         google_fonts_html += f'    <link href="{brand.fonts.header_google_fonts_url}" rel="stylesheet">\n'
 
     template = f"""<!DOCTYPE html>

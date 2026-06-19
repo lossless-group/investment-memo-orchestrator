@@ -22,6 +22,17 @@ Section files (`2-sections/*.md`) and the assembled final draft (`7-{Deal}-vX.Y.
 
 If a citation definition lives only in a section file, it will be stripped on the next assembler run and the inline references that point to it will become orphans — Pandoc renders orphan `[^X]` markers as literal text (e.g. `[^12]`), not as superscript footnotes.
 
+## Two assembly paths — and the one that used to break
+
+The orchestrator has two ways to assemble a memo:
+
+1. **Full pipeline** (`src/agents/citation_assembly.py`, invoked end-to-end during `python -m src.main`). This path reads `1-research/` as a fallback definition source per the rule above.
+2. **CLI recompile** (`python cli/recompile_memo.py`, used for partial reassembly after section edits). Until 2026-06-15 this path did *not* read `1-research/`. Section refs whose defs lived in research files became orphans, and `cli/utils/consolidate_citations.py`'s positional-renumbering pass corrupted neighboring sections too. See `context-v/issue-resolution/Section-Citations-Orphaned-When-Defs-Live-In-1-Research.md`.
+
+The fix is `cli/utils/hydrate_section_citations.py`, now wired into `recompile_memo.py` as a pre-step. It pulls missing defs from `1-research/*-research.md` into each section file's `### Citations` block before assembly. Idempotent; safe to run repeatedly. The CLI path now matches the full pipeline's behavior.
+
+If you're editing sections by hand and then reassembling, you don't need to think about this — `recompile_memo.py` runs the hydrator for you. If you're invoking `consolidate_citations.py` directly, run `hydrate_section_citations.py` first.
+
 ## Why It Matters
 
 The assembler does five things in order ([source](../../src/agents/citation_assembly.py)):
