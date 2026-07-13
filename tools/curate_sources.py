@@ -61,6 +61,7 @@ META_ORDER = [
 ]
 
 TARGET_FILE: Path = Path(DEFAULT_FILE)
+_session_backed_up = False   # first autosave of a session backs up; later autosaves don't (no litter)
 
 app = FastAPI(title="Sources Curation UI")
 
@@ -246,11 +247,13 @@ def api_sources() -> JSONResponse:
 
 @app.post("/api/save")
 def api_save(payload: Dict[str, Any] = Body(...)) -> JSONResponse:
+    global _session_backed_up
     meta = payload.get("meta") or {}
     sources = payload.get("sources") or []
     body = payload.get("body") or ""
     mode = payload.get("mode")
     target_kind = payload.get("target", "inputs")  # "inputs" | "inplace"
+    autosave = bool(payload.get("autosave"))
 
     if target_kind == "inplace":
         target = TARGET_FILE
@@ -259,11 +262,15 @@ def api_save(payload: Dict[str, Any] = Body(...)) -> JSONResponse:
 
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
+        # Manual save: always back up (a deliberate checkpoint). Autosave: back
+        # up only the FIRST time this session, so frequent autosaves don't litter.
+        make_backup = (not autosave) or (not _session_backed_up)
         backup_path = None
-        if target.exists():
+        if target.exists() and make_backup:
             stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             backup_path = target.with_name(target.name + f".bak-{stamp}")
             shutil.copy2(target, backup_path)
+            _session_backed_up = True
         text = serialize_doc(meta, sources, body, mode)
         target.write_text(text)
         return JSONResponse({
@@ -430,8 +437,9 @@ INDEX_HTML = r"""<!DOCTYPE html>
   <select id="mode" style="width:auto"><option value="aggregated">aggregated</option><option value="codified">codified</option></select>
   <label class="muted" style="font-size:12px">save to</label>
   <select id="target" style="width:auto"><option value="inputs">inputs/Sources.md</option><option value="inplace">in place</option></select>
+  <span class="muted" style="font-size:11px">autosaves on edit</span>
   <button id="reload">Reload</button>
-  <button id="save" class="primary">Save</button>
+  <button id="save" class="primary" title="Save now and make a backup checkpoint">Save + backup</button>
 </header>
 <main>
   <div class="col listcol">
@@ -536,10 +544,10 @@ function moveSource(from, to){
   DOC.sources.splice(to, 0, item);
   focusIdx = DOC.sources.indexOf(focused);   // keep highlight on the same source
   renderList();
-  $("#saveStatus").textContent = "reordered — unsaved";
+  scheduleAutosave();
 }
 
-function setField(key, val) { DOC.sources[focusIdx][key] = val; }
+function setField(key, val) { DOC.sources[focusIdx][key] = val; scheduleAutosave(); }
 
 function renderRight() {
   const right = $("#right"); right.innerHTML = "";
@@ -612,7 +620,8 @@ async function addLink(url){
     sensitivity:"citable_externally", verdict:"", note:"Analyst-added link",
   }) - 1;
   renderList();
-  $("#saveStatus").textContent = `added link → now ${DOC.sources.length} (unsaved) · fetching title…`;
+  scheduleAutosave();
+  $("#saveStatus").textContent = `added link → ${DOC.sources.length} sources · fetching title…`;
   try {
     const r = await fetch("/api/fetch", { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ url }) });
     const d = await r.json();
@@ -620,7 +629,8 @@ async function addLink(url){
       DOC.sources[idx].title = d.title;
       if (focusIdx === idx) renderRight();
       renderList();
-      $("#saveStatus").textContent = `added "${d.title.slice(0,40)}" → ${DOC.sources.length} (unsaved)`;
+      scheduleAutosave();
+      $("#saveStatus").textContent = `added "${d.title.slice(0,40)}" → ${DOC.sources.length}`;
     } else {
       $("#saveStatus").textContent = `added link (title not fetched) → ${DOC.sources.length} (unsaved)`;
     }
@@ -642,7 +652,7 @@ function urlField(s){
     const u = (s.url || "").trim();
     if (editing) {
       const input = el("input", { value: s.url || "", style:"flex:1",
-        oninput: e => { s.url = e.target.value; } });
+        oninput: e => { s.url = e.target.value; scheduleAutosave(); } });
       const done = el("button", { class:"small", onclick: () => { editing = false; render(); } }, "done");
       slot.append(el("div", { style:"display:flex; gap:.4rem; align-items:stretch" }, [ input, done ]));
     } else {
@@ -671,14 +681,14 @@ function field(key, label, val, kind, coerce) {
   return wrap(label, node);
 }
 
-function moveUp(){ if(focusIdx>0){ const a=DOC.sources; [a[focusIdx-1],a[focusIdx]]=[a[focusIdx],a[focusIdx-1]]; focusIdx--; renderList(); renderRight(); } }
-function moveDown(){ const a=DOC.sources; if(focusIdx<a.length-1){ [a[focusIdx+1],a[focusIdx]]=[a[focusIdx],a[focusIdx+1]]; focusIdx++; renderList(); renderRight(); } }
-function del(){ DOC.sources.splice(focusIdx,1); if(focusIdx>=DOC.sources.length) focusIdx=Math.max(0,DOC.sources.length-1); renderList(); renderRight(); }
+function moveUp(){ if(focusIdx>0){ const a=DOC.sources; [a[focusIdx-1],a[focusIdx]]=[a[focusIdx],a[focusIdx-1]]; focusIdx--; renderList(); renderRight(); scheduleAutosave(); } }
+function moveDown(){ const a=DOC.sources; if(focusIdx<a.length-1){ [a[focusIdx+1],a[focusIdx]]=[a[focusIdx],a[focusIdx+1]]; focusIdx++; renderList(); renderRight(); scheduleAutosave(); } }
+function del(){ DOC.sources.splice(focusIdx,1); if(focusIdx>=DOC.sources.length) focusIdx=Math.max(0,DOC.sources.length-1); renderList(); renderRight(); scheduleAutosave(); }
 
 $("#addBlank").addEventListener("click", () => {
   DOC.sources.splice(focusIdx+1, 0, { url:"", title:"", publisher:"", published_date:"",
     sections:[], rank:1, sensitivity:"citable_externally", verdict:"", note:"" });
-  focusIdx = Math.min(focusIdx+1, DOC.sources.length-1); renderList(); renderRight();
+  focusIdx = Math.min(focusIdx+1, DOC.sources.length-1); renderList(); renderRight(); scheduleAutosave();
 });
 
 async function doFetch(url){
@@ -731,19 +741,32 @@ function addFromResult(res){
     sensitivity: "citable_externally", verdict: "", note: "Added via SearXNG: " + q,
   });
   renderList();
+  scheduleAutosave();
   const label = (res.title || res.url || "").slice(0, 44);
-  $("#saveStatus").textContent = `added "${label}" → now ${DOC.sources.length} sources (unsaved)`;
+  $("#saveStatus").textContent = `added "${label}" → ${DOC.sources.length} sources`;
 }
 
-async function save(){
-  const st = $("#saveStatus"); st.textContent = "saving…";
-  const r = await fetch("/api/save", { method:"POST", headers:{ "content-type":"application/json" },
-    body: JSON.stringify({ meta: DOC.meta, sources: DOC.sources, body: DOC.body,
-      mode: $("#mode").value, target: $("#target").value }) });
-  const d = await r.json();
-  if (!d.ok) { st.textContent = "error: " + d.error; return; }
-  st.textContent = `saved ${d.count} → ${d.written}` + (d.backup ? " (backup made)" : "");
+let autosaveTimer = null;
+function scheduleAutosave(){
+  $("#saveStatus").textContent = "editing…";
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => doSave(true), 800);   // debounce — save 0.8s after last edit
 }
+
+async function doSave(isAuto){
+  clearTimeout(autosaveTimer);
+  const st = $("#saveStatus"); st.textContent = isAuto ? "autosaving…" : "saving…";
+  try {
+    const r = await fetch("/api/save", { method:"POST", headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ meta: DOC.meta, sources: DOC.sources, body: DOC.body,
+        mode: $("#mode").value, target: $("#target").value, autosave: !!isAuto }) });
+    const d = await r.json();
+    if (!d.ok) { st.textContent = "save error: " + (d.error || "?"); return; }
+    st.textContent = (isAuto ? "✓ autosaved " : "✓ saved ") + d.count + (d.backup ? " · backup made" : "");
+    renderList();   // keep the left list's titles/meta in sync after a save
+  } catch(e){ st.textContent = "save failed (server down?)"; }
+}
+function save(){ doSave(false); }
 
 $("#reload").addEventListener("click", load);
 $("#save").addEventListener("click", save);

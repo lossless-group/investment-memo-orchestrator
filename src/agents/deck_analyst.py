@@ -1041,19 +1041,25 @@ IMPORTANT:
                 if deck_analysis.get(field) == "Not mentioned" or not deck_analysis.get(field):
                     deck_analysis[field] = batch_data[field]
 
-        # For dict fields (market_size): merge non-"Not mentioned" values
-        if batch_data.get("market_size"):
-            if not deck_analysis.get("market_size"):
+        # For dict fields (market_size): merge non-"Not mentioned" values.
+        # Guard the accumulator type: a prior batch may have returned market_size
+        # as the string "Not mentioned" instead of a dict, which would make
+        # .get()/[] below raise. Coerce to {} unless it's already a dict.
+        if batch_data.get("market_size") and isinstance(batch_data["market_size"], dict):
+            if not isinstance(deck_analysis.get("market_size"), dict):
                 deck_analysis["market_size"] = {}
             for key, value in batch_data["market_size"].items():
                 if value and value != "Not mentioned":
                     if not deck_analysis["market_size"].get(key) or deck_analysis["market_size"][key] == "Not mentioned":
                         deck_analysis["market_size"][key] = value
 
-        # For list fields: append unique items
+        # For list fields: append unique items. Same guard — a prior batch may
+        # have set the field to the string "Not mentioned"; `item in <str>` with
+        # a dict item throws "requires string as left operand, not dict". Coerce
+        # the accumulator to a list unless it already is one.
         for field in ["traction_metrics", "team_members", "use_of_funds", "milestones", "extraction_notes"]:
             if batch_data.get(field) and isinstance(batch_data[field], list):
-                if not deck_analysis.get(field):
+                if not isinstance(deck_analysis.get(field), list):
                     deck_analysis[field] = []
                 # Append items that aren't already present
                 for item in batch_data[field]:

@@ -231,18 +231,29 @@ def load_deal_config(ctx: DealContext) -> Dict[str, Any]:
     with open(ctx.deal_json_path) as f:
         config = json.load(f)
 
-    # Resolve relative paths in config
+    # Resolve deck/dataroom to ABSOLUTE paths so every caller works regardless
+    # of CWD. This matters because the server path (POST /memos → generate_memo)
+    # uses these values verbatim — unlike the CLI (main.py), it has no deal-dir
+    # fallback. Accept all the conventions in the wild: a bare filename relative
+    # to inputs/ (Metabologic: "deck.pdf"), an "inputs/"-prefixed value relative
+    # to the deal dir (ImmuneCo: "inputs/deck.pdf"), a deal-dir-relative path, or
+    # an already-absolute path. First existing candidate wins.
     if not ctx.is_legacy and ctx.inputs_dir:
-        # For firm-scoped, resolve paths relative to inputs/
-        if "deck" in config and config["deck"]:
-            deck_path = ctx.inputs_dir / config["deck"]
-            if deck_path.exists():
-                config["deck"] = str(deck_path)
-
-        if "dataroom" in config and config["dataroom"]:
-            dataroom_path = ctx.inputs_dir / config["dataroom"]
-            if dataroom_path.exists():
-                config["dataroom"] = str(dataroom_path)
+        for key in ("deck", "dataroom"):
+            val = config.get(key)
+            if not val:
+                continue
+            p = Path(val)
+            if p.is_absolute():
+                continue  # already resolved by an earlier caller
+            candidates = [ctx.inputs_dir / val]
+            if ctx.deal_dir:
+                candidates.append(ctx.deal_dir / val)  # handles "inputs/"-prefixed
+            resolved = next((c for c in candidates if c.exists()), None)
+            if resolved:
+                # .resolve() → absolute, so the value survives a CWD change
+                # between config load and the agent that consumes it.
+                config[key] = str(resolved.resolve())
 
     return config
 

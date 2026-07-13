@@ -226,6 +226,72 @@ async def curate_sources(request: CurateSourcesRequest) -> dict:
     }
 
 
+@app.get("/firms/{firm}/deals")
+async def list_deals(firm: str) -> dict:
+    """List firm-scoped deals for the desktop UI's Deals dropdown.
+
+    Scans io/{firm}/deals/*/ and returns each deal that is either configured
+    (inputs/deal.json or {deal}.json) or has at least one output version, with
+    its name, absolute directory (for "reveal in Finder"), run count, and
+    latest version string. Mirrors the discovery in /memos/incomplete and the
+    config resolution in /firms/{firm}/deals/{deal}/config. Shape matches the
+    `Deal` interface the DealsDropdown component expects:
+    {name, deal_dir, latest_version, version_count}.
+    """
+    from ..paths import get_io_root, resolve_deal_context
+
+    if not firm or "/" in firm or ".." in firm:
+        raise HTTPException(status_code=400, detail="invalid firm slug")
+
+    deals_dir = get_io_root() / firm / "deals"
+    if not deals_dir.is_dir():
+        return {"firm": firm, "deals": []}
+
+    deals: list[dict] = []
+    for deal_dir in deals_dir.iterdir():
+        if not deal_dir.is_dir() or deal_dir.name.startswith("."):
+            continue
+
+        # Version dirs: outputs/{Deal}-v{X.Y.Z}/ — count them, find the latest.
+        outputs_dir = deal_dir / "outputs"
+        version_dirs = (
+            [v for v in outputs_dir.iterdir() if v.is_dir() and _extract_version_from_name(v.name)]
+            if outputs_dir.is_dir()
+            else []
+        )
+
+        # List a deal only if it's configured OR has at least one run — keeps
+        # stray/empty subdirectories out of the dropdown.
+        configured = resolve_deal_context(deal_dir.name, firm=firm).exists()
+        if not configured and not version_dirs:
+            continue
+
+        latest_version = None
+        latest_mtime = 0.0
+        if version_dirs:
+            latest = max(version_dirs, key=lambda v: v.stat().st_mtime)
+            latest_version = _extract_version_from_name(latest.name)
+            latest_mtime = latest.stat().st_mtime
+
+        deals.append(
+            {
+                "name": deal_dir.name,
+                "deal_dir": str(deal_dir.resolve()),
+                "latest_version": latest_version,
+                "version_count": len(version_dirs),
+                "_sort_mtime": latest_mtime,
+            }
+        )
+
+    # Most recently active first; never-run deals fall to the bottom, then
+    # alphabetical for stable ordering.
+    deals.sort(key=lambda d: (-d["_sort_mtime"], d["name"].lower()))
+    for d in deals:
+        d.pop("_sort_mtime", None)
+
+    return {"firm": firm, "deals": deals}
+
+
 @app.get("/firms/{firm}/deals/{deal}/config")
 async def get_deal_config(firm: str, deal: str) -> dict:
     """Return the parsed deal config for a firm-scoped deal.

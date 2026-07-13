@@ -38,7 +38,7 @@ class CitationCorrectorAgent:
     Agent that scrapes PDFs and uses LLM to correct citation parsing errors.
     """
 
-    def __init__(self, model: str = "claude-sonnet-4-20250514"):
+    def __init__(self, model: str = "claude-sonnet-4-5-20250929"):
         """
         Initialize the citation corrector agent.
 
@@ -394,7 +394,7 @@ Return ONLY the JSON array. If you can't find a citation for a reference, don't 
 def correct_pdf_citations(
     pdf_path: str,
     output_dir: Optional[str] = None,
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-4-5-20250929"
 ) -> Dict[str, Any]:
     """
     Convenience function to scrape and correct citations from a PDF.

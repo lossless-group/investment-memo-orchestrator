@@ -88,10 +88,15 @@ def detect_resume_point(output_dir: Path) -> str:
     if final_draft and final_draft.stat().st_size > 100:
         return "validate_citations"  # Final draft exists, resume at validation
 
-    # Check enrichment stages
+    # Check enrichment stages. Only treat this as a sections-stage resume when
+    # at least one section file actually exists. An empty 2-sections/ directory
+    # gets scaffolded before the writer runs; if we keyed off its mere existence
+    # we'd return "draft" and resume would skip research entirely, crashing the
+    # writer with "No research data available". Empty dir → fall through to the
+    # research/deck checks below (→ "start" when nothing earlier exists either).
     sections_dir = output_dir / "2-sections"
-    if sections_dir.exists():
-        sections = list(sections_dir.glob("*.md"))
+    sections = list(sections_dir.glob("*.md")) if sections_dir.exists() else []
+    if sections:
         if len(sections) >= 10:  # All sections exist
             # Check link enrichment (look for markdown links in ANY section)
             sample_sections = list(sections_dir.glob("0[2-6]*.md"))  # Any section 02-06
