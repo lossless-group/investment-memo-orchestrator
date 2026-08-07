@@ -68,6 +68,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Source-approval surface. Mounted here (rather than defined inline) so it
+# inherits the CORS allowlist above — the webview calls these routes
+# directly, same as it does the SSE stream.
+from .sources_api import router as sources_router  # noqa: E402
+
+app.include_router(sources_router)
+
 
 def _registry(app: FastAPI) -> JobRegistry:
     return app.state.registry  # type: ignore[no-any-return]
@@ -704,6 +711,23 @@ def run() -> None:
     import argparse
 
     import uvicorn
+
+    # Load the orchestrator's .env, exactly as src/main.py does for CLI runs
+    # and remove_invalid_sources.main() does for standalone validation.
+    #
+    # The sidecar previously loaded nothing, so every key-dependent endpoint
+    # (brand fetch, memo generation, URL recovery) silently depended on
+    # whatever environment the Tauri app happened to inherit — which, when
+    # launched from Finder rather than a shell, contains none of these keys.
+    # Resolves to <orchestrator-root>/.env regardless of the caller's cwd.
+    try:
+        from pathlib import Path as _Path
+
+        from dotenv import load_dotenv
+
+        load_dotenv(_Path(__file__).resolve().parent.parent.parent / ".env")
+    except ImportError:
+        pass
 
     parser = argparse.ArgumentParser(description="Investment Memo Orchestrator API server")
     parser.add_argument(

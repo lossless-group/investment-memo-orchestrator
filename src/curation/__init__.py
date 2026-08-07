@@ -8,11 +8,16 @@ Curation modules.
   - fetch        : URL → clean markdown via Jina Reader (with httpx fallback).
 """
 
-from .best_sources import CurationResult, curate_best_sources
+from .best_sources import CurationResult, canonical_url, curate_best_sources
 from .sources_md import (
     SourceEntry,
     SourcesMd,
+    approved_urls,
+    deal_is_codified,
+    is_approved_entry,
+    is_approved_url,
     is_codified,
+    load_deal_sources,
     load_sources_md,
     sources_for_section,
 )
@@ -20,10 +25,16 @@ from .fetch import fetch_url_markdown
 
 __all__ = [
     "CurationResult",
+    "canonical_url",
     "curate_best_sources",
     "SourceEntry",
     "SourcesMd",
+    "approved_urls",
+    "deal_is_codified",
+    "is_approved_entry",
+    "is_approved_url",
     "is_codified",
+    "load_deal_sources",
     "load_sources_md",
     "sources_for_section",
     "fetch_url_markdown",

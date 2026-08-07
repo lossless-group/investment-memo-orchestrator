@@ -117,6 +117,11 @@ PAYWALL_PHRASES = [
 HALLUCINATION_PATTERN = -1
 SOFT_404_BODY = -2
 PAYWALL_STUB = -3
+# Not in the analyst's approved set (codified mode only). Distinct from every
+# code above: those answer "does this URL resolve?", this one answers "was
+# this URL approved?". A fabricated URL that happens to be live passes every
+# reachability check and is caught only here.
+UNAPPROVED = -5
 VERIFIED_GATED = -4    # HTTP 200 + paywall phrase, BUT publisher is on the
                        # reputable-publisher allow-list at
                        # `src/validation/gated_publishers.yaml`. Kept as a
@@ -136,6 +141,82 @@ _GATED_PUBLISHERS_PATH = (
     Path(__file__).resolve().parent.parent / "validation" / "gated_publishers.yaml"
 )
 _gated_publisher_domains_cache: Optional[Set[str]] = None
+
+
+def enforcement_mode() -> str:
+    """How hard the membership predicate bites, from the environment.
+
+    - ``off``     — no membership check at all (pre-2026-08 behavior).
+    - ``flag``    — classify and report unapproved URLs, but do NOT remove
+                    them. The default: it makes the size of the leak
+                    visible on a real run before anything starts deleting
+                    citations out of drafted prose.
+    - ``enforce`` — unapproved URLs are treated as invalid and removed.
+
+    Set via ``MEMOPOP_SOURCE_ENFORCEMENT``. Unrecognized values fall back
+    to ``flag`` rather than silently disabling the check.
+    """
+    raw = (os.environ.get("MEMOPOP_SOURCE_ENFORCEMENT") or "flag").strip().lower()
+    return raw if raw in ("off", "flag", "enforce") else "flag"
+
+
+def _load_approved_set(state: MemoState) -> Tuple[Optional[object], set]:
+    """Load the deal's Sources.md and its approved-URL set.
+
+    Returns ``(sources_md, approved)``. When the deal is not in codified
+    mode, returns ``(sources_md_or_None, set())`` and callers MUST skip
+    enforcement entirely — an empty set means "does not apply", never
+    "nothing is allowed". Never raises; a missing or malformed Sources.md
+    degrades to the legacy broad-search behavior.
+    """
+    try:
+        from ..curation import approved_urls, is_codified, load_sources_md
+        from .codified_section_researcher import find_deal_inputs_dir
+
+        inputs_dir = find_deal_inputs_dir(state)
+        if not inputs_dir:
+            return None, set()
+        sources_md = load_sources_md(inputs_dir)
+        if not is_codified(sources_md):
+            return sources_md, set()
+        return sources_md, approved_urls(sources_md)
+    except Exception as e:  # pragma: no cover - defensive
+        print(f"  ⚠️  Could not load Sources.md for membership check: {e}")
+        return None, set()
+
+
+def _partition_unapproved(citation_urls, approved: set) -> Set[str]:
+    """URLs cited in the draft that are absent from the approved set."""
+    from ..curation import is_approved_url
+    return {u for u in citation_urls if not is_approved_url(u, approved)}
+
+
+def state_from_output_dir(output_dir: Path) -> Dict[str, Any]:
+    """Reconstruct the minimal state the membership check needs from a path.
+
+    The standalone CLI is handed an output directory and nothing else, but
+    `_load_approved_set` resolves `Sources.md` through
+    `io/<firm>/deals/<deal>/inputs`. Without this, running the validator
+    standalone would silently skip the membership check — and standalone
+    is exactly how an analyst re-validates an existing memo, so the gate
+    would appear to do nothing on the most common manual path.
+
+    Derives `(firm, deal)` from the canonical layout:
+
+        io/<firm>/deals/<deal>/outputs/<Deal>-v0.0.9
+        io/<firm>/deals/<deal>/_failed-runs/<Deal>-v0.0.2
+
+    Returns `{}` for the legacy non-firm-scoped layout (`output/<Deal>-vX`),
+    which has no `Sources.md` to enforce against.
+    """
+    parts = Path(output_dir).resolve().parts
+    try:
+        i = len(parts) - 1 - parts[::-1].index("deals")
+    except ValueError:
+        return {}
+    if i == 0 or i + 1 >= len(parts):
+        return {}
+    return {"firm": parts[i - 1], "company_name": parts[i + 1]}
 
 
 def _get_gated_publisher_domains() -> Set[str]:
@@ -857,22 +938,35 @@ def remove_citation_references(content: str, citations_to_remove: Set[str]) -> s
     if not citations_to_remove:
         return content
 
-    # Build pattern to match citations to remove
-    # Matches [^1], [^2], etc. including surrounding whitespace and commas
-    for num in citations_to_remove:
-        # Remove citation with potential leading/trailing punctuation handling
-        # Case 1: Citation alone or at end: "text [^1]" or "text. [^1]"
-        content = re.sub(rf'\s*\[\^{num}\](?=[\s\.,;:\)\]]|$)', '', content)
+    # A DEFINITION line (`[^N]: 2026, Jan 01. [Title](url)...`) is not an
+    # inline reference and must be left entirely alone here — removing
+    # definitions is `remove_citation_definitions`'s job.
+    #
+    # Without this guard, Case 1's lookahead `(?=[\s\.,;:\)\]]|$)` matches
+    # the `:` that follows a definition marker, so `[^2]` is stripped off
+    # the front of its own definition line. `remove_citation_definitions`
+    # then can't recognize the line (it matches on `[^N]:`), so the
+    # orphaned body — including the dead or fabricated URL — survives and
+    # gets concatenated onto the previous definition during assembly,
+    # carrying the removed URL into the final draft.
+    definition_re = re.compile(r'^\s*\[\^\d+\]:')
 
-        # Case 2: Citation in a list: "[^1], [^2]" -> "[^2]" or "[^1] [^2]" -> "[^2]"
-        content = re.sub(rf'\[\^{num}\],?\s*', '', content)
+    def _strip_inline(text: str) -> str:
+        for num in citations_to_remove:
+            # Case 1: Citation alone or at end: "text [^1]" or "text. [^1]"
+            text = re.sub(rf'\s*\[\^{num}\](?=[\s\.,;:\)\]]|$)', '', text)
+            # Case 2: Citation in a list: "[^1], [^2]" -> "[^2]"
+            text = re.sub(rf'\[\^{num}\],?\s*', '', text)
+        # Clean up any double spaces or orphaned commas
+        text = re.sub(r'  +', ' ', text)
+        text = re.sub(r',\s*,', ',', text)
+        text = re.sub(r'\s+([.,;:])', r'\1', text)
+        return text
 
-    # Clean up any double spaces or orphaned commas
-    content = re.sub(r'  +', ' ', content)
-    content = re.sub(r',\s*,', ',', content)
-    content = re.sub(r'\s+([.,;:])', r'\1', content)
-
-    return content
+    return '\n'.join(
+        line if definition_re.match(line) else _strip_inline(line)
+        for line in content.split('\n')
+    )
 
 
 def remove_citation_definitions(content: str, citations_to_remove: Set[str]) -> str:
@@ -1273,6 +1367,55 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
             host = _extract_host(url) or "?"
             print(f"    {host} — {url[:80]}")
 
+    # ═══════════════════════════════════════════════════════════════════
+    # STEP 1b: MEMBERSHIP — was this URL approved, not just is it alive?
+    # ═══════════════════════════════════════════════════════════════════
+    #
+    # Every check above answers "does this URL resolve?". None answers
+    # "was this URL approved?" — which is why a fabricated-but-live URL
+    # (the example.com class, or a real article about the wrong company)
+    # passes the whole ladder. This step supplies the missing predicate.
+    #
+    # Runs BEFORE the recovery pass on purpose. Recovery swaps a drifted
+    # URL for a new one that is, by construction, absent from Sources.md;
+    # checking membership afterwards would mark every recovered URL
+    # unapproved and undo the rescue. Ordering it here means recovery is
+    # attempted only for approved-but-broken URLs, and anything it finds
+    # inherits that approval.
+    sources_md, approved = _load_approved_set(state)
+    mode = enforcement_mode()
+    unapproved_citations: Set[str] = set()
+
+    if approved and mode != "off":
+        unapproved_citations = _partition_unapproved(citation_urls, approved)
+        if unapproved_citations:
+            verb = "REMOVING" if mode == "enforce" else "flagging (not removing)"
+            print(
+                f"\n  🔒 Membership check: {len(unapproved_citations)} of "
+                f"{len(citation_urls)} cited URLs are NOT in the analyst's "
+                f"approved set of {len(approved)} — {verb}."
+            )
+            for url in sorted(unapproved_citations)[:10]:
+                print(f"    ✗ {url[:100]}")
+            if len(unapproved_citations) > 10:
+                print(f"    … and {len(unapproved_citations) - 10} more")
+
+            for url in unapproved_citations:
+                validation_results[url] = (UNAPPROVED, "Not in approved source set")
+
+            if mode == "enforce":
+                invalid_citations |= unapproved_citations
+                valid_citations -= unapproved_citations
+                potentially_valid -= unapproved_citations
+                gated_citations -= unapproved_citations
+        else:
+            print(
+                f"  🔒 Membership check: all {len(citation_urls)} cited URLs "
+                f"are in the approved set of {len(approved)}."
+            )
+    elif mode != "off" and sources_md is not None and not approved:
+        print("  🔒 Membership check skipped: deal is not in codified mode.")
+
     # Collect full citation details (used by both recovery and the validation log)
     all_citation_details = _collect_all_citation_details(
         research_dir, sections_dir, output_dir,
@@ -1282,8 +1425,12 @@ def remove_invalid_sources_agent(state: MemoState) -> Dict[str, Any]:
     # Successful recoveries swap the URL in source files and move the citation
     # from `invalid` back into `valid`. McKinsey-style URL drift is the
     # canonical case this rescues.
+    # Never spend a recovery search on a URL the analyst never approved —
+    # "recovering" a fabrication just launders it into a live URL that
+    # would then pass every downstream check.
+    recovery_candidates = invalid_citations - unapproved_citations
     recovered_citations, recoveries = _run_recovery_pass(
-        invalid_citations,
+        recovery_candidates,
         research_dir,
         sections_dir,
         output_dir,
@@ -1511,6 +1658,48 @@ def remove_invalid_sources_standalone(output_dir: Path) -> Dict[str, Any]:
             host = _extract_host(url) or "?"
             print(f"  {host} — {url[:80]}")
 
+    # Membership check — same predicate as the in-workflow agent. The deal
+    # is inferred from the output path (see `state_from_output_dir`),
+    # because standalone gets no state. Without this, re-validating an
+    # existing memo from the CLI — the most common manual path — would
+    # silently skip enforcement and look like the gate does nothing.
+    #
+    # Runs BEFORE recovery for the same reason as in the agent: a
+    # recovered URL is absent from Sources.md by construction, so checking
+    # afterwards would undo every rescue.
+    cli_state = state_from_output_dir(output_dir)
+    _, approved = _load_approved_set(cli_state) if cli_state else (None, set())
+    mode = enforcement_mode()
+    unapproved_citations: Set[str] = set()
+
+    if approved and mode != "off":
+        unapproved_citations = _partition_unapproved(citation_urls, approved)
+        if unapproved_citations:
+            verb = "REMOVING" if mode == "enforce" else "flagging (not removing)"
+            print(
+                f"\n🔒 Membership check: {len(unapproved_citations)} of "
+                f"{len(citation_urls)} cited URLs are NOT in the analyst's "
+                f"approved set of {len(approved)} — {verb}."
+            )
+            for url in sorted(unapproved_citations)[:10]:
+                print(f"  ✗ {url[:100]}")
+            if len(unapproved_citations) > 10:
+                print(f"  … and {len(unapproved_citations) - 10} more")
+
+            for url in unapproved_citations:
+                validation_results[url] = (UNAPPROVED, "Not in approved source set")
+
+            if mode == "enforce":
+                invalid_citations |= unapproved_citations
+                valid_citations -= unapproved_citations
+                potentially_valid -= unapproved_citations
+                gated_citations -= unapproved_citations
+        else:
+            print(
+                f"\n🔒 Membership check: all {len(citation_urls)} cited URLs "
+                f"are in the approved set of {len(approved)}."
+            )
+
     # Collect citation details NOW (pre-removal) so both recovery and the
     # redaction worksheet can reference the original citation rows. After
     # removal + reorder, per-citation_num lookups lose anchoring — the
@@ -1520,9 +1709,10 @@ def remove_invalid_sources_standalone(output_dir: Path) -> Dict[str, Any]:
         research_dir, sections_dir, output_dir,
     )
 
-    # Attempt URL-drift recovery before dropping invalid citations.
+    # Attempt URL-drift recovery before dropping invalid citations. Never
+    # spend a recovery search on a URL the analyst never approved.
     recovered_citations, recoveries = _run_recovery_pass(
-        invalid_citations,
+        invalid_citations - unapproved_citations,
         research_dir,
         sections_dir,
         output_dir,

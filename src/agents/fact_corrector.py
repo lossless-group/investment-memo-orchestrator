@@ -97,6 +97,46 @@ def _find_section_file_for_claim(sections_dir: Path, section_name: str) -> Optio
     return None
 
 
+def strip_unapproved_sources(
+    claims_to_correct: List[Dict[str, Any]],
+    state: MemoState,
+) -> int:
+    """Remove out-of-set source URLs from corrections, in place.
+
+    In codified mode a correction may fix a FACT, but it may not smuggle
+    in a SOURCE the analyst never approved. The verifier proposes a
+    `source_url` per claim from Perplexity Sonar; left intact, this
+    agent would cite it (RULE 2 of the correction prompt) and inject an
+    out-of-set URL well after the researcher was constrained.
+
+    The URL is stripped rather than the claim dropped, deliberately: the
+    correction itself is usually right and worth applying — it just has
+    to stand on the approved corpus. A claim stripped of its source is
+    still corrected; it simply cites nothing new.
+
+    No-ops entirely when the deal is not codified.
+
+    Returns:
+        How many claims had a source URL removed.
+    """
+    from ..curation import is_approved_url, load_deal_sources
+
+    sources_md, approved = load_deal_sources(state)
+    if not approved:
+        return 0
+
+    stripped = 0
+    for claim in claims_to_correct:
+        url = claim.get("source_url")
+        if url and not is_approved_url(url, approved):
+            claim["source_url"] = None
+            claim["source_title"] = None
+            claim["source_date"] = None
+            claim["source_stripped_reason"] = "not in approved source set"
+            stripped += 1
+    return stripped
+
+
 def fact_corrector_agent(state: MemoState) -> Dict[str, Any]:
     """
     Fact Corrector Agent - Applies verified corrections to section files.
@@ -132,6 +172,24 @@ def fact_corrector_agent(state: MemoState) -> Dict[str, Any]:
         verified_data = json.load(f)
 
     claims_to_correct = verified_data.get("claims_to_correct", [])
+
+    # Codified mode: a correction may fix a FACT, but it may not smuggle in
+    # a SOURCE the analyst never approved. The verifier proposes a
+    # `source_url` per claim from Perplexity Sonar; left intact, this agent
+    # would cite it (see RULE 2 of the correction prompt) and inject an
+    # out-of-set URL after the researcher was constrained.
+    #
+    # Filtering the URL rather than dropping the claim is deliberate: the
+    # correction itself is usually right and worth applying — it just has
+    # to stand on the approved corpus. A claim stripped of its source is
+    # still corrected; it simply cites nothing new, and the writer's
+    # existing citations carry it.
+    stripped = strip_unapproved_sources(claims_to_correct, state)
+    if stripped:
+        print(
+            f"  🔒 Codified mode: stripped {stripped} out-of-set source URL(s) "
+            f"from fact corrections (the corrections still apply)."
+        )
 
     if not claims_to_correct:
         print("✓ No claims need correction")

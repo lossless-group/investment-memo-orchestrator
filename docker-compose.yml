@@ -1,0 +1,34 @@
+# SearXNG for MemoPop's candidate-source discovery.
+#
+# The orchestrator itself does NOT run in Docker — it runs from the local
+# venv, and the Tauri app spawns it as a sidecar. This compose file exists
+# only to provide the one piece of infrastructure the curation surface
+# needs: a metasearch instance whose results, by construction, cannot be
+# hallucinated.
+#
+#   docker compose up -d searxng
+#   curl 'http://localhost:8080/search?q=test&format=json' | head -c 200
+#
+# If you already run augment-it's stack, that publishes SearXNG on the same
+# port — point at it instead and skip this file entirely:
+#
+#   export SEARXNG_URL=http://localhost:8080
+#
+# When SEARXNG_URL is unset, candidate discovery degrades to a graceful
+# no-op and the analyst can still search-and-paste by hand; nothing else
+# in the pipeline depends on this service.
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: memopop-searxng
+    environment:
+      # Any non-empty string; this instance is host-local only.
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-memopop-local-dev-secret}
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    ports:
+      # Bound to loopback on purpose — the limiter is disabled in
+      # searxng/settings.yml, which is only safe for a non-public instance.
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped

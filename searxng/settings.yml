@@ -1,0 +1,35 @@
+# SearXNG settings for MemoPop's candidate-source discovery.
+#
+# Adapted from augment-it's working config
+# (`augment-it/services/social-search/searxng/settings.yml`) — that file is
+# the reusable artifact of the two trees, because the upstream image ships
+# with exactly the two settings we need turned the wrong way:
+#   - the JSON output format is OFF by default (the client parses JSON)
+#   - the limiter / bot-detection is ON (would 429 a multi-term fan-out)
+#
+# `use_default_settings: true` merges this on top of the image's bundled
+# defaults, so only those overrides live here.
+#
+# Why SearXNG at all: a URL returned by a metasearch aggregator came out of
+# a search index, so it cannot be hallucinated. That property is what the
+# whole frontloaded-curation design rests on — see
+# `context-v/loops/Frontloaded-Source-Approval-Loop.md`.
+#
+# This instance is host-local and not public, so disabling the limiter is
+# safe. Do not expose it beyond localhost.
+
+use_default_settings: true
+
+server:
+  # Any non-empty secret; internal-only instance. Overridable via SEARXNG_SECRET.
+  secret_key: "memopop-local-dev-secret"
+  limiter: false
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json
+  # Aggregate the general engines a manual browser search would hit — the
+  # analyst is approving sources they could have found themselves.
+  default_lang: "en"

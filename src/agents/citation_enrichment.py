@@ -247,6 +247,22 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     PRESERVATION: This agent preserves ALL existing content and citations.
     It only ADDS new citations to uncited factual claims.
 
+    CODIFIED-MODE NO-OP: when the deal has `inputs/Sources.md` with
+    `mode: codified`, this agent does nothing. Its entire purpose —
+    asking Perplexity for NEW sources — is the exact behavior codified
+    mode exists to forbid, and it runs *after* the codified researcher
+    has finished obeying the approved set (see workflow.py: `cite` fires
+    between `competitive_evaluator` and `cleanup_research`). Left
+    enabled, it reintroduces out-of-set URLs into `1-research/`, which
+    then flow through the writer into prose and are stripped downstream
+    by the membership gate — leaving holes where a claim used to have a
+    citation. Not running is strictly better than running-then-undoing.
+
+    Coverage within the approved set is the Citation Coverage Promoter's
+    job, not this agent's — see
+    `context-v/plans/Citation-Coverage-Promoter.md` (Decision Point #2,
+    which this implements).
+
     Args:
         state: Current memo state
 
@@ -255,6 +271,19 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     """
     company_name = state["company_name"]
     firm = state.get("firm")
+
+    from ..curation import deal_is_codified
+    if deal_is_codified(state):
+        print(
+            "⊘ Citation enrichment skipped — deal is in codified mode "
+            "(sources are constrained to the analyst's approved set)."
+        )
+        return {
+            "messages": [
+                "Citation enrichment skipped - codified mode "
+                "(would add sources outside the approved set)"
+            ]
+        }
 
     # Check if Perplexity is configured
     perplexity_key = os.getenv("PERPLEXITY_API_KEY")

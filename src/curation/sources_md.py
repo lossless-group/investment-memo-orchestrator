@@ -50,6 +50,28 @@ class SourceEntry:
     sensitivity: str = "citable_externally"               # or "internal_only"
     note: str = ""                                        # analyst's free-form note
 
+    # --- Bibliographic fields -------------------------------------------
+    # Previously dropped by this loader, which forced `tools/curate_sources.py`
+    # to bypass it and parse raw frontmatter to keep them. `title` in
+    # particular is load-bearing: `validation.url_recovery.attempt_url_recovery`
+    # returns None without one, so the curation UI's "re-search for the real
+    # source" action is dead unless the loader round-trips it.
+    title: str = ""
+    publisher: str = ""
+    published_date: str = ""
+
+    # --- Analyst verdict -------------------------------------------------
+    # Promoted from a YAML *comment* (`# verdict: ...`) to a real field.
+    # Comments are discarded by `yaml.safe_load`, so the previous encoding
+    # forced a lossy regex-recovery pass on every read. Approve/deny is the
+    # curation surface's primary output; it cannot live in a lossy channel.
+    #
+    # Vocabulary: "" (unreviewed) | "approved" | "rejected" | plus the
+    # machine verdicts written by the validation ladder (soft-404, paywall,
+    # timeout, 403, unapproved, ...). Only "approved" grants membership.
+    verdict: str = ""
+    verdict_reason: str = ""                              # why denied — training data for tuning
+
 
 @dataclass
 class SourcesMd:
@@ -132,6 +154,11 @@ def load_sources_md(deal_inputs_dir: Path) -> Optional[SourcesMd]:
             rank=rank,
             sensitivity=str(raw.get("sensitivity", "citable_externally")),
             note=str(raw.get("note", "")),
+            title=str(raw.get("title") or ""),
+            publisher=str(raw.get("publisher") or ""),
+            published_date=str(raw.get("published_date") or ""),
+            verdict=str(raw.get("verdict") or "").strip().lower(),
+            verdict_reason=str(raw.get("verdict_reason") or ""),
         ))
 
     return SourcesMd(
@@ -148,6 +175,89 @@ def load_sources_md(deal_inputs_dir: Path) -> Optional[SourcesMd]:
 def is_codified(sources_md: Optional[SourcesMd]) -> bool:
     """Whether `Sources.md` instructs the pipeline to use codified mode."""
     return sources_md is not None and sources_md.mode == "codified"
+
+
+# Verdicts that revoke membership. Everything else — including the empty
+# string — leaves a source approved; see `approved_urls` for why.
+_REJECTED_VERDICTS = frozenset({"rejected", "denied", "excluded"})
+
+
+def is_approved_entry(entry: SourceEntry) -> bool:
+    """Whether a single entry is a member of the approved set.
+
+    Presence in a codified `Sources.md` *is* the approval — that is what
+    "codified" has always meant. `verdict` is therefore a **revocation**
+    field, not a grant: an entry is approved unless explicitly rejected.
+
+    This is deliberate and load-bearing for backward compatibility. Every
+    `Sources.md` written before the verdict field existed carries no
+    verdict at all; requiring `verdict == "approved"` to grant membership
+    would empty the approved set for all of them and cause the membership
+    gate to strip every citation from every existing codified deal.
+    """
+    return entry.verdict not in _REJECTED_VERDICTS
+
+
+def approved_urls(sources_md: Optional[SourcesMd]) -> set:
+    """The canonicalized URL set a codified run is allowed to cite.
+
+    Returns an empty set when `sources_md` is None or not in codified mode
+    — callers MUST check `is_codified()` first and skip enforcement
+    entirely rather than treating an empty set as "nothing is allowed".
+
+    URLs are canonicalized with `best_sources.canonical_url` (the same
+    normalization Pass A of the cross-run curation uses), so membership
+    survives trailing slashes, `www.`, tracking params, and http/https
+    drift. Comparisons against this set must canonicalize the candidate
+    the same way — use `is_approved_url`.
+    """
+    if not sources_md or not sources_md.sources:
+        return set()
+    from .best_sources import canonical_url
+    return {
+        canonical_url(e.url)
+        for e in sources_md.sources
+        if e.url and is_approved_entry(e)
+    }
+
+
+def is_approved_url(url: str, approved: set) -> bool:
+    """Whether `url` is a member of a set produced by `approved_urls`."""
+    if not url:
+        return False
+    from .best_sources import canonical_url
+    return canonical_url(url) in approved
+
+
+def load_deal_sources(state) -> Tuple[Optional[SourcesMd], set]:
+    """Resolve a deal's `Sources.md` and approved-URL set from workflow state.
+
+    The single entry point every agent should use to ask "is this deal
+    codified, and what may it cite?" — so a new agent opts *in* to the
+    constraint by using the standard helper rather than having to know
+    the `io/<firm>/deals/<deal>/inputs` convention.
+
+    Returns `(sources_md, approved)`. `approved` is empty whenever the
+    deal is not codified; callers must treat that as "enforcement does
+    not apply", never as "nothing is allowed". Never raises.
+    """
+    try:
+        from ..agents.codified_section_researcher import find_deal_inputs_dir
+        inputs_dir = find_deal_inputs_dir(state)
+        if not inputs_dir:
+            return None, set()
+        sources_md = load_sources_md(inputs_dir)
+        if not is_codified(sources_md):
+            return sources_md, set()
+        return sources_md, approved_urls(sources_md)
+    except Exception:
+        return None, set()
+
+
+def deal_is_codified(state) -> bool:
+    """Whether this deal's run is constrained to an approved source set."""
+    sources_md, _ = load_deal_sources(state)
+    return is_codified(sources_md)
 
 
 def sources_for_section(
