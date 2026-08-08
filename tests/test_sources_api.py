@@ -254,3 +254,339 @@ def test_approve_refuses_an_empty_set(client):
         "sources": [{"url": "https://a.test/1", "verdict": "rejected"}],
     })
     assert r.status_code == 400
+
+
+# --------------------------------------------------------------------------- #
+# Persisting what we fetch (the gap this closes)                               #
+# --------------------------------------------------------------------------- #
+
+def test_preview_persists_content_when_the_deal_is_known(client, monkeypatch):
+    """Before this, preview content was rendered once and discarded."""
+    monkeypatch.setattr(
+        "src.curation.fetch_url_markdown",
+        lambda url, **k: {"url": url, "title": "Fetched Title",
+                          "markdown": "# Real content\n\nBody.", "via": "jina"},
+        raising=False,
+    )
+    r = client.post("/actions/fetch-source", json={
+        "url": "https://example.org/a", "firm": "test-firm", "deal": "TestCo",
+    })
+    body = r.json()
+    assert body["ok"] is True
+    assert body["saved_to"], "content was fetched and thrown away"
+
+    from src.curation.source_file import read_source_file
+    sf = read_source_file(Path(body["saved_to"]))
+    assert sf.content_pulled is True
+    assert "Real content" in sf.body
+    assert sf.excerpt
+
+
+def test_preview_without_a_deal_does_not_persist(client, monkeypatch):
+    """No deal context, nowhere to file it — still returns the preview."""
+    monkeypatch.setattr(
+        "src.curation.fetch_url_markdown",
+        lambda url, **k: {"url": url, "title": "T", "markdown": "body", "via": "jina"},
+        raising=False,
+    )
+    r = client.post("/actions/fetch-source", json={"url": "https://example.org/a"})
+    assert r.json()["ok"] is True
+    assert r.json()["saved_to"] is None
+
+
+def test_preview_does_not_downgrade_an_approved_source(client, monkeypatch):
+    """Re-previewing must not silently revert a decision."""
+    client.post("/actions/approve-sources", json={
+        "firm": "test-firm", "deal": "TestCo",
+        "sources": [{"url": "https://example.org/a", "title": "T", "verdict": "approved"}],
+    })
+    monkeypatch.setattr(
+        "src.curation.fetch_url_markdown",
+        lambda url, **k: {"url": url, "title": "T", "markdown": "new body", "via": "jina"},
+        raising=False,
+    )
+    r = client.post("/actions/fetch-source", json={
+        "url": "https://example.org/a", "firm": "test-firm", "deal": "TestCo", "title": "T",
+    })
+    from src.curation.source_file import read_source_file
+    sf = read_source_file(Path(r.json()["saved_to"]))
+    assert sf.status == "promoted" and sf.verdict == "approved"
+    assert "new body" in sf.body
+
+
+def test_approve_mirrors_the_decision_into_source_files(client):
+    r = client.post("/actions/approve-sources", json={
+        "firm": "test-firm", "deal": "TestCo",
+        "sources": [
+            {"url": "https://a.test/1", "title": "Keep"},
+            {"url": "https://b.test/2", "title": "Drop", "verdict": "rejected",
+             "verdict_reason": "wrong entity"},
+        ],
+    })
+    assert r.json()["source_files_written"] == 2
+
+    from src.curation.source_file import read_source_file, sources_dir
+    files = {p.name: read_source_file(p) for p in sources_dir(_inputs(client)).glob("*.md")}
+    by_status = {sf.status: sf for sf in files.values()}
+    assert "promoted" in by_status and "rejected" in by_status
+    assert by_status["rejected"].verdict_reason == "wrong entity", \
+        "rejections must keep their reason — that is the institutional memory"
+
+
+def test_approve_keeps_content_a_preview_already_fetched(client, monkeypatch):
+    """Approving is a decision write, not a content write."""
+    monkeypatch.setattr(
+        "src.curation.fetch_url_markdown",
+        lambda url, **k: {"url": url, "title": "T", "markdown": "expensive body", "via": "jina"},
+        raising=False,
+    )
+    client.post("/actions/fetch-source", json={
+        "url": "https://a.test/1", "firm": "test-firm", "deal": "TestCo", "title": "T",
+    })
+    client.post("/actions/approve-sources", json={
+        "firm": "test-firm", "deal": "TestCo",
+        "sources": [{"url": "https://a.test/1", "title": "T", "verdict": "approved"}],
+    })
+
+    from src.curation.source_file import read_source_file, sources_dir
+    sf = next(read_source_file(p) for p in sources_dir(_inputs(client)).glob("*.md"))
+    assert sf.status == "promoted"
+    assert "expensive body" in sf.body, "approve discarded content we already paid for"
+    assert sf.content_pulled is True
+
+
+def test_machine_verdict_rides_along_but_is_not_what_granted_approval(client):
+    """Committing the set is the approval; the validator result is context.
+
+    The file must not contradict the list — the gate will let this source
+    be cited, so filing it as an unreviewed candidate would be a lie. But
+    the reachability string stays in its own field, never as the reason.
+    """
+    client.post("/actions/approve-sources", json={
+        "firm": "test-firm", "deal": "TestCo",
+        "sources": [{"url": "https://a.test/1", "title": "T",
+                     "verdict": "HTTP 200 (body verified)"}],
+    })
+    from src.curation.source_file import read_source_file, sources_dir
+    sf = next(read_source_file(p) for p in sources_dir(_inputs(client)).glob("*.md"))
+    assert sf.status == "promoted"
+    assert sf.verdict == "approved"
+    assert sf.machine_verdict == "HTTP 200 (body verified)"
+
+
+def test_the_file_never_contradicts_the_list(client):
+    """Whatever the gate would allow, the files must agree with."""
+    client.post("/actions/approve-sources", json={
+        "firm": "test-firm", "deal": "TestCo",
+        "sources": [
+            {"url": "https://a.test/1", "title": "no verdict"},
+            {"url": "https://a.test/2", "title": "explicit", "verdict": "approved"},
+            {"url": "https://a.test/3", "title": "machine", "verdict": "timeout"},
+            {"url": "https://a.test/4", "title": "denied", "verdict": "rejected"},
+        ],
+    })
+    from src.curation import approved_urls, load_sources_md
+    from src.curation.source_file import read_source_file, sources_dir
+
+    gate_allows = approved_urls(load_sources_md(_inputs(client)))
+    files = [read_source_file(p) for p in sources_dir(_inputs(client)).glob("*.md")]
+    promoted = {f.url for f in files if f.status == "promoted"}
+
+    from src.curation import canonical_url
+    assert {canonical_url(u) for u in promoted} == gate_allows
+
+
+# --------------------------------------------------------------------------- #
+# Autosave — 80 sources is not one sitting                                     #
+# --------------------------------------------------------------------------- #
+
+def _save(client, autosave: bool, verdict: str = ""):
+    return client.post("/firms/test-firm/deals/TestCo/sources", json={
+        "meta": {}, "body": "", "mode": "aggregated", "autosave": autosave,
+        "sources": [{"url": "https://a.test/1", "title": "A", "verdict": verdict}],
+    })
+
+
+def test_autosave_backs_up_once_not_every_time(client):
+    """Autosave fires every few seconds; a backup per write would bury
+    the deal directory in .bak- files within a single session."""
+    import src.server.sources_api as sa
+    sa._AUTOSAVE_BACKED_UP.clear()
+
+    _save(client, autosave=False)                 # create the file
+    before = len(list(_inputs(client).glob("Sources.md.bak-*")))
+
+    for i in range(6):
+        _save(client, autosave=True, verdict="approved")
+
+    after = len(list(_inputs(client).glob("Sources.md.bak-*")))
+    assert after - before == 1, f"expected exactly one autosave backup, got {after - before}"
+
+
+def test_a_manual_checkpoint_always_backs_up(client):
+    import src.server.sources_api as sa
+    sa._AUTOSAVE_BACKED_UP.clear()
+    _save(client, autosave=False)
+    _save(client, autosave=True)                  # consumes the one autosave backup
+    r = _save(client, autosave=False)             # deliberate checkpoint
+    assert r.json()["backup"] is not None, "an explicit checkpoint must be recoverable"
+
+
+def test_autosave_persists_verdicts(client):
+    """The whole point: close the window mid-session, come back to your work."""
+    import src.server.sources_api as sa
+    sa._AUTOSAVE_BACKED_UP.clear()
+    _save(client, autosave=True, verdict="approved")
+
+    got = client.get("/firms/test-firm/deals/TestCo/sources").json()
+    assert got["sources"][0]["verdict"] == "approved"
+    assert got["mode"] == "aggregated", "an autosave must not silently codify the deal"
+
+
+def test_autosave_reports_when_it_saved(client):
+    r = _save(client, autosave=True)
+    body = r.json()
+    assert body["autosave"] is True
+    assert body["saved_at"], "the UI needs a timestamp to show 'saved Ns ago'"
+
+
+# --------------------------------------------------------------------------- #
+# Metadata on paste (Pasted-Link-Shows-Host-Instead-Of-Title)                  #
+# --------------------------------------------------------------------------- #
+
+A16Z = (
+    "Title: GMV Retention: The Marketplace Metric Most Ignore\n\n"
+    "URL Source: https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/\n\n"
+    "Published Time: 2022-04-28T03:20:24+00:00\n\n"
+    "Markdown Content:\n"
+    "Imagine you're running a marketplace startup — let's call it ACo."
+)
+
+
+@pytest.fixture
+def a16z(monkeypatch):
+    monkeypatch.setattr(
+        "src.curation.fetch_url_markdown",
+        lambda url, **k: {"url": url, "title": "GMV Retention: The Marketplace Metric Most Ignore",
+                          "markdown": A16Z, "via": "jina"},
+        raising=False,
+    )
+
+
+def test_fetch_returns_structured_metadata_not_a_raw_blob(client, a16z):
+    """The row needs a title and a date, not a string to re-parse."""
+    r = client.post("/actions/fetch-source", json={
+        "url": "https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/",
+    })
+    b = r.json()
+    assert b["title"] == "GMV Retention: The Marketplace Metric Most Ignore"
+    assert b["published_at"] == "2022-04-28"
+    assert b["excerpt"].startswith("Imagine you're running")
+
+
+def test_preview_body_has_no_jina_header(client, a16z):
+    """The pane's job is 'is this real content', not 'here are four
+    lines of machine header'."""
+    r = client.post("/actions/fetch-source", json={
+        "url": "https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/",
+    })
+    md = r.json()["markdown"]
+    assert md.startswith("Imagine you're running")
+    for noise in ("Title:", "URL Source:", "Published Time:", "Markdown Content:"):
+        assert noise not in md
+
+
+def test_metadata_only_writes_a_candidate_with_no_body(client, a16z):
+    """The cheap tier: enough to name the row, without storing content
+    for a source that may be rejected."""
+    r = client.post("/actions/fetch-source", json={
+        "url": "https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/",
+        "firm": "test-firm", "deal": "TestCo", "metadata_only": True,
+    })
+    from src.curation.source_file import read_source_file
+    sf = read_source_file(Path(r.json()["saved_to"]))
+    assert sf.status == "candidate"
+    assert sf.content_pulled is False
+    assert sf.body == "", "the cheap tier must not store the body"
+    assert sf.excerpt and sf.title and sf.published_at == "2022-04-28"
+
+
+def test_paste_then_approve_files_under_a_title_slug(client, a16z):
+    """Untitled rows file as `…_a16z-com-gmv-retention….md`. With
+    metadata the filename is readable — and re-search, which needs a
+    title, starts working."""
+    r = client.post("/actions/fetch-source", json={
+        "url": "https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/",
+        "firm": "test-firm", "deal": "TestCo", "metadata_only": True,
+    })
+    name = Path(r.json()["saved_to"]).name
+    assert "gmv-retention" in name
+    assert "a16z-com" not in name
+
+
+def test_a_preview_after_the_cheap_tier_adds_the_body(client, a16z):
+    """Promote is what pays for content; the candidate file gets upgraded
+    in place rather than orphaned."""
+    first = client.post("/actions/fetch-source", json={
+        "url": "https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/",
+        "firm": "test-firm", "deal": "TestCo", "metadata_only": True,
+    }).json()["saved_to"]
+    second = client.post("/actions/fetch-source", json={
+        "url": "https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/",
+        "firm": "test-firm", "deal": "TestCo",
+    }).json()["saved_to"]
+
+    assert first == second, "the full fetch orphaned the candidate file"
+    from src.curation.source_file import read_source_file
+    sf = read_source_file(Path(second))
+    assert sf.content_pulled is True and "Imagine you're running" in sf.body
+
+
+def test_an_analyst_title_is_never_overwritten(client, a16z):
+    r = client.post("/actions/fetch-source", json={
+        "url": "https://a16z.com/gmv-retention-the-marketplace-metric-most-ignore/",
+        "firm": "test-firm", "deal": "TestCo", "title": "a16z — GMV retention (my note)",
+    })
+    from src.curation.source_file import read_source_file
+    assert read_source_file(Path(r.json()["saved_to"])).title == "a16z — GMV retention (my note)"
+
+
+# --------------------------------------------------------------------------- #
+# Regression: a save must never delete a field                                 #
+# --------------------------------------------------------------------------- #
+
+def test_save_preserves_fields_the_ui_does_not_model(client):
+    """The bug that stripped `sensitivity` from 93 real ImmuneCo sources.
+
+    The read path deliberately preserves hand-added keys; the write path
+    must too, or every save is a quiet deletion.
+    """
+    client.post("/firms/test-firm/deals/TestCo/sources", json={
+        "meta": {}, "body": "", "mode": "aggregated",
+        "sources": [{
+            "url": "https://a.test/1", "title": "T",
+            "sensitivity": "internal_only",
+            "confidence": 88,
+            "analyst_custom_key": "do not delete me",
+        }],
+    })
+    got = client.get("/firms/test-firm/deals/TestCo/sources").json()["sources"][0]
+    assert got["sensitivity"] == "internal_only", "internal_only was downgraded"
+    assert got["confidence"] == 88
+    assert got["analyst_custom_key"] == "do not delete me"
+
+
+def test_internal_only_survives_repeated_saves(client):
+    """Autosave fires constantly — one lossy write would be enough."""
+    payload = {
+        "meta": {}, "body": "", "mode": "aggregated", "autosave": True,
+        "sources": [{"url": "https://a.test/1", "title": "T",
+                     "sensitivity": "internal_only"}],
+    }
+    for _ in range(5):
+        client.post("/firms/test-firm/deals/TestCo/sources", json=payload)
+        payload["sources"] = client.get(
+            "/firms/test-firm/deals/TestCo/sources"
+        ).json()["sources"]
+
+    assert payload["sources"][0]["sensitivity"] == "internal_only"

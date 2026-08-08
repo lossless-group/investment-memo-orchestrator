@@ -31,7 +31,19 @@ META_ORDER = [
 
 
 def clean_source(s: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalize one source dict into canonical field order and types."""
+    """Normalize one source into canonical field order, losing nothing.
+
+    Keys outside FIELD_ORDER are appended verbatim rather than dropped.
+    This file is hand-editable and long-lived: an analyst may add a key,
+    a future agent may add one, and a writer that silently deletes what
+    it does not recognize turns every save into data loss.
+
+    That is not hypothetical — it happened. A UI that omitted
+    `sensitivity` from its payload, combined with a writer that only
+    emitted known keys, stripped the field from 93 ImmuneCo sources and
+    downgraded 8 of them from `internal_only`, which governs whether a
+    source may be cited outside the firm.
+    """
     out: Dict[str, Any] = {}
     for key in FIELD_ORDER:
         val = s.get(key)
@@ -51,6 +63,12 @@ def clean_source(s: Dict[str, Any]) -> Dict[str, Any]:
             sval = str(val or "").strip()
             if sval:
                 out[key] = sval
+
+    # Preserve everything else, after the canonical block so the diff of a
+    # curated file stays readable.
+    for key, val in s.items():
+        if key not in out and key not in FIELD_ORDER and val not in (None, "", [], {}):
+            out[key] = val
     return out
 
 
