@@ -214,3 +214,47 @@ def test_real_codified_deals_keep_a_nonempty_approved_set(inputs_dir):
     assert len(approved) <= len(sm.sources)
     # Every approved URL canonicalizes to itself (idempotence).
     assert all(canonical_url(u) == u for u in approved)
+
+
+# --------------------------------------------------------------------------
+# Truncated frontmatter must not fail silently
+# --------------------------------------------------------------------------
+
+def test_sources_stranded_past_the_fence_are_reported(tmp_path, capsys):
+    """A stray '---' inside the source list truncates the frontmatter.
+
+    ImmuneCo carried this from 2026-07-14 to 2026-08-08: 93 sources on
+    disk, 80 visible to the loader, and no signal anywhere. The sources
+    were in the file the whole time, which is exactly what made the loss
+    invisible — a diff looked fine, a grep looked fine, only the parse
+    disagreed.
+    """
+    inputs = tmp_path / "inputs"
+    inputs.mkdir(parents=True)
+    (inputs / "Sources.md").write_text(
+        "---\n"
+        "mode: codified\n"
+        "sources:\n"
+        "- url: https://visible.test/1\n"
+        "---\n\n"                       # ← stray fence mid-list
+        "- url: https://stranded.test/2\n"
+        "  title: Invisible\n"
+        "- url: https://stranded.test/3\n"
+        "---\n\n"
+        "# Notes\n"
+    )
+    sm = load_sources_md(inputs)
+    assert len(sm.sources) == 1, "loader should still return what it can parse"
+    out = capsys.readouterr().out
+    assert "2 source(s) appear AFTER the closing frontmatter fence" in out
+
+
+def test_a_healthy_file_warns_about_nothing(tmp_path, capsys):
+    inputs = tmp_path / "inputs"
+    inputs.mkdir(parents=True)
+    (inputs / "Sources.md").write_text(
+        "---\nmode: codified\nsources:\n- url: https://a.test/1\n---\n\n"
+        "# Notes\n\nProse that mentions a url: but not as a list item.\n"
+    )
+    load_sources_md(inputs)
+    assert "AFTER the closing frontmatter fence" not in capsys.readouterr().out

@@ -36,6 +36,7 @@ Schema (frontmatter):
         sensitivity: citable_externally
 """
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -133,6 +134,24 @@ def load_sources_md(deal_inputs_dir: Path) -> Optional[SourcesMd]:
     metadata, body = parse_frontmatter(content)
     if not metadata:
         return None
+
+    # A stray `---` inside the source list silently truncates the frontmatter:
+    # everything past it parses as prose body, so those sources vanish from the
+    # loader, the approval surface, and the membership gate — while still
+    # sitting in the file, which makes the loss invisible from every direction.
+    #
+    # ImmuneCo carried exactly this from 2026-07-14 (commit bbe294d) until
+    # 2026-08-08: 93 sources on disk, 80 visible, and nothing anywhere said so.
+    # A cheap shape check on the body turns a silent 13-source hole into a
+    # message. Warn rather than raise — a partially readable list still beats
+    # refusing to load one.
+    if body and re.search(r"^- url:\s*\S", body, re.M):
+        stranded = len(re.findall(r"^- url:\s*\S", body, re.M))
+        print(
+            f"  ⚠️  {path}: {stranded} source(s) appear AFTER the closing "
+            f"frontmatter fence and are being ignored. A stray '---' inside "
+            f"the source list truncates it — splice them back above the fence."
+        )
 
     source_entries: List[SourceEntry] = []
     for raw in (metadata.get("sources") or []):
