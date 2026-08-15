@@ -17,6 +17,7 @@ authors:
 image_prompt: A filtered funnel diagram showing many company logos entering the top, passing through research and evaluation screening layers, with validated competitors emerging at the bottom in a structured comparison grid.
 date_created: 2026-03-10
 date_modified: 2026-03-10
+publish: false
 ---
 
 # Introducing a Competitive Landscape Research and Evaluation System

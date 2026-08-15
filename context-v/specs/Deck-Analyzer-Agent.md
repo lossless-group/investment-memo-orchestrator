@@ -17,6 +17,7 @@ authors:
 image_prompt: A pitch deck being analyzed by AI, with extracted data points (team, traction, market size) flowing into structured JSON, and key visual slides being captured as screenshots.
 date_created: 2025-12-09
 date_modified: 2025-12-09
+publish: false
 ---
 
 # Deck Analyzer Agent

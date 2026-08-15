@@ -1,3 +1,9 @@
+---
+title: The Voice and Purpose of Changelogs
+date_created: 2026-05-03
+date_modified: 2026-05-03
+publish: false
+---
  We like to think our changelogs audience is myriad, but in this order:  
  
 Lead with impact — punchy synopsis, story-shaped Why, structured What Changed with

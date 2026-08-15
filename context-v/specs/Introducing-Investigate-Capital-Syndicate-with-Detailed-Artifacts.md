@@ -17,6 +17,7 @@ authors:
 image_prompt: A network graph of investors connected to a central company node, with detailed profile cards showing fund size, portfolio companies, check sizes, and co-investment patterns — overlaid on a cap table spreadsheet.
 date_created: 2026-03-24
 date_modified: 2026-03-24
+publish: false
 ---
 
 # Introducing Investigate Capital Syndicate with Detailed Artifacts

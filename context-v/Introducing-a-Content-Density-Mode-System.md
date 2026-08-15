@@ -17,6 +17,7 @@ authors:
 image_prompt: A toggle switch between two document layouts—one dense and compact with tables replacing prose, the other expansive with repeated key metrics highlighted across multiple sections.
 date_created: 2026-03-10
 date_modified: 2026-03-10
+publish: true
 ---
 
 # Introducing a Content Density Mode System

@@ -17,6 +17,7 @@ authors:
 image_prompt: A modern terminal application with colored panels, progress indicators, and interactive menus guiding a user through investment memo generation — polished and professional, not a raw command line.
 date_created: 2026-03-24
 date_modified: 2026-03-24
+publish: false
 ---
 
 # Interactive Terminal Application — Easy Interface for Casual Users

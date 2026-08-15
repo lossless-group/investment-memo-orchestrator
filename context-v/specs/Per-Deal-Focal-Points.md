@@ -21,6 +21,7 @@ authors:
 image_prompt: A magnifying glass hovering over a single bullet point in a list, with light beams from the bullet illuminating downstream document sections highlighted in matching color; the rest of the bullets dimmed; deep-violet background, technical annotation labels in a monospaced font, analyst's desk aesthetic.
 date_created: 2026-06-08
 date_modified: 2026-06-08
+publish: false
 ---
 
 # Per-Deal Focal Points

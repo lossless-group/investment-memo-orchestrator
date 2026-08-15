@@ -17,6 +17,7 @@ authors:
 image_prompt: A diagram showing a main git repository with two submodule arrows pointing to separate private repositories, one labeled "data" containing company files, another labeled "exports" containing branded PDFs.
 date_created: 2025-11-27
 date_modified: 2025-11-27
+publish: false
 ---
 
 # Git Submodules for Private Data and Exports

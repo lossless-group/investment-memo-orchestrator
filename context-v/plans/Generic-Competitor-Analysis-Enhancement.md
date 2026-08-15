@@ -15,6 +15,7 @@ authors:
   - Michael Staton
 date_created: 2026-05-03
 date_modified: 2026-05-03
+publish: false
 ---
 
 # Plan — Generic competitor analysis enhancement

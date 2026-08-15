@@ -17,6 +17,7 @@ authors:
 image_prompt: A polished single-page investment summary with a sidebar showing deal terms, a main area with headline thesis and market stats, company logos, and a branded footer — printed on crisp white paper next to the thicker full memo it accompanies.
 date_created: 2026-03-23
 date_modified: 2026-03-23
+publish: false
 ---
 
 # Introducing a One-Pager Cover Sheet and Export

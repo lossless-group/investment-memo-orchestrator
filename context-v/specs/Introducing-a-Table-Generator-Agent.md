@@ -17,6 +17,7 @@ authors:
 image_prompt: A markdown table with clean columns and rows displaying competitor data, with an anchor link icon pointing to a detailed section below, surrounded by other table types like funding history and team credentials.
 date_created: 2026-03-10
 date_modified: 2026-03-10
+publish: false
 ---
 
 # Introducing a Table Generator Agent

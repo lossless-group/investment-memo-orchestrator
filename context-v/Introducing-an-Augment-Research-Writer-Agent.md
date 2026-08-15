@@ -17,6 +17,7 @@ authors:
 image_prompt: A split-panel diagram showing research documents on the left gaining new citation markers, and memo section documents on the right receiving those citations woven into existing prose, with arrows flowing left to right to represent the augmentation pipeline.
 date_created: 2026-03-10
 date_modified: 2026-03-10
+publish: false
 ---
 
 # Introducing an Augment Research Writer Agent

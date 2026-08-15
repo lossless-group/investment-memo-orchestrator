@@ -17,6 +17,7 @@ authors:
 image_prompt: A memo section with a market sizing chart from Statista embedded inline, alongside a competitive landscape quadrant diagram sourced from a research report, with subtle attribution captions beneath each.
 date_created: 2026-03-10
 date_modified: 2026-03-10
+publish: false
 ---
 
 # Introducing an Enrich Visualizations Agent

@@ -16,6 +16,7 @@ authors:
 image_prompt: A blueprint-style cutaway of a desktop application connecting to a Python sidecar — translucent native window on the left, Rust dispatcher node in the middle routing JSON, a glowing localhost wire splitting into one path through the dispatcher and another path direct to a Server-Sent-Events stream, soft violet uplight, technical annotations in monospaced font.
 date_created: 2026-05-01
 date_modified: 2026-05-01
+publish: false
 ---
 
 # Plan — Wire memopop-native to the FastAPI sidecar

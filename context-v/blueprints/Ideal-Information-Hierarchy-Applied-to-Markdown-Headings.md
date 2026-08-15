@@ -1,3 +1,10 @@
+---
+title: Ideal Information Hierarchy Applied to Markdown Headings
+date_created: 2026-03-24
+date_modified: 2026-05-03
+publish: false
+---
+
 # Ideal Information Hierarchy Applied to Markdown Headings
 
 ## Purpose

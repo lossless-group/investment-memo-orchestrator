@@ -17,6 +17,7 @@ authors:
 image_prompt: Two legal documents side by side with highlighted diff regions—one labeled "Standard SAFE" and the other "Deal SAFE"—with red flag icons marking deviations and a checklist of common legal flags between them.
 date_created: 2026-03-10
 date_modified: 2026-03-10
+publish: false
 ---
 
 # Introducing a Legal Doc Comparator

@@ -26,6 +26,7 @@ authors:
 image_prompt: A six-stage assembly line on a workshop bench — first stations are small bolt-on fixes (a wrench tightening a loose pipe labeled "validator:302", a clamp replacing a leaky urllib HEAD-check), middle stations are a new librarian-style harvester desk receiving books and stamping each with a barcode, last stations are a writer typing prose at a desk separated from the librarian by a glass wall, all in deep-violet uplight with hand-drawn blueprint annotations in monospaced font, technical-illustration aesthetic.
 date_created: 2026-05-15
 date_modified: 2026-05-15
+publish: false
 ---
 
 # Plan — Trustworthy Citations: Source Harvester Rollout

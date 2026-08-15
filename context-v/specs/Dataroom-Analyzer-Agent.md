@@ -17,6 +17,7 @@ authors:
 image_prompt: A sophisticated document processing pipeline showing diverse document types (financials, legal contracts, pitch decks, cap tables) flowing through AI analysis nodes, with document classification icons and data extraction visualizations.
 date_created: 2025-11-26
 date_modified: 2025-11-26
+publish: false
 ---
 
 # Dataroom Analyzer Agent System Plan

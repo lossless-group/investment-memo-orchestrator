@@ -17,6 +17,7 @@ authors:
 image_prompt: A modular system architecture with YAML configuration files feeding structured data into AI agents, showing clear separation between content outlines and agent logic. Visual elements include YAML file icons, agent nodes, and data flow arrows.
 date_created: 2025-11-21
 date_modified: 2025-11-21
+publish: false
 ---
 
 # Format Memo According to Outline Input

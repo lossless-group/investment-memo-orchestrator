@@ -17,6 +17,7 @@ authors:
 image_prompt: An investment analyst reviewing multiple data streams and documents, with charts, metrics, and strategic insights flowing into a polished investment memo. Visual elements include financial charts, technology diagrams, and a sense of rigorous analytical process.
 date_created: 2025-11-16
 date_modified: 2025-11-16
+publish: false
 ---
 
 # Goal

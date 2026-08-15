@@ -7,6 +7,9 @@ authors:
   - Claude (Opus 4.7)
 target_repo_to_create: lossless-group/study-open-specs-and-standards
 visibility: public
+date_created: 2026-05-02
+date_modified: 2026-05-08
+publish: true
 ---
 
 # Context

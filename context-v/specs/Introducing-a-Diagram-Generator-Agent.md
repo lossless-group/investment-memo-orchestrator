@@ -17,6 +17,7 @@ authors:
 image_prompt: A layered concentric circle diagram showing TAM, SAM, and SOM market sizes with dollar amounts, surrounded by smaller diagram thumbnails of competitive landscapes, funding waterfalls, and org charts, all rendered in clean vector style.
 date_created: 2026-03-09
 date_modified: 2026-03-09
+publish: true
 ---
 
 # Introducing a Diagram Generator Agent
