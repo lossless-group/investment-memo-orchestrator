@@ -1,4 +1,6 @@
 ---
+name: adhoc-edits-workflow
+description: "The four-step pipeline for making a one-off change to an existing deal memo: land facts and citations in 1-research/ first, integrate into the right section as prose, assemble the draft, then export HTML before PDF. Use whenever the user asks to change, add to, correct, or update an already-generated memo — \"add this fact\", \"fix the competitor section\", \"the valuation is wrong\", \"regenerate with this included\". Encodes the two rules that make the edit survive: never edit the assembled final draft directly, because assembly overwrites it, and never start with prose before the underlying research file carries the fact and its citation. Pairs with manage-memo-citations, which covers where a new citation definition has to live to survive repeated assembly runs."
 title: "Ad-Hoc Edits Workflow for an Existing Memo"
 lede: "When the user asks for a one-off change to a deal memo, follow a strict four-step pipeline: (1) drop facts + citations into research first; (2) integrate into the right section with proper prose; (3) assemble into the final draft; (4) export HTML, then PDF. Never edit the final draft directly, never start with prose before the citation exists."
 date_authored_initial_draft: 2026-05-26

@@ -1,4 +1,6 @@
 ---
+name: manage-memo-citations
+description: "Put memo citation definitions in 1-research/ rather than in section files, so they survive repeated assembly runs. Use whenever adding, moving, renaming, or debugging a citation in a generated memo; whenever a footnote renders as a bare marker, a reference disappears after re-assembly, or a citation ID collides; whenever asked \"why did my citation vanish\" or \"where should this source go\". Encodes the durability rule (the assembler strips definitions from section files but treats research files as a fallback source), the two assembly paths and which one used to drop them, semantic rather than numeric ID naming, and where a new citation belongs by theme."
 title: "Manage Memo Citations Durably"
 lede: "Foundational citation definitions live in 1-research/, not in section files. The assembler strips defs from section files but treats research files as a durable fallback source — so anything you want to survive multiple assembly runs has to live there."
 date_authored_initial_draft: 2026-05-26
