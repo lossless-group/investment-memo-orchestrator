@@ -16,6 +16,8 @@ tags: [Perplexity, API, Billing, Research-Agent, Issue-Resolution]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: d51df96b-5c74-44a5-ab7d-477633ca8369
+hex_code: ldeyj4
 ---
 
 # Perplexity API Fix - Zero Balance Issue

@@ -16,6 +16,8 @@ tags: [Citations, Pipeline, Multi-Agent, Lossy-Flow, Issue-Resolution]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: 3402e25a-82d9-4eaf-8e25-518c6cf2c858
+hex_code: 28mj4g
 ---
 
 # Correct Citation Pipeline Accuracy in Multi-Agent Research

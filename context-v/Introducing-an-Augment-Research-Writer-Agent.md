@@ -1,6 +1,7 @@
 ---
 title: Introducing an Augment Research Writer Agent
-lede: A two-phase post-hoc enrichment system that first enhances research files with authoritative third-party citations via Perplexity Sonar Pro, then runs an augmentation writer that weaves those new citations into existing section prose without rewriting content.
+lede: >-
+  Two-phase enrichment: Sonar Pro adds citations to research files, then a writer weaves them into existing prose without rewriting it.
 date_authored_initial_draft: 2026-03-10
 date_authored_current_draft: 2026-03-10
 date_authored_final_draft:
@@ -18,6 +19,8 @@ image_prompt: A split-panel diagram showing research documents on the left gaini
 date_created: 2026-03-10
 date_modified: 2026-03-10
 publish: false
+site_uuid: 051d7062-64e2-441c-91f0-67a285fb9604
+hex_code: 08q2k5
 ---
 
 # Introducing an Augment Research Writer Agent

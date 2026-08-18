@@ -16,6 +16,8 @@ tags: [Anti-Hallucination, Citation-Validation, Source-Removal, Perplexity, URL-
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: d07399d2-32da-412c-b1f8-49363c77b279
+hex_code: q4zkah
 ---
 
 # Anti-Hallucination: Source Validation and Removal

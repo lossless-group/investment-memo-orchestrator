@@ -1,6 +1,7 @@
 ---
 title: "Limiting or Omitting Investor Judgement"
-lede: "The memo pipeline renders unsolicited investment verdicts (PASS / CONSIDER / COMMIT) at the end of the Cash on Cash Return Probability and Closing Assessment sections — even when the human analyst is actively preparing the memo to advocate for the company in front of the investment committee. The agent has no signal that the analyst's job here is advocacy, not adjudication, and that an automated PASS in that context is worse than no verdict at all."
+lede: >-
+  The pipeline renders an unsolicited PASS / CONSIDER / COMMIT verdict even when the analyst's job is advocacy, not adjudication.
 date_authored_initial_draft: 2026-06-08
 date_authored_current_draft: 2026-06-08
 date_authored_final_draft:
@@ -24,6 +25,8 @@ authors:
   - Michael Staton
 date_created: 2026-06-08
 date_modified: 2026-06-08
+site_uuid: 169f9fb1-39cd-40d4-8ec6-2ab39e6c68b5
+hex_code: jk5kvp
 ---
 
 # Limiting or Omitting Investor Judgement

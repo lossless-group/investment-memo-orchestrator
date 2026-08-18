@@ -16,6 +16,8 @@ tags: [Deck-Analysis, Data-Flow, Hallucination, Agent-Pipeline, Issue-Resolution
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: 2eb34fa9-b947-43ca-b6ee-da54c43ce086
+hex_code: 5oohqt
 ---
 
 # Issue Resolution: Deck Data Flow Gap Causes Hallucination

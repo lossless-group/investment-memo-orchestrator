@@ -1,6 +1,7 @@
 ---
 title: "Competitive Research Generated But Not In Prose"
-lede: "The competitive landscape evaluator agent produces rich, named, evidenced competitor data — 9+ companies per memo, with funding, differentiation, and direct/indirect classification — and saves it to disk. The downstream writer agent that drafts the Category Leadership section never sees that data. The section then emits `<needs-source>` markers asking for 'names of the top 3–5 ocean energy competitors' while a file naming 9 of them sits two directories away. Two agents working on the same memo with no pipe between them."
+lede: >-
+  The evaluator names 9+ competitors to disk; the writer never reads that file and emits `<needs-source>` asking for the names two dirs away.
 date_authored_initial_draft: 2026-06-08
 date_authored_current_draft: 2026-06-08
 date_authored_final_draft:
@@ -24,6 +25,8 @@ authors:
   - Michael Staton
 date_created: 2026-06-08
 date_modified: 2026-06-08
+site_uuid: a8b13e12-3246-42b9-8aff-d0a5e1af4de4
+hex_code: y6cirb
 ---
 
 # Competitive Research Generated But Not In Prose

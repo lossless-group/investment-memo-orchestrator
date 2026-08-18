@@ -16,6 +16,8 @@ tags: [Perplexity, API-Reference, Premium-Sources, At-Syntax, Research]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: 2f2a3f75-71bc-42cc-bc53-02808c8d85e9
+hex_code: sme1u9
 ---
 
 # Perplexity Premium API Calls - Complete Reference

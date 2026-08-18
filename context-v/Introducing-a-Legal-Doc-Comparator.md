@@ -18,6 +18,8 @@ image_prompt: Two legal documents side by side with highlighted diff regions—o
 date_created: 2026-03-10
 date_modified: 2026-03-10
 publish: false
+site_uuid: 6fe14440-2201-41b0-b08c-efe5e3256cad
+hex_code: gmrov7
 ---
 
 # Introducing a Legal Doc Comparator

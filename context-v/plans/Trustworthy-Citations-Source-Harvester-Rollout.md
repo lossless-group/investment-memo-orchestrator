@@ -1,6 +1,7 @@
 ---
 title: "Trustworthy Citations: Source Harvester Rollout"
-lede: "Where we are after the ChromaDB curation post-mortem, why the existing anti-hallucination work hasn't held, and the concrete six-phase plan to make fabricated URLs structurally impossible — starting with cheap fixes that block the bleeding and ending with a Source Harvester / Section Writer split."
+lede: >-
+  Why the existing anti-hallucination work hasn't held, and the six-phase plan that ends in a Source Harvester / Section Writer split.
 date_authored_initial_draft: 2026-05-15
 date_authored_current_draft: 2026-05-15
 date_authored_revisions:
@@ -27,6 +28,8 @@ image_prompt: A six-stage assembly line on a workshop bench — first stations a
 date_created: 2026-05-15
 date_modified: 2026-05-15
 publish: false
+site_uuid: 8ad3f8ae-9fba-4fec-8208-d22bf6bb7706
+hex_code: b57i3u
 ---
 
 # Plan — Trustworthy Citations: Source Harvester Rollout

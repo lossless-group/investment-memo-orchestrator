@@ -10,6 +10,9 @@ authors:
 augmented_with: "Claude Code (Sonnet 4.5)"
 site_uuid: d926a656-1323-456f-8b48-4195ca31d371
 lede: "An exploration into using AI supervisors and specialized agents to generate high-quality content and documents."
+hex_code: jqdts0
+date_authored_initial_draft: 2025-11-16
+date_authored_current_draft: 2025-11-16
 ---
 # Multi-Agent Orchestration for Investment Memo Generation
 

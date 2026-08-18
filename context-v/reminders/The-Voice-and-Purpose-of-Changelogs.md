@@ -3,6 +3,10 @@ title: The Voice and Purpose of Changelogs
 date_created: 2026-05-03
 date_modified: 2026-05-03
 publish: false
+site_uuid: 786a4c2b-9c6e-4528-8cec-e4e92c8786bc
+hex_code: 8zjxh5
+date_authored_initial_draft: 2026-05-03
+date_authored_current_draft: 2026-05-03
 ---
  We like to think our changelogs audience is myriad, but in this order:  
  

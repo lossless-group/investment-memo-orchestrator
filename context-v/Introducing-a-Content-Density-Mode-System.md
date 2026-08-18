@@ -18,6 +18,8 @@ image_prompt: A toggle switch between two document layouts—one dense and compa
 date_created: 2026-03-10
 date_modified: 2026-03-10
 publish: true
+site_uuid: c5394691-11a7-451f-9c32-bcb0f6d0daff
+hex_code: orx2l1
 ---
 
 # Introducing a Content Density Mode System

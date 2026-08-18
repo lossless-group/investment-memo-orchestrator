@@ -18,6 +18,8 @@ image_prompt: A modular system architecture with YAML configuration files feedin
 date_created: 2025-11-21
 date_modified: 2025-11-21
 publish: false
+site_uuid: eee66139-7518-4db8-9515-cc3ff05cf0d4
+hex_code: b4iocm
 ---
 
 # Format Memo According to Outline Input

@@ -18,6 +18,8 @@ image_prompt: A VC investment scorecard with multiple dimensions being evaluated
 date_created: 2025-11-27
 date_modified: 2025-11-27
 publish: false
+site_uuid: c83c4cf3-70ca-445c-98c7-bc6103d8f2b2
+hex_code: zk02fp
 ---
 
 # Model Scorecard Agent and Template System

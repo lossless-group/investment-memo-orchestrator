@@ -16,6 +16,8 @@ tags: [Testing, Anti-Hallucination, Work-Back-AI, Seed-Stage, Validation]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: 203e1bc5-c227-4200-adc3-1eb50d96b316
+hex_code: 8kcawz
 ---
 
 # Tier 1 Anti-Hallucination Test Results: Work Back AI

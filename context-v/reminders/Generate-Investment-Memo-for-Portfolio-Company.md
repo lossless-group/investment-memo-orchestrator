@@ -18,6 +18,8 @@ image_prompt: An investment analyst reviewing multiple data streams and document
 date_created: 2025-11-16
 date_modified: 2025-11-16
 publish: false
+site_uuid: a4392ac1-07d4-4c68-ae61-603f804f826f
+hex_code: q2q4ia
 ---
 
 # Goal

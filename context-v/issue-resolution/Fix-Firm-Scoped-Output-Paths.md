@@ -16,6 +16,8 @@ tags: [Bug-Fix, Firm-Scoping, Output-Paths, Artifacts]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: cf099b08-f7d0-4389-9a2e-c8119ae2f43b
+hex_code: zza5g9
 ---
 
 # Fix Firm-Scoped Output Paths

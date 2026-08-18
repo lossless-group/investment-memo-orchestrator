@@ -18,6 +18,8 @@ image_prompt: A markdown table with clean columns and rows displaying competitor
 date_created: 2026-03-10
 date_modified: 2026-03-10
 publish: false
+site_uuid: 88c22b27-913e-4512-b026-c42a5fa1b3e5
+hex_code: n0c2gf
 ---
 
 # Introducing a Table Generator Agent

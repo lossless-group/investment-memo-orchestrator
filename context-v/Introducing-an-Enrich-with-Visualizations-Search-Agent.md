@@ -18,6 +18,8 @@ image_prompt: A memo section with a market sizing chart from Statista embedded i
 date_created: 2026-03-10
 date_modified: 2026-03-10
 publish: false
+site_uuid: 42017cdd-10aa-4f94-8160-056b03a63ecf
+hex_code: qnnr3k
 ---
 
 # Introducing an Enrich Visualizations Agent

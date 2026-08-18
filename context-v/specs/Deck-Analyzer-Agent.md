@@ -18,6 +18,8 @@ image_prompt: A pitch deck being analyzed by AI, with extracted data points (tea
 date_created: 2025-12-09
 date_modified: 2025-12-09
 publish: false
+site_uuid: 028b9751-02da-4dbb-93cf-bd7fa5e1f181
+hex_code: r735kh
 ---
 
 # Deck Analyzer Agent

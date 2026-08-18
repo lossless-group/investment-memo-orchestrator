@@ -18,6 +18,8 @@ image_prompt: A network graph of investors connected to a central company node, 
 date_created: 2026-03-24
 date_modified: 2026-03-24
 publish: false
+site_uuid: 4844ace9-ba48-472d-b15e-0107903aa7a2
+hex_code: 1ozdid
 ---
 
 # Introducing Investigate Capital Syndicate with Detailed Artifacts

@@ -1,6 +1,7 @@
 ---
 title: "Including Comparable Exits, Valuations, and IPOs"
-lede: "An investment memo's bull/base/bear scenarios are only as honest as the comparable exits they're anchored to. The orchestrator has no dedicated agent for surfacing exit comps — IPOs, M&A outcomes, secondary multiples — for adjacent or analogous companies. The Cash on Cash Return Probability section is expected to render these scenarios but is left to fish for comps via the same generic research path that produces the URL-hallucination problem documented elsewhere. The result is plausible-sounding return math anchored to nothing verifiable."
+lede: >-
+  No agent harvests exit comps, so the Cash on Cash section's bull/base/bear multiples are return math anchored to nothing verifiable.
 date_authored_initial_draft: 2026-06-08
 date_authored_current_draft: 2026-06-08
 date_authored_final_draft:
@@ -25,6 +26,8 @@ authors:
   - Michael Staton
 date_created: 2026-06-08
 date_modified: 2026-06-08
+site_uuid: bb661e4d-ad8b-4123-8d4c-85807a666007
+hex_code: zuudu4
 ---
 
 # Including Comparable Exits, Valuations, and IPOs

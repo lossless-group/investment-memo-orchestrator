@@ -1,6 +1,7 @@
 ---
 title: "Citation Coverage Promoter: Surface the Long Tail of Cited Sources"
-lede: "The writer agent reliably composes prose that cites a handful of sources heavily and ignores the rest. ChromaDB v0.0.10 demonstrated the pattern at scale — 33 hand-curated URLs in scope, 7 actually cited, 26 ignored. This plan adds a citation-additive, prose-conservative second pass between draft and assemble: same prose, more sources, more even distribution. Phase 1 is prompt-level fixes; Phase 2 is the new agent; Phase 3 is matching infrastructure; Phase 4 is calibration."
+lede: >-
+  ChromaDB v0.0.10: 33 curated URLs in scope, 7 cited, 26 ignored. A citation-additive second pass between draft and assemble.
 date_authored_initial_draft: 2026-05-22
 date_authored_current_draft: 2026-05-22
 date_authored_final_draft:
@@ -23,6 +24,8 @@ authors:
 image_prompt: A wide library reading-room cross-section seen from the side — at left, a writer at a typewriter pulling books from a tall stack of 33 but actually only opening 7 of them, the other 26 untouched on a shelf behind a glass case labeled "UNDERUSED"; at right, a librarian-auditor in a green visor stands next to the typewritten draft holding a stamp marked "[^N]" and quietly pressing it after sentences in the existing prose without changing a single word of the writer's text; a horizontal arrow labeled "additive only" connects the auditor's stamp to the existing prose; deep-violet uplight, blueprint-paper aesthetic, hand-drawn monospaced annotations.
 date_created: 2026-05-22
 date_modified: 2026-05-22
+site_uuid: f8855767-6669-4c31-8060-2337c8cd5ea5
+hex_code: 0uwzkf
 ---
 
 # Plan — Citation Coverage Promoter

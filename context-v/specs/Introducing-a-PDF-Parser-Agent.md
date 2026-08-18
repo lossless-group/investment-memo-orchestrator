@@ -1,5 +1,5 @@
 ---
-date_created: 2026-1-27
+date_created: 2026-01-27
 date_modified: 2026-1-27
 publish: true
 title: "PDF Parser Agent Specification"
@@ -10,6 +10,7 @@ authors:
 augmented_with: "Claude Code on Opus 4.5"
 site_uuid: a346a222-5313-b53f-7e4e-3196ca31d371
 lede: "A small specification for an agent and script to parse PDFs and convert them to markdown with properly formatted citations."
+hex_code: axzadg
 ---
 # PDF Parser Agent Specification
 

@@ -18,6 +18,8 @@ image_prompt: A polished single-page investment summary with a sidebar showing d
 date_created: 2026-03-23
 date_modified: 2026-03-23
 publish: false
+site_uuid: 79c342b4-32af-444b-a5a4-1f63fd191941
+hex_code: 0otyr5
 ---
 
 # Introducing a One-Pager Cover Sheet and Export

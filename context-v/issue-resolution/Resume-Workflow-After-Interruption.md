@@ -16,6 +16,8 @@ tags: [Resume, Checkpoint, Workflow, Error-Recovery, Issue-Resolution]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: cd365d88-61e4-4e2d-b029-6651cb01fcc5
+hex_code: hx2mih
 ---
 
 # Resume Workflow After Interruption

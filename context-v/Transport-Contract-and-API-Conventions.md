@@ -19,6 +19,8 @@ augmented_with: "Claude Code with Claude Opus 4.7"
 related:
   - context-v/Introducing-a-GUI-Native-Desktop-with-Tauri.md
   - context-v/GUI-Action-Catalog-Draft.md
+site_uuid: 1f04c6ff-dd45-42e1-a92b-a5cf12890fe5
+hex_code: tqgrvk
 ---
 
 # Transport Contract and API Conventions

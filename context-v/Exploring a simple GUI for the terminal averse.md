@@ -16,6 +16,8 @@ tags: [GUI, Desktop-App, UX, CLI, Control-Panel]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: 76edf0ce-a958-43fa-a934-2b5f70db1011
+hex_code: iuticm
 ---
 
 # Exploring a simple GUI for the terminal‑averse

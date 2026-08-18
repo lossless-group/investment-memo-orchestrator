@@ -16,6 +16,8 @@ tags: [Citations, CSS, Formatting, Export, Readability]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: 6d61a258-2549-4f09-b6a0-6d72f2fc5dbe
+hex_code: xic476
 ---
 
 # Citation Spacing Improvements

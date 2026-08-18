@@ -16,6 +16,8 @@ tags: [Content-Management, SSGs, Frontmatter, Metadata]
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.5"
+site_uuid: 33841fb2-e10d-42fc-a3f5-462f39160258
+hex_code: c23cls
 ---
 
 This is a reminder of the frontmatter standards for context files within software development projects for The Lossless Group (a loose collaboration of consultants and developers).

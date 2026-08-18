@@ -16,6 +16,8 @@ tags: [KPI, Extraction, Anti-Hallucination, Data-Validation, Charts, Spreadsheet
 authors:
   - Michael Staton
 augmented_with: "Claude Code with Claude Opus 4.6"
+site_uuid: ea6e4305-ab6f-449b-b0f2-c03dfa035f29
+hex_code: sftq7w
 ---
 
 # KPI Extractor Agent

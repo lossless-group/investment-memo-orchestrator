@@ -1,6 +1,7 @@
 ---
 title: "Research Agent Concatenates Multiple Sources Under One Citation ID — And No Validator Catches It"
-lede: "The downstream symptom (orphan `[^N]` markers in exported memos) is a citation-format failure at the very top of the pipeline: `research_enhanced.py` writes multiple sources onto a single line under the same `[^N]:` heading, with no newline separators and frequent ID reuse. Six of nine research files in the Panthalassa-Deck-Series-B v0.0.3 run carry these malformed lines (one section reuses `[^12]` six times). The downstream regex parsers only see the first source per ID and silently drop the rest. The `citation_validator` agent that exists checks claim accuracy, not bibliography format, so the malformation passes through unflagged. The architectural fix is the Source Harvester / Section Writer split documented in CLAUDE.md §'Architectural direction (2026-05)' but not yet built. Three smaller backstops can close the gap before that ships."
+lede: >-
+  `research_enhanced.py` writes several sources onto one `[^N]:` line, so downstream parsers keep the first and silently drop the rest.
 date_authored_initial_draft: 2026-06-15
 date_authored_current_draft: 2026-06-15
 date_authored_final_draft:
@@ -17,6 +18,8 @@ authors:
 files_changed: []
 date_created: 2026-06-15
 date_modified: 2026-06-15
+site_uuid: 411db066-bece-4da4-b5bf-69db955448e0
+hex_code: arv3uo
 ---
 
 # Research Agent Concatenates Multiple Sources Under One Citation ID — And No Validator Catches It
