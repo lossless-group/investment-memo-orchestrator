@@ -124,6 +124,9 @@ def main() -> int:
     ap.add_argument("--version", default=None, help="e.g. v0.0.1 (default: latest)")
     ap.add_argument("--apply", action="store_true",
                     help="write verdicts back into inputs/Sources.md (backed up)")
+    ap.add_argument("--sources-file", default=None,
+                    help="explicit path to a Sources*.md (default: inputs/Sources.md). "
+                         "Use for the pipeline's outputs/.../Sources-aggregated.md draft.")
     ap.add_argument("--workers", type=int, default=12)
     args = ap.parse_args()
 
@@ -133,10 +136,26 @@ def main() -> int:
     if args.version:
         outputs_dir = outputs_dir / f"{args.deal}-{args.version}"
 
-    sources_md = load_sources_md(inputs_dir)
+    if args.sources_file:
+        # load_sources_md takes a directory and expects the file to be named
+        # Sources.md, so stage the named file into a temp dir under that name.
+        import shutil, tempfile
+        src = Path(args.sources_file)
+        if not src.exists():
+            print(f"✗ {src} not found")
+            return 1
+        staging = Path(tempfile.mkdtemp())
+        shutil.copy(src, staging / "Sources.md")
+        sources_md = load_sources_md(staging)
+        source_label = str(src)
+    else:
+        sources_md = load_sources_md(inputs_dir)
+        source_label = f"{inputs_dir}/Sources.md"
+
     if not sources_md or not sources_md.sources:
-        print(f"✗ No Sources.md with entries at {inputs_dir}/Sources.md")
+        print(f"✗ No sources with entries at {source_label}")
         return 1
+    print(f"📄 {source_label}")
 
     provenance = load_provenance_for(outputs_dir)
     print(f"📖 {len(sources_md.sources)} sources | "

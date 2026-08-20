@@ -227,6 +227,27 @@ def enrich_research_with_citations(
         # the whole citation list under it, pre-existing definitions ride along.
         # That happened on the first real run — Origins handed 33 definitions
         # (10 existing + 23 new) into reconciliation and lost the 10 good ones.
+        # Zero retrieved sources means the call did no retrieval at all — every
+        # citation it proposes is therefore generated, not found. This is the
+        # HIGHEST-risk case, not a reason to skip: on the TrustedRouter run the
+        # Risks enrichment returned no search_results and emitted 25 citations,
+        # all `https://example.com/...` placeholders, which passed through
+        # untouched because reconciliation was gated behind `retrieved_sources`.
+        # Only GATE 1's example.com regex caught them; a fabricated URL on a real
+        # domain would have reached the memo.
+        if new_citation_defs.strip() and not retrieved_sources:
+            dropped_keys = [m.group(1) for m in
+                            re.finditer(r'^\[\^([a-zA-Z0-9_-]+)\]:', new_citation_defs, re.M)
+                            if m.group(1).lower() not in ("deck", "dataroom", "internal")]
+            for key in dropped_keys:
+                enriched = re.sub(r"[ \t]*\[\^" + re.escape(key) + r"\]", "", enriched)
+            new_citation_defs = "\n".join(
+                l for l in new_citation_defs.split("\n")
+                if re.match(r'\[\^(deck|dataroom|internal)\]:', l.strip(), re.I)
+            ).strip()
+            print(f"      ⚠️  enrichment retrieved NOTHING — dropped all "
+                  f"{len(dropped_keys)} proposed citations as unbackable")
+
         if retrieved_sources and new_citation_defs.strip():
             fresh_lines, keeping = [], False
             for line in new_citation_defs.split("\n"):
