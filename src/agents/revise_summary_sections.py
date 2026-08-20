@@ -81,6 +81,87 @@ Write the revised Closing Assessment (markdown format, start with "# Closing Ass
 """
 
 
+# Company suffixes and connectors that show up inside names we must not treat
+# as "another company" (e.g. "Series B" is not an entity).
+_NOT_A_COMPANY = {
+    "Series", "Seed", "SAFE", "The", "A", "An", "AI", "API", "LLM", "TEE",
+    "Published", "Updated", "Title", "URL", "Source", "January", "February",
+    "March", "April", "May", "June", "July", "August", "September", "October",
+    "November", "December", "Executive", "Summary", "Risks", "Opportunity",
+}
+
+
+def _sentences(text: str):
+    for chunk in re.split(r'(?<=[.!?])\s+|\n+', text or ""):
+        c = chunk.strip()
+        if c:
+            yield c
+
+
+def attribution_filter(content: str, company_name: str, competitors=None) -> str:
+    """Keep only sentences that plausibly describe THIS company's numbers.
+
+    The extractors below regex the whole memo for dollar figures near funding
+    words. That has no notion of subject, so in a memo whose competitive section
+    covers OpenRouter's $113M Series B, it returns $113M as the subject's raise.
+    Observed on TrustedRouter v0.0.2: a $1.5M seed on a $30M cap was summarized
+    as "$113 million raise; $1.3 billion valuation; Series B" — every figure real,
+    correctly cited, and about a different company.
+
+    Rule: a sentence survives if it names the company, or names no other company
+    at all. A sentence naming a competitor and not the subject is dropped.
+    """
+    if not company_name:
+        return content
+    subject_tokens = {t.lower() for t in re.findall(r"[A-Za-z]+", company_name) if len(t) > 2}
+    comp_names = {c.strip() for c in (competitors or []) if c and c.strip()}
+
+    kept = []
+    for sent in _sentences(content):
+        low = sent.lower()
+        names_subject = any(t in low for t in subject_tokens)
+        if names_subject:
+            kept.append(sent)
+            continue
+        # Any explicitly-known competitor mentioned -> not our subject.
+        if any(c.lower() in low for c in comp_names):
+            continue
+        # Heuristic: a capitalized multi-char token that is not the subject and
+        # not a stopword reads as another entity.
+        others = [
+            w for w in re.findall(r"\b[A-Z][A-Za-z0-9.\-]{2,}\b", sent)
+            if w not in _NOT_A_COMPANY and w.lower() not in subject_tokens
+        ]
+        if not others:
+            kept.append(sent)
+    return "\n".join(kept)
+
+
+def known_competitors(state) -> list:
+    """Competitor names from the competitive-evaluation artifact, if present."""
+    names = []
+    try:
+        import json
+        from ..utils import get_output_dir_from_state
+        path = get_output_dir_from_state(state) / "1-competitive-evaluation.json"
+        if path.exists():
+            data = json.loads(path.read_text())
+            def walk(node):
+                if isinstance(node, dict):
+                    for k, v in node.items():
+                        if k in ("name", "company", "competitor") and isinstance(v, str):
+                            names.append(v)
+                        else:
+                            walk(v)
+                elif isinstance(node, list):
+                    for item in node:
+                        walk(item)
+            walk(data)
+    except Exception:  # noqa: BLE001
+        pass
+    return sorted({n.strip() for n in names if n and len(n.strip()) > 2})
+
+
 def extract_funding_data(content: str) -> str:
     """Extract funding-related information from memo content."""
     funding_patterns = [
@@ -326,8 +407,18 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
         full_memo = "\n\n---\n\n".join(f.read_text() for f in section_files)
 
     # Extract key data from the memo
-    funding_data = extract_funding_data(full_memo)
-    traction_data = extract_traction_data(full_memo)
+    # Scope numeric extraction to sentences about THIS company. Without this the
+    # regexes below happily return a competitor's round as the subject's.
+    _competitors = known_competitors(state)
+    _subject_text = attribution_filter(
+        full_memo, state.get("company_name", ""), _competitors
+    )
+    if _competitors:
+        print(f"  \U0001f6e1\ufe0f  Attribution filter: excluding figures attributed to "
+              f"{len(_competitors)} known competitor(s)")
+
+    funding_data = extract_funding_data(_subject_text)
+    traction_data = extract_traction_data(_subject_text)
     market_data = extract_market_data(full_memo)
     strengths = extract_strengths(full_memo)
     risks = extract_risks(full_memo)

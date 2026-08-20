@@ -39,6 +39,7 @@ from .agents.perplexity_section_researcher import perplexity_section_researcher_
 from .agents.competitive_landscape_researcher import competitive_landscape_researcher  # 4b. Competitive landscape discovery
 from .agents.competitive_landscape_evaluator import competitive_landscape_evaluator    # 4c. Competitive landscape evaluation
 from .agents.citation_enrichment import citation_enrichment_agent                # 5. Citation enrichment on research
+from .agents.attribution_audit import attribution_audit_agent                  # 6b. Flag claims attributed to the wrong company
 from .agents.source_aggregator import source_aggregator_agent                    # 6. Aggregate URLs → Sources.md draft; HALT for analyst curation (unless codified)
 from .agents.writer import writer_agent                                          # 7. Section-by-section writing
 from .agents.inject_deck_images import inject_deck_images_agent                  # 8. Inject deck screenshots
@@ -479,6 +480,7 @@ def build_workflow() -> StateGraph:
     workflow.add_node("fix_citation_spacing", citation_spacing_agent)  # Fix citation spacing in final draft
     workflow.add_node("validate_citations", citation_validator_agent)  # Citation accuracy validator
     workflow.add_node("fact_check", fact_checker_agent)  # Fact extraction: mechanical claim identification
+    workflow.add_node("attribution_audit", attribution_audit_agent)  # Flag claims about the WRONG company (real numbers, wrong subject)
     workflow.add_node("fact_verify", fact_verifier_agent)  # Fact verification: LLM verifies claims via Perplexity
     workflow.add_node("fact_correct", fact_corrector_agent)  # Fact correction: LLM applies fixes to sections
     workflow.add_node("source_catalog", source_cataloger_agent)  # Compile per-section complete source lists
@@ -543,7 +545,8 @@ def build_workflow() -> StateGraph:
     workflow.add_edge("assemble_citations", "fix_citation_spacing")  # Fix citation spacing in final draft
     workflow.add_edge("fix_citation_spacing", "validate_citations")  # Validate assembled citations
     workflow.add_edge("validate_citations", "fact_check")  # Extract claims (mechanical regex)
-    workflow.add_edge("fact_check", "fact_verify")  # Verify claims via Perplexity Sonar Pro
+    workflow.add_edge("fact_check", "attribution_audit")  # Subject-attribution gate BEFORE truth verification
+    workflow.add_edge("attribution_audit", "fact_verify")  # Verify claims via Perplexity Sonar Pro
     workflow.add_edge("fact_verify", "fact_correct")  # Apply corrections to section files
     workflow.add_edge("fact_correct", "source_catalog")  # Compile per-section source lists
     workflow.add_edge("source_catalog", "validate")
