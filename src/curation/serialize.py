@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Per-source key order on write.
 FIELD_ORDER = [
-    "url", "title", "publisher", "published_date",
+    "url", "title", "publisher", "published_date", "local_path",
     "sections", "rank", "sensitivity", "verdict", "verdict_reason", "note",
 ]
 

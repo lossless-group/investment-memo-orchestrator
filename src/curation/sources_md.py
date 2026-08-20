@@ -61,6 +61,12 @@ class SourceEntry:
     publisher: str = ""
     published_date: str = ""
 
+    # Analyst-staged local copy, relative to the deal dir or absolute. Set when
+    # a source is approved but unreachable to bots (McKinsey, Reuters, NYT all
+    # refuse automated fetches). The codified researcher reads this instead of
+    # the URL, so downloading the document actually gets it into the memo.
+    local_path: str = ""
+
     # --- Analyst verdict -------------------------------------------------
     # Promoted from a YAML *comment* (`# verdict: ...`) to a real field.
     # Comments are discarded by `yaml.safe_load`, so the previous encoding
@@ -176,6 +182,7 @@ def load_sources_md(deal_inputs_dir: Path) -> Optional[SourcesMd]:
             title=str(raw.get("title") or ""),
             publisher=str(raw.get("publisher") or ""),
             published_date=str(raw.get("published_date") or ""),
+            local_path=str(raw.get("local_path") or ""),
             verdict=str(raw.get("verdict") or "").strip().lower(),
             verdict_reason=str(raw.get("verdict_reason") or ""),
         ))

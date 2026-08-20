@@ -138,3 +138,54 @@ def _extract_title_from_markdown(markdown: str) -> Optional[str]:
     if m:
         return m.group(1).strip()
     return None
+
+
+def fetch_local_file(path: "Path", url: str = "") -> Optional[Dict[str, Any]]:
+    """Read a locally-staged source file as markdown, same shape as `fetch_url_markdown`.
+
+    Exists because a source can be genuinely approved and genuinely unreachable:
+    McKinsey, Reuters and the NYT all refuse bots, so a URL fetch returns nothing
+    even when the analyst has the document in hand. Without this, downloading the
+    PDF accomplishes nothing — the codified researcher fetches URLs, the URL times
+    out, and the analyst's own copy never reaches the memo.
+
+    PDFs go through PyMuPDF (already a hard dependency); text/markdown is read
+    directly. Returns None if the file is missing or yields no text.
+    """
+    from pathlib import Path as _Path
+    p = _Path(path)
+    if not p.exists() or not p.is_file():
+        return None
+
+    suffix = p.suffix.lower()
+    text = ""
+    try:
+        if suffix == ".pdf":
+            import fitz  # PyMuPDF
+            with fitz.open(p) as doc:
+                text = "\n\n".join(page.get_text() for page in doc)
+        elif suffix in (".md", ".markdown", ".txt", ".text"):
+            text = p.read_text(errors="ignore")
+        elif suffix in (".html", ".htm"):
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(p.read_text(errors="ignore"), "html.parser")
+            for tag in soup(["script", "style", "noscript"]):
+                tag.decompose()
+            text = soup.get_text(separator="\n", strip=True)
+        else:
+            return None
+    except Exception:
+        return None
+
+    text = re.sub(r"\n{3,}", "\n\n", (text or "").strip())
+    if not text:
+        return None
+
+    title = p.stem.replace("_", " ").replace("-", " ")
+    return {
+        "url": url or p.as_uri(),
+        "fetched_at": datetime.now().isoformat(timespec="seconds"),
+        "title": title,
+        "markdown": f"Title: {title}\n\nLocal Source: {p}\n\n{text}",
+        "via": "local-file",
+    }

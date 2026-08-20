@@ -74,6 +74,7 @@ GATED   = "gated"     # retrieved + paywalled/403   -> approved, flagged for the
 AMBER   = "amber"     # live but NEVER retrieved    -> rejected pending human review
 RED     = "red"       # dead / soft-404 / fabricated-> rejected
 ORPHAN  = "orphan"    # retrieved but now dead      -> rejected
+ANALYST = "analyst"   # human added/approved it     -> approved, outranks provenance
 
 
 def load_provenance_for(outputs_dir: Path) -> Dict[str, Dict[str, Any]]:
@@ -89,8 +90,17 @@ def load_provenance_for(outputs_dir: Path) -> Dict[str, Dict[str, Any]]:
     return merged
 
 
-def classify(url: str, in_provenance: bool, code: int, status: str) -> Tuple[str, str]:
-    """Return (verdict, reason) for one source."""
+def classify(url: str, in_provenance: bool, code: int, status: str,
+             analyst_approved: bool = False) -> Tuple[str, str]:
+    """Return (verdict, reason) for one source.
+
+    `analyst_approved` outranks provenance. Provenance answers "did a retriever
+    return this?", which is the right question for a URL a MODEL produced. It is
+    the wrong question for one a human pasted in deliberately: sources added
+    through the curation UI — by hand, or from SearXNG candidate discovery — were
+    never in Perplexity's retrieved set and never will be. Treating them as
+    unbacked would flag the analyst's own judgment as a hallucination.
+    """
     dead = code in INVALID_HTTP_CODES or code in CONTENT_INVALID_CODES
 
     if code == HALLUCINATION_PATTERN:
@@ -101,6 +111,9 @@ def classify(url: str, in_provenance: bool, code: int, status: str) -> Tuple[str
                 "paywall stub" if code == PAYWALL_STUB else f"HTTP {code}")
             return ORPHAN, f"retrieved at research time but {kind} now — link rot or gated"
         return RED, f"never retrieved AND {status}"
+
+    if not in_provenance and analyst_approved:
+        return ANALYST, f"analyst-added/approved; {status} — human warrant, not model output"
 
     if not in_provenance:
         # The dangerous class: resolves fine, but no retriever ever returned it.
@@ -176,27 +189,30 @@ def main() -> int:
                 code, status = 0, f"check failed: {exc}"[:80]
             results[url] = (code, status)
 
-    buckets: Dict[str, List[Any]] = {k: [] for k in (GREEN, GATED, AMBER, ORPHAN, RED)}
+    buckets: Dict[str, List[Any]] = {k: [] for k in (GREEN, GATED, ANALYST, AMBER, ORPHAN, RED)}
     for e in entries:
         if not e.url:
             continue
         code, status = results.get(e.url, (0, "not checked"))
         in_prov = normalize_url(e.url) in provenance
-        verdict, reason = classify(e.url, in_prov, code, status)
+        verdict, reason = classify(e.url, in_prov, code, status,
+                                   analyst_approved=(e.verdict or "").lower() == "approved")
         buckets[verdict].append((e, reason))
-        e.verdict = "" if verdict in (GREEN, GATED) else "rejected"
+        e.verdict = "approved" if verdict == ANALYST else (
+            "" if verdict in (GREEN, GATED) else "rejected")
         e.verdict_reason = f"[{verdict}] {reason}"
 
-    icons = {GREEN: "🟢", GATED: "🟡", AMBER: "🟠", ORPHAN: "🟤", RED: "🔴"}
+    icons = {GREEN: "🟢", GATED: "🟡", ANALYST: "🔵", AMBER: "🟠", ORPHAN: "🟤", RED: "🔴"}
     labels = {
         GREEN:  "VERIFIED   retrieved + live               → approved",
         GATED:  "GATED      retrieved, not machine-checkable → approved, spot-check",
+        ANALYST:"ANALYST    you added/approved it            → approved",
         AMBER:  "UNBACKED   live but never retrieved        → REJECTED, needs you",
         ORPHAN: "LINK ROT   retrieved, dead now            → REJECTED",
         RED:    "DEAD/FAKE  never retrieved + broken        → REJECTED",
     }
     print("\n" + "=" * 78)
-    for key in (GREEN, GATED, AMBER, ORPHAN, RED):
+    for key in (GREEN, GATED, ANALYST, AMBER, ORPHAN, RED):
         rows = buckets[key]
         print(f"\n{icons[key]} {labels[key]}   [{len(rows)}]")
         for e, reason in rows[:40]:
@@ -204,10 +220,11 @@ def main() -> int:
             print(f"        {reason}")
     print("\n" + "=" * 78)
     total = sum(len(v) for v in buckets.values())
-    approved = len(buckets[GREEN]) + len(buckets[GATED])
+    approved = len(buckets[GREEN]) + len(buckets[GATED]) + len(buckets[ANALYST])
     print(f"SUMMARY  {total} sources → {approved} approved, {total - approved} rejected")
     print(f"         🟢 {len(buckets[GREEN])}  🟡 {len(buckets[GATED])}  "
-          f"🟠 {len(buckets[AMBER])}  🟤 {len(buckets[ORPHAN])}  🔴 {len(buckets[RED])}")
+          f"🔵 {len(buckets[ANALYST])}  🟠 {len(buckets[AMBER])}  "
+          f"🟤 {len(buckets[ORPHAN])}  🔴 {len(buckets[RED])}")
     if buckets[AMBER]:
         print(f"\n⚠️  {len(buckets[AMBER])} AMBER sources resolve but were never retrieved.\n"
               "   These are the model-introduced ones — the class that reads as\n"

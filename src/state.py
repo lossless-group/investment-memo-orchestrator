@@ -230,6 +230,7 @@ class MemoState(TypedDict):
     company_url: Optional[str]  # Company website URL
     company_stage: Optional[str]  # Investment stage (Seed, Series A, etc.)
     research_notes: Optional[str]  # Additional research guidance/focus areas
+    fresh: bool  # --fresh: ignore prior artifacts, incl. the deck-analysis cache
     disambiguation_excludes: Optional[List[str]]  # Domains of wrong entities to exclude from research
     company_trademark_light: Optional[str]  # Path or URL to light mode company logo/trademark
     company_trademark_dark: Optional[str]  # Path or URL to dark mode company logo/trademark
@@ -296,6 +297,7 @@ def create_initial_state(
     company_url: Optional[str] = None,
     company_stage: Optional[str] = None,
     research_notes: Optional[str] = None,
+    fresh: bool = False,
     disambiguation_excludes: Optional[List[str]] = None,
     company_trademark_light: Optional[str] = None,
     company_trademark_dark: Optional[str] = None,
@@ -338,6 +340,7 @@ def create_initial_state(
         company_url=company_url,
         company_stage=company_stage,
         research_notes=research_notes,
+        fresh=fresh,
         disambiguation_excludes=disambiguation_excludes,
         company_trademark_light=company_trademark_light,
         company_trademark_dark=company_trademark_dark,

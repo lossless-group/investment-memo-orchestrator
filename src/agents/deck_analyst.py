@@ -325,7 +325,7 @@ def embed_screenshots_in_section_files(output_dir: Path, screenshots: List[Dict[
     return updated_count
 
 
-def deck_analyst_agent(state: Dict) -> Dict:
+def _deck_analyst_agent_uncached(state: Dict) -> Dict:
     """
     Analyzes pitch deck and extracts key information.
 
@@ -881,6 +881,55 @@ Return ONLY the JSON array, no other text. If no pages have significant visual v
         print(f"    ⚠ Visual page identification failed: {e}")
         return []
 
+
+
+def deck_analyst_agent(state: Dict) -> Dict:
+    """Deck analysis, cached per deal by deck content hash.
+
+    Vision analysis of an unchanged deck is the same work every time, but each
+    new version gets a fresh output dir and so re-pays for it. The cache is keyed
+    on the deck file's own hash, so swapping the deck invalidates it with no
+    staleness rule to remember. See src/deck_cache.py.
+    """
+    import json
+    from pathlib import Path as _Path
+    from ..deck_cache import (
+        cache_dir_for, fingerprint_file, is_usable, restore, store,
+    )
+
+    deck_path = state.get("deck_path")
+    if not deck_path or not _Path(deck_path).exists():
+        return _deck_analyst_agent_uncached(state)
+
+    fp = fingerprint_file(_Path(deck_path))
+    cache_dir = cache_dir_for(state, fp) if fp else None
+    output_dir = state.get("output_dir")
+
+    if state.get("fresh"):
+        print("🧹 Fresh run — bypassing deck-analysis cache", flush=True)
+    elif is_usable(cache_dir) and output_dir:
+        n = restore(cache_dir, _Path(output_dir))
+        try:
+            analysis = json.loads((_Path(output_dir) / "0-deck-analysis.json").read_text())
+        except Exception:  # noqa: BLE001 - a broken cache must not stop the run
+            analysis = None
+        if analysis is not None:
+            print(f"♻️  Reusing cached deck analysis ({fp}) — {n} artifact(s) restored, "
+                  f"skipping vision pass", flush=True)
+            return {
+                "deck_analysis": analysis,
+                "messages": [f"Deck analysis reused from cache ({fp})"],
+            }
+        print("⚠️  Deck cache unreadable — re-analyzing", flush=True)
+
+    result = _deck_analyst_agent_uncached(state)
+
+    if cache_dir and output_dir and result.get("deck_analysis"):
+        stored = store(cache_dir, _Path(output_dir))
+        if stored:
+            print(f"💾 Cached deck analysis ({fp}) — {stored} artifact(s) "
+                  f"reusable by future versions", flush=True)
+    return result
 
 def analyze_pdf_with_vision(pdf_path: str, state: Dict) -> Dict:
     """

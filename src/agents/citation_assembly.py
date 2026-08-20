@@ -208,6 +208,68 @@ def format_citation_block(citations: Dict[str, str], ordered_nums: List[str]) ->
     return '\n'.join(lines)
 
 
+def build_background_sources_block(state, cited_urls: set) -> str:
+    """Render approved-but-uncited sources as a Background Sources block.
+
+    An approved source that no claim happened to need is still part of the
+    diligence record: the analyst vouched for it, and several are approved
+    precisely because they are authoritative but unreachable to bots (McKinsey,
+    Reuters, the NYT all refuse automated fetches, so they can supply no text to
+    cite). Dropping them from the references misrepresents what the memo was
+    built from — it makes a 28-source corpus look like a 15-source one.
+
+    They are listed separately rather than merged into the numbered citations,
+    because a numbered footnote asserts "this source supports that claim" and
+    these support no particular claim. Same record, honest about its status.
+    """
+    try:
+        from ..curation import load_sources_md
+        from ..agents.codified_section_researcher import find_deal_inputs_dir
+        from ..curation.sources_md import is_approved_entry
+        from .perplexity_sources import normalize_url
+    except Exception:  # noqa: BLE001
+        return ""
+
+    inputs_dir = find_deal_inputs_dir(state)
+    if not inputs_dir:
+        return ""
+    sources_md = load_sources_md(inputs_dir)
+    if not sources_md or not sources_md.sources:
+        return ""
+
+    cited_norm = {normalize_url(u) for u in cited_urls if u}
+    uncited = [
+        e for e in sources_md.sources
+        if e.url and is_approved_entry(e) and normalize_url(e.url) not in cited_norm
+    ]
+    if not uncited:
+        return ""
+
+    lines = [
+        "## Background Sources",
+        "",
+        "_Approved sources reviewed for this memo that no specific claim cites._",
+        "",
+    ]
+    for e in sorted(uncited, key=lambda x: (x.publisher or "", x.title or x.url)):
+        title = (e.title or "").strip() or e.url
+        # Some titles are whole documents — an X post carries its full body as
+        # <title>. Collapse newlines and cap length so the list stays readable.
+        title = " ".join(title.split())
+        if len(title) > 130:
+            title = title[:127].rstrip(" ,.;:-") + "…"
+        title = title.replace("[", "(").replace("]", ")")
+        bits = []
+        if e.publisher:
+            bits.append(e.publisher)
+        if e.published_date:
+            bits.append(str(e.published_date))
+        meta = f" {' · '.join(bits)}." if bits else ""
+        lines.append(f"- [{title}]({e.url}).{meta}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def citation_assembly_agent(state: MemoState) -> Dict[str, Any]:
     """
     Citation Assembly Agent implementation.
@@ -471,6 +533,18 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
     # Add consolidated citation block at the end
     if citation_block:
         final_parts.append(citation_block)
+
+    # Approved sources that no claim cites still belong in the record.
+    try:
+        import re as _re
+        cited_urls = set(_re.findall(r'\((https?://[^)\s]+)\)', citation_block or ""))
+        background = build_background_sources_block(state, cited_urls)
+        if background:
+            final_parts.append(background)
+            n = background.count("\n- ")
+            print(f"  \u2713 Background Sources: {n} approved source(s) not cited inline")
+    except Exception as exc:  # noqa: BLE001 - never break assembly over this
+        print(f"  \u26a0\ufe0f  Background Sources block skipped: {exc}")
 
     # Write final draft
     final_content = '\n\n'.join(final_parts)

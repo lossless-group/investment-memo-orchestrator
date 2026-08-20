@@ -97,6 +97,22 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
             continue
         print(f"  Fetching {entry.url[:90]}")
         result = fetch_url_markdown(entry.url)
+
+        # A source can be approved AND unreachable: McKinsey, Reuters and the
+        # NYT all refuse bots. When the analyst has staged a local copy, read
+        # that instead of giving up — otherwise downloading the document
+        # accomplishes nothing and the memo silently loses a vouched-for source.
+        if not result and entry.local_path:
+            from ..curation.fetch import fetch_local_file
+            candidate = Path(entry.local_path)
+            if not candidate.is_absolute():
+                base = find_deal_inputs_dir(state)
+                if base:
+                    candidate = Path(base).parent / entry.local_path
+            result = fetch_local_file(candidate, url=entry.url)
+            if result:
+                print(f"    ↪ URL unreachable — using staged local copy")
+
         if result:
             fetched[entry.url] = result
             print(f"    ✓ {len(result.get('markdown', ''))} chars via {result.get('via')}")
