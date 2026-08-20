@@ -17,13 +17,15 @@ The workflow is:
 
 from langchain_core.messages import HumanMessage, SystemMessage
 import os
-from typing import Dict, Any, Tuple, Set
+from typing import Dict, Any, Tuple, Set, Optional
+from pathlib import Path
 import re
 
 from ..state import MemoState
 from .perplexity_sources import (
     call_sonar,
     reconcile_citations,
+    record_provenance,
     split_citations_section,
 )
 
@@ -130,7 +132,8 @@ def enrich_research_with_citations(
     research_content: str,
     section_name: str,
     company_name: str,
-    perplexity_client
+    perplexity_client,
+    research_dir: Optional[Path] = None,
 ) -> str:
     """
     Enrich research content with additional citations while preserving existing ones.
@@ -216,16 +219,52 @@ def enrich_research_with_citations(
         # Reconcile ONLY the newly-added citations against what this call
         # actually retrieved. Pre-existing definitions were reconciled against
         # the section researcher's own (different, wider) source set — running
-        # them through this call's narrower set would drop good citations.
-        # Because reconcile_citations only considers definitions present in the
-        # block it is handed, existing markers elsewhere in the prose are safe.
+        # them through this call's narrower set drops good citations.
+        #
+        # We re-filter by `existing_keys` here rather than trusting
+        # `new_citation_defs`: the "### New Citations" branch above returns
+        # everything after that header unfiltered, so when Perplexity re-emits
+        # the whole citation list under it, pre-existing definitions ride along.
+        # That happened on the first real run — Origins handed 33 definitions
+        # (10 existing + 23 new) into reconciliation and lost the 10 good ones.
         if retrieved_sources and new_citation_defs.strip():
-            probe = f"{enriched}\n\n### Citations\n\n{new_citation_defs.strip()}"
-            probe, report = reconcile_citations(probe, retrieved_sources)
-            enriched, _heading, new_citation_defs = split_citations_section(probe)
-            enriched = enriched.strip()
-            if report.total:
-                print(f"      Reconciled new citations: {report.summary()}")
+            fresh_lines, keeping = [], False
+            for line in new_citation_defs.split("\n"):
+                m = re.match(r'\[\^([a-zA-Z0-9_-]+)\]:', line)
+                if m:
+                    keeping = m.group(1) not in existing_keys
+                    if keeping:
+                        fresh_lines.append(line)
+                elif keeping and line.strip():
+                    fresh_lines.append(line)  # continuation of a kept definition
+            fresh_defs = "\n".join(fresh_lines).strip()
+
+            carried_over = len(re.findall(r'^\[\^', new_citation_defs, re.M)) - \
+                len(re.findall(r'^\[\^', fresh_defs, re.M))
+            if carried_over > 0:
+                print(f"      (excluded {carried_over} pre-existing definitions from reconciliation)")
+
+            if fresh_defs:
+                probe = f"{enriched}\n\n### Citations\n\n{fresh_defs}"
+                probe, report = reconcile_citations(probe, retrieved_sources)
+                enriched, _heading, reconciled_defs = split_citations_section(probe)
+                enriched = enriched.strip()
+                # Pre-existing definitions are deliberately NOT re-attached here:
+                # the merge below rebuilds the block as `existing_citations +
+                # new_citation_defs`, so carrying them forward would emit each
+                # one twice.
+                new_citation_defs = reconciled_defs.strip()
+                if report.total:
+                    print(f"      Reconciled new citations: {report.summary()}")
+
+            # Enrichment's retrieved URLs are legitimate provenance too — without
+            # this they never enter .provenance.json and downstream triage reads
+            # every enrichment-added citation as model-introduced.
+            if research_dir is not None:
+                try:
+                    record_provenance(Path(research_dir), retrieved_sources)
+                except Exception:  # noqa: BLE001
+                    pass
 
         # Rebuild final content with merged citations
         # CRITICAL: Strip ALL citation sections from enriched content before adding merged block
@@ -379,7 +418,8 @@ def citation_enrichment_agent(state: MemoState) -> Dict[str, Any]:
             research_content=research_content,
             section_name=section_name,
             company_name=company_name,
-            perplexity_client=perplexity_client
+            perplexity_client=perplexity_client,
+            research_dir=research_dir,
         )
 
         # Count new citations
