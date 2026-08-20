@@ -5,12 +5,12 @@ lede: >-
 date_authored_initial_draft: 2026-08-20
 date_authored_current_draft: 2026-08-20
 date_authored_final_draft:
-date_first_published:
+date_first_published: 2026-08-20
 date_last_updated: 2026-08-20
 date_created: 2026-08-20
 date_modified: 2026-08-20
-at_semantic_version: 0.0.0.1
-status: Implementing
+at_semantic_version: 0.0.0.2
+status: Partially-Shipped
 publish: true
 category: Plan
 tags:
@@ -228,10 +228,18 @@ this reduces the need for).
 
 ## Status
 
-- Phase 1 module written and unit-verified against the live `search_results`
-  shape: metadata correction, substitution, drop-with-marker-removal, and
-  protected-key passthrough all behave; the no-orphan invariant holds.
-- Phases 1 wiring, 2, 3, 4, 5 open.
+- **Phase 1 shipped.** Module written, unit-verified, and wired into
+  `perplexity_section_researcher` (main + retry calls) and
+  `citation_enrichment`. Metadata correction, substitution,
+  drop-with-marker-removal, and protected-key passthrough all behave; the
+  no-orphan invariant holds. Full suite green (169 passed, 1 skipped).
+- **Live smoke test** on a real Sonar research call (Ramp, Market Context, 20
+  retrieved sources): 7 of 7 cited URLs were genuinely retrieved, and **5 of
+  those 7 carried wrong titles or publication dates**, all corrected from
+  ground truth. Metadata drift is therefore not an edge case — it was affecting
+  the majority of otherwise-legitimate citations, silently.
+- Phases 2, 3, 4, 5 open — tracked at
+  <https://github.com/lossless-group/investment-memo-orchestrator/issues/26>.
 
 ## Remaining risk
 

@@ -20,6 +20,7 @@ from ..outline_loader import load_outline_for_state
 from ..utils import get_latest_output_dir
 from ..artifacts import sanitize_filename
 from ..versioning import VersionManager
+from .perplexity_sources import call_sonar, reconcile_citations, record_provenance
 
 
 def fix_duplicate_citation_keys(content: str) -> str:
@@ -410,8 +411,11 @@ def _research_single_section(
     )
 
     try:
-        # Call Perplexity Sonar Pro
-        response = client.chat.completions.create(
+        # Call Perplexity Sonar Pro, keeping the retrieved-source array so the
+        # citations can be reconciled against ground truth rather than trusted
+        # as written. See src/agents/perplexity_sources.py.
+        result = call_sonar(
+            client,
             model="sonar-pro",
             messages=[
                 {"role": "system", "content": PERPLEXITY_RESEARCH_SYSTEM_PROMPT},
@@ -421,7 +425,8 @@ def _research_single_section(
             max_tokens=4000
         )
 
-        research_content = response.choices[0].message.content
+        research_content = result.content
+        retrieved_sources = list(result.search_results)
 
         # Validate response is not garbage/meta-commentary
         GARBAGE_PATTERNS = [
@@ -464,7 +469,8 @@ Write the ACTUAL CONTENT for the "{section_def.name}" section now.
 
 {query}"""
 
-            retry_response = client.chat.completions.create(
+            retry_result = call_sonar(
+                client,
                 model="sonar-pro",
                 messages=[
                     {"role": "system", "content": PERPLEXITY_RESEARCH_SYSTEM_PROMPT + "\n\nCRITICAL: Always write actual content. Never ask for clarification or say you need more info."},
@@ -473,11 +479,27 @@ Write the ACTUAL CONTENT for the "{section_def.name}" section now.
                 temperature=0.3,
                 max_tokens=4000
             )
-            research_content = retry_response.choices[0].message.content
+            research_content = retry_result.content
+            # The retry replaces the content, so its provenance replaces the
+            # first attempt's rather than adding to it.
+            retrieved_sources = list(retry_result.search_results)
 
         # Fix duplicate citation keys from Perplexity
         # Perplexity often outputs multiple [^3]: definitions - we need unique sequential keys
         research_content = fix_duplicate_citation_keys(research_content)
+
+        # Reconcile citations against what Perplexity actually retrieved.
+        # Runs AFTER key deduplication so it operates on the final key set.
+        if retrieved_sources:
+            research_content, report = reconcile_citations(research_content, retrieved_sources)
+            if report.total:
+                print(f"    [{section_num_padded}] {section_name}: {report.summary()}")
+                for detail in report.details:
+                    print(f"        {detail}")
+            record_provenance(research_dir, retrieved_sources)
+        else:
+            print(f"    [{section_num_padded}] {section_name}: WARNING no provenance returned — "
+                  f"citations left unreconciled")
 
         # Count citations after fixing
         citations = re.findall(r'\[\^(\d+)\]', research_content)

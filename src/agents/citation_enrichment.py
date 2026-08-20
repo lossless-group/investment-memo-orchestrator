@@ -21,6 +21,11 @@ from typing import Dict, Any, Tuple, Set
 import re
 
 from ..state import MemoState
+from .perplexity_sources import (
+    call_sonar,
+    reconcile_citations,
+    split_citations_section,
+)
 
 
 def extract_existing_citations(content: str) -> Tuple[Set[str], int, str, str]:
@@ -156,7 +161,8 @@ def enrich_research_with_citations(
     )
 
     try:
-        response = perplexity_client.chat.completions.create(
+        result = call_sonar(
+            perplexity_client,
             model="sonar-pro",
             messages=[
                 {"role": "system", "content": "You are a citation specialist. Your job is to ADD citations to uncited claims while preserving ALL existing content exactly as written."},
@@ -165,7 +171,8 @@ def enrich_research_with_citations(
             max_tokens=8000,
             temperature=0.2
         )
-        enriched = response.choices[0].message.content
+        enriched = result.content
+        retrieved_sources = list(result.search_results)
 
         # Validate that existing citations are preserved
         new_keys, _, new_main, new_citations = extract_existing_citations(enriched)
@@ -205,6 +212,20 @@ def enrich_research_with_citations(
                         new_def_lines.append(line)
                 new_citation_defs = '\n'.join(new_def_lines)
                 enriched = new_main
+
+        # Reconcile ONLY the newly-added citations against what this call
+        # actually retrieved. Pre-existing definitions were reconciled against
+        # the section researcher's own (different, wider) source set — running
+        # them through this call's narrower set would drop good citations.
+        # Because reconcile_citations only considers definitions present in the
+        # block it is handed, existing markers elsewhere in the prose are safe.
+        if retrieved_sources and new_citation_defs.strip():
+            probe = f"{enriched}\n\n### Citations\n\n{new_citation_defs.strip()}"
+            probe, report = reconcile_citations(probe, retrieved_sources)
+            enriched, _heading, new_citation_defs = split_citations_section(probe)
+            enriched = enriched.strip()
+            if report.total:
+                print(f"      Reconciled new citations: {report.summary()}")
 
         # Rebuild final content with merged citations
         # CRITICAL: Strip ALL citation sections from enriched content before adding merged block

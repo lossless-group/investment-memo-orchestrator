@@ -198,13 +198,38 @@ def _host_of(url: str) -> str:
     return host[4:] if host.startswith("www.") else host
 
 
+# Second-level labels that are part of a public suffix rather than a brand,
+# so "bbc.co.uk" resolves to "bbc" and not "co".
+_PUBLIC_SUFFIX_SLD = {"co", "com", "org", "net", "ac", "gov", "edu"}
+
+
 def publisher_for(url: str) -> str:
-    """Human-readable publisher name for a URL."""
+    """
+    Human-readable publisher name for a URL.
+
+    Uses the registrable domain rather than the leftmost label, so a subdomain
+    like `research.contrary.com` yields "Contrary" and not "Research".
+    """
     host = _host_of(url)
+    if not host:
+        return "Web"
     if host in _PUBLISHER_NAMES:
         return _PUBLISHER_NAMES[host]
-    # Strip the TLD and title-case what's left: "profilehealth.io" -> "Profilehealth"
-    stem = host.split(".")[0] if host else ""
+
+    labels = [l for l in host.split(".") if l]
+    if len(labels) >= 3 and labels[-2] in _PUBLIC_SUFFIX_SLD:
+        stem = labels[-3]          # bbc.co.uk -> bbc
+    elif len(labels) >= 2:
+        stem = labels[-2]          # research.contrary.com -> contrary
+    else:
+        stem = labels[0]
+
+    # Re-check the allow-list against the registrable domain, so subdomains of
+    # a known publisher still get its proper name.
+    for known, name in _PUBLISHER_NAMES.items():
+        if host.endswith("." + known):
+            return name
+
     return stem.replace("-", " ").title() if stem else "Web"
 
 
