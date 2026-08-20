@@ -151,8 +151,8 @@ Substitution matching is deterministic token overlap between the **claim
 sentence** and the source's `title` + `snippet` — no extra LLM call, which
 keeps it fast and cheap enough to run inline.
 
-Two calibration decisions came out of testing and are worth recording, because
-both were wrong on the first attempt:
+Four calibration decisions came out of testing and are worth recording, because
+the first three were wrong on the first attempt:
 
 - **Claim context is scoped to the sentence, not a character window.** A 400-char
   window bleeds tokens in from neighbouring claims, which made an unsupportable
