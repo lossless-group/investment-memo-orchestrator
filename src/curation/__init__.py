@@ -15,6 +15,7 @@ from .sources_md import (
     approved_urls,
     deal_is_codified,
     is_approved_entry,
+    is_explicitly_approved,
     is_approved_url,
     is_codified,
     load_deal_sources,

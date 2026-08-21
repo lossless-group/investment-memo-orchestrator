@@ -121,14 +121,26 @@ def _extract_one(llm, sf, max_chars: int) -> Dict[str, Any]:
         body_text = (it.get("text") or "").strip()
         if not kind or not body_text:
             continue
-        span = it.get("verbatim") or (body_text if kind in ("quote", "stat") else None)
+        span = it.get("verbatim")
 
         if kind in ("quote", "stat"):
-            if span and normalize(span) in hay:
-                kept.append({"kind": kind, "text": body_text,
-                             "topic": it.get("topic") or "", "grounded": "true"})
+            # VERIFY THE STRING WE ARE ABOUT TO STORE, not a different one.
+            # An earlier version checked `verbatim` and then filed `text`; when
+            # the model returned a real span in `verbatim` and a tidied
+            # paraphrase in `text`, verification passed on a string nobody kept.
+            # 53 of 138 stored quotes/stats on the first real run were not
+            # actually in their documents, with zero rejections reported.
+            if normalize(body_text) in hay:
+                stored = body_text
+            elif span and normalize(span) in hay:
+                # The model paraphrased where it was told to copy. The document's
+                # own words are the trustworthy artifact — keep those.
+                stored = span.strip()
             else:
                 rejected.append({"kind": kind, "text": body_text})
+                continue
+            kept.append({"kind": kind, "text": stored,
+                         "topic": it.get("topic") or "", "grounded": "true"})
         else:
             grounded = bool(span and normalize(span) in hay)
             kept.append({"kind": "claim", "text": body_text,
@@ -165,7 +177,15 @@ def extract_for_deal(
     files = [read_source_file(p) for p in sorted(sdir.glob("*.md"))]
     files = [f for f in files if f]
     if only_approved:
-        files = [f for f in files if (f.verdict or "").lower() != "rejected"]
+        # EXPLICIT approval, not merely "not rejected". Extraction is expensive
+        # and its output is durable — an unreviewed candidate must not end up in
+        # the foundation or in the shared registry. See
+        # `sources_md.is_explicitly_approved` for why this is stricter than the
+        # citation membership gate.
+        before = len(files)
+        files = [f for f in files if (f.verdict or "").strip().lower() == "approved"]
+        if before - len(files):
+            print(f"     ⏭️  {before - len(files)} source(s) not explicitly approved — skipped")
     if skip_existing:
         # Extraction is expensive and deterministic in the content: a source
         # whose extracts are already on file does not need re-reading. This is

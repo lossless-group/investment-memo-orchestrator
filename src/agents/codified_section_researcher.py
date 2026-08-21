@@ -127,8 +127,17 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
         print(f"  ♻️  Reusing stored content for {reused} source(s) "
               f"— foundation already on file")
 
+    # Two-tier fetch: cheap metadata on save, full content only on PROMOTE.
+    # Pulling full content for a candidate that may be rejected wastes the fetch
+    # and — once registration lands — writes junk into a shared system of record
+    # that every other client and deal can see. Explicit approval required.
+    from ..curation.sources_md import is_explicitly_approved
+    _skipped_unapproved = 0
     for entry in sources_md.sources:
         if entry.url in fetched:
+            continue
+        if not is_explicitly_approved(entry):
+            _skipped_unapproved += 1
             continue
         print(f"  Fetching {entry.url[:90]}")
         result = fetch_url_markdown(entry.url)
@@ -153,6 +162,10 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
             print(f"    ✓ {len(result.get('markdown', ''))} chars via {result.get('via')}")
         else:
             print(f"    ⚠️  fetch failed (no content)")
+
+    if _skipped_unapproved:
+        print(f"  ⏭️  {_skipped_unapproved} source(s) not explicitly approved — "
+              f"no content pulled, no extraction, no registration")
 
     # Persist newly-fetched content into each source's own file so the next run
     # reuses it, then extract. Extraction is skipped for sources that already

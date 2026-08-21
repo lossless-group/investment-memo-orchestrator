@@ -224,6 +224,32 @@ def is_approved_entry(entry: SourceEntry) -> bool:
     return entry.verdict not in _REJECTED_VERDICTS
 
 
+def is_explicitly_approved(entry: SourceEntry) -> bool:
+    """Whether a human has AFFIRMATIVELY approved this source.
+
+    Deliberately stricter than `is_approved_entry`, and the two answer different
+    questions:
+
+      is_approved_entry      — may the memo CITE this? Deny-based: approved
+                               unless explicitly rejected. Permissive on purpose,
+                               because legacy Sources.md files carry no verdicts
+                               at all and requiring one would empty the set.
+
+      is_explicitly_approved — may we spend money and WRITE THIS DOWN PERMANENTLY?
+                               Requires a real "approved". Used to gate full
+                               content fetch, extraction, and registration in the
+                               shared SurrealDB system of record.
+
+    The asymmetry is the point. Citing an unreviewed source is recoverable — the
+    analyst sees it in the draft. Pulling full content for a candidate that may be
+    rejected wastes a fetch, and writing it into a shared registry puts junk in
+    the system of record permanently, where every other client and deal sees it.
+    The skill's two-tier rule says it directly: don't fetch full content for a
+    candidate that may be rejected.
+    """
+    return (entry.verdict or "").strip().lower() == "approved"
+
+
 def approved_urls(sources_md: Optional[SourcesMd]) -> set:
     """The canonicalized URL set a codified run is allowed to cite.
 
