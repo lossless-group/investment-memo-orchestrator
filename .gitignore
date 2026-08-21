@@ -71,3 +71,6 @@ data/Secure-Inputs/*
 # graphify knowledge-graph output — rebuildable tool artifacts
 # (graph.json, HTML viz, and the extraction cache). Local only.
 graphify-out/
+
+# Written by the searxng container into its mounted config dir.
+searxng/uwsgi.ini
