@@ -147,6 +147,7 @@ def extract_for_deal(
     deal_inputs_dir: Path,
     *,
     only_approved: bool = True,
+    skip_existing: bool = True,
     max_chars: int = 16000,
     workers: int = 6,
 ) -> Dict[str, Any]:
@@ -165,6 +166,15 @@ def extract_for_deal(
     files = [f for f in files if f]
     if only_approved:
         files = [f for f in files if (f.verdict or "").lower() != "rejected"]
+    if skip_existing:
+        # Extraction is expensive and deterministic in the content: a source
+        # whose extracts are already on file does not need re-reading. This is
+        # what makes a second memo version prose-shaping rather than a re-read.
+        from ..curation.extracts import split_body
+        before = len(files)
+        files = [f for f in files if not split_body(f.body or "")[1].strip()]
+        if before - len(files):
+            print(f"     ♻️  {before - len(files)} source(s) already extracted — skipping")
     if not files:
         return {"extracted": 0, "note": "no source files"}
 

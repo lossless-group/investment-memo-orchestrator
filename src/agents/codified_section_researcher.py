@@ -89,9 +89,44 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
     research_dir = output_dir / "1-research"
     research_dir.mkdir(exist_ok=True)
 
-    # Fetch every unique URL once; cache by URL so multi-section sources
-    # don't get refetched.
+    # ── The durable foundation ──────────────────────────────────────────────
+    # Fetched content and extracts live in inputs/sources/*.md, NOT in
+    # outputs/<version>/. That makes them version-independent by construction:
+    # generating v0.0.3 to reshape prose must not re-pay for reading the same
+    # 28 documents. Only sources missing content get fetched.
+    #
+    # `--fresh` forces a re-read; otherwise a source whose file already carries
+    # a body is reused as-is.
     fetched: Dict[str, Dict[str, Any]] = {}
+    reused = 0
+    _force = bool(state.get("fresh"))
+    _inputs_dir = find_deal_inputs_dir(state)
+
+    if _inputs_dir and not _force:
+        from ..curation.source_file import read_source_file, resolve_path, sources_dir
+        from ..curation.extracts import split_body
+        _sdir = sources_dir(Path(_inputs_dir))
+        if _sdir.exists():
+            _on_disk = {}
+            for _p in _sdir.glob("*.md"):
+                _sf = read_source_file(_p)
+                if not _sf:
+                    continue
+                _content, _ = split_body(_sf.body or "")
+                if _content.strip():
+                    _on_disk[_sf.url] = _content
+            for entry in sources_md.sources:
+                body = _on_disk.get(entry.url)
+                if body:
+                    fetched[entry.url] = {
+                        "url": entry.url, "title": entry.title or entry.url,
+                        "markdown": body, "via": "source-file",
+                    }
+                    reused += 1
+    if reused:
+        print(f"  ♻️  Reusing stored content for {reused} source(s) "
+              f"— foundation already on file")
+
     for entry in sources_md.sources:
         if entry.url in fetched:
             continue
@@ -118,6 +153,16 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
             print(f"    ✓ {len(result.get('markdown', ''))} chars via {result.get('via')}")
         else:
             print(f"    ⚠️  fetch failed (no content)")
+
+    # Persist newly-fetched content into each source's own file so the next run
+    # reuses it, then extract. Extraction is skipped for sources that already
+    # carry an # Extracts section — reading is expensive and the result does not
+    # change unless the content does.
+    if _inputs_dir:
+        try:
+            _persist_and_extract(Path(_inputs_dir), sources_md, fetched, force=_force)
+        except Exception as exc:  # noqa: BLE001 - never break a run over this
+            print(f"  ⚠️  extraction step skipped: {exc}")
 
     # Per-section research file generation.
     use_llm = bool(os.environ.get("ANTHROPIC_API_KEY")) and sources_md.mode == "codified"
@@ -171,6 +216,79 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
 # ─────────────────────────────────────────────────────────────────
 # Per-section synthesis paths
 # ─────────────────────────────────────────────────────────────────
+
+
+
+def _persist_and_extract(inputs_dir: Path, sources_md, fetched: Dict[str, Any],
+                         *, force: bool = False) -> None:
+    """Store fetched bodies on the source files, then extract what is missing.
+
+    Both halves are idempotent. Content already stored is not re-fetched;
+    extracts already present are not re-derived. This is what makes generating
+    another memo version a prose-shaping operation rather than a re-read of the
+    entire corpus.
+    """
+    from ..curation.extracts import EXTRACTS_HEADING, split_body
+    from ..curation.source_file import (
+        from_entry, read_source_file, resolve_path, write_source_file,
+    )
+
+    # Index existing files by normalized_url, NEVER by filename. The canonical
+    # filename embeds a date, so `from_entry` generates today's name while the
+    # file on disk carries the date it was captured — across a midnight boundary
+    # that silently writes a duplicate for every source. normalized_url is the
+    # actual identity of a source, and the same key the SurrealDB registry uses
+    # as its UNIQUE constraint.
+    from ..curation.best_sources import canonical_url
+    from ..curation.source_file import sources_dir as _sdir_fn
+
+    by_url = {}
+    _sdir = _sdir_fn(inputs_dir)
+    if _sdir.exists():
+        for _p in _sdir.glob("*.md"):
+            _existing = read_source_file(_p)
+            if _existing and _existing.url:
+                by_url[canonical_url(_existing.url)] = _existing
+
+    wrote = 0
+    for entry in sources_md.sources:
+        doc = fetched.get(entry.url)
+        if not doc or doc.get("via") == "source-file":
+            continue
+        sf = by_url.get(canonical_url(entry.url)) or from_entry(entry)
+        _, existing_extracts = split_body(sf.body or "")
+        body = doc.get("markdown") or ""
+        sf.body = f"{body.rstrip()}\n\n{existing_extracts}".strip() if existing_extracts else body
+        sf.content_pulled = True
+        if not sf.title:
+            sf.title = doc.get("title") or ""
+        try:
+            write_source_file(inputs_dir, sf)
+            wrote += 1
+        except Exception:  # noqa: BLE001
+            continue
+    if wrote:
+        print(f"  💾 Stored fetched content on {wrote} source file(s)")
+
+    # Extract only where there is content and no extracts yet.
+    from ..curation.source_file import sources_dir
+    sdir = sources_dir(inputs_dir)
+    if not sdir.exists():
+        return
+    pending = 0
+    for p in sdir.glob("*.md"):
+        sf = read_source_file(p)
+        if not sf:
+            continue
+        content, extracts = split_body(sf.body or "")
+        if content.strip() and (force or not extracts.strip()):
+            pending += 1
+    if not pending:
+        print("  ♻️  Extracts already on file for every source with content")
+        return
+
+    from .source_extractor import extract_for_deal
+    extract_for_deal(inputs_dir, skip_existing=not force)
 
 
 def _synthesize_raw(
@@ -274,6 +392,21 @@ def _synthesize_via_claude(
         "Your job:\n"
         "- Synthesize the sources to address the guiding questions.\n"
         "- Cite EVERY factual claim using Obsidian-style footnotes — [^1], [^2], etc.\n"
+        f"- USE EVERY SOURCE. All {len(matching)} sources above must be cited at "
+        "least once. A source the analyst approved and you ignored is a failure "
+        "of this task, not an editorial choice.\n"
+        "- READ the source text provided. Do NOT answer from memory. If you did "
+        "not read it in the text above, you do not know it.\n"
+        "- For each source, extract something SPECIFIC and verbatim-traceable: a "
+        "figure, a date, a named entity, or a short direct quotation that appears "
+        "word-for-word in that source's text above.\n"
+        "- NEVER attribute a quote or figure to a source unless that exact string "
+        "appears in that source's text above. Fabricating evidence of having read "
+        "a source is the single worst failure mode here, and it is checked "
+        "mechanically after you respond.\n"
+        "- If a source does not bear on the guiding questions, still capture its "
+        "distinct contribution in one line under an '### Additional context' "
+        "heading at the end, cited to it. Do not silently drop it.\n"
         "- Output: markdown body with inline [^N] citations, followed by a\n"
         "  '### Citations' section listing each source in this exact format:\n"
         "  `[^N]: YYYY, MMM DD. [Title](URL). Publisher. Published: YYYY-MM-DD | Updated: N/A`\n\n"
@@ -292,6 +425,14 @@ def _synthesize_via_claude(
         f"Write the research notes for this section now."
     )
 
+    # Marker -> fetched text, for grounding verification. The source text is
+    # already in memory here; checking a quoted span against it costs nothing.
+    _source_text = {
+        str(n): (fetched.get(e.url) or {}).get("markdown", "")
+        for n, e in enumerate(matching, start=1)
+    }
+    _all_markers = [str(n) for n in range(1, len(matching) + 1)]
+
     try:
         llm = ChatAnthropic(
             model=os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
@@ -302,6 +443,67 @@ def _synthesize_via_claude(
             HumanMessage(content=user_prompt),
         ])
         content = response.content if hasattr(response, "content") else str(response)
+
+        # ── Enforcement: a rule with no validation is a suggestion. ──────────
+        # The writer agent already proves this pattern works: state the count,
+        # state that it is checked, then actually check it.
+        from ..grounding import uncited_sources, verify
+
+        skipped = uncited_sources(content, _all_markers)
+        report = verify(content, _source_text)
+        fabricated = report["unsupported"]
+
+        if skipped or fabricated:
+            problems = []
+            if skipped:
+                problems.append(
+                    "You did not cite these sources at all: "
+                    + ", ".join(f"[^{m}]" for m in skipped)
+                    + ". Read each one in the text above and add at least one "
+                    "specific, verbatim-traceable point from it."
+                )
+            if fabricated:
+                bullets = "\n".join(
+                    f'  - {f["kind"]} "{f["value"][:90]}" attributed to '
+                    f'{", ".join("[^" + m + "]" for m in f["checked"])} '
+                    f"— that string does not appear in those sources"
+                    for f in fabricated[:8]
+                )
+                problems.append(
+                    "These quotes/figures do NOT appear in the sources you "
+                    f"attributed them to:\n{bullets}\n"
+                    "Remove them, or replace each with an actual span from the "
+                    "source text above. Do not restate them from memory."
+                )
+            print(f"      \u21ba Re-prompting: {len(skipped)} source(s) unused, "
+                  f"{len(fabricated)} ungrounded claim(s)")
+            retry = llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+                *( [] ),
+                HumanMessage(content=(
+                    "Your draft failed validation.\n\n"
+                    + "\n\n".join(problems)
+                    + "\n\nRewrite the research notes now, fixing both issues. "
+                      "Keep everything that was correct."
+                )),
+            ])
+            retry_content = retry.content if hasattr(retry, "content") else str(retry)
+            retry_skipped = uncited_sources(retry_content, _all_markers)
+            retry_report = verify(retry_content, _source_text)
+            # Accept the retry only if it is strictly better on both axes.
+            if (len(retry_skipped) <= len(skipped)
+                    and len(retry_report["unsupported"]) <= len(fabricated)):
+                content = retry_content
+                skipped, report = retry_skipped, retry_report
+                fabricated = retry_report["unsupported"]
+
+        coverage = len(_all_markers) - len(skipped)
+        print(f"      \U0001f4d0 Grounding: {coverage}/{len(_all_markers)} sources used, "
+              f"{len(report['supported'])}/{report['checked']} evidence spans verified"
+              + (f", {len(fabricated)} UNGROUNDED" if fabricated else ""))
+        for f in fabricated[:3]:
+            print(f'         \u26a0\ufe0f  ungrounded {f["kind"]}: "{f["value"][:70]}"')
     except Exception as e:
         print(f"    ⚠️  Claude synthesis failed: {e}; falling back to raw dump")
         return _synthesize_raw(research_dir, idx, section, matching, fetched, state)
