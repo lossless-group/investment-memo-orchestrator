@@ -68,19 +68,20 @@ def extract_from_pdf(file_path: Path, use_llm: bool = True) -> Optional[Dict[str
         Dict with extracted competitive data or None
     """
     try:
-        from pypdf import PdfReader
+        from ..document_text import extract_text
 
-        reader = PdfReader(str(file_path))
+        extraction = extract_text(file_path)
+        full_text = extraction.text
 
-        # Extract text from all pages
-        full_text = ""
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                full_text += f"\n{text}"
-
-        if not full_text.strip():
-            return {"extraction_notes": ["No text extracted from PDF"]}
+        if not extraction.ok:
+            # Say why. The old code read pypdf directly and returned the same
+            # "no text extracted" note whether the PDF was empty, encrypted, or
+            # the parser was simply not installed.
+            return {
+                "extraction_notes": [
+                    f"No text extracted from PDF: {extraction.error or 'document was empty'}"
+                ]
+            }
 
         # Detect if this is a battlecard (competitor-specific) or general analysis
         is_battlecard = _detect_battlecard(file_path.name, full_text)

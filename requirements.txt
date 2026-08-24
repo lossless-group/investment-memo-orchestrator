@@ -76,6 +76,9 @@ pygments==2.19.2
 pymupdf==1.26.6
 pypandoc==1.16.2
 pyparsing==3.2.5
+# pypdf is an OPTIONAL third-choice PDF fallback inside
+# src/agents/dataroom/document_text.py (PyMuPDF -> pdfplumber -> pypdf).
+# Nothing imports it directly; the text layer degrades and says so if absent.
 pypdf==6.4.1
 pypdfium2==5.6.0
 pyphen==0.17.2

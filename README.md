@@ -33,6 +33,8 @@ Supported by [Hypernova Capital](https://www.hypernova.capital), [Avalanche VC](
 - [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
   - [Installation](#installation)
+    - [System Dependencies](#system-dependencies)
+    - [Python Dependencies](#python-dependencies)
   - [Configuration](#configuration)
   - [Usage](#usage)
   - [Company Data Files](#company-data-files-optional)
@@ -438,51 +440,63 @@ See `templates/scorecards/lp-commits_emerging-managers/hypernova-scorecard.yaml`
 - **LLM**: Anthropic Claude Sonnet 4.5 for analysis and writing
 - **Web Search**: Tavily API (preferred), [Perplexity Sonar Pro](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api), or DuckDuckGo (free fallback)
 - **Web Scraping**: httpx + BeautifulSoup for website parsing
+- **Document Reading**: PyMuPDF for PDF text, pdfplumber for PDF tables, python-docx / python-pptx / openpyxl for Office formats, Tesseract OCR for scans — all behind one shared layer (`src/agents/dataroom/document_text.py`)
+- **Export**: Pandoc (Word/HTML), WeasyPrint (PDF), matplotlib (diagrams)
 - **CLI**: Rich for beautiful terminal output with progress indicators
 - **State Management**: TypedDict schemas with LangGraph state graphs
+
+Full versioned inventory, including the four system-level binaries that must be
+installed separately: [System Dependencies](#system-dependencies) and
+[Python Dependencies](#python-dependencies).
 
 ## Quick Start
 
 ### Installation
 
-#### System Dependencies (Recommended)
+#### System Dependencies
 
-While Python dependencies install automatically, certain export features require system-level tools. Install these for the best experience:
+Python packages install automatically. Four system-level tools do not, and each
+one silently disables a capability if it is missing. Install all four:
 
-**Pandoc** (for Word/HTML exports):
 ```bash
-# macOS
-brew install pandoc
+# macOS — everything at once
+brew install pandoc poppler tesseract cairo pango gdk-pixbuf libffi
 
-# Ubuntu/Debian
-sudo apt install pandoc
+# Ubuntu / Debian
+sudo apt install pandoc poppler-utils tesseract-ocr \
+  libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev
 
-# Windows
-choco install pandoc
-```
-*Note: If not installed, `pypandoc` will attempt to auto-download, but brew installation is faster and more reliable.*
-
-**WeasyPrint Dependencies** (for PDF exports):
-```bash
-# macOS
-brew install cairo pango gdk-pixbuf libffi
-
-# Ubuntu/Debian
-sudo apt install libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev
+# Windows (Chocolatey) — Poppler is a manual download, see the table
+choco install pandoc tesseract
 ```
 
-**Poppler** (for PDF-to-image conversion in deck analysis):
+| Tool | Enables | Without it |
+|------|---------|------------|
+| **Pandoc** | Word (`.docx`) and HTML export | `pypandoc` attempts a slow auto-download; brew/apt is faster and more reliable |
+| **Poppler** | PDF-to-image conversion for deck analysis with Claude Vision | Deck analysis falls back to text-only extraction |
+| **Tesseract** | OCR fallback in the dataroom text layer | **Scanned PDFs yield no text.** This matters more than it sounds: executed financing documents are routinely scans, so without Tesseract a signed SAFE looks identical to an empty file |
+| **Cairo / Pango / gdk-pixbuf / libffi** | WeasyPrint PDF export | `weasyprint` import fails and PDF export is unavailable |
+
+Poppler on Windows: download from
+[oschwartz10612/poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases)
+and add its `bin/` to `PATH`.
+
+**Tesseract language data (macOS).** Homebrew installs the data outside the
+default search path, so Tesseract is found but reports no languages. Export this
+in your shell profile:
+
 ```bash
-# macOS
-brew install poppler
-
-# Ubuntu/Debian
-sudo apt install poppler-utils
-
-# Windows
-# Download from: https://github.com/oschwartz10612/poppler-windows/releases
+export TESSDATA_PREFIX="$(brew --prefix)/share/tessdata"
 ```
-*Note: Required for Claude Vision API to analyze pitch deck pages as images. Without poppler, deck analysis falls back to text-only extraction.*
+
+Verify the whole set:
+
+```bash
+pandoc --version | head -1
+pdftoppm -v                       # Poppler
+tesseract --list-langs            # should print at least "eng"
+python -c "import weasyprint; print('weasyprint', weasyprint.__version__)"
+```
 
 #### Python Dependencies
 
@@ -493,6 +507,89 @@ uv pip install -e . --python /path/to/python3.11
 # Or with pip
 pip install -e .
 ```
+
+**Never use `pip install` into this project's venv for day-to-day work** — see
+[Dependency Management](#dependency-management) in `CLAUDE.md`. The commands
+above are the supported install paths.
+
+Two files describe Python dependencies and they answer different questions:
+
+- **`pyproject.toml`** — the ~32 direct dependencies, with floors (`>=`). This is
+  the contract: what the code imports and the oldest version that works.
+- **`requirements.txt`** — the full resolved tree (121 packages) with exact pins
+  (`==`). This is the reproduction: a known-good lockfile for the whole graph,
+  transitive packages included.
+
+Add a new dependency to `pyproject.toml` first, then regenerate `requirements.txt`.
+A package that appears only in `requirements.txt` is either transitive or drift.
+
+##### Direct dependencies
+
+Versions in the "Verified" column are what the reference environment runs on
+Python 3.11.
+
+| Package | Floor | Verified | Used for |
+|---|---|---|---|
+| `langgraph` | >=0.2.0 | 1.0.3 | Multi-agent state graph — the pipeline itself |
+| `langchain` | >=0.3.0 | 1.0.7 | Agent scaffolding shared with LangGraph |
+| `langchain-anthropic` | >=0.2.0 | 1.1.0 | `ChatAnthropic` wrapper used by the enrichment agents |
+| `anthropic` | >=0.40.0 | 0.74.0 | Direct SDK — imported by 15 modules including every dataroom extractor |
+| `openai` | >=1.0.0 | 2.8.1 | SDK shape reused for the Perplexity API; not used against OpenAI |
+| `pydantic` | >=2.0.0 | 2.12.4 | Schema validation |
+| `python-dotenv` | >=1.0.0 | 1.2.1 | `.env` loading |
+| `pyyaml` | >=6.0 | 6.0.3 | Outlines, brand configs, scorecards |
+| **Research and fetching** | | | |
+| `tavily-python` | >=0.3.0 | 0.7.13 | Preferred web search — has domain filtering |
+| `firecrawl-py` | >=2.0.0 | 4.35.0 | Site crawling for team-roster extraction |
+| `httpx` | >=0.27.0 | 0.28.1 | HTTP client |
+| `beautifulsoup4` | >=4.12.0 | 4.14.2 | HTML parsing |
+| **Document reading** | | | |
+| `PyMuPDF` | >=1.24.0 | 1.28.2 | Primary PDF text + page rendering (imported as `pymupdf`/`fitz`) |
+| `pdfplumber` | >=0.10.0 | 0.11.10 | PDF **table** extraction — cap tables, schedules of purchasers |
+| `pdf2image` | >=1.17.0 | 1.17.0 | PDF page rendering for Claude Vision (wraps Poppler) |
+| `pillow` | >=10.0.0 | 12.3.0 | Image handling for rendered deck pages (imported as `PIL`) |
+| `python-docx` | >=1.2.0 | 1.2.0 | `.docx` reading **and** Word generation |
+| `python-pptx` | >=1.0.0 | 1.0.2 | `.pptx` slide text and speaker notes |
+| `openpyxl` | >=3.1.0 | 3.1.5 | `.xlsx` reading — cap tables, pro formas |
+| `pandas` | >=2.0.0 | 3.0.5 | Spreadsheet and cap-table manipulation |
+| **Export** | | | |
+| `pypandoc` | >=1.13 | 1.16.2 | Markdown → Word (requires the Pandoc binary) |
+| `weasyprint` | >=60.0 | 66.0 | HTML → PDF (requires the Cairo/Pango stack) |
+| `matplotlib` | >=3.8.0 | 3.11.1 | Diagram generation — TAM/SAM/SOM, funnels |
+| **Google Workspace** | | | |
+| `google-api-python-client` | >=2.0.0 | 2.187.0 | Drive / Docs API |
+| `google-auth` | >=2.0.0 | 2.43.0 | Service-account and OAuth credentials |
+| `google-auth-oauthlib` | >=1.0.0 | 1.2.2 | OAuth flow |
+| `google-auth-httplib2` | >=0.2.0 | 0.2.1 | HTTP transport for the above |
+| **Interface** | | | |
+| `rich` | >=13.0.0 | 14.2.0 | Terminal rendering, progress, tables |
+| `questionary` | >=2.0.0 | 2.1.1 | Interactive prompts in the `memopop` CLI |
+| `fastapi` | >=0.110.0 | 0.141.1 | HTTP API surface (`src/server`) |
+| `uvicorn[standard]` | >=0.27.0 | 0.52.1 | ASGI server |
+| `sse-starlette` | >=2.0.0 | 3.4.8 | Server-Sent Events for streaming job logs |
+
+##### Optional dependencies
+
+Absent by design. The code checks for each and reports the gap rather than
+failing — but the capability is genuinely off until you install it.
+
+| Package | Install | Enables |
+|---|---|---|
+| `pypdf` | `uv pip install pypdf` | Third-choice PDF fallback in `document_text.py` (PyMuPDF → pdfplumber → pypdf). The first two cover everything seen so far |
+| `xlrd` | `uv pip install xlrd` | Legacy `.xls` workbooks. `openpyxl` handles `.xlsx` only |
+
+##### Development dependencies
+
+```bash
+uv pip install -e ".[dev]"
+```
+
+| Package | Floor | Used for |
+|---|---|---|
+| `pytest` | >=7.0.0 | Test runner — `pytest tests/` |
+| `pytest-asyncio` | >=0.23.0 | Required by `asyncio_mode = "auto"`; without it every async test errors |
+| `black` | >=24.0.0 | Formatting, line length 100 |
+| `ruff` | >=0.1.0 | Linting, target py311 |
 
 ### Configuration
 

@@ -347,12 +347,27 @@ class LegalDocData(TypedDict):
     document_type: str  # "term_sheet", "safe", "articles", etc.
     document_date: Optional[str]
 
+    # Whether this is signed paper or an unexecuted form/draft. The single most
+    # important qualifier on every field below: a form warrant states what the
+    # parties intended to offer, an executed one states what they agreed.
+    is_executed: Optional[bool]
+    effective_date: Optional[str]
+
     # Term Sheet / Investment Terms
     investment_amount: Optional[float]
     pre_money_valuation: Optional[float]
     post_money_valuation: Optional[float]
     share_price: Optional[float]
     shares_purchased: Optional[int]
+    security_type: Optional[str]  # "SAFE", "Series A Preferred", "Convertible Note"
+
+    # SAFE / convertible economics
+    valuation_cap: Optional[float]
+    discount_rate: Optional[float]        # as a percentage, e.g. 20.0
+    interest_rate: Optional[float]
+    maturity_date: Optional[str]
+    mfn_clause: Optional[bool]
+    conversion_trigger: Optional[str]
 
     # Investor Rights
     liquidation_preference: Optional[str]
@@ -360,6 +375,7 @@ class LegalDocData(TypedDict):
     board_seats: Optional[int]
     pro_rata_rights: Optional[bool]
     information_rights: Optional[bool]
+    management_rights: Optional[bool]
 
     # Conditions
     closing_conditions: List[str]
@@ -368,7 +384,13 @@ class LegalDocData(TypedDict):
     # Parties
     investors: List[str]
     company_name: str
+    counsel: List[str]
+    governing_law: Optional[str]
 
+    # Provenance. Every scalar above should be traceable to the sentence that
+    # produced it, or a reviewer cannot spot-check the extraction.
+    evidence: Dict[str, str]
+    confidence: float
     extraction_notes: List[str]
 
 
@@ -402,6 +424,8 @@ class DataroomAnalysis(TypedDict):
     financials: Optional[FinancialData]
     cap_table: Optional[CapTableData]
     legal_docs: List[LegalDocData]
+    legal_summary: Optional[Dict[str, Any]]   # reconciled terms + conflicts
+    unreadable_files: List[Dict[str, str]]    # files skipped, with the reason why
     team: Optional[TeamData]
     traction: Optional[TractionData]
     competitive: Optional[CompetitiveData]

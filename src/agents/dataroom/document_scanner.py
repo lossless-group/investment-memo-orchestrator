@@ -39,6 +39,10 @@ SUPPORTED_EXTENSIONS = {
     # Text
     ".md": "text",
     ".txt": "text",
+
+    # Mail. A closing-confirmation email is often the only artifact that dates
+    # a financing, so it belongs in the inventory rather than beside it.
+    ".eml": "email",
 }
 
 # Files to ignore
@@ -51,20 +55,36 @@ IGNORE_PATTERNS = [
     ".~",  # LibreOffice temp files
 ]
 
+# Extensions that are real content the pipeline cannot yet read. They are
+# reported rather than dropped: an operator who exports a .pages file to PDF
+# recovers the document, but only if something tells them it was skipped.
+UNREADABLE_EXTENSIONS = {
+    ".pages": "Apple Pages bundle — export to PDF or DOCX",
+    ".key": "Apple Keynote bundle — export to PDF or PPTX",
+    ".numbers": "Apple Numbers bundle — export to XLSX or CSV",
+    ".msg": "Outlook message — export to .eml",
+    ".zip": "archive — expand it in place so its contents can be scanned",
+    ".rar": "archive — expand it in place so its contents can be scanned",
+    ".7z": "archive — expand it in place so its contents can be scanned",
+}
+
 
 # =============================================================================
 # Scanner Functions
 # =============================================================================
 
-def scan_dataroom(dataroom_path: str) -> List[DocumentInventoryItem]:
+def scan_dataroom(dataroom_path: str, return_skipped: bool = False):
     """
     Scan dataroom directory and create inventory of all documents.
 
     Args:
         dataroom_path: Path to dataroom directory
+        return_skipped: Also return the files that were passed over, with the
+            reason for each. Off by default so existing callers are unaffected.
 
     Returns:
-        List of DocumentInventoryItem objects (unclassified)
+        List of DocumentInventoryItem objects (unclassified), or a
+        ``(inventory, skipped)`` tuple when ``return_skipped`` is set.
     """
     dataroom = Path(dataroom_path)
 
@@ -75,6 +95,7 @@ def scan_dataroom(dataroom_path: str) -> List[DocumentInventoryItem]:
         raise ValueError(f"Dataroom path is not a directory: {dataroom_path}")
 
     inventory: List[DocumentInventoryItem] = []
+    skipped: List[Dict[str, str]] = []
 
     # Walk directory tree
     for file_path in dataroom.rglob("*"):
@@ -89,8 +110,18 @@ def scan_dataroom(dataroom_path: str) -> List[DocumentInventoryItem]:
         # Get file info
         extension = file_path.suffix.lower()
 
-        # Skip unsupported formats
+        # Record unsupported formats instead of dropping them silently. A
+        # dataroom whose only cap table is a .numbers file must not report
+        # "no cap table found".
         if extension not in SUPPORTED_EXTENSIONS:
+            skipped.append({
+                "file_path": str(file_path),
+                "filename": file_path.name,
+                "extension": extension,
+                "reason": UNREADABLE_EXTENSIONS.get(
+                    extension, f"unsupported file type '{extension}'"
+                ),
+            })
             continue
 
         # Get parent directory name (for classification hints)
@@ -122,6 +153,8 @@ def scan_dataroom(dataroom_path: str) -> List[DocumentInventoryItem]:
     # Sort by path for consistent ordering
     inventory.sort(key=lambda x: x["file_path"])
 
+    if return_skipped:
+        return inventory, sorted(skipped, key=lambda x: x["file_path"])
     return inventory
 
 
@@ -211,13 +244,16 @@ def _should_ignore(file_path: Path) -> bool:
 
 
 def _get_page_count(pdf_path: Path) -> Optional[int]:
-    """Get page count from PDF."""
-    try:
-        from pypdf import PdfReader
-        reader = PdfReader(str(pdf_path))
-        return len(reader.pages)
-    except Exception:
-        return None
+    """
+    Page count for a PDF, via the shared text layer.
+
+    Previously read pypdf directly inside a bare except, so an uninstalled
+    pypdf reported every PDF as having an unknown page count — which the
+    inventory then rendered as zero total pages.
+    """
+    from .document_text import extract_text
+
+    return extract_text(pdf_path, max_chars=1, ocr=False).page_count
 
 
 def parse_directory_category(directory_name: str) -> Optional[str]:

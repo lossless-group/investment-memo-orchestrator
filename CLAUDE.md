@@ -78,14 +78,20 @@ A pattern discovered while editing a client memo (e.g., the "thesis bleed" failu
 **System Dependencies** (install these first for full functionality):
 
 ```bash
-# macOS - Install Pandoc, WeasyPrint dependencies, and Poppler
-brew install pandoc cairo pango gdk-pixbuf libffi poppler
+# macOS - Install Pandoc, WeasyPrint dependencies, Poppler, and Tesseract
+brew install pandoc cairo pango gdk-pixbuf libffi poppler tesseract
 
 # Ubuntu/Debian
-sudo apt install pandoc libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev poppler-utils
+sudo apt install pandoc libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev poppler-utils tesseract-ocr
 ```
 
-*Note: Pandoc enables Word/HTML exports. WeasyPrint dependencies enable PDF generation. Poppler enables PDF-to-image conversion for deck analysis with Claude Vision. All are optional but recommended.*
+*Note: Pandoc enables Word/HTML exports. WeasyPrint dependencies enable PDF generation. Poppler enables PDF-to-image conversion for deck analysis with Claude Vision. Tesseract enables OCR fallback in the dataroom text layer — without it, scanned PDFs (routine for executed financing documents) yield no text, and the extractor reports that rather than treating them as empty. All are optional but recommended.*
+
+On macOS, Tesseract also needs its language data on the path:
+
+```bash
+export TESSDATA_PREFIX="$(brew --prefix)/share/tessdata"
+```
 
 **Python Setup**:
 
@@ -714,7 +720,9 @@ Citations flow through:
 - **MUST USE `uv` for dependency management** - Never use `pip` directly, it breaks the venv
 - Requires Python 3.11+ (type hints use newer syntax)
 - Claude Sonnet 4.5 is the primary LLM (other models untested)
-- PDF deck analysis requires readable text PDFs (scanned images won't work)
+- PDF deck analysis requires readable text PDFs (scanned images won't work). The
+  **dataroom** path is different: `src/agents/dataroom/document_text.py` falls back to
+  Tesseract OCR for scanned PDFs and recovers passwords stated in a filename
 - Citation enrichment requires PERPLEXITY_API_KEY (skips if missing)
 - Word export citations only render in Microsoft Word (not Google Docs/Preview)
 - Git-based versioning requires git repository with tags

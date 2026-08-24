@@ -19,7 +19,8 @@ def analyze_dataroom(
     dataroom_path: str,
     company_name: Optional[str] = None,
     output_dir: Optional[Path] = None,
-    use_llm: bool = True
+    use_llm: bool = True,
+    firm_name: Optional[str] = None,
 ) -> DataroomAnalysis:
     """
     Analyze a dataroom and output structured artifacts.
@@ -49,12 +50,27 @@ def analyze_dataroom(
 
     # Step 1: Scan dataroom
     print("📁 Scanning dataroom...")
-    inventory = scan_dataroom(dataroom_path)
-    print(f"   Found {len(inventory)} documents\n")
+    inventory, skipped = scan_dataroom(dataroom_path, return_skipped=True)
+    print(f"   Found {len(inventory)} documents")
+    if skipped:
+        print(f"   ⚠️  {len(skipped)} file(s) could not be read:")
+        for entry in skipped:
+            print(f"      - {entry['filename']}: {entry['reason']}")
+    print()
 
     # Step 2: Classify documents
+    #
+    # The company and firm names are passed so they can be stripped before
+    # pattern matching. Without this a company whose name contains a category
+    # word poisons every filename in its own dataroom.
     print("🏷️  Classifying documents...")
-    inventory = classify_documents(inventory, use_llm=use_llm)
+    inventory = classify_documents(
+        inventory,
+        use_llm=use_llm,
+        company_name=company_name,
+        firm_name=firm_name,
+        dataroom_root=dataroom_path,
+    )
     classification_summary = get_classification_summary(inventory)
     print(f"   Classified {classification_summary['total']} documents")
     print(f"   High confidence: {classification_summary['by_confidence']['high']}")
@@ -62,7 +78,7 @@ def analyze_dataroom(
     print(f"   Low/Unknown: {classification_summary['by_confidence']['low']}\n")
 
     # Step 3: Run extractors on classified documents
-    extraction_results = _run_extractors(inventory, use_llm=use_llm)
+    extraction_results = _run_extractors(inventory, use_llm=use_llm, company_name=company_name)
 
     # Step 4: Build initial analysis result
     inventory_summary = get_inventory_summary(inventory)
@@ -80,6 +96,8 @@ def analyze_dataroom(
         "financials": extraction_results.get("financials"),
         "cap_table": extraction_results.get("cap_table"),
         "legal_docs": extraction_results.get("legal_docs", []),
+        "legal_summary": extraction_results.get("legal_summary"),
+        "unreadable_files": skipped,
         "team": extraction_results.get("team"),
         "traction": extraction_results.get("traction"),
         "competitive": extraction_results.get("competitive"),
@@ -94,6 +112,7 @@ def analyze_dataroom(
         "processing_duration_seconds": 0,  # Will update at end
         "extraction_notes": [
             f"Scanned {len(inventory)} documents",
+            f"{len(skipped)} file(s) unreadable" if skipped else "all files readable",
             f"Classification sources: {classification_summary['by_source']}",
         ] + extraction_results.get("notes", []),
     }
@@ -126,7 +145,7 @@ def analyze_dataroom(
     return analysis
 
 
-def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
+def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = None) -> dict:
     """
     Run specialized extractors on classified documents.
 
@@ -137,7 +156,16 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
     Returns:
         Dict with extraction results by type
     """
-    from .extractors import extract_competitive_data, extract_cap_table_data, extract_financial_data, extract_traction_data, extract_team_data
+    from .extractors import (
+        extract_competitive_data,
+        extract_cap_table_data,
+        extract_financial_data,
+        extract_traction_data,
+        extract_team_data,
+        extract_legal_data,
+        reconcile_legal_docs,
+        LEGAL_DOCUMENT_TYPES,
+    )
 
     results = {
         "financials": None,
@@ -276,6 +304,35 @@ def _run_extractors(inventory: list, use_llm: bool = True) -> dict:
                 print(f"   ⚠️ No team data extracted")
         except Exception as e:
             results["notes"].append(f"Team extraction error: {str(e)}")
+            print(f"   ✗ Error: {e}")
+
+    # Run legal extractor. This slot existed from the beginning and was never
+    # filled; for a portfolio archive the executed paper IS the dataroom.
+    legal_docs = [d for d in inventory if d["document_type"] in LEGAL_DOCUMENT_TYPES]
+    if legal_docs:
+        print(f"⚖️  Extracting deal terms from {len(legal_docs)} legal documents...")
+        try:
+            records = extract_legal_data(legal_docs, use_llm=use_llm, company_name=company_name)
+            results["legal_docs"] = records
+            results["legal_summary"] = reconcile_legal_docs(records)
+
+            summary = results["legal_summary"]
+            terms = summary.get("terms", {})
+            print(f"   ✓ {summary['executed']} executed / {summary['documents']} documents")
+            if terms:
+                rendered = ", ".join(
+                    f"{k}={v:,.0f}" if isinstance(v, (int, float)) and v > 100 else f"{k}={v}"
+                    for k, v in terms.items()
+                )
+                print(f"   ✓ Terms: {rendered}")
+                results["notes"].append(f"Reconciled deal terms: {rendered}")
+            for conflict in summary.get("conflicts", []):
+                print(f"   ⚠️  Conflict on {conflict['field']}: {conflict['values']}")
+                results["notes"].append(
+                    f"Conflicting {conflict['field']} across documents: {conflict['values']}"
+                )
+        except Exception as e:
+            results["notes"].append(f"Legal extraction error: {str(e)}")
             print(f"   ✗ Error: {e}")
 
     return results
@@ -500,6 +557,11 @@ def save_dataroom_analysis_artifacts(
         "processing_duration_seconds": analysis["processing_duration_seconds"],
     }
 
+    # _get_or_create_output_dir() makes its own directory, but a caller-supplied
+    # output_dir has never been created here, so passing one always failed.
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     json_path = output_dir / "0-dataroom-inventory.json"
     with open(json_path, "w") as f:
         json.dump(inventory_data, f, indent=2, ensure_ascii=False, default=str)
@@ -575,6 +637,26 @@ def save_dataroom_analysis_artifacts(
         with open(team_md_path, "w") as f:
             f.write(team_report)
         print(f"   📄 Saved: {team_md_path.name}")
+
+    # 5b. Save legal / deal-terms analysis
+    if analysis.get("legal_docs"):
+        legal_json_path = output_dir / "5b-legal-terms.json"
+        with open(legal_json_path, "w") as f:
+            json.dump(
+                {
+                    "documents": analysis["legal_docs"],
+                    "reconciled": analysis.get("legal_summary"),
+                },
+                f, indent=2, ensure_ascii=False, default=str,
+            )
+        print(f"   📄 Saved: {legal_json_path.name}")
+
+        legal_md_path = output_dir / "5b-legal-terms.md"
+        with open(legal_md_path, "w") as f:
+            f.write(format_legal_report(
+                analysis["legal_docs"], analysis.get("legal_summary"), company_name
+            ))
+        print(f"   📄 Saved: {legal_md_path.name}")
 
     # 6. Save synthesis report (conflicts, gaps, cross-references)
     if synthesis_results:
@@ -1356,7 +1438,11 @@ def dataroom_agent(state) -> dict:
             dataroom_path=str(dataroom_dir),
             company_name=company_name,
             output_dir=output_dir,
-            use_llm=True
+            use_llm=True,
+            # Both names are stripped from filenames before classification, so a
+            # company or firm whose name contains a category word cannot poison
+            # its own dataroom.
+            firm_name=firm,
         )
 
         doc_count = analysis.get("document_count", 0)
@@ -1401,3 +1487,141 @@ if __name__ == "__main__":
     company_name = sys.argv[2] if len(sys.argv) > 2 else None
 
     analyze_dataroom(dataroom_path, company_name)
+
+
+def format_legal_report(
+    legal_docs: list, legal_summary: dict, company_name: str
+) -> str:
+    """
+    Render extracted deal terms as markdown.
+
+    Organized so a reader can answer the two questions that matter first — what
+    are the terms, and is the paper signed — before descending into per-document
+    detail. Every figure is followed by the sentence it was read from, because a
+    term sheet reconstructed from OCR is a claim until someone checks it.
+    """
+    def money(value):
+        if value is None:
+            return "—"
+        if value >= 1_000_000:
+            return f"${value / 1_000_000:,.2f}M"
+        return f"${value:,.0f}"
+
+    lines = [
+        f"# Deal Terms — {company_name}",
+        "",
+        "Extracted from executed and unexecuted financing documents.",
+        "",
+    ]
+
+    if legal_summary:
+        terms = legal_summary.get("terms", {})
+        lines += [
+            "## Reconciled position",
+            "",
+            f"- **Documents analyzed:** {legal_summary.get('documents', 0)} "
+            f"({legal_summary.get('executed', 0)} executed, "
+            f"{legal_summary.get('unexecuted', 0)} unexecuted/form)",
+        ]
+        if legal_summary.get("instruments"):
+            kinds = ", ".join(f"{k} ({v})" for k, v in legal_summary["instruments"].items())
+            lines.append(f"- **Instruments:** {kinds}")
+        for label, field in (
+            ("Investment amount", "investment_amount"),
+            ("Valuation cap", "valuation_cap"),
+            ("Pre-money valuation", "pre_money_valuation"),
+            ("Post-money valuation", "post_money_valuation"),
+            ("Price per share", "share_price"),
+        ):
+            if field in terms:
+                lines.append(f"- **{label}:** {money(terms[field])}")
+        if "discount_rate" in terms:
+            lines.append(f"- **Discount:** {terms['discount_rate']:g}%")
+        if legal_summary.get("investors"):
+            lines.append(f"- **Investors named:** {', '.join(legal_summary['investors'])}")
+        lines.append("")
+
+        if legal_summary.get("conflicts"):
+            lines += ["### Conflicts", ""]
+            for conflict in legal_summary["conflicts"]:
+                lines.append(
+                    f"- **{conflict['field']}** — documents disagree: "
+                    f"{conflict['values']}. {conflict['resolution']}."
+                )
+                for claim in conflict["claims"]:
+                    mark = "executed" if claim["executed"] else "unexecuted"
+                    lines.append(f"    - {claim['value']} — {claim['source']} ({mark})")
+            lines.append("")
+
+    lines += ["## By document", ""]
+
+    for record in legal_docs:
+        mark = {True: "signed", False: "form/draft", None: "execution unclear"}[
+            record.get("is_executed")
+        ]
+        lines += [
+            f"### {record['document_source']}",
+            "",
+            f"*{record.get('document_type', 'unknown')} · {mark} · "
+            f"extraction confidence {record.get('confidence', 0):.2f}*",
+            "",
+        ]
+
+        rows = []
+        for label, field, kind in (
+            ("Security", "security_type", "text"),
+            ("Effective date", "effective_date", "text"),
+            ("Investment amount", "investment_amount", "money"),
+            ("Valuation cap", "valuation_cap", "money"),
+            ("Discount", "discount_rate", "pct"),
+            ("Interest rate", "interest_rate", "pct"),
+            ("Maturity", "maturity_date", "text"),
+            ("Pre-money", "pre_money_valuation", "money"),
+            ("Post-money", "post_money_valuation", "money"),
+            ("Price per share", "share_price", "money"),
+            ("Shares", "shares_purchased", "int"),
+            ("Liquidation preference", "liquidation_preference", "text"),
+            ("Anti-dilution", "anti_dilution", "text"),
+            ("Board seats", "board_seats", "text"),
+            ("Governing law", "governing_law", "text"),
+        ):
+            value = record.get(field)
+            if value in (None, "", []):
+                continue
+            if kind == "money":
+                shown = money(value)
+            elif kind == "pct":
+                shown = f"{value:g}%"
+            elif kind == "int":
+                shown = f"{value:,}"
+            else:
+                shown = str(value)
+            rows.append((label, shown, record.get("evidence", {}).get(field, "")))
+
+        if rows:
+            lines += ["| Term | Value | Source text |", "|---|---|---|"]
+            for label, shown, evidence in rows:
+                quoted = evidence.replace("|", "\\|")[:180] if evidence else "—"
+                lines.append(f"| {label} | {shown} | {quoted} |")
+            lines.append("")
+
+        for flag, label in (
+            ("mfn_clause", "MFN"),
+            ("pro_rata_rights", "Pro rata rights"),
+            ("information_rights", "Information rights"),
+            ("management_rights", "Management rights"),
+        ):
+            if record.get(flag):
+                lines.append(f"- {label}: yes")
+        if record.get("investors"):
+            lines.append(f"- Investors: {', '.join(record['investors'])}")
+        if record.get("counsel"):
+            lines.append(f"- Counsel: {', '.join(record['counsel'])}")
+
+        notes = record.get("extraction_notes", [])
+        if notes:
+            lines += ["", "**Extraction notes:**", ""]
+            lines += [f"- {n}" for n in notes]
+        lines.append("")
+
+    return "\n".join(lines)
