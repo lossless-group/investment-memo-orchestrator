@@ -434,16 +434,17 @@ Respond with JSON only, no prose:
 """
 
     try:
-        from anthropic import Anthropic
+        from ....llm_provider import complete
+        completion = complete(
 
-        client = Anthropic()
-        response = client.messages.create(
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+            prompt,
+
             max_tokens=2000,
-            temperature=0,
-            messages=[{"role": "user", "content": prompt}],
+
+            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+
         )
-        raw = response.content[0].text
+        raw = completion.text
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:
             record["extraction_notes"].append("model returned no JSON")

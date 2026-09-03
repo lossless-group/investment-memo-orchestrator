@@ -29,6 +29,8 @@ from __future__ import annotations
 import json
 import os
 import re
+
+from ...llm_provider import complete
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
@@ -741,15 +743,8 @@ Respond with JSON only:
 """
 
     try:
-        from langchain_anthropic import ChatAnthropic
-
-        llm = ChatAnthropic(
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-            temperature=0,
-            max_tokens=500,
-        )
-        response = llm.invoke(prompt)
-        raw = response.content if isinstance(response.content, str) else str(response.content)
+        completion = complete(prompt, max_tokens=4000)
+        raw = completion.text
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:
             return "unknown", 0.0, "LLM returned no JSON"

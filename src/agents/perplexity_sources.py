@@ -122,14 +122,60 @@ class SonarResult:
         return urls
 
 
+def _via_claude_code(**kwargs) -> SonarResult:
+    """
+    Answer a research question with the local CLI instead of Sonar.
+
+    Selected by ``MEMOPOP_RESEARCH_PROVIDER=claude-code``. Two honest caveats,
+    both of which is why this is not the default:
+
+    * **It returns no source URLs.** Sonar's value is `search_results`; this
+      path returns an empty list, so the citation pipeline has nothing to
+      reconcile and the section carries no footnotes from research.
+    * **It is not a live-web engine.** It answers from what it knows and from
+      whatever it can read locally.
+
+    What it buys: no metered research spend, and it can be pointed at documents
+    the company actually provided. Useful when the dataroom is rich and the
+    internet is thin — which for a seed-stage private company is the normal case.
+    """
+    from ..llm_provider import complete
+
+    messages = kwargs.get("messages") or []
+    prompt = "\n\n".join(
+        f"{m.get('role', 'user').upper()}:\n{m.get('content', '')}" for m in messages
+    )
+
+    response = complete(prompt, max_tokens=kwargs.get("max_tokens", 4000))
+    if not response.ok:
+        print(f"   ⚠️  claude-code research failed: {response.error or 'empty response'}")
+        return SonarResult(content="", search_results=[], citations=[],
+                           raw={"provider": "claude-code", "error": response.error})
+
+    return SonarResult(
+        content=response.text,
+        search_results=[],          # no retrieval, so no ground truth to cite
+        citations=[],
+        raw={"provider": f"claude-code/{response.provider}", "notes": response.notes},
+    )
+
+
 def call_sonar(client, **kwargs) -> SonarResult:
     """
-    Call Perplexity via the OpenAI-compatible client, keeping the provenance.
+    Call the configured research provider, keeping the provenance.
 
     Drop-in replacement for `client.chat.completions.create(...)` at any Sonar
     call site — same kwargs, but returns a `SonarResult` carrying the retrieved
     sources instead of throwing them away.
+
+    Routes on ``MEMOPOP_RESEARCH_PROVIDER``. Perplexity is the default and is
+    never removed by the setting; it is selected away from.
     """
+    from ..source_priority import research_provider
+
+    if research_provider() == "claude-code":
+        return _via_claude_code(**kwargs)
+
     response = client.chat.completions.create(**kwargs)
 
     try:

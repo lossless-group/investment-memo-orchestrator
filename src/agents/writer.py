@@ -193,13 +193,141 @@ Return ONLY the section content, no preamble.
     return response.content
 
 
+
+# =============================================================================
+# Grounding sections in the company's own documents
+# =============================================================================
+
+def dataroom_facts_for_section(section_def, dataroom_analysis) -> str:
+    """
+    The slice of the dataroom a given section is answerable from.
+
+    Web research says what the internet believes about a company. The dataroom is
+    what the company stated in its own executed documents. When a memo's Funding
+    & Terms section reads "valuation terms are not publicly available" while
+    seven signed SAFEs sit in the same output folder, the pipeline has failed at
+    the thing it exists to do.
+
+    **Returns "" for anything it does not understand, and never raises.** Most
+    deals have no dataroom at all — a pipeline deal is a deck plus web research,
+    and `dataroom_analysis` is variously a dict, ``None``, or absent from state
+    entirely depending on when the run was written. Grounding is an enhancement
+    on top of the existing path, never a precondition for it: a writer that
+    fails because a deal has no dataroom is worse than one that never had this.
+
+    Facts are passed through **as stated, per document**. Nothing is reconciled:
+    where two instruments differ, both appear, and the difference is structure.
+    """
+    import json as _json
+
+    try:
+        if not dataroom_analysis or not isinstance(dataroom_analysis, dict):
+            return ""
+
+        name = " ".join(str(getattr(section_def, attr, "") or "")
+                        for attr in ("name", "filename")).lower()
+        if not name.strip():
+            return ""
+
+        blocks = []
+
+        def add(title, payload):
+            if payload in (None, [], {}, ""):
+                return
+            blocks.append(f"### {title}\n```json\n"
+                          f"{_json.dumps(payload, indent=1, default=str)[:6000]}\n```")
+
+        def wants(*words):
+            return any(w in name for w in words)
+
+        def as_list(value):
+            """`legal_docs` has been seen as a list and as a {documents: [...]} dict."""
+            if isinstance(value, list):
+                return value
+            if isinstance(value, dict):
+                for key in ("documents", "records", "items"):
+                    if isinstance(value.get(key), list):
+                        return value[key]
+            return []
+
+        if wants("funding", "terms", "offering", "capital", "closing",
+                 "executive", "scorecard"):
+            # Per-document records, never the reconciled summary: reconciliation
+            # collapses seven instruments at three caps into one number and
+            # reports the differences as conflicts.
+            instruments = [
+                {k: d.get(k) for k in ("document_source", "security_type", "investor_name",
+                                       "investment_amount", "valuation_cap", "discount_rate",
+                                       "is_executed", "document_date", "effective_date")}
+                for d in as_list(dataroom_analysis.get("legal_docs"))
+                if isinstance(d, dict) and (d.get("investment_amount") or d.get("valuation_cap"))
+            ]
+            add("Financing instruments on file, one row per document, as stated", instruments)
+            add("Cap table", dataroom_analysis.get("cap_table"))
+
+        if wants("organization", "team", "people", "founder", "origins"):
+            add("Team, from the dataroom", dataroom_analysis.get("team"))
+
+        # The company's own competitive work. Five documents of it sat unread
+        # while the competitive section was written from web search.
+        if wants("competitive", "landscape", "market", "opportunity", "opening",
+                 "positioning", "offering", "scorecard", "executive"):
+            add("Competitive analysis, from the company's own documents",
+                dataroom_analysis.get("competitive"))
+
+        if wants("opportunity", "traction", "offering", "opening",
+                 "scorecard", "executive"):
+            add("Traction, from the dataroom", dataroom_analysis.get("traction"))
+            add("Financials, from the dataroom", dataroom_analysis.get("financials"))
+
+        if wants("risk", "closing", "executive"):
+            add("Documents the dataroom does not contain", dataroom_analysis.get("data_gaps"))
+            add("Where the company's own documents disagree with each other",
+                dataroom_analysis.get("conflicts"))
+
+        # Cheap, cross-cutting, and the same in every section.
+        add("Key facts the dataroom established", dataroom_analysis.get("key_facts"))
+
+        if not blocks:
+            return ""
+
+        inventory = dataroom_analysis.get("documents_by_type") or {}
+        count = dataroom_analysis.get("document_count", "the")
+
+        return f"""
+
+## THE COMPANY'S OWN DOCUMENTS — use these first
+
+These came from {count} documents the company provided.
+Document types on file: {_json.dumps(inventory, default=str)[:1200]}
+
+**These outrank web research.** Where the dataroom states a fact, state it, and
+attribute it to the document it came from. Do not write that something is
+"not disclosed", "not publicly available", or "not available in current
+materials" when it appears below — that sentence is only true of the internet,
+not of the dataroom.
+
+Where two documents state different terms, report both with their sources. That
+is deal structure, not a discrepancy to resolve, and never average or pick one.
+
+Do not infer beyond what is stated. If a figure is absent here, it is absent.
+
+{chr(10).join(blocks)}
+"""
+
+    except Exception as exc:  # never break a section over a grounding block
+        print(f"      ⚠️  dataroom grounding skipped: {type(exc).__name__}: {exc}")
+        return ""
+
+
 def polish_section_research(
     section_def: SectionDefinition,
     research_content: str,
     company_name: str,
     memo_mode: str,
     style_guide: str,
-    model: ChatAnthropic
+    model: ChatAnthropic,
+    dataroom_facts: str = ""
 ) -> str:
     """
     Polish Perplexity research into final section while preserving citations.
@@ -242,6 +370,7 @@ def polish_section_research(
     target_words = section_def.target_length.ideal_words
 
     polish_prompt = f"""Rewrite the following Perplexity research into a polished "{section_def.name}" section for {company_name}.
+{dataroom_facts}
 
 PERPLEXITY RESEARCH (with citations):
 {research_content}
@@ -421,7 +550,8 @@ def write_single_section(
     memo_mode: str,
     style_guide: str,
     model: ChatAnthropic,
-    current_date: str
+    current_date: str,
+    dataroom_facts: str = ""
 ) -> str:
     """
     Write a single section of the memo using outline guidance.
@@ -484,6 +614,7 @@ PASS, CONSIDER, or COMMIT based on the objective analysis of strengths vs. risks
     target_length = section_def.target_length.ideal_words
 
     user_prompt = f"""Write ONLY the "{section_def.name}" section for an investment memo about {company_name}.
+{dataroom_facts}
 
 CURRENT DATE: {current_date}
 INVESTMENT TYPE: {investment_type.upper()}
@@ -701,6 +832,14 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     sections_polished = 0
     sections_written = 0
 
+    # The dataroom is the company's own documents. It has been sitting in state
+    # unread: every section was written from web research alone, which is why a
+    # memo could report terms as "not disclosed" beside seven executed SAFEs.
+    dataroom_analysis = state.get("dataroom_analysis") or {}
+    if dataroom_analysis:
+        print(f"   📄 Grounding sections in {dataroom_analysis.get('document_count', '?')} "
+              f"dataroom documents")
+
     for section_def in outline.sections:
         section_num = section_def.number
         section_name = section_def.name
@@ -723,7 +862,8 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 company_name=company_name,
                 memo_mode=memo_mode,
                 style_guide=style_guide,
-                model=model
+                model=model,
+                dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
             )
             sections_polished += 1
         else:
@@ -737,7 +877,8 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 memo_mode=memo_mode,
                 style_guide=style_guide,
                 model=model,
-                current_date=current_date
+                current_date=current_date,
+                dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
             )
             sections_written += 1
 

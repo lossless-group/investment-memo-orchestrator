@@ -21,6 +21,7 @@ def analyze_dataroom(
     output_dir: Optional[Path] = None,
     use_llm: bool = True,
     firm_name: Optional[str] = None,
+    deal_config: Optional[dict] = None,
 ) -> DataroomAnalysis:
     """
     Analyze a dataroom and output structured artifacts.
@@ -78,7 +79,22 @@ def analyze_dataroom(
     print(f"   Low/Unknown: {classification_summary['by_confidence']['low']}\n")
 
     # Step 3: Run extractors on classified documents
-    extraction_results = _run_extractors(inventory, use_llm=use_llm, company_name=company_name)
+    # The inventory is complete and expensive (a full classification pass). It
+    # goes to disk before the extractors start, not after they finish.
+    if output_dir is None:
+        output_dir = _get_or_create_output_dir(company_name, firm=firm_name)
+    try:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        (Path(output_dir) / "0-dataroom-inventory.json").write_text(
+            json.dumps({"dataroom_path": dataroom_path, "documents": inventory},
+                       indent=2, default=str), encoding="utf-8")
+        print("   💾 wrote 0-dataroom-inventory.json")
+    except Exception as exc:
+        print(f"   ⚠️  could not checkpoint inventory: {exc}")
+
+    extraction_results = _run_extractors(inventory, use_llm=use_llm,
+                                         company_name=company_name,
+                                         output_dir=output_dir)
 
     # Step 4: Build initial analysis result
     inventory_summary = get_inventory_summary(inventory)
@@ -135,6 +151,9 @@ def analyze_dataroom(
     if output_dir is None:
         output_dir = _get_or_create_output_dir(company_name)
 
+    _earmark_anomalies(output_dir, company_name, extraction_results)
+    _transcribe_time_series(output_dir, company_name, extraction_results, deal_config)
+
     save_dataroom_analysis_artifacts(output_dir, analysis, company_name, synthesis_results)
 
     print(f"\n{'='*60}")
@@ -145,17 +164,141 @@ def analyze_dataroom(
     return analysis
 
 
-def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = None) -> dict:
+
+
+def _transcribe_time_series(output_dir, company_name: str, extraction_results: dict,
+                            deal_config: dict = None) -> None:
+    """
+    Write the company's stated series to ``<output_dir>/timeseries/``.
+
+    Transcription, not analysis: numbers land on the grid exactly as documents
+    state them, and anything without an evidenced period is dropped with the
+    reason recorded rather than pinned to a guessed date. Roll-ups, fiscal cuts,
+    and derived metrics belong to the data-analyst agent, which reads these files.
+
+    Never raises — a dataroom with no dated numbers is the normal case for a
+    pre-seed company, and it must not fail a run.
+    """
+    try:
+        from ..timeseries.from_dataroom import transcribe_dataroom
+
+        cfg = deal_config or {}
+        summary, trace = transcribe_dataroom(
+            company_name, output_dir, extraction_results,
+            fiscal_year_start_month=cfg.get("fiscal_year_start_month"),
+            incorporation_date=cfg.get("incorporation_date"),
+        )
+        files = summary.get("files") or []
+        if files:
+            print(f"   📉 transcribed {summary.get('observations')} observations to "
+                  f"timeseries/ ({len(files)} files), origin "
+                  f"{summary.get('origin')} via {summary.get('origin_basis')}")
+        else:
+            print(f"   📉 no dated series in this dataroom — {summary.get('note', 'nothing written')}")
+        for line in trace[:8]:
+            print(f"      · {line}")
+        if len(trace) > 8:
+            print(f"      · …and {len(trace) - 8} more")
+    except Exception as exc:
+        print(f"   ⚠️  time-series transcription skipped: {type(exc).__name__}: {exc}")
+
+
+def _earmark_anomalies(output_dir, company_name: str, extraction_results: dict) -> None:
+    """
+    Park instinctive observations in anomalies.json — never in the memo.
+
+    This is a pass over data the extractors already produced. It makes no model
+    call and takes no second look at any document, because noticing is not the
+    job: the file is a pressure valve so a real observation has somewhere to go
+    that is not the deliverable. See
+    ``context-v/reminders/Round-Closing-Timeline-Nuances.md`` §3.
+
+    Deliberately narrow. Ordinary closing mechanics are not anomalies, absence
+    of data is not an anomaly, and a claim in a deck is not data.
+    """
+    from ...agents import anomalies
+
+    for doc in extraction_results.get("legal_docs", []) or []:
+        source = doc.get("document_source", "")
+        notes = " ".join(doc.get("extraction_notes", []) or [])
+
+        # A signed instrument and an unsigned one are different facts about a
+        # position. The filename claiming one and the text the other is the
+        # rare case worth a second look.
+        if "filename says executed but the text says unexecuted" in notes:
+            anomalies.record(
+                output_dir, company=company_name, agent="legal_extractor",
+                source_path=source,
+                observation="filename marks this instrument executed; the text's signature block is blank",
+                evidence=(doc.get("evidence", {}) or {}).get("investment_amount", ""),
+                why=("decides whether this is a closed subscription or an unsigned form, "
+                     "which changes the cap table"),
+                kind="document_contradicts_metadata",
+            )
+
+        # A financing document that yielded no text is not a document that says
+        # nothing — it is one nobody has read.
+        if doc.get("extraction_status") == "failed" or "no text extracted" in notes.lower():
+            anomalies.record(
+                output_dir, company=company_name, agent="legal_extractor",
+                source_path=source,
+                observation="financing document produced no extractable text",
+                why="terms in an unread instrument cannot contradict the ones recorded here",
+                kind="unreadable_source",
+            )
+
+    # Two documents disagreeing about the SAME instrument is a conflict. Two
+    # instruments with different terms is structure, and is not recorded here.
+    for conflict in (extraction_results.get("legal_summary", {}) or {}).get("conflicts", []) or []:
+        claims = conflict.get("claims", []) or []
+        investors = {(c.get("evidence") or "")[:0] or c.get("source") for c in claims}
+        if len(claims) > 1 and len(investors) == 1:
+            anomalies.record(
+                output_dir, company=company_name, agent="legal_extractor",
+                source_path=claims[0].get("source", ""),
+                observation=f"same instrument, disagreeing {conflict.get('field')}: {conflict.get('values')}",
+                evidence=(claims[0].get("evidence") or "")[:300],
+                why="one of the two numbers is wrong, and the cap table depends on which",
+                kind="conflicting_claims",
+            )
+
+def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = None,
+                    output_dir=None) -> dict:
     """
     Run specialized extractors on classified documents.
+
+    Each extractor's result is written to ``output_dir`` the moment it finishes,
+    before the next one starts. This phase runs for tens of minutes across eight
+    extractors, and holding all of it in memory until a single save at the end
+    meant a run killed partway through produced nothing at all — not slow to
+    redo, unrecoverable. See
+    ``context-v/reminders/Every-Step-Writes-Its-Output-To-File.md``.
 
     Args:
         inventory: List of classified DocumentInventoryItem dicts
         use_llm: Whether to use LLM for extraction
+        company_name: Company name, for extractors that disambiguate parties
+        output_dir: Where to write each result as it completes. Omitted only by
+            callers that have nowhere to write, which should be none of them.
 
     Returns:
         Dict with extraction results by type
     """
+    import json as _json
+    from pathlib import Path as _Path
+
+    def _checkpoint(name: str, value) -> None:
+        """Write one extractor's result. Never raises — a save must not fail a run."""
+        if output_dir is None or value in (None, [], {}):
+            return
+        try:
+            d = _Path(output_dir)
+            d.mkdir(parents=True, exist_ok=True)
+            (d / f"{name}.json").write_text(
+                _json.dumps(value, indent=2, default=str), encoding="utf-8")
+            print(f"   💾 wrote {name}.json")
+        except Exception as exc:
+            print(f"   ⚠️  could not checkpoint {name}: {type(exc).__name__}: {exc}")
     from .extractors import (
         extract_competitive_data,
         extract_cap_table_data,
@@ -192,6 +335,7 @@ def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = N
         print(f"🔍 Extracting competitive data from {len(comp_docs)} documents...")
         try:
             results["competitive"] = extract_competitive_data(comp_docs, use_llm=use_llm)
+            _checkpoint("1-competitive-analysis", results["competitive"])
             competitor_count = len(results["competitive"].get("competitors", []))
             results["notes"].append(f"Extracted {competitor_count} competitors from competitive analysis")
             print(f"   ✓ Found {competitor_count} competitors")
@@ -205,6 +349,7 @@ def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = N
         print(f"📊 Extracting cap table data from {len(cap_docs)} documents...")
         try:
             results["cap_table"] = extract_cap_table_data(cap_docs, use_llm=use_llm)
+            _checkpoint("2-cap-table", results["cap_table"])
             if results["cap_table"]:
                 shareholder_count = len(results["cap_table"].get("shareholders", []))
                 results["notes"].append(f"Extracted {shareholder_count} shareholders from cap table")
@@ -225,6 +370,7 @@ def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = N
         print(f"💰 Extracting financial data from {len(financial_docs)} documents...")
         try:
             results["financials"] = extract_financial_data(financial_docs, use_llm=use_llm)
+            _checkpoint("3-financial-analysis", results["financials"])
             if results["financials"]:
                 results["notes"].append(f"Extracted financial data from {len(financial_docs)} documents")
                 # Summarize what was found
@@ -252,6 +398,7 @@ def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = N
         print(f"📈 Extracting traction data from {len(traction_docs)} documents...")
         try:
             results["traction"] = extract_traction_data(traction_docs, use_llm=use_llm)
+            _checkpoint("4-traction-analysis", results["traction"])
             if results["traction"]:
                 notes_list = []
                 if results["traction"].get("customer_count"):
@@ -282,6 +429,7 @@ def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = N
         print(f"👥 Extracting team data from {len(team_docs)} documents...")
         try:
             results["team"] = extract_team_data(team_docs, use_llm=use_llm)
+            _checkpoint("5-team-analysis", results["team"])
             if results["team"]:
                 founder_count = len(results["team"].get("founders", []))
                 leadership_count = len(results["team"].get("leadership", []))
@@ -314,7 +462,9 @@ def _run_extractors(inventory: list, use_llm: bool = True, company_name: str = N
         try:
             records = extract_legal_data(legal_docs, use_llm=use_llm, company_name=company_name)
             results["legal_docs"] = records
+            _checkpoint("5b-legal-terms", records)
             results["legal_summary"] = reconcile_legal_docs(records)
+            _checkpoint("5b-legal-summary", results["legal_summary"])
 
             summary = results["legal_summary"]
             terms = summary.get("terms", {})
@@ -1379,6 +1529,96 @@ def format_team_report(team_data: dict, company_name: str) -> str:
     return md
 
 
+
+
+# Artifacts that together mean a dataroom pass finished.
+_DATAROOM_ARTIFACTS = ("0-dataroom-inventory.json", "state.json")
+
+
+def _reusable_dataroom_analysis(output_dir, dataroom_path: str, fresh: bool = False):
+    """
+    A completed analysis of this same dataroom, from this run or a previous one.
+
+    The dataroom pass is by far the most expensive step — on ProfileHealth it
+    read 109 legal documents, one model call each — and it is also the most
+    deterministic: the same documents produce the same inventory. Re-running it
+    to write a new memo version is paying twice for one answer.
+
+    Reuse only when the dataroom has not changed. The check is a scan, which
+    costs nothing: same path, same document count, same total bytes. Anything
+    else — a file added, removed, or edited — and the analysis is stale, so it
+    reruns. ``--fresh`` always reruns.
+
+    Returns the loaded analysis, or None.
+    """
+    if fresh:
+        return None
+    try:
+        from pathlib import Path as _Path
+
+        current = _Path(output_dir)
+        candidates = [current]
+        # Prior versions of the same deal: v0.0.1 while writing v0.0.2.
+        if current.parent.exists():
+            candidates += sorted(
+                (d for d in current.parent.iterdir() if d.is_dir() and d != current),
+                reverse=True,
+            )
+
+        scanned, _ = scan_dataroom(dataroom_path, return_skipped=True)
+        now_count = len(scanned)
+        now_bytes = sum(d.get("file_size_bytes") or 0 for d in scanned)
+
+        for cand in candidates:
+            if not all((cand / name).exists() for name in _DATAROOM_ARTIFACTS):
+                continue
+            inventory = json.loads((cand / "0-dataroom-inventory.json").read_text())
+            # The end-of-run writer uses "inventory"; the mid-run checkpoint uses
+            # "documents". Either is the same list.
+            docs = inventory.get("inventory") or inventory.get("documents") or []
+            # Stored absolute, compared against whatever the caller passed.
+            if _Path(inventory.get("dataroom_path", "")).resolve() != _Path(dataroom_path).resolve():
+                continue
+            if len(docs) != now_count:
+                print(f"   ↻ {cand.name} analysed {len(docs)} documents, "
+                      f"the dataroom now holds {now_count} — re-analysing")
+                continue
+            was_bytes = sum(d.get("file_size_bytes") or 0 for d in docs)
+            if was_bytes != now_bytes:
+                print(f"   ↻ dataroom contents changed since {cand.name} — re-analysing")
+                continue
+
+            # The extraction lives in the prior run's state, not in the synthesis
+            # report — the report summarises, `dataroom_analysis` is the thing
+            # itself, with legal_docs, cap_table, financials, traction and team.
+            prior = json.loads((cand / "state.json").read_text())
+            analysis = prior.get("dataroom_analysis")
+            if not isinstance(analysis, dict) or not analysis.get("document_count"):
+                print(f"   ↻ {cand.name} has no usable dataroom_analysis — re-analysing")
+                continue
+            analysis.setdefault("inventory", docs)
+            analysis["reused_from"] = str(cand)
+            print(f"   ♻️  reusing the dataroom analysis from {cand.name} "
+                  f"({now_count} documents, unchanged) — no re-extraction")
+            return analysis
+    except Exception as exc:
+        print(f"   ⚠️  could not check for a reusable analysis: {type(exc).__name__}: {exc}")
+    return None
+
+
+def _load_deal_config(company_name: str, firm: Optional[str]) -> dict:
+    """The deal's own JSON, or {} when there isn't one. Never raises."""
+    try:
+        from ...paths import resolve_deal_context
+
+        ctx = resolve_deal_context(company_name, firm=firm)
+        if ctx.deal_json_path and ctx.deal_json_path.exists():
+            return json.loads(ctx.deal_json_path.read_text())
+    except Exception as exc:
+        print(f"   ⚠️  could not read deal config: {type(exc).__name__}: {exc}")
+    return {}
+
+
 def dataroom_agent(state) -> dict:
     """
     LangGraph-compatible wrapper for the dataroom analyzer.
@@ -1433,6 +1673,20 @@ def dataroom_agent(state) -> dict:
         version = vm.get_next_version(safe_name)
         output_dir = create_artifact_directory(company_name, str(version), firm=firm)
 
+    reused = _reusable_dataroom_analysis(output_dir, str(dataroom_dir),
+                                         fresh=bool(state.get("fresh")))
+    if reused is not None:
+        # Transcription is free — no model calls, only reformatting numbers the
+        # extraction already holds — so it runs on the reuse path too. Skipping
+        # it here meant a reused analysis produced no timeseries/ at all.
+        _transcribe_time_series(output_dir, company_name, reused,
+                                _load_deal_config(company_name, firm))
+        return {
+            "dataroom_analysis": reused,
+            "messages": [f"Dataroom analysis reused from {reused.get('reused_from')} "
+                         f"({reused.get('document_count', '?')} documents, unchanged)"],
+        }
+
     try:
         analysis = analyze_dataroom(
             dataroom_path=str(dataroom_dir),
@@ -1443,6 +1697,11 @@ def dataroom_agent(state) -> dict:
             # company or firm whose name contains a category word cannot poison
             # its own dataroom.
             firm_name=firm,
+            # Carries incorporation_date and fiscal_year_start_month through to
+            # the time-series transcriber. A charter date is the strongest origin
+            # evidence there is, and it lives in the deal config rather than in
+            # any document the extractors read.
+            deal_config=_load_deal_config(company_name, firm),
         )
 
         doc_count = analysis.get("document_count", 0)

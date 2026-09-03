@@ -449,7 +449,11 @@ IMPORTANT:
 
     # Get page/slide count based on file type
     if deck_suffix == ".pdf":
-        deck_analysis["deck_page_count"] = len(PdfReader(deck_path).pages)
+        # The shared text layer owns PDF reading for this repo — it returns a
+        # page count and falls back pymupdf → pdfplumber → pypdf. `PdfReader`
+        # was referenced here and never imported, so every PDF deck crashed.
+        from .dataroom.document_text import extract_text
+        deck_analysis["deck_page_count"] = extract_text(str(deck_path), max_chars=1).page_count or 0
     elif deck_suffix in [".pptx", ".ppt"]:
         deck_analysis["deck_page_count"] = len(Presentation(deck_path).slides)
     else:

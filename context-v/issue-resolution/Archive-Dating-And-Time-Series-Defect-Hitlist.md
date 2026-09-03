@@ -16,11 +16,19 @@ tags: [Time-Series, Archive-Rename, Date-Resolution, Company-Timeline, Dataroom-
 authors:
   - Michael Staton
 augmented_with: "Claude Code on Claude Opus 5"
-status: Open
+status: Partially-Resolved
 severity: High
 ---
 
 # Archive Dating and Time-Series Defect Hitlist
+
+## Status
+
+T1, T2, T4, T6 and T9 are **fixed** (T3 is withdrawn — see below) and verified against a second Unnatural
+Products run; regression tests were added and the suite stands at 94 passing. The agent is now `time-series_transcriber`; counts and date parts are zero-padded; the column contract is `date` + `YYYY`/`HH`/`QQ`/`MM`/`DD`/`FM`.
+The dating defects (D1–D8) and the wiring defects (T5, T7, T8) are **open** — they
+live in the rename and extraction pipelines, which the spreadsheet-fed run does
+not exercise.
 
 ## How this was found
 
@@ -273,6 +281,8 @@ rather than discarded.
 
 ### T1 — Annual rows are stamped H1
 
+**Status: fixed** — annual grain now nulls `year_half`/`half_id`/`half` in both `columns_for` and `_DROP_BY_GRAIN`. Verified on the Unnatural Products re-run.
+
 **Severity: High.** `src/agents/timeseries/timeline.py:155-158`,
 `src/agents/timeseries/analyst.py:57-62`
 
@@ -300,6 +310,8 @@ the test to assert on every column coarser-than-grain.
 
 ### T2 — Density is specified, half-built, and never invoked
 
+**Status: fixed** — `_write_series` densifies against `Timeline.range_for`; `quarter_range` and `year_range` added. Verified on the Unnatural Products re-run.
+
 **Severity: High.** `timeline.py:183-199`, `analyst.py:_write_series`
 
 The spec calls this load-bearing: *"A missing row is a wrong answer."*
@@ -321,15 +333,26 @@ workbooks are dense, not because anything enforced it.
 **Fix.** Densify in `_write_series` against the grain's own range; add
 `quarter_range` and `year_range`.
 
-### T3 — Roll-up is unimplemented
+### T3 — Roll-up is unimplemented — **WITHDRAWN**
 
-**Severity: Medium.** `analyst.py`
+**Status: withdrawn** — this was never a defect in the code. It was a defect in
+the spec.
 
-Spec §"Roll up, never down" — monthly may aggregate into quarterly and annual,
-sum for flows, period-end for stocks, marked `is_rolled_up: true`. None of it
-exists. `is_rolled_up` is a second field that only ever arrives `False`.
+The original spec's §"Roll up, never down" required the transcriber to aggregate
+monthly figures into the quarterly and annual grids. It was implemented, verified
+against the source, and then removed, because roll-up produces a number no
+document states and a derived row in a transcription cannot be distinguished from
+a transcribed one — which destroys the provenance breadcrumb the whole artifact
+exists to preserve.
+
+Roll-up now belongs to the `data-analyst_agent`, which reads these files and
+writes to its own directory. `Company-Timeline-And-Month-Indexed-Time-Series.md`
+v0.0.0.2 states the division of labour; `is_rolled_up` and
+`declare_metric_kind()` are gone from the contract and the code.
 
 ### T4 — An undefined `daily` grain swallows every as-of-dated document
+
+**Status: fixed** — `grid_grain()` maps daily onto the monthly grid; the stated day survives in `date`, `day`, `source_raw_period`. Verified on the Unnatural Products re-run.
 
 **Severity: Medium.** `analyst.py:57` (`_DROP_BY_GRAIN`), `periods.py`
 
@@ -364,6 +387,8 @@ whole point — and producing
 
 ### T6 — Every file is stamped `00000000_`
 
+**Status: fixed** — `declare_source_date()` added; falls back to the filename stamp, then `undated_` — `00000000` is gone. Verified on the Unnatural Products re-run.
+
 **Severity: Medium.** `analyst.py:247` (`_filename`)
 
 The stamp is parsed from the source filename's `YYYYMMDD_` prefix. Unnatural
@@ -383,7 +408,7 @@ rather than emitting `00000000`.
 **Severity: High.** `src/agents/dataroom/dataroom_analyzer.py:525`
 
 `TimeSeriesAnalyst` has zero callers. Artifacts are numbered `0-dataroom-inventory`
-through `6-synthesis-report`; the analyst writes `7-timeseries/`. The seat is
+through `6-synthesis-report`; the analyst writes `timeseries/`. The seat is
 reserved and empty. Both runs in this session required a hand-written adapter.
 
 **Fix.** Call it as step 7 of `save_dataroom_analysis_artifacts`. The adapter
@@ -401,6 +426,8 @@ however well it works, and the function that would fix that is written and unuse
 Probably the highest-leverage item in this document, and the one least about a bug.
 
 ### T9 — Metric names change across a seam, and nothing warns
+
+**Status: fixed** — README lists per-grain metrics unique to a file, with a `shared` count so a real divergence is distinguishable from an unrelated subject. Verified on the Unnatural Products re-run.
 
 **Severity: Low.** README generation, `analyst.py:_write_readme`
 

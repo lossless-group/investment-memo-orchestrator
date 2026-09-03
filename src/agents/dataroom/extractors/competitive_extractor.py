@@ -7,6 +7,8 @@ Supports multi-document synthesis for datarooms with multiple competitor battlec
 
 import json
 import re
+
+from ....llm_provider import complete
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
@@ -126,14 +128,6 @@ def _detect_battlecard(filename: str, content: str) -> bool:
 def _extract_battlecard_with_llm(filename: str, content: str) -> Dict[str, Any]:
     """Use LLM to extract structured data from battlecard."""
     try:
-        from langchain_anthropic import ChatAnthropic
-
-        llm = ChatAnthropic(
-            model="claude-sonnet-4-5-20250929",
-            temperature=0,
-            max_tokens=4000
-        )
-
         # Extract competitor name from filename
         competitor_name = _extract_competitor_from_filename(filename)
 
@@ -182,10 +176,10 @@ Rules:
 - discovery_questions should be verbatim from "Discovery Questions" sections
 """
 
-        response = llm.invoke(prompt)
+        completion = complete(prompt, max_tokens=4000)
 
         # Parse JSON from response
-        result = _parse_json_response(response.content)
+        result = _parse_json_response(completion.text)
 
         if result:
             result["source_type"] = "battlecard"
@@ -206,14 +200,6 @@ Rules:
 def _extract_analysis_with_llm(filename: str, content: str) -> Dict[str, Any]:
     """Use LLM to extract data from general competitive analysis document."""
     try:
-        from langchain_anthropic import ChatAnthropic
-
-        llm = ChatAnthropic(
-            model="claude-sonnet-4-5-20250929",
-            temperature=0,
-            max_tokens=4000
-        )
-
         prompt = f"""Analyze this competitive analysis document and extract structured data.
 
 FILENAME: {filename}
@@ -270,8 +256,8 @@ Rules:
 - Use empty arrays [] for missing lists
 """
 
-        response = llm.invoke(prompt)
-        result = _parse_json_response(response.content)
+        completion = complete(prompt, max_tokens=4000)
+        result = _parse_json_response(completion.text)
 
         if result:
             result["source_type"] = "analysis"

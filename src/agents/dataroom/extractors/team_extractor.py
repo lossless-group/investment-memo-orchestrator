@@ -19,7 +19,7 @@ try:
 except ImportError:
     pdfplumber = None
 
-from anthropic import Anthropic
+from ....llm_provider import complete
 
 from ..dataroom_state import (
     TeamData,
@@ -363,7 +363,6 @@ def _extract_team_with_llm(
     Returns:
         Dict with LLM-extracted team data, or None if extraction fails
     """
-    client = Anthropic()
 
     # Prepare tables as text if present
     tables_text = ""
@@ -428,23 +427,35 @@ IMPORTANT:
 - Return ONLY valid JSON, no explanations"""
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+        completion = complete(
+
+            prompt,
+
             max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}]
+
+            model="claude-sonnet-4-5-20250929",
+
         )
 
-        response_text = response.content[0].text.strip()
+        # LLMResponse already knows how to do this. `.ok` separates a failed
+        # call from a bad answer, and `.json()` strips fences, finds JSON
+        # embedded in prose, and repairs quotes the source text contained.
+        # Hand-rolling it here reported a fenced-but-valid reply as a parse
+        # error and threw away the real failure — see
+        # context-v/issue-resolution/Extractors-Masked-Their-Own-LLM-Failures.md
+        if not completion.ok:
+            print(f"   ⚠️ {'team'} LLM call failed: "
+                  f"{completion.error or 'empty response'} "
+                  f"(provider={completion.provider})")
+            return None
 
-        # Try to extract JSON from response
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if json_match:
-            return json.loads(json_match.group())
-
-        return None
+        parsed = completion.json()
+        if parsed is None:
+            print(f"   ⚠️ {'team'} response was not JSON: {completion.text[:160]!r}")
+        return parsed
 
     except Exception as e:
-        print(f"   ⚠️ LLM extraction error: {e}")
+        print(f"   ⚠️ team extraction raised: {type(e).__name__}: {e}")
         return None
 
 

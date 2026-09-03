@@ -164,6 +164,11 @@ def fetch_local_file(path: "Path", url: str = "") -> Optional[Dict[str, Any]]:
             import fitz  # PyMuPDF
             with fitz.open(p) as doc:
                 text = "\n\n".join(page.get_text() for page in doc)
+            if len(text.strip()) < 200:
+                # An image-based PDF — routine for scanned instruments and for
+                # decks exported as pictures. The dataroom layer OCRs it.
+                from ..agents.dataroom.document_text import extract_text
+                text = extract_text(str(p), max_chars=200_000).text or text
         elif suffix in (".md", ".markdown", ".txt", ".text"):
             text = p.read_text(errors="ignore")
         elif suffix in (".html", ".htm"):
@@ -173,7 +178,13 @@ def fetch_local_file(path: "Path", url: str = "") -> Optional[Dict[str, Any]]:
                 tag.decompose()
             text = soup.get_text(separator="\n", strip=True)
         else:
-            return None
+            # .docx, .pptx, .xlsx — the formats a dataroom is actually made of.
+            # The dataroom text layer already reads all of them (and OCRs a
+            # scanned PDF), so a curated local source is not limited to the four
+            # types this function happened to implement first.
+            from ..agents.dataroom.document_text import extract_text
+            extracted = extract_text(str(p), max_chars=200_000)
+            text = extracted.text or ""
     except Exception:
         return None
 
@@ -183,7 +194,7 @@ def fetch_local_file(path: "Path", url: str = "") -> Optional[Dict[str, Any]]:
 
     title = p.stem.replace("_", " ").replace("-", " ")
     return {
-        "url": url or p.as_uri(),
+        "url": url or p.resolve().as_uri(),   # as_uri() rejects a relative path
         "fetched_at": datetime.now().isoformat(timespec="seconds"),
         "title": title,
         "markdown": f"Title: {title}\n\nLocal Source: {p}\n\n{text}",

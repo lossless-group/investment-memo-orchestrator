@@ -27,8 +27,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from dotenv import load_dotenv
-
+from ...llm_provider import complete
 from .date_resolution import resolve_deck_date, sibling_dates_for
 from .deck_lineage import (
     reveal_map,
@@ -389,36 +388,20 @@ def _transcribe_slide(
     prompt = _build_prompt(page_text, index, page_count, company, reveal_hint,
                            has_image=bool(image_path) and use_vision)
 
-    content: List[Dict[str, Any]] = []
-    if use_vision and image_path and image_path.exists():
-        import base64
-
-        content.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/jpeg",
-                "data": base64.standard_b64encode(image_path.read_bytes()).decode("utf-8"),
-            },
-        })
-    content.append({"type": "text", "text": prompt})
+    # Images go to the provider as paths. The CLI reads them off disk with its
+    # own Read tool; the API base64-encodes them. Callers do not care which.
+    image_paths = [image_path] if (use_vision and image_path and image_path.exists()) else []
 
     try:
-        from anthropic import Anthropic
-
-        # The rest of the pipeline loads .env at entry; this agent can be called
-        # directly, so it loads its own. Without it the only symptom was every
-        # slide falling back to the text-layer stub with an auth error buried in
-        # its warnings.
-        load_dotenv()
-
-        response = Anthropic().messages.create(
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        completion = complete(
+            prompt,
+            images=image_paths,
             max_tokens=8000,   # long team and operating-model slides truncate at 4k
-            temperature=0,
-            messages=[{"role": "user", "content": content}],
+            model=os.getenv("DEFAULT_MODEL"),
         )
-        raw = response.content[0].text
+        if not completion.ok:
+            return _stub(page_text, f"transcription failed: {completion.error}")
+        raw = completion.text
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:
             return _stub(page_text, "model returned no JSON")

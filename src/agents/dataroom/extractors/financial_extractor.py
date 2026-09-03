@@ -21,7 +21,7 @@ try:
 except ImportError:
     pdfplumber = None
 
-from anthropic import Anthropic
+from ....llm_provider import complete
 
 from ..dataroom_state import FinancialData
 
@@ -365,7 +365,6 @@ def _extract_financials_with_llm(
     Returns:
         Dict with extracted financial data
     """
-    client = Anthropic()
 
     # Format tables if present
     tables_text = ""
@@ -435,23 +434,35 @@ Content:
 Return ONLY the JSON object, no other text."""
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+        completion = complete(
+
+            prompt,
+
             max_tokens=3000,
-            messages=[{"role": "user", "content": prompt}]
+
+            model="claude-sonnet-4-5-20250929",
+
         )
 
-        response_text = response.content[0].text.strip()
+        # LLMResponse already knows how to do this. `.ok` separates a failed
+        # call from a bad answer, and `.json()` strips fences, finds JSON
+        # embedded in prose, and repairs quotes the source text contained.
+        # Hand-rolling it here reported a fenced-but-valid reply as a parse
+        # error and threw away the real failure — see
+        # context-v/issue-resolution/Extractors-Masked-Their-Own-LLM-Failures.md
+        if not completion.ok:
+            print(f"   ⚠️ {'financial'} LLM call failed: "
+                  f"{completion.error or 'empty response'} "
+                  f"(provider={completion.provider})")
+            return None
 
-        # Clean up response
-        if response_text.startswith("```"):
-            response_text = re.sub(r"^```(?:json)?\n?", "", response_text)
-            response_text = re.sub(r"\n?```$", "", response_text)
-
-        return json.loads(response_text)
+        parsed = completion.json()
+        if parsed is None:
+            print(f"   ⚠️ {'financial'} response was not JSON: {completion.text[:160]!r}")
+        return parsed
 
     except Exception as e:
-        print(f"   ⚠️ LLM extraction error: {e}")
+        print(f"   ⚠️ financial extraction raised: {type(e).__name__}: {e}")
         return None
 
 

@@ -43,8 +43,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import yaml
-from dotenv import load_dotenv
 
+from ...llm_provider import complete
 AGENT_SIGNATURE = "Claude Code on Opus 5 with Claude Vision"
 
 # Fractions of the region's own size, added to every edge before cropping.
@@ -344,33 +344,17 @@ def repair_json(text: str) -> str:
 
 def _detect_once(image_path: Path, slide_index: int) -> Dict[str, Any]:
     """One detection attempt."""
-    load_dotenv()
+    completion = complete(
+        _DETECTION_PROMPT.format(index=slide_index),
+        images=[image_path],
+        max_tokens=4000,
+        model=os.getenv("DEFAULT_MODEL"),
+    )
+    if not completion.ok:
+        return {"charts": [], "imagery": [], "error": completion.error or "empty response"}
 
     try:
-        from anthropic import Anthropic
-
-        response = Anthropic().messages.create(
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-            max_tokens=4000,
-            temperature=0,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": base64.standard_b64encode(
-                                image_path.read_bytes()
-                            ).decode("utf-8"),
-                        },
-                    },
-                    {"type": "text", "text": _DETECTION_PROMPT.format(index=slide_index)},
-                ],
-            }],
-        )
-        raw = response.content[0].text
+        raw = completion.text
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:
             return {"charts": [], "imagery": [], "error": "model returned no JSON"}
