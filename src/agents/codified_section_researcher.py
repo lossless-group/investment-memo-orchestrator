@@ -378,7 +378,7 @@ def _synthesize_raw(
     lines.append("")
 
     section_filename = f"{idx:02d}-{_slugify(section_name)}-research.md"
-    (research_dir / section_filename).write_text("\n".join(lines))
+    _write_research(research_dir, section_filename, "\n".join(lines), section, state)
 
 
 def _synthesize_via_claude(
@@ -553,7 +553,43 @@ def _synthesize_via_claude(
         return _synthesize_raw(research_dir, idx, section, matching, fetched, state)
 
     section_filename = f"{idx:02d}-{_slugify(section_name)}-research.md"
-    (research_dir / section_filename).write_text(content)
+    _write_research(research_dir, section_filename, content, section, state)
+
+
+def _write_research(
+    research_dir: Path,
+    section_filename: str,
+    content: str,
+    section: Any,
+    state: MemoState,
+) -> None:
+    """
+    Persist a section's research, appending under a frame that extends it.
+
+    Both synthesis paths used to end in write_text, which silently replaced the
+    prior run's findings. Under a frame that is exactly wrong: the premise is
+    that existing evidence stays true and new evidence joins it.
+    """
+    from ..research_append import write_or_append_research
+
+    path = research_dir / section_filename
+    action = write_or_append_research(
+        path,
+        content,
+        frame=state.get("frame"),
+        section_filename=getattr(section, "filename", "") or "",
+        run_version=_run_version(state),
+    )
+    if action == "appended":
+        print(f"      ➕ appended to existing research (frame extends this section)")
+    elif action == "skipped-duplicate":
+        print(f"      ⏭  this frame+run already contributed to {section_filename}")
+
+
+def _run_version(state: MemoState) -> str:
+    """The version directory's name, used to stamp appended research blocks."""
+    out = state.get("output_dir")
+    return Path(out).name if out else "unversioned"
 
 
 def _write_section_stub(

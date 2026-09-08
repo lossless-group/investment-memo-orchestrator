@@ -45,7 +45,7 @@ because it changes what ships and wants a deliberate placement decision.
       before any section is researched.
       *Test:* a frame with an evidence path produces a research file citing it.
 
-- [ ] **2 — Provenance stamps on appended research** (#29). Every block a framed
+- [x] **2 — Additive research writing + provenance stamps** (#29). DONE — `src/research_append.py`, 10 tests Every block a framed
       run appends carries `<!-- research-block: frame=… run=… appended=… -->`.
       *Test:* appended block carries the stamp; existing content is untouched.
 
@@ -106,3 +106,30 @@ chars, tagged for the 5 sections that extend.
 `io/humain/context-v/plans/` because the shell was still standing in that
 submodule. Removed there and relocated here — orchestrator process docs do not
 belong in a firm-private repo.
+
+
+### Step 2 — Additive research writing + provenance. Done.
+
+The bigger half of this step was not the stamp. Both codified synthesis paths
+ended in `write_text`, so research was additive only in the *instruction* given
+to the model — the file itself was still being replaced. Under a frame that is
+precisely backwards, and it would have quietly destroyed the clinician evidence
+base on the first framed run of ProfileHealth.
+
+`src/research_append.py` routes both paths through `write_or_append_research`,
+which appends only when all three hold: a frame is active, the section's research
+directive is `extend` or `refresh`, and the file already exists with real
+content. Anything else writes as before, so an unframed run is untouched.
+
+Appended blocks carry `<!-- research-block: frame=… run=… appended=… -->`.
+`has_block` makes the append re-entrant — a resumed run cannot contribute its own
+findings twice — while a *later* run appends a second block, which is what makes
+a frame reversible: dropping a thesis means dropping its blocks rather than
+re-deriving the file.
+
+The appended body is itself a whole research file with its own H1, so the H1 is
+demoted to keep one top-level heading in the merged file. Citations blocks are
+left alone; the assembler reads definitions wherever they appear.
+
+10 tests. The load-bearing one asserts the prior finding survives:
+`assert "350K physicians" in text`.

@@ -382,3 +382,119 @@ class TestEvidenceIngestion:
         assert problems == [], problems
         assert len(entries) == 1
         assert len(fetched[entries[0].url]["markdown"]) > 5000
+
+
+# --- Step 2: additive research writing + provenance -------------------------
+
+class TestAdditiveResearchWriting:
+    """
+    `1-research/` accumulates. Both synthesis paths used to end in `write_text`,
+    which silently replaced the prior run's findings — exactly wrong under a
+    frame, whose premise is that existing evidence stays true.
+    """
+
+    EXISTING = "# Opportunity — Research\n\nClinician TAM is 350K physicians.\n"
+
+    def _frame(self, research="extend"):
+        return parse_frame({
+            **MINIMAL,
+            "slug": "ltc",
+            "affects": {
+                "06-opportunity.md": {"research": research, "prose": "rewrite"},
+                "09-funding-terms.md": {"research": "reuse", "prose": "unchanged"},
+            },
+        })
+
+    def test_no_frame_overwrites_as_before(self, tmp_path):
+        from src.research_append import write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        action = write_or_append_research(f, "# New\n\nfresh.\n", frame=None,
+                                          section_filename="06-opportunity.md")
+        assert action == "written"
+        assert "350K physicians" not in f.read_text()
+
+    def test_extend_appends_and_preserves_prior_findings(self, tmp_path):
+        from src.research_append import write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        action = write_or_append_research(
+            f, "# Opportunity — Research\n\nLTC block is 5.8M policies.\n",
+            frame=self._frame(), section_filename="06-opportunity.md", run_version="v0.0.4")
+        assert action == "appended"
+        text = f.read_text()
+        assert "350K physicians" in text      # the point of the whole feature
+        assert "5.8M policies" in text
+
+    def test_appended_block_carries_a_provenance_stamp(self, tmp_path):
+        from src.research_append import existing_stamps, write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        write_or_append_research(f, "# X\n\nnew.\n", frame=self._frame(),
+                                 section_filename="06-opportunity.md", run_version="v0.0.4")
+        stamps = existing_stamps(f.read_text())
+        assert len(stamps) == 1
+        assert stamps[0]["frame"] == "ltc" and stamps[0]["run"] == "v0.0.4"
+
+    def test_appending_twice_from_the_same_run_is_a_no_op(self, tmp_path):
+        """A resumed run must not append its own findings twice."""
+        from src.research_append import write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        kw = dict(frame=self._frame(), section_filename="06-opportunity.md", run_version="v0.0.4")
+        write_or_append_research(f, "# X\n\nnew.\n", **kw)
+        first = f.read_text()
+        assert write_or_append_research(f, "# X\n\nnew.\n", **kw) == "skipped-duplicate"
+        assert f.read_text() == first
+
+    def test_a_later_run_appends_a_second_block(self, tmp_path):
+        from src.research_append import existing_stamps, write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        kw = dict(frame=self._frame(), section_filename="06-opportunity.md")
+        write_or_append_research(f, "# A\n\nfirst.\n", run_version="v0.0.4", **kw)
+        write_or_append_research(f, "# B\n\nsecond.\n", run_version="v0.0.5", **kw)
+        assert len(existing_stamps(f.read_text())) == 2
+
+    def test_reuse_directive_does_not_append(self, tmp_path):
+        from src.research_append import write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        action = write_or_append_research(f, "# X\n\nnew.\n", frame=self._frame(),
+                                          section_filename="09-funding-terms.md",
+                                          run_version="v0.0.4")
+        assert action == "written"
+
+    def test_missing_file_is_written_not_appended(self, tmp_path):
+        from src.research_append import write_or_append_research
+        f = tmp_path / "absent.md"
+        action = write_or_append_research(f, "# X\n\nnew.\n", frame=self._frame(),
+                                          section_filename="06-opportunity.md",
+                                          run_version="v0.0.4")
+        assert action == "written" and f.exists()
+
+    def test_empty_existing_file_is_written_not_appended(self, tmp_path):
+        from src.research_append import write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text("   \n")
+        action = write_or_append_research(f, "# X\n\nnew.\n", frame=self._frame(),
+                                          section_filename="06-opportunity.md",
+                                          run_version="v0.0.4")
+        assert action == "written"
+
+    def test_appended_h1_is_demoted_so_the_file_keeps_one_top_heading(self, tmp_path):
+        from src.research_append import write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        write_or_append_research(f, "# Opportunity — Research\n\nnew.\n", frame=self._frame(),
+                                 section_filename="06-opportunity.md", run_version="v0.0.4")
+        text = f.read_text()
+        assert text.count("\n# ") + text.startswith("# ") == 1
+
+    def test_refresh_labels_the_block_differently(self, tmp_path):
+        from src.research_append import write_or_append_research
+        f = tmp_path / "r.md"
+        f.write_text(self.EXISTING)
+        write_or_append_research(f, "# X\n\nnew.\n", frame=self._frame(research="refresh"),
+                                 section_filename="06-opportunity.md", run_version="v0.0.4")
+        assert "Refreshed under thesis frame" in f.read_text()
