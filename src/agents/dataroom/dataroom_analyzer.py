@@ -49,6 +49,31 @@ def analyze_dataroom(
     print(f"Path: {dataroom_path}")
     print(f"{'='*60}\n")
 
+    # Step 0: Transcribe parked media, BEFORE the scan, so transcripts are
+    # ordinary documents by the time the scanner walks the tree.
+    #
+    # Video was the one dataroom category always reported and never used —
+    # "unsupported file type '.mp4'" — while being the largest thing in the repo.
+    # The media itself lives in the gitignored _zip-originals/; only the
+    # transcript is committed, and it reads like any other document. Idempotent:
+    # an existing transcript is never regenerated, because it costs money and
+    # does not change.
+    try:
+        from ...media_transcribe import transcribe_dataroom_media
+        transcripts = transcribe_dataroom_media(Path(dataroom_path))
+        fresh = [t for t in transcripts if t.ok and t.seconds]
+        failed = [t for t in transcripts if not t.ok]
+        if fresh:
+            print(f"🎙️  Transcribed {len(fresh)} media file(s) parked in _zip-originals/")
+            for t in fresh:
+                print(f"      ✓ {t.source.name} ({len(t.text)} chars)")
+        for t in failed:
+            print(f"      ⚠️  {t.source.name}: {t.error}")
+        if transcripts:
+            print()
+    except Exception as exc:  # noqa: BLE001 - never break a run over transcription
+        print(f"   ⚠️  media transcription skipped: {exc}\n")
+
     # Step 1: Scan dataroom
     print("📁 Scanning dataroom...")
     inventory, skipped = scan_dataroom(dataroom_path, return_skipped=True)
