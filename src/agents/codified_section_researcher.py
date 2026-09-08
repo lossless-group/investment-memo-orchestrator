@@ -177,6 +177,23 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
         except Exception as exc:  # noqa: BLE001 - never break a run over this
             print(f"  ⚠️  extraction step skipped: {exc}")
 
+    # ── Frame evidence ──────────────────────────────────────────────────────
+    # A frame introduces documents the deal has never seen. They become curated
+    # sources here, BEFORE any section is researched, so the research layer holds
+    # a record of them. Without this a framed run writes prose about evidence
+    # nothing durable knows about, and the claim dies at the next re-assembly.
+    frame = state.get("frame")
+    frame_entries: List[SourceEntry] = []
+    if frame is not None:
+        from ..frame_evidence import ingest_frame_evidence
+        deal_dir = Path(inputs_dir).parent if inputs_dir else None
+        frame_entries, frame_problems = ingest_frame_evidence(frame, deal_dir, fetched)
+        for problem in frame_problems:
+            print(f"  ⚠️  frame '{frame.slug}': {problem}")
+        if frame_entries:
+            print(f"  🎯 frame '{frame.slug}': ingested {len(frame_entries)} evidence "
+                  f"document(s) as curated sources")
+
     # Per-section research file generation.
     use_llm = bool(os.environ.get("ANTHROPIC_API_KEY")) and sources_md.mode == "codified"
     if use_llm:
@@ -189,6 +206,12 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
     for idx, section in enumerate(outline.sections, start=1):
         section_name = getattr(section, "name", f"Section {idx}")
         matching = sources_for_section(sources_md, section_name, section_number=idx)
+
+        section_filename = getattr(section, "filename", "") or ""
+        if frame_entries and frame.directive_for(section_filename).researches:
+            # rank 0 sorts ahead of the standing corpus
+            matching = frame_entries + list(matching)
+
         if not matching:
             sections_with_no_sources.append(section_name)
             _write_section_stub(research_dir, idx, section_name)

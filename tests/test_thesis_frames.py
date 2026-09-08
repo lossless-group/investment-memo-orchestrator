@@ -288,3 +288,97 @@ class TestProfileHealthFrame:
 
     def test_stance_is_re_sequencing(self, frame):
         assert frame.stance == "re-sequencing"
+
+
+# --- Step 1: evidence ingestion ---------------------------------------------
+
+class TestEvidenceIngestion:
+    """
+    A frame introduces documents the deal has never seen. They must become
+    curated sources BEFORE any section is researched, or the run writes prose
+    about evidence nothing durable holds — the same failure mode that loses
+    citations on re-assembly.
+    """
+
+    def _frame_with_evidence(self, tmp_path, affects=None):
+        (tmp_path / "inputs").mkdir(parents=True, exist_ok=True)
+        doc = tmp_path / "inputs" / "Partnership-Proposal.md"
+        doc.write_text("# Proposal\n\nThe carrier reaches 30,000 policyholders.\n")
+        return parse_frame({
+            **MINIMAL,
+            "evidence": [{"path": "inputs/Partnership-Proposal.md", "note": "On the record."}],
+            "affects": affects or {
+                "01-executive-summary.md": {"research": "extend", "prose": "rewrite"},
+                "06-opportunity.md": {"research": "extend", "prose": "rewrite"},
+                "09-funding-terms.md": {"research": "reuse", "prose": "unchanged"},
+            },
+        })
+
+    def test_evidence_becomes_a_fetched_source(self, tmp_path):
+        from src.frame_evidence import ingest_frame_evidence
+        frame = self._frame_with_evidence(tmp_path)
+        fetched = {}
+        entries, problems = ingest_frame_evidence(frame, tmp_path, fetched)
+        assert problems == []
+        assert len(entries) == 1
+        assert "30,000 policyholders" in fetched[entries[0].url]["markdown"]
+        assert fetched[entries[0].url]["via"] == "frame-evidence"
+
+    def test_evidence_ranks_ahead_of_the_standing_corpus(self, tmp_path):
+        from src.frame_evidence import ingest_frame_evidence
+        entries, _ = ingest_frame_evidence(self._frame_with_evidence(tmp_path), tmp_path, {})
+        assert entries[0].rank == 0
+
+    def test_evidence_is_tagged_only_for_sections_that_research(self, tmp_path):
+        """Tagging evidence for a section the frame preserves would pull new
+        material into prose the operator asked to leave alone."""
+        from src.frame_evidence import ingest_frame_evidence
+        entries, _ = ingest_frame_evidence(self._frame_with_evidence(tmp_path), tmp_path, {})
+        tagged = set(entries[0].sections)
+        assert tagged == {"01-executive-summary.md", "06-opportunity.md"}
+        assert "09-funding-terms.md" not in tagged
+
+    def test_missing_evidence_is_reported_not_raised(self, tmp_path):
+        """A missing document should make a loud run, not a dead one — the rest
+        of the frame is still worth applying."""
+        from src.frame_evidence import ingest_frame_evidence
+        frame = parse_frame({**MINIMAL, "evidence": [{"path": "inputs/absent.md"}]})
+        entries, problems = ingest_frame_evidence(frame, tmp_path, {})
+        assert entries == []
+        assert len(problems) == 1 and "absent.md" in problems[0]
+
+    def test_empty_evidence_file_is_reported(self, tmp_path):
+        from src.frame_evidence import ingest_frame_evidence
+        (tmp_path / "inputs").mkdir(parents=True, exist_ok=True)
+        (tmp_path / "inputs" / "blank.md").write_text("   \n")
+        frame = parse_frame({**MINIMAL, "evidence": [{"path": "inputs/blank.md"}]})
+        entries, problems = ingest_frame_evidence(frame, tmp_path, {})
+        assert entries == [] and "unreadable or empty" in problems[0]
+
+    def test_no_frame_ingests_nothing(self):
+        from src.frame_evidence import ingest_frame_evidence
+        assert ingest_frame_evidence(None, None, {}) == ([], [])
+
+    def test_frame_without_evidence_ingests_nothing(self, tmp_path):
+        from src.frame_evidence import ingest_frame_evidence
+        assert ingest_frame_evidence(parse_frame(MINIMAL), tmp_path, {}) == ([], [])
+
+    def test_absolute_paths_resolve(self, tmp_path):
+        from src.frame_evidence import resolve_evidence_path
+        doc = tmp_path / "abs.md"
+        doc.write_text("x")
+        assert resolve_evidence_path(str(doc), None) == doc
+
+    def test_profilehealth_evidence_resolves(self):
+        """The shipped frame's evidence must actually be on disk."""
+        from src.frame_evidence import ingest_frame_evidence
+        deal = Path("io/humain/deals/ProfileHealth")
+        frame_path = deal / "frames" / "ltc-carrier-b2b2c.yaml"
+        if not frame_path.exists():
+            pytest.skip("ProfileHealth frame not present (private submodule)")
+        frame = load_frame("ltc-carrier-b2b2c", firm="humain", deal="ProfileHealth")
+        fetched = {}
+        entries, problems = ingest_frame_evidence(frame, deal, fetched)
+        assert problems == [], problems
+        assert len(entries) == 1
+        assert len(fetched[entries[0].url]["markdown"]) > 5000
