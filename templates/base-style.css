@@ -627,7 +627,9 @@ sup {
     }
 
     body.dark-mode {
-        background: var(--brand-primary);
+        /* The page surface in dark mode is the dark background, not the accent.
+           Using --brand-primary here painted the brand accent edge-to-edge. */
+        background: var(--brand-background);
     }
 
     /* Page margins for print with colored backgrounds */

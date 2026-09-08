@@ -255,6 +255,12 @@ def generate_css_from_brand(brand: BrandConfig, base_css_path: Path, dark_mode: 
         text_dark_color = brand.colors.text_dark
         text_light_color = brand.colors.text_light
 
+    # `background_alt` backs code, pre, blockquote, callouts and table hovers.
+    # Prefer a per-mode value when the brand defines one; fall back to the flat
+    # token so brands without the key keep their current output.
+    _theme = brand.colors.dark_theme if dark_mode else brand.colors.light_theme
+    bg_alt_color = (_theme or {}).get('background_alt', brand.colors.background_alt)
+
     css_content = css_content.replace('--brand-primary: #1a3a52;',
                                      f'--brand-primary: {brand.colors.primary};')
     css_content = css_content.replace('--brand-secondary: #1dd3d3;',
@@ -262,14 +268,20 @@ def generate_css_from_brand(brand: BrandConfig, base_css_path: Path, dark_mode: 
     css_content = css_content.replace('--brand-background: #ffffff;',
                                      f'--brand-background: {bg_color};')
     css_content = css_content.replace('--brand-background-alt: #f0f0eb;',
-                                     f'--brand-background-alt: {brand.colors.background_alt};')
+                                     f'--brand-background-alt: {bg_alt_color};')
     css_content = css_content.replace('--brand-text-dark: #1a2332;',
                                      f'--brand-text-dark: {text_dark_color};')
     css_content = css_content.replace('--brand-text-light: #6b7280;',
                                      f'--brand-text-light: {text_light_color};')
 
-    # Replace @page background-color based on mode
-    page_bg = brand.colors.primary if dark_mode else bg_color
+    # Replace @page background-color based on mode.
+    #
+    # This used to be `brand.colors.primary if dark_mode else bg_color`, which
+    # painted the brand ACCENT edge-to-edge across every PDF page in dark mode
+    # — for Humain that is #29a380 bio-green on all 62 pages. An accent is not
+    # a page surface. The dark theme's own `background` is, and `bg_color` is
+    # already resolved per-mode above.
+    page_bg = bg_color
     css_content = css_content.replace('background-color: #ffffff; /* Light mode background - will be overridden in dark mode */',
                                      f'background-color: {page_bg};')
     css_content = css_content.replace('background-color: var(--brand-background); /* Light mode */',
