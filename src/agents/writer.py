@@ -14,6 +14,7 @@ from typing import Dict, Any, Optional
 from ..state import MemoState, SectionDraft
 from ..artifacts import sanitize_filename, save_section_artifact
 from ..versioning import VersionManager
+from ..frame_context import writer_block
 from ..outline_loader import load_outline_for_state
 from ..schemas.outline_schema import OutlineDefinition, SectionDefinition
 import re
@@ -327,7 +328,8 @@ def polish_section_research(
     memo_mode: str,
     style_guide: str,
     model: ChatAnthropic,
-    dataroom_facts: str = ""
+    dataroom_facts: str = "",
+    frame: Optional[Any] = None,
 ) -> str:
     """
     Polish Perplexity research into final section while preserving citations.
@@ -369,8 +371,14 @@ def polish_section_research(
 
     target_words = section_def.target_length.ideal_words
 
+    # Thesis frame block. Empty when no frame is set, so a frameless run is
+    # byte-identical to before. This is the primary writer path — the fallback
+    # write_single_section only runs when a section has no research file.
+    frame_guidance = writer_block(frame, getattr(section_def, "filename", "") or "")
+
     polish_prompt = f"""Rewrite the following Perplexity research into a polished "{section_def.name}" section for {company_name}.
 {dataroom_facts}
+{frame_guidance}
 
 PERPLEXITY RESEARCH (with citations):
 {research_content}
@@ -551,7 +559,8 @@ def write_single_section(
     style_guide: str,
     model: ChatAnthropic,
     current_date: str,
-    dataroom_facts: str = ""
+    dataroom_facts: str = "",
+    frame: Optional[Any] = None,
 ) -> str:
     """
     Write a single section of the memo using outline guidance.
@@ -597,6 +606,10 @@ PASS, CONSIDER, or COMMIT based on the objective analysis of strengths vs. risks
     if mode_specific:
         mode_guidance += f"\nSection Emphasis: {mode_specific.emphasis}\n"
 
+    # Thesis frame block. Empty string when no frame is set, so a frameless run
+    # produces byte-identical prompts to before this existed.
+    frame_guidance = writer_block(frame, getattr(section_def, "filename", "") or "")
+
     # Format guiding questions
     questions_text = "\n".join(f"- {q}" for q in section_def.guiding_questions)
 
@@ -619,6 +632,7 @@ PASS, CONSIDER, or COMMIT based on the objective analysis of strengths vs. risks
 CURRENT DATE: {current_date}
 INVESTMENT TYPE: {investment_type.upper()}
 {mode_guidance}
+{frame_guidance}
 
 SECTION GUIDANCE:
 {section_def.description}
@@ -768,6 +782,8 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
 
     # Load outline (with terminal output showing which outline is loaded)
     outline = load_outline_for_state(state)
+    frame = state.get("frame")  # run variable; None => unchanged behaviour
+    sections_preserved = 0      # skipped by a frame's `prose: unchanged`
 
     # Load style guide (still used for general writing guidance)
     style_guide = load_style_guide()
@@ -847,6 +863,21 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
         print(f"  [{section_num}/10] {section_name}")
         print(f"      Target: {section_def.target_length.ideal_words} words | Questions: {len(section_def.guiding_questions)}")
 
+        # A frame may declare this section's prose off-limits. This is the ONLY
+        # mechanism protecting hand-authored work from a confident regeneration —
+        # ProfileHealth's Funding & Terms carries a per-instrument SAFE
+        # transcription written by hand, and nothing else would stop the writer
+        # replacing it. Guarded on the file existing, because "leave it alone"
+        # cannot mean "leave a hole in the memo": if there is nothing to preserve,
+        # write it normally.
+        if frame is not None:
+            directive = frame.directive_for(section_def.filename)
+            existing = Path(output_dir) / "2-sections" / section_def.filename
+            if directive.prose == "unchanged" and existing.exists():
+                print(f"      ⏭  frame '{frame.slug}': prose unchanged — preserving existing section")
+                sections_preserved += 1
+                continue
+
         # Check if Perplexity section research exists
         research_filename = section_def.filename.replace(".md", "-research.md")
         research_file = research_dir / research_filename if has_section_research else None
@@ -864,6 +895,7 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 style_guide=style_guide,
                 model=model,
                 dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
+                frame=frame,
             )
             sections_polished += 1
         else:
@@ -879,6 +911,7 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 model=model,
                 current_date=current_date,
                 dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
+                frame=frame,
             )
             sections_written += 1
 

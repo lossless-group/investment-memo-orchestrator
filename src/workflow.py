@@ -593,7 +593,8 @@ def generate_memo(
     outline_name: str = None,
     scorecard_name: str = None,
     search_variants: list = None,
-    known_competitors: list = None
+    known_competitors: list = None,
+    frame: object = None,
 ) -> MemoState:
     """
     Main entry point for generating an investment memo.
@@ -668,6 +669,7 @@ def generate_memo(
         company_trademark_dark=company_trademark_dark,
         outline_name=outline_name,
         scorecard_name=scorecard_name,
+        frame=frame,
         search_variants=search_variants,
         known_competitors=known_competitors
     )

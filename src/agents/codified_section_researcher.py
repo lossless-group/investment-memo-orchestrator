@@ -383,6 +383,13 @@ def _synthesize_via_claude(
     guiding_questions = getattr(section, "guiding_questions", []) or []
     guidance = "\n".join(f"- {q}" for q in guiding_questions) or "(no explicit guiding questions — synthesize whatever the sources support)"
 
+    # Thesis frame block. A frame changes WHAT gets researched, not only how it
+    # is written — under a new thesis the question behind a section can change
+    # entirely, and the frame's evidence is usually absent from the existing
+    # corpus. Empty string when no frame is set.
+    from ..frame_context import research_block
+    frame_guidance = research_block(state.get("frame"), getattr(section, "filename", "") or "")
+
     sources_block_lines: List[str] = []
     for n, entry in enumerate(matching, start=1):
         doc = fetched.get(entry.url) or {}
@@ -433,6 +440,7 @@ def _synthesize_via_claude(
 
     user_prompt = (
         f"Section: {section_name}\n\n"
+        f"{frame_guidance}"
         f"Guiding questions:\n{guidance}\n\n"
         f"Curated sources for this section:\n{sources_block}\n\n"
         f"Write the research notes for this section now."

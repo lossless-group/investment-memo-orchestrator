@@ -224,6 +224,10 @@ class MemoState(TypedDict):
 
     # Firm context (for firm-scoped IO)
     firm: Optional[str]  # Firm name (e.g., "hypernova") for io/{firm}/deals/{deal}/ structure
+    # Thesis frame for this run. None => today's behaviour, unchanged. A run
+    # variable of the same kind as memo_mode: agents read it off state and never
+    # import a frame file. See context-v/specs/Thesis-Frames-And-The-Re-Angle-Run.md
+    frame: Optional[Any]  # ThesisFrame; Any avoids a schema import cycle
 
     # Company context (from JSON input file)
     company_description: Optional[str]  # Brief description of what company does
@@ -290,6 +294,7 @@ def create_initial_state(
     investment_type: Literal["direct", "fund"] = "direct",
     memo_mode: Literal["consider", "justify"] = "consider",
     firm: Optional[str] = None,
+    frame: Optional[Any] = None,
     output_dir: Optional[str] = None,
     dataroom_path: Optional[str] = None,
     deck_path: Optional[str] = None,
@@ -314,6 +319,7 @@ def create_initial_state(
         investment_type: Type of investment - "direct" for startup, "fund" for LP commitment
         memo_mode: Memo mode - "consider" for prospective, "justify" for retrospective
         firm: Firm name for firm-scoped IO (e.g., "hypernova")
+        frame: Optional ThesisFrame reframing research and writing for this run
         output_dir: Path to the version-specific output directory for this run
         dataroom_path: Optional path to dataroom directory
         deck_path: Optional path to pitch deck PDF
@@ -335,6 +341,7 @@ def create_initial_state(
         investment_type=investment_type,
         memo_mode=memo_mode,
         firm=firm,
+        frame=frame,
         output_dir=output_dir,
         company_description=company_description,
         company_url=company_url,

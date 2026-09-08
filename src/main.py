@@ -84,6 +84,22 @@ def main():
         type=str,
         help="Deal name (alternative to positional company_name argument)"
     )
+    parser.add_argument(
+        "--frame",
+        type=str,
+        dest="frame_slug",
+        help=(
+            "Thesis frame slug under io/{firm}/deals/{deal}/frames/. Reframes both "
+            "research and writing for the sections the frame declares. Research is "
+            "additive: `extend` appends to the existing 1-research file and never "
+            "rewrites it. Omit for today's behaviour."
+        )
+    )
+    parser.add_argument(
+        "--list-frames",
+        action="store_true",
+        help="List the thesis frames available for this deal and exit."
+    )
 
     args = parser.parse_args()
 
@@ -181,6 +197,23 @@ def main():
     disambiguation_excludes = []
     company_trademark_light = None
     company_trademark_dark = None
+    # --- Thesis frame ---------------------------------------------------------
+    # Resolved once, here, and validated against the active outline BEFORE the
+    # run spends anything. Agents read it off state; none of them opens this file.
+    frame = None
+    if getattr(args, "list_frames", False) or getattr(args, "frame_slug", None):
+        from .frame_loader import list_frames
+
+        if getattr(args, "list_frames", False):
+            available = list_frames(firm, company_name)
+            if available:
+                console.print(f"[bold]Frames for {company_name}:[/bold]")
+                for slug in available:
+                    console.print(f"  • {slug}")
+            else:
+                console.print(f"[yellow]No frames defined for {company_name}.[/yellow]")
+            sys.exit(0)
+
     outline_name = None
     scorecard_name = None
     search_variants = None
@@ -327,6 +360,40 @@ def main():
     console.print(f"\n[bold green]Starting memo generation for:[/bold green] {company_name}")
     console.print(f"[bold cyan]Type:[/bold cyan] {type_label}")
     console.print(f"[bold cyan]Mode:[/bold cyan] {mode_label}")
+    # Resolve the frame now that the outline is known, so `affects` can be
+    # validated against the section taxonomy this run will actually use. A frame
+    # naming a section the outline does not declare fails here, loudly, rather
+    # than silently skipping a section the operator believed was being reframed.
+    if getattr(args, "frame_slug", None):
+        from .frame_loader import FrameError, load_frame
+        from .outline_loader import load_outline_for_state
+
+        try:
+            probe = {"investment_type": investment_type, "outline_name": outline_name, "firm": firm}
+            outline = load_outline_for_state(probe)
+            section_filenames = [sec.filename for sec in outline.sections]
+        except Exception as exc:  # noqa: BLE001 - outline problems surface on their own path
+            console.print(f"[yellow]Could not load outline for frame validation: {exc}[/yellow]")
+            section_filenames = []
+
+        try:
+            frame = load_frame(
+                args.frame_slug,
+                firm=firm,
+                deal=company_name,
+                outline_filenames=section_filenames or None,
+            )
+        except FrameError as exc:
+            console.print(f"[bold red]Frame error:[/bold red] {exc}")
+            sys.exit(1)
+
+        in_scope = frame.sections_in_scope()
+        protected = [k for k, d in frame.affects.items() if d.prose == "unchanged"]
+        console.print(f"[bold cyan]Frame:[/bold cyan] {frame.name} ({frame.stance})")
+        console.print(f"[cyan]  in scope:[/cyan] {len(in_scope)} section(s)")
+        if protected:
+            console.print(f"[cyan]  prose preserved:[/cyan] {', '.join(protected)}")
+
     if args.set_version:
         console.print(f"[bold cyan]Version:[/bold cyan] {args.set_version} (forced)")
     if args.fresh:
@@ -363,6 +430,7 @@ def main():
                 disambiguation_excludes=disambiguation_excludes,
                 company_trademark_light=company_trademark_light,
                 company_trademark_dark=company_trademark_dark,
+                frame=frame,
                 outline_name=outline_name,
                 scorecard_name=scorecard_name,
                 search_variants=search_variants,

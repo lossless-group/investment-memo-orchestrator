@@ -77,3 +77,5 @@ searxng/uwsgi.ini
 
 # Staging dir for prep-images.mjs (CDN upload). Local only.
 .image-staging/
+.coverage
+.coverage-html/
