@@ -49,7 +49,28 @@ def analyze_dataroom(
     print(f"Path: {dataroom_path}")
     print(f"{'='*60}\n")
 
-    # Step 0: Transcribe parked media, BEFORE the scan, so transcripts are
+    # Step 0a: Normalize oversized assets, before anything reads them. A 162MB
+    # scan is not just a storage cost — every run renders and OCRs it, from a
+    # document carrying far more image data than OCR can use. Measured on that
+    # file: 162MB -> 16.1MB, OCR 2,415 chars -> 2,417. The original is parked in
+    # the gitignored _zip-originals/ and nothing is destroyed.
+    try:
+        from ...asset_normalize import normalize_dataroom_assets
+        normalized = [r for r in normalize_dataroom_assets(Path(dataroom_path))
+                      if r.action == "normalized"]
+        if normalized:
+            saved = sum(r.saved for r in normalized)
+            print(f"🗜️  Normalized {len(normalized)} oversized asset(s), "
+                  f"{saved / 1048576:.0f} MB reclaimed")
+            for r in sorted(normalized, key=lambda x: -x.saved)[:5]:
+                print(f"      ✓ {r.path.name[:52]}: "
+                      f"{r.before / 1048576:.1f} -> {r.after / 1048576:.1f} MB "
+                      f"({r.saved_pct:.0f}%)")
+            print()
+    except Exception as exc:  # noqa: BLE001 - never break a run over normalization
+        print(f"   ⚠️  asset normalization skipped: {exc}\n")
+
+    # Step 0b: Transcribe parked media, BEFORE the scan, so transcripts are
     # ordinary documents by the time the scanner walks the tree.
     #
     # Video was the one dataroom category always reported and never used —
