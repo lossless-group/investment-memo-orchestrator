@@ -645,6 +645,21 @@ def generate_memo(
 
     output_dir = create_artifact_directory(company_name, str(new_version), firm=firm)
 
+    # Seed the durable layers from the previous version when a frame is active.
+    # Without this every guarantee the frame makes is inert: research appends
+    # only to a file that already exists, and `prose: unchanged` protects only a
+    # section that is already on disk. In a fresh empty directory both silently
+    # fall through to regeneration, which is exactly what a framed run must not do.
+    if frame is not None and not fresh:
+        from .version_seed import seed_version
+        seed = seed_version(output_dir, frame=frame, fresh=fresh)
+        if seed.seeded:
+            print(f"🌱 Seeded {seed.files_copied} file(s) from {seed.source.name} "
+                  f"({', '.join(seed.dirs_copied)}) — research extends, "
+                  f"preserved prose survives")
+        else:
+            print(f"   ⚠️  nothing seeded: {seed.reason}")
+
     if fresh:
         print(f"🧹 Fresh run: starting from clean slate at {new_version}")
         print(f"📁 Created new output directory: {output_dir}")
