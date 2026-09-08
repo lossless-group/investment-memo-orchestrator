@@ -35,8 +35,15 @@ LEAKED_COMMENTARY_PATTERNS = [
     (r"^Or are you asking[^?]*\?", "clarification_request"),
 
     # Capability caveats - **Note:** blocks explaining limitations
-    (r"\*\*Note:\*\*[^*]*?(does not contain|unable to|could not|cannot|no .* found|no .* available)[^*]*?\n", "capability_caveat"),
-    (r"\*\*Note:\*\*[^*]*?(placeholder|needs to be|should be|will be added)[^*]*?\n", "capability_caveat"),
+    (r"\*\*Note:?\*\*:?[^*]*?(does not contain|unable to|could not|cannot|no .* found|no .* available)[^*]*?\n", "capability_caveat"),
+    (r"\*\*Note:?\*\*:?[^*]*?(placeholder|needs to be|should be|will be added)[^*]*?\n", "capability_caveat"),
+
+    # Model refusals addressed to the operator. `link_enrichment` produced
+    # exactly this shape ("I cannot add hyperlinks to this section because…")
+    # and it shipped inside a memo, so match it mid-line, not just at ^.
+    (r"I (cannot|can't|am unable to|was unable to) (add|include|write|generate|enrich|provide|create)[^.]*\.", "capability_caveat"),
+    (r"I would need the actual[^.]*\.", "user_instruction"),
+    (r"I'll be happy to[^.]*\.", "task_acknowledgment"),
 
     # Data gap confessions
     (r"Data not verified for this entity[^.]*\.", "data_gap"),
@@ -66,13 +73,13 @@ LEAKED_COMMENTARY_PATTERNS = [
     (r"\[placeholder\]|\[to be added\]|\[TBD\]|\[TODO\]", "placeholder"),
 
     # Full paragraph blocks that are clearly internal
-    (r"---\s*\n\*\*Note:\*\*[\s\S]*?(?=\n---|\n##|\Z)", "note_block"),
+    (r"---\s*\n\*\*Note:?\*\*:?[\s\S]*?(?=\n---|\n##|\Z)", "note_block"),
 ]
 
 # Patterns that indicate an entire paragraph should be extracted
 PARAGRAPH_EXTRACTION_PATTERNS = [
     r"^Let me ",
-    r"^\*\*Note:\*\*",
+    r"^\*\*Note:?\*\*:?",
     r"^I('ll| will| would) ",
     r"^If you have",
     r"^Once (the|you|we)",

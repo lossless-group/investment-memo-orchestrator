@@ -118,7 +118,8 @@ def build_section_to_screenshots(
     Args:
         screenshots: List of screenshot metadata dicts with 'category', 'path',
                     'description', and optionally 'slug'
-        output_dir: Output directory (for building paths)
+        output_dir: Output directory. Retained for signature stability; paths
+                    are emitted relative to it rather than joined onto it.
 
     Returns:
         Dict with:
@@ -137,8 +138,24 @@ def build_section_to_screenshots(
         if category == "general":
             continue
 
-        # Build path relative to project root (not absolute — stays portable)
-        img_path = str(output_dir / ss["path"])
+        # Keep the path relative to the OUTPUT DIR, exactly as the extractor
+        # emitted it ("deck-screenshots/page-NN-....png").
+        #
+        # It used to be re-qualified with `output_dir`, which baked the version
+        # directory into the value ("io/<firm>/deals/<Deal>/outputs/<Deal>-v0.0.2/
+        # deck-screenshots/..."). Two things broke:
+        #
+        #   1. `deck_cache` stores this JSON at the DEAL level and restores it
+        #      into later versions verbatim, so every cache hit embedded images
+        #      from whichever version first populated the cache.
+        #   2. The value is resolved by whatever renders the memo, and the memo
+        #      lives at `<output_dir>/7-<Deal>-<version>.md` — a repo-root-relative
+        #      path only resolves for a reader whose base is the repo root.
+        #
+        # Version-agnostic keeps the cache honest and lets the assembled memo and
+        # its exports resolve their own siblings. (Section files under
+        # `2-sections/` sit one level down; they preview with a `../` prefix.)
+        img_path = ss["path"]
         slug = ss.get("slug", "")
         description = ss.get("description", f"Page {ss.get('page_number', '?')} from pitch deck")
 
