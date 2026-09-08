@@ -498,3 +498,68 @@ class TestAdditiveResearchWriting:
         write_or_append_research(f, "# X\n\nnew.\n", frame=self._frame(research="refresh"),
                                  section_filename="06-opportunity.md", run_version="v0.0.4")
         assert "Refreshed under thesis frame" in f.read_text()
+
+
+# --- Step 3: the amend directive --------------------------------------------
+
+class TestAmendDirective:
+    """
+    `amend` exists so a re-angle does not throw away sections that were never
+    wrong, only narrow — Offering and Risks on ProfileHealth. "Make the minimum
+    change" is not followable without the thing being changed, so the prior
+    prose has to reach the prompt.
+    """
+
+    def _frame(self, prose="amend"):
+        return parse_frame({**MINIMAL, "affects": {"05-offering.md": {"research": "extend", "prose": prose}}})
+
+    PRIOR = "## 5. Offering\n\nThe clinician product does X.[^3] It also does Y.[^4]\n"
+
+    def test_amend_carries_the_prior_prose(self):
+        block = writer_block(self._frame(), "05-offering.md", prior_prose=self.PRIOR)
+        assert "EXISTING SECTION" in block
+        assert "The clinician product does X." in block
+
+    def test_amend_preserves_citation_markers_in_what_it_shows(self):
+        """Citations are the reason amend beats rewrite; they must survive into
+        the prompt or the model cannot keep them."""
+        block = writer_block(self._frame(), "05-offering.md", prior_prose=self.PRIOR)
+        assert "[^3]" in block and "[^4]" in block
+
+    def test_amend_without_prior_prose_says_so_rather_than_pretending(self):
+        block = writer_block(self._frame(), "05-offering.md")
+        assert "no prior prose was supplied" in block
+        assert "EXISTING SECTION" not in block
+
+    def test_rewrite_never_sees_prior_prose(self):
+        """A rewrite that sees the old draft anchors on it, which defeats the
+        point of regenerating under a new thesis."""
+        block = writer_block(self._frame(prose="rewrite"), "05-offering.md", prior_prose=self.PRIOR)
+        assert "EXISTING SECTION" not in block
+        assert "The clinician product does X." not in block
+
+    def test_amend_asks_for_the_whole_section_back(self):
+        block = writer_block(self._frame(), "05-offering.md", prior_prose=self.PRIOR)
+        assert "Return the whole" in block
+
+    def test_prior_prose_read_only_for_amend(self, tmp_path):
+        from src.agents.writer import _prior_section_prose
+
+        class FakeSection:
+            filename = "05-offering.md"
+
+        sections = tmp_path / "2-sections"
+        sections.mkdir(parents=True)
+        (sections / "05-offering.md").write_text(self.PRIOR)
+
+        assert "clinician product" in _prior_section_prose(self._frame(), FakeSection(), tmp_path)
+        assert _prior_section_prose(self._frame(prose="rewrite"), FakeSection(), tmp_path) == ""
+        assert _prior_section_prose(None, FakeSection(), tmp_path) == ""
+
+    def test_prior_prose_missing_file_is_empty_not_an_error(self, tmp_path):
+        from src.agents.writer import _prior_section_prose
+
+        class FakeSection:
+            filename = "05-offering.md"
+
+        assert _prior_section_prose(self._frame(), FakeSection(), tmp_path) == ""

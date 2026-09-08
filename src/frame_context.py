@@ -87,8 +87,20 @@ def research_block(frame: Optional[ThesisFrame], section_filename: str) -> str:
     )
 
 
-def writer_block(frame: Optional[ThesisFrame], section_filename: str) -> str:
-    """The block injected into write_single_section's prompt, beside mode_guidance."""
+def writer_block(
+    frame: Optional[ThesisFrame],
+    section_filename: str,
+    prior_prose: str = "",
+) -> str:
+    """
+    The block injected into the writer's prompt, beside mode_guidance.
+
+    `prior_prose` is only used by the `amend` directive, and amend is useless
+    without it: "make the minimum change" is not an instruction you can follow
+    without the thing being changed. When a section is marked amend and no
+    prior prose is supplied, the block says so rather than silently degrading
+    into a rewrite that throws away good sentences and their citations.
+    """
     if frame is None:
         return ""
     directive = frame.directive_for(section_filename)
@@ -98,12 +110,31 @@ def writer_block(frame: Optional[ThesisFrame], section_filename: str) -> str:
     guidance = _DIRECTIVE_GUIDANCE.get(directive.prose, "")
     note = frame.note_for(section_filename)
 
+    prior_block = ""
+    if directive.prose == "amend":
+        if prior_prose.strip():
+            prior_block = (
+                "\nTHE EXISTING SECTION — this is what you are amending. Return the whole\n"
+                "section, with existing sentences and their citation markers preserved\n"
+                "verbatim wherever they remain accurate:\n\n"
+                "<<<EXISTING SECTION\n"
+                f"{prior_prose.strip()}\n"
+                "EXISTING SECTION>>>\n"
+            )
+        else:
+            prior_block = (
+                "\nNOTE: this section is marked `amend` but no prior prose was supplied.\n"
+                "Write it fresh from the research base rather than guessing at what an\n"
+                "amendment would preserve.\n"
+            )
+
     return (
         f"\nACTIVE THESIS FRAME: {frame.name} ({frame.stance})\n\n"
         f"{frame.premise}\n\n"
         f"THIS SECTION'S DIRECTIVE: {directive.prose}\n"
         f"{guidance}\n"
         + (f"{note}\n" if note else "")
+        + prior_block
         + _caveat_block(frame.caveats)
         + (
             "\nSTANCE NOTE: this is a re-sequencing, not a pivot. The prior thesis is not "

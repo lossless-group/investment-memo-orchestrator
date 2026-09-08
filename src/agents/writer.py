@@ -321,6 +321,27 @@ Do not infer beyond what is stated. If a figure is absent here, it is absent.
         return ""
 
 
+
+def _prior_section_prose(frame, section_def, output_dir) -> str:
+    """
+    The existing section text, but only when a frame marks it `amend`.
+
+    Read lazily and only for amend, because every other directive is either a
+    clean regeneration (which must not see the old prose, or it will anchor on
+    it) or a no-op.
+    """
+    if frame is None or not output_dir:
+        return ""
+    filename = getattr(section_def, "filename", "") or ""
+    if frame.directive_for(filename).prose != "amend":
+        return ""
+    path = Path(output_dir) / "2-sections" / filename
+    try:
+        return path.read_text() if path.exists() else ""
+    except OSError:
+        return ""
+
+
 def polish_section_research(
     section_def: SectionDefinition,
     research_content: str,
@@ -330,6 +351,7 @@ def polish_section_research(
     model: ChatAnthropic,
     dataroom_facts: str = "",
     frame: Optional[Any] = None,
+    output_dir: Optional[Any] = None,
 ) -> str:
     """
     Polish Perplexity research into final section while preserving citations.
@@ -374,7 +396,11 @@ def polish_section_research(
     # Thesis frame block. Empty when no frame is set, so a frameless run is
     # byte-identical to before. This is the primary writer path — the fallback
     # write_single_section only runs when a section has no research file.
-    frame_guidance = writer_block(frame, getattr(section_def, "filename", "") or "")
+    frame_guidance = writer_block(
+        frame,
+        getattr(section_def, "filename", "") or "",
+        prior_prose=_prior_section_prose(frame, section_def, output_dir),
+    )
 
     polish_prompt = f"""Rewrite the following Perplexity research into a polished "{section_def.name}" section for {company_name}.
 {dataroom_facts}
@@ -561,6 +587,7 @@ def write_single_section(
     current_date: str,
     dataroom_facts: str = "",
     frame: Optional[Any] = None,
+    output_dir: Optional[Any] = None,
 ) -> str:
     """
     Write a single section of the memo using outline guidance.
@@ -608,7 +635,11 @@ PASS, CONSIDER, or COMMIT based on the objective analysis of strengths vs. risks
 
     # Thesis frame block. Empty string when no frame is set, so a frameless run
     # produces byte-identical prompts to before this existed.
-    frame_guidance = writer_block(frame, getattr(section_def, "filename", "") or "")
+    frame_guidance = writer_block(
+        frame,
+        getattr(section_def, "filename", "") or "",
+        prior_prose=_prior_section_prose(frame, section_def, output_dir),
+    )
 
     # Format guiding questions
     questions_text = "\n".join(f"- {q}" for q in section_def.guiding_questions)
@@ -896,6 +927,7 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 model=model,
                 dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
                 frame=frame,
+                output_dir=output_dir,
             )
             sections_polished += 1
         else:
@@ -912,6 +944,7 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 current_date=current_date,
                 dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
                 frame=frame,
+                output_dir=output_dir,
             )
             sections_written += 1
 

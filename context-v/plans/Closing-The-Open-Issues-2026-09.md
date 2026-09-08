@@ -49,7 +49,7 @@ because it changes what ships and wants a deliberate placement decision.
       run appends carries `<!-- research-block: frame=… run=… appended=… -->`.
       *Test:* appended block carries the stamp; existing content is untouched.
 
-- [ ] **3 — The `amend` directive** (#29). The writer receives the prior section
+- [x] **3 — The `amend` directive** (#29). DONE — writer reads prior prose, 7 tests The writer receives the prior section
       text and is asked for the minimum consistent change.
       *Test:* `amend` passes prior prose; `rewrite` does not.
 
@@ -133,3 +133,22 @@ left alone; the assembler reads definitions wherever they appear.
 
 10 tests. The load-bearing one asserts the prior finding survives:
 `assert "350K physicians" in text`.
+
+### Step 3 — The `amend` directive. Done.
+
+`amend` exists so a re-angle does not discard sections that were never wrong,
+only narrow — Offering and Risks on ProfileHealth. The directive existed and was
+tested, but the writer never fed it the prior section text, and "make the minimum
+change" is not followable without the thing being changed.
+
+`_prior_section_prose` reads `2-sections/<filename>` lazily and **only** for
+`amend`. Every other directive is either a clean regeneration — which must not
+see the old prose, or it anchors on it and defeats the point of reframing — or a
+no-op. Both writer paths pass it.
+
+When a section is marked `amend` and no prior prose exists, the block says so
+explicitly rather than silently degrading into a rewrite that would throw away
+good sentences and their citations.
+
+7 tests, including that citation markers survive into the prompt (they are the
+reason amend beats rewrite) and that `rewrite` never sees the old draft.
