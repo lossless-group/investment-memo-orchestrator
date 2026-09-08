@@ -179,6 +179,32 @@ def complete(
 # Claude Code CLI
 # =============================================================================
 
+# Auth variables that make the Claude CLI prefer an API key — or a cloud
+# provider — over the subscription login it is being invoked for.
+#
+# The CLI refuses to load claude.ai connectors when any of these is set,
+# exits 1, and the caller falls back to _via_api. That is the exact opposite
+# of what _via_cli exists to do: every call meant to bill a subscription seat
+# was silently billing the API key instead, once per document, all run long.
+_CLI_AUTH_OVERRIDES = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+)
+
+
+def _cli_env() -> dict:
+    """The parent environment with API-key auth stripped, so the CLI uses the login."""
+    import os as _os
+
+    env = _os.environ.copy()
+    for name in _CLI_AUTH_OVERRIDES:
+        env.pop(name, None)
+    return env
+
+
 def _via_cli(
     prompt: str,
     images: Optional[Sequence[str | Path]],
@@ -228,6 +254,11 @@ def _via_cli(
             capture_output=True,
             text=True,
             timeout=timeout,
+            # Without this the CLI sees ANTHROPIC_API_KEY, refuses to load
+            # claude.ai connectors, exits 1, and every call falls through to
+            # the API — billing the key on a path whose whole purpose is to
+            # bill a subscription seat.
+            env=_cli_env(),
             # Close stdin explicitly. The CLI waits three seconds for piped input
             # before giving up and warning about it — a flat 3s tax on every
             # call, which is two minutes across a 38-slide deck.

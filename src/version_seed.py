@@ -43,6 +43,7 @@ class SeedResult:
     destination: Optional[Path] = None
     files_copied: int = 0
     dirs_copied: List[str] = field(default_factory=list)
+    already_present: int = 0
     reason: str = ""
 
     @property
@@ -120,5 +121,14 @@ def seed_version(output_dir: Path, *, frame=None, fresh: bool = False) -> SeedRe
             result.files_copied += copied_here
 
     if not result.files_copied:
-        result.reason = f"nothing to seed from {source.name}"
+        already = sum(
+            1 for name in SEEDED_DIRS
+            for _ in (Path(output_dir) / name).glob("*")
+            if (Path(output_dir) / name).is_dir()
+        )
+        result.reason = (
+            f"already seeded from {source.name} ({already} file(s) present)"
+            if already else f"nothing to seed from {source.name}"
+        )
+        result.already_present = already
     return result
