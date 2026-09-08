@@ -175,6 +175,60 @@ def normalize_asset(source: Path, dataroom_root: Path, *, dry_run: bool = False)
     return result
 
 
+LEDGER_NAME = "normalized.json"
+
+
+def ledger_path(dataroom_root: Path) -> Path:
+    """Where the record of what was normalized lives (inside the parked area)."""
+    return Path(dataroom_root) / "_zip-originals" / LEDGER_NAME
+
+
+def record_normalized(dataroom_root: Path, results: List["NormalizeResult"]) -> None:
+    """
+    Record which documents were normalized, and the bytes it moved.
+
+    The dataroom analysis reuse check compares total byte size as a cheap
+    staleness proxy. Normalization changes bytes precisely while preserving the
+    content the pipeline reads, so without this record it looks exactly like the
+    operator swapped documents, and an hour of extraction is thrown away and
+    re-run for nothing.
+    """
+    import json
+
+    path = ledger_path(dataroom_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    prior = {}
+    if path.exists():
+        try:
+            prior = json.loads(path.read_text())
+        except (OSError, ValueError):
+            prior = {}
+    entries = prior.get("entries", {})
+    for r in results:
+        if r.action != "normalized":
+            continue
+        try:
+            key = str(Path(r.path).resolve().relative_to(Path(dataroom_root).resolve()))
+        except ValueError:
+            key = Path(r.path).name
+        entries[key] = {"before": r.before, "after": r.after}
+    path.write_text(json.dumps({"entries": entries}, indent=2))
+
+
+def normalized_byte_delta(dataroom_root: Path) -> int:
+    """Total bytes normalization removed, for the staleness check to discount."""
+    import json
+
+    path = ledger_path(dataroom_root)
+    if not path.exists():
+        return 0
+    try:
+        entries = json.loads(path.read_text()).get("entries", {})
+    except (OSError, ValueError):
+        return 0
+    return sum(max(0, e.get("before", 0) - e.get("after", 0)) for e in entries.values())
+
+
 def normalize_dataroom_assets(dataroom_root: Path, *, dry_run: bool = False) -> List[NormalizeResult]:
     """
     Normalize every oversized asset in a dataroom.
@@ -199,4 +253,7 @@ def normalize_dataroom_assets(dataroom_root: Path, *, dry_run: bool = False) -> 
         outcome = normalize_asset(path, root, dry_run=dry_run)
         if outcome.action != "skipped":
             results.append(outcome)
+
+    if not dry_run and any(r.action == "normalized" for r in results):
+        record_normalized(root, results)
     return results

@@ -45,6 +45,21 @@ SUPPORTED_EXTENSIONS = {
     ".eml": "email",
 }
 
+# Directories whose contents are never dataroom documents. Checked against the
+# whole path, not just the filename, because the point is to skip a subtree.
+#
+# `_zip-originals/` is the parking lot: raw archive downloads whose contents are
+# already expanded as siblings, media kept out of git and reaching the pipeline
+# as transcripts, and originals of assets that have been normalized. Every file
+# in there is either a duplicate of something already in the dataroom or
+# deliberately unreadable, so scanning it produces false "could not be read"
+# warnings and, worse, offers the extractor two copies of the same document.
+IGNORE_DIRS = {
+    "_zip-originals",
+    "__MACOSX",
+    ".git",
+}
+
 # Files to ignore
 IGNORE_PATTERNS = [
     ".DS_Store",
@@ -229,7 +244,12 @@ def get_inventory_summary(inventory: List[DocumentInventoryItem]) -> Dict[str, a
 # =============================================================================
 
 def _should_ignore(file_path: Path) -> bool:
-    """Check if file should be ignored."""
+    """Check if file should be ignored, by directory subtree and by filename."""
+    # Subtree check first: a parked original is a perfectly ordinary filename
+    # sitting somewhere the scanner has no business looking.
+    if IGNORE_DIRS.intersection(file_path.parts):
+        return True
+
     name = file_path.name
 
     for pattern in IGNORE_PATTERNS:

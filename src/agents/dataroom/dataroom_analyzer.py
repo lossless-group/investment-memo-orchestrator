@@ -1630,9 +1630,22 @@ def _reusable_dataroom_analysis(output_dir, dataroom_path: str, fresh: bool = Fa
                       f"the dataroom now holds {now_count} — re-analysing")
                 continue
             was_bytes = sum(d.get("file_size_bytes") or 0 for d in docs)
-            if was_bytes != now_bytes:
+            # Byte size is a cheap staleness proxy, and asset normalization
+            # defeats it: it changes bytes precisely while preserving the content
+            # the pipeline reads, so a compressed dataroom looks exactly like one
+            # whose documents were swapped. Discount what normalization removed
+            # before deciding the contents actually changed.
+            try:
+                from ...asset_normalize import normalized_byte_delta
+                discount = normalized_byte_delta(_Path(dataroom_path))
+            except Exception:  # noqa: BLE001
+                discount = 0
+            if abs((was_bytes - discount) - now_bytes) > max(1024, now_bytes // 1000):
                 print(f"   ↻ dataroom contents changed since {cand.name} — re-analysing")
                 continue
+            if discount:
+                print(f"   ℹ️  {discount / 1048576:.0f} MB of the difference is asset "
+                      f"normalization, not changed documents")
 
             # The extraction lives in the prior run's state, not in the synthesis
             # report — the report summarises, `dataroom_analysis` is the thing
