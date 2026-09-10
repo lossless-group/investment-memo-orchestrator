@@ -27,3 +27,6 @@
 [submodule "io/alpha-jwc"]
 	path = io/alpha-jwc
 	url = https://github.com/lossless-group/alpha-jwc-secure.git
+[submodule "io/lossless"]
+	path = io/lossless
+	url = https://github.com/lossless-group/lossless-memopop-workspace.git
