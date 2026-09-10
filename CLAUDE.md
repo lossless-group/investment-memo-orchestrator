@@ -264,6 +264,54 @@ git tag v0.2.0 -m "Release v0.2.0: Brief description"
 git push origin v0.2.0
 ```
 
+### Regenerating the pipeline reference — do this as you build
+
+`docs/PIPELINE-REFERENCE.md` is the single current answer to *what agents run, in
+what order, and what can I type at a shell*. **It is generated. Never hand-edit
+it** — the next regeneration silently discards the edit.
+
+```bash
+# after touching the graph, main.py's flags, or anything in cli/
+.venv/bin/python scripts/gen_pipeline_reference.py
+
+# ask whether it is stale without writing (exit 1 = drift)
+.venv/bin/python scripts/gen_pipeline_reference.py --check
+```
+
+**Regenerate whenever you:**
+
+| Change | Why the doc moves |
+|---|---|
+| Add, rename, or remove a `workflow.add_node(...)` | node table, count, execution order |
+| Change an edge or a conditional branch | execution order, the branch diagram |
+| Add or change a flag on `src/main.py` | the main-entry-point table |
+| Add, rename, or delete anything in `cli/`, `cli/utils/`, `src/cli/` | the tool tables |
+| Route a module through `llm_provider` (or add a new `ChatAnthropic(...)`) | the live routing inventory |
+| Edit a script's module docstring | that tool's Purpose cell |
+
+**Where the prose lives.** Anything a parser can read — node names, edges, module
+paths, flags, client-construction counts — comes from the AST and is not editable.
+Anything requiring judgement lives in `docs/pipeline-reference.overlay.yaml`:
+
+- `nodes.<name>.purpose` — one sentence on what the node does
+- `nodes.<name>.stage` — which `--from` resume stage it belongs to
+- `nodes.<name>.agents_md` — the AGENTS.md principles that bind it
+- `stages.<name>` — what entering at that stage means, and the artifacts it owns
+- `notes` — the free-prose block at the foot of the reference
+
+**The suite enforces all of this.** `tests/test_pipeline_reference.py` fails when
+the committed doc no longer matches the code, when a graph node has no overlay
+entry (or an overlay entry has no node), when a node has no stage or no purpose,
+and when a node is unreachable from the entry point. So a new agent cannot land
+without a decision about how it is documented — which is the whole point, after
+four hand-maintained references drifted at once.
+
+It also carries the **`llm_provider` ratchet**: `KNOWN_BYPASSING` lists every
+module that still constructs an Anthropic client directly, with its call-site
+count. The suite fails if a new module appears, if a listed module grows a site,
+or if you fix a module and forget to strike its line. The number only moves down.
+See `context-v/issues/Route-Every-Claude-Call-Through-The-CLI-First-Provider.md`.
+
 ## Architecture & Workflow
 
 ### Multi-Agent Pipeline (Section-by-Section Processing)
@@ -445,8 +493,14 @@ def agent_name(state: MemoState) -> dict:
 - Nodes are agent functions
 - Edges define sequence
 - Conditional edges handle branching (e.g., score-based routing)
-- Entry point: `deck_analyst` (always runs, skips if no deck)
-- End points: `finalize` or `human_review`
+- Entry point: `dataroom` (always runs, skips if no dataroom is anchored)
+- End points: `finalize` (score >= 8) or `human_review` (score < 8)
+
+**Do not enumerate the nodes here.** The current list, in execution order, with
+each node's stage, module, and LLM routing, is generated into
+`docs/PIPELINE-REFERENCE.md`. A hand-written copy in this file is a copy that
+will be wrong within a month — that is exactly how the README's table came to
+document 27 of 35 nodes.
 
 ### Version Management
 `src/versioning.py` handles semantic versioning:
@@ -680,6 +734,15 @@ Citations flow through:
 4. Add node: `workflow.add_node("new_agent", new_agent)`
 5. Add edge to sequence: `workflow.add_edge("previous_agent", "new_agent")`
 6. Update `MemoState` in `src/state.py` if new state fields needed
+7. Call the model through `src/llm_provider.complete()` — **not** `ChatAnthropic(...)`
+   or `anthropic.Anthropic(...)`, which cannot use the Claude Code seat and fail
+   outright on a zero credit balance instead of degrading with a warning
+8. Add a `nodes.new_agent` entry to `docs/pipeline-reference.overlay.yaml` with
+   its `purpose`, its `stage`, and the `agents_md` principles that bind it
+9. Regenerate: `.venv/bin/python scripts/gen_pipeline_reference.py`
+10. Run the suite — `tests/test_pipeline_reference.py` fails on steps 7, 8, or 9
+    being skipped, so a green suite is the confirmation that the agent is wired
+    *and* documented
 
 ### Modifying Content Structure
 
@@ -755,8 +818,15 @@ uv pip install -e .
 - Validation threshold: 8/10 for auto-finalization
 - Version auto-increments on each run (prevents overwrites)
 - Artifact trail enables targeted improvements without full regeneration
+- `tests/test_pipeline_reference.py` is a documentation guard, not a behaviour
+  test: it fails when `docs/PIPELINE-REFERENCE.md` drifts from the code, when a
+  graph node is undocumented, or when a new module starts billing the Anthropic
+  API directly. If it goes red after a graph change, run
+  `.venv/bin/python scripts/gen_pipeline_reference.py` and commit the result.
 
 ## Related Documentation
+
+**Start here for what the pipeline actually does:** `docs/PIPELINE-REFERENCE.md` — every graph node in execution order with its stage and module, every `src/main.py` flag, every `cli/` tool, and the live inventory of which modules route through `llm_provider` and which bill the API directly. Generated by `scripts/gen_pipeline_reference.py`; regenerate it whenever you add a node, a flag, or a CLI tool, or `tests/test_pipeline_reference.py` fails.
 
 ### Architecture & Design
 - `context-vigilance/Format-Memo-According-to-Template-Input.md` - **Outline-based architecture** (YAML content structure system)

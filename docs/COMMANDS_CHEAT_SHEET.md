@@ -2,6 +2,8 @@
 
 Complete reference for all CLI commands in the Investment Memo Orchestrator.
 
+> **Superseded for anything a machine can verify.** The authoritative node, flag, and tool lists are generated from the code in [`docs/PIPELINE-REFERENCE.md`](PIPELINE-REFERENCE.md). This file predates firm-scoped IO (`--firm` / `--deal`), codified mode, and thesis frames (`--frame`), and documents none of them. Its worked examples are still useful; its coverage is not.
+
 > **Prerequisites**: Always activate the virtual environment first:
 > ```bash
 > source .venv/bin/activate

@@ -165,9 +165,46 @@ Agents do not need the whole document in every system prompt. Reference principl
 
 The full text of referenced sections gets concatenated into the system prompt at orchestration time. This keeps individual prompts small while keeping every rule auditable.
 
+## Which agents these principles bind, and where that is recorded
+
+This file numbers the rules. It does not list the agents — that list moves, and a
+copy of it here would be wrong within a month.
+
+The mapping lives in `docs/pipeline-reference.overlay.yaml`, under each node's
+`agents_md` key, and is rendered into the **AGENTS.md** column of
+`docs/PIPELINE-REFERENCE.md`. So the reference answers "which principles bind the
+writer?" and this file answers "what does §3 actually require?".
+
+**When you add an agent to the graph, you declare its principles at the same
+time.** The overlay entry is not optional — `tests/test_pipeline_reference.py`
+fails on a node with no entry, and an entry with no `agents_md` is an agent
+nobody decided the rules for. Then regenerate:
+
+```bash
+.venv/bin/python scripts/gen_pipeline_reference.py
+```
+
+**When you add or renumber a principle here, the mapping moves with it.** A `§13`
+added to this file is invisible until some node claims it; a §-reference in the
+overlay that no longer exists here is a dangling pointer the generator will
+happily render. If you renumber, grep the overlay:
+
+```bash
+grep -n 'agents_md' -A2 docs/pipeline-reference.overlay.yaml
+```
+
+Two cases the mapping makes visible, both of which are §11 smells worth acting on:
+
+- **A node claiming many principles** is usually doing several jobs. `draft`
+  legitimately carries seven; an enrichment agent carrying seven is over-reaching.
+- **A node claiming none** either has no prose responsibility — a pure mechanical
+  pass like `fix_citation_spacing` — or nobody has thought about it yet. The two
+  look identical in the table, so say which in the node's `purpose`.
+
 ## Related context
 
 - `context-v/explorations/Separating-Retrieval-from-Generation-in-Agent-Pipelines.md` — the architectural rationale for §2 and §11
 - `context-v/explorations/Curating-only-valid-Sources-across-Runs.md` — the downstream symptom of §2 violations and the curation safety net
 - `templates/outlines/README.md` — the outline format that §1 and §10 depend on
+- `docs/PIPELINE-REFERENCE.md` — the companion to this file. This one says how an agent must *behave*; that one says which agents *run*, in what order, and which principles here bind each of them. Generated from the code, so it does not drift.
 - `CLAUDE.md` — guidance for human + Claude Code developing this pipeline (different audience: developers, not runtime agents)

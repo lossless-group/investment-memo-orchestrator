@@ -47,6 +47,7 @@ Supported by [Hypernova Capital](https://www.hypernova.capital), [Avalanche VC](
   - [Workflow](#workflow)
   - [State Management](#state-management)
 - [Project Structure](#project-structure)
+- [Pipeline Reference (generated)](#pipeline-reference-generated)
 - [CLI Tools Reference](#cli-tools-reference)
 - [Pipeline Agents Reference](#pipeline-agents-reference)
 - [Standalone Agents Reference](#standalone-agents-reference)
@@ -1108,9 +1109,54 @@ investment-memo-orchestrator/
 └── tests/                            # Unit tests
 ```
 
+## Pipeline Reference (generated)
+
+**[`docs/PIPELINE-REFERENCE.md`](docs/PIPELINE-REFERENCE.md) is the authoritative
+answer to what runs and what you can type.** Every graph node in execution order
+with its resume stage, defining module, and purpose; every `python -m src.main`
+flag; every tool under `cli/`, `cli/utils/`, and `src/cli/`; and a live inventory
+of which modules route through `src/llm_provider.py` and which construct an
+Anthropic client directly.
+
+It is **generated from the code** — `scripts/gen_pipeline_reference.py` parses
+`src/workflow.py`, `src/main.py`, and the CLI directories via the AST. No imports,
+no API keys, ~0.3s. **Never hand-edit the output**; the next regeneration
+discards the edit.
+
+```bash
+# regenerate after changing the graph, a flag, or a CLI tool
+.venv/bin/python scripts/gen_pipeline_reference.py
+
+# check for staleness without writing (exit 1 = drift)
+.venv/bin/python scripts/gen_pipeline_reference.py --check
+```
+
+Prose a parser cannot infer — a node's purpose, its `--from` stage, the
+`AGENTS.md` principles binding it, what each stage owns on disk — lives in
+[`docs/pipeline-reference.overlay.yaml`](docs/pipeline-reference.overlay.yaml)
+and is merged in at generation time. Edit that file, not the markdown.
+
+`tests/test_pipeline_reference.py` enforces the whole arrangement: it fails when
+the committed doc drifts from the code, when a graph node has no overlay entry,
+when a node has no stage or purpose, when a node is unreachable from the entry
+point, and when a new module starts billing the Anthropic API directly. If it
+goes red after a graph change, regenerate and commit.
+
+### Why this exists
+
+Four hand-maintained references drifted simultaneously. The *Pipeline Agents
+Reference* below documented 27 of the graph's 35 nodes and omitted
+`aggregate_sources` — the analyst-curation halt that codified mode depends on.
+The *CLI Tools Reference* listed 16 of 35 executables.
+`docs/COMMANDS_CHEAT_SHEET.md` documented none of `--firm`, `--deal`, `--fresh`,
+or `--frame`. A table nobody regenerates is a table that lies, so the counting
+moved into a script and the judgement moved into a YAML file next to it.
+
 ## CLI Tools Reference
 
 Standalone tools for post-generation improvements and exports. All tools support `--firm` and `--deal` flags for firm-scoped IO.
+
+> **The generated reference is authoritative.** [`docs/PIPELINE-REFERENCE.md`](docs/PIPELINE-REFERENCE.md) is built from `src/workflow.py`, `src/main.py`, and `cli/` by `scripts/gen_pipeline_reference.py`, and `tests/test_pipeline_reference.py` fails when it drifts. The table below is hand-maintained and has already drifted — it lists 16 of the 35 executables under `cli/`, `cli/utils/`, and `src/cli/`.
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
@@ -1134,6 +1180,8 @@ Standalone tools for post-generation improvements and exports. All tools support
 ## Pipeline Agents Reference
 
 The main workflow (`python -m src.main`) orchestrates **26 agents** through a LangGraph state machine. Agents execute sequentially, with two anti-hallucination validation gates and a conditional routing decision at the end.
+
+> **The generated reference is authoritative.** [`docs/PIPELINE-REFERENCE.md`](docs/PIPELINE-REFERENCE.md) is built from `src/workflow.py`, `src/main.py`, and `cli/` by `scripts/gen_pipeline_reference.py`, and `tests/test_pipeline_reference.py` fails when it drifts. The table below is hand-maintained and has already drifted — the graph has 35 nodes, and the table below omits `aggregate_sources`, `fix_citation_spacing`, `attribution_audit`, `fact_verify`, `fact_correct`, `source_catalog`, `scorecard_nav`, and `one_pager`. The diagram also places `cite` and `toc` where they no longer run.
 
 ### Workflow Diagram
 

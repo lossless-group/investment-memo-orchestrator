@@ -5,8 +5,8 @@ date_authored_initial_draft: 2026-09-10
 date_authored_current_draft: 2026-09-10
 date_authored_final_draft: null
 date_first_published: null
-date_last_updated: null
-at_semantic_version: 0.0.0.1
+date_last_updated: 2026-09-10
+at_semantic_version: 0.0.0.3
 usage_index: 1
 publish: false
 category: Specification
@@ -59,30 +59,98 @@ src/agents/perplexity_sources.py
 src/agents/slides/{slide_stenographer,visual_collector}.py
 ```
 
-### Bypassing — 24 call sites across 19 files
+### Bypassing — 19 call sites across 18 modules (was 23 across 19)
 
-| File | Sites |
-|---|---:|
-| `src/agents/deck_analyst.py` | 4 |
-| `src/agents/citation_corrector.py` | 2 |
-| `src/agents/one_pager_generator.py` | 2 |
-| `src/agents/writer.py` | 1 |
-| `src/agents/researcher.py` | 1 |
-| `src/agents/research_enhanced.py` | 1 |
-| `src/agents/codified_section_researcher.py` | 1 |
-| `src/agents/validator.py` | 1 |
-| `src/agents/scorecard_agent.py` | 1 |
-| `src/agents/scorecard_evaluator.py` | 1 |
-| `src/agents/table_generator.py` | 1 |
-| `src/agents/link_enrichment.py` | 1 |
-| `src/agents/socials_enrichment.py` | 1 |
-| `src/agents/source_extractor.py` | 1 |
-| `src/agents/fact_corrector.py` | 1 |
-| `src/agents/key_info_rewrite.py` | 1 |
-| `src/agents/revise_summary_sections.py` | 1 |
-| `src/agents/visualization_enrichment.py` | 1 |
-| `src/agents/portfolio_listing_agent.py` | 1 |
-| `src/server/brand_fetch.py` | 1 |
+**This table is now generated.** The authoritative, live version is the *LLM
+routing inventory* section of `docs/PIPELINE-REFERENCE.md`, produced by
+`scripts/gen_pipeline_reference.py` from the AST. Regenerate it rather than
+editing the table below; the counts here are a 2026-09-10 snapshot kept so the
+issue reads standalone.
+
+| File | Sites | Constructs |
+|---|---:|---|
+| ~~`src/agents/deck_analyst.py`~~ | ~~4~~ | **routed — done** |
+| `src/agents/one_pager_generator.py` | 2 | 2× `Anthropic()` |
+| `src/agents/citation_corrector.py` | 1 | 1× `Anthropic()` |
+| `src/agents/codified_section_researcher.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/fact_corrector.py` | 1 | 1× `Anthropic()` |
+| `src/agents/key_info_rewrite.py` | 1 | 1× `Anthropic()` |
+| `src/agents/link_enrichment.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/portfolio_listing_agent.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/research_enhanced.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/researcher.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/revise_summary_sections.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/scorecard_agent.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/scorecard_evaluator.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/source_extractor.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/table_generator.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/validator.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/visualization_enrichment.py` | 1 | 1× `ChatAnthropic()` |
+| `src/agents/writer.py` | 1 | 1× `ChatAnthropic()` |
+| `src/server/brand_fetch.py` | 1 | 1× `Anthropic()` |
+
+#### Corrections to the original hand-count (2026-09-10)
+
+The headline — **19 files, 24 call sites** — was right. Three rows were not, and
+they cancelled out, which is exactly why nobody caught them:
+
+| File | Was | Is | Why |
+|---|---:|---:|---|
+| `src/agents/socials_enrichment.py` | 1 | **0** | Imports `ChatAnthropic` at line 11 and never instantiates it. The agent is Tavily-only. The import is dead — see [[Dead-ChatAnthropic-Import-In-Socials-Enrichment]]. |
+| `src/agents/citation_corrector.py` | 2 | **1** | One `Anthropic()`, in the client factory at line 33. |
+
+So the corrected pre-refactor figure is **23 call sites across 19 modules**, not
+24 across 19. `socials_enrichment.py` drops off the work list entirely.
+
+**A third row was briefly recorded here as a correction and was itself wrong.**
+`portfolio_listing_agent.py` was reported as having 2 sites; it has 1, at line
+169. The first version of the generated scan matched `ChatAnthropic` and
+`Anthropic` with a regex over raw source, and line 25 of that file is a docstring
+reading `Anthropic (ChatAnthropic), similar to other agents` — a bare `Anthropic`
+followed by whitespace and an open paren. The scan now matches `ast.Call` nodes
+instead of source text, which cannot see prose. Worth remembering when reading
+any inventory: the counting method is part of the claim.
+
+#### Step 1 is done — `deck_analyst.py`
+
+All four sites routed through `llm_provider.complete()`:
+
+| Was | Now |
+|---|---|
+| `Anthropic()` → `identify_visual_pages` (page classification) | `complete(prompt, images=[...])` |
+| `ChatAnthropic()` + `llm.invoke` (deck text analysis) | `complete(prompt, timeout=_TEXT_TIMEOUT)` |
+| `Anthropic()` → batched slide vision, 5 per batch | `complete(prompt, images=[...], timeout=_VISION_TIMEOUT)` |
+| `ChatAnthropic()` → `create_initial_section_drafts` | parameter removed; helper calls `complete()` |
+
+Three things the refactor forced, which the remaining files will not need:
+
+1. **Images move from bytes to paths.** Both vision paths base64-encoded renders
+   straight into an API payload. The CLI cannot be handed bytes — it reads images
+   with its own Read tool from a directory granted via `--add-dir` — so renders
+   now land on disk via `_render_pages_to_files()` and the API fallback
+   re-encodes from the same files. Both providers see identical input.
+2. **The `llm` parameter went away rather than being threaded.** A
+   `ChatAnthropic` instance was being passed into `create_initial_section_drafts`
+   and `create_section_draft_from_deck`. `complete()` is a function, so the
+   parameter was deleted; nothing outside the module called either helper.
+3. **Vision needs its own timeout.** The CLI costs a Read round-trip per slide on
+   top of the completion, so a 5-slide batch at the 300s extractor default would
+   time out in a way indistinguishable from a model failure. `_VISION_TIMEOUT`
+   is 900s, `_TEXT_TIMEOUT` 240s.
+
+Failure handling changed shape too. A batch that fails now prints the provider
+alongside the error and `continue`s, so a run that loses every batch to a billing
+error says *billing* rather than `No batches were successfully analyzed`. A
+failed section draft returns an `<insufficient-data />` marker rather than
+apologetic prose, per `AGENTS.md` §5.
+
+#### The count cannot drift again
+
+`tests/test_pipeline_reference.py` carries `KNOWN_BYPASSING`, a frozen
+module→count map. The suite fails when a twentieth module appears, when a listed
+module grows a call site, and when a module is fixed but not struck from the
+list. The number only moves down, and striking a line is part of finishing each
+step of the refactor below.
 
 That is the writer, the researcher, the validator, the scorecard, every
 enrichment agent, and the deck analyst — most of the money in a run.

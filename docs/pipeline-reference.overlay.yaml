@@ -1,0 +1,244 @@
+# Hand-written half of docs/PIPELINE-REFERENCE.md.
+#
+# Everything the generator can read out of the AST — node names, edges, module
+# paths, flags, client-construction counts — is NOT in this file. What lives
+# here is the judgement a parser cannot make: which resume stage a node belongs
+# to, which AGENTS.md principles bind it, and what it leaves on disk.
+#
+# A node added to src/workflow.py with no entry here fails
+# tests/test_pipeline_reference.py. That is the point: the graph cannot grow a
+# node whose documentation nobody decided on.
+
+# The candidate values for the proposed `--from <stage>` flag, named in
+# context-v/issues/Agent-Sequencing-For-Deals-We-Already-Have-Content-On.md.
+# Entering at a stage means everything before it is NOT re-run — its artifacts
+# on disk are the input.
+stages:
+  dataroom:
+    description: >-
+      Full re-extraction of the deal's document set. The most expensive entry
+      point; only correct when documents were added or changed.
+    artifacts: "`0-dataroom/`, `_zip-originals/normalized.json`"
+  deck:
+    description: >-
+      Re-analyse the pitch deck via Claude vision. Correct when the deck itself
+      was replaced — not when it was merely compressed by asset normalization.
+    artifacts: "`.cache/deck-<fingerprint>/`"
+  research:
+    description: >-
+      Re-perform web research only. Additive by contract — net-new sources and
+      the findings drawn from them are appended to the existing research files
+      under a provenance stamp; nothing already recorded is overwritten. Takes a
+      thesis frame as its argument for what to look for.
+    artifacts: "`1-research/`, `inputs/Sources.md`, `3-source-catalog/`"
+  write:
+    description: >-
+      No web search at all. The prior analysts' paper trail is the input and it
+      is sufficient; the job is re-synthesis of sections, not re-gathering. The
+      frame's per-section directives (rewrite / amend / re-score / unchanged)
+      describe exactly this.
+    artifacts: "`2-sections/`"
+  assemble:
+    description: >-
+      Rebuild the draft from existing sections and re-run the quality gates. No
+      new prose, no new research — citation consolidation, fact gates, scorecard.
+    artifacts: "`4-fact-check.json`, `3-validation.md`, `5-scorecard/`, the assembled `7-*.md`"
+  export:
+    description: >-
+      Cover sheet and final disposition from a draft that is already complete.
+    artifacts: "`6-one-pager.md`, `exports/`, state snapshot"
+
+nodes:
+  # ---- stage: dataroom
+  dataroom:
+    stage: dataroom
+    purpose: Classify and extract every document in the dataroom; skips when no dataroom is anchored.
+    agents_md: ["§7", "§11"]
+
+  # ---- stage: deck
+  deck_analyst:
+    stage: deck
+    purpose: Read the pitch deck via Claude vision, batching page renders; skips when no deck is present.
+    agents_md: ["§7", "§11"]
+
+  # ---- stage: research
+  research:
+    stage: research
+    purpose: >-
+      General web research via Tavily. Node function is chosen at build time by
+      `USE_WEB_SEARCH`; the enhanced agent is the default and the plain one is
+      the fallback.
+    agents_md: ["§2", "§10", "§11"]
+  section_research:
+    stage: research
+    purpose: Per-section deep research through Perplexity Sonar Pro, keeping the retrieved-source array so citations reconcile.
+    agents_md: ["§2", "§10", "§11"]
+  competitive_researcher:
+    stage: research
+    purpose: Discover competitor candidates across multiple queries.
+    agents_md: ["§2", "§10"]
+  competitive_evaluator:
+    stage: research
+    purpose: Classify candidates direct/indirect/adjacent and run gap analysis.
+    agents_md: ["§11"]
+  cite:
+    stage: research
+    purpose: Add inline citations to the research files, preserving existing ones.
+    agents_md: ["§2", "§11"]
+  cleanup_research:
+    stage: research
+    purpose: "GATE 1 — validate every URL in `1-research/` and remove 404s and hallucinations before the writer ever sees them."
+    agents_md: ["§2"]
+  aggregate_sources:
+    stage: research
+    purpose: >-
+      Aggregate broad-search URLs into a curated `Sources.md` draft and HALT for
+      analyst curation. In codified mode the curated list is already authoritative
+      and the halt is skipped. This is the seam the closed corpus depends on.
+    agents_md: ["§2"]
+
+  # ---- stage: write
+  draft:
+    stage: write
+    purpose: Write each section in isolation from the outline and the codified research. The writer has no search tool.
+    agents_md: ["§1", "§3", "§4", "§5", "§6", "§7", "§9"]
+  inject_deck_images:
+    stage: write
+    purpose: Place deck screenshots into the section files.
+    agents_md: ["§12"]
+  enrich_trademark:
+    stage: write
+    purpose: Insert the company trademark into the header.
+    agents_md: ["§12"]
+  enrich_socials:
+    stage: write
+    purpose: Attach LinkedIn and professional profile links to named team members.
+    agents_md: ["§12"]
+  enrich_links:
+    stage: write
+    purpose: Hyperlink named organizations, investors, and partners.
+    agents_md: ["§12"]
+  generate_tables:
+    stage: write
+    purpose: Build markdown tables from structured state data and section prose.
+    agents_md: ["§3", "§12"]
+  generate_diagrams:
+    stage: write
+    purpose: Render diagrams — TAM/SAM/SOM concentric circles, funnels, and similar.
+    agents_md: ["§12"]
+  enrich_visualizations:
+    stage: write
+    purpose: Find and embed supporting visualizations. Currently disabled.
+    agents_md: ["§12"]
+  revise_summaries:
+    stage: write
+    purpose: Rewrite the Executive Summary and Closing Assessment against the complete draft, which is the only point either can be accurate.
+    agents_md: ["§3", "§6", "§9"]
+
+  # ---- stage: assemble
+  cleanup_sections:
+    stage: assemble
+    purpose: "GATE 2 — validate every URL in `2-sections/`, catching anything enrichment or revision introduced."
+    agents_md: ["§2"]
+  assemble_citations:
+    stage: assemble
+    purpose: Consolidate citations, renumber globally, and create the final draft file. Reads definitions from `1-research/` as a fallback.
+    agents_md: ["§9"]
+  fix_citation_spacing:
+    stage: assemble
+    purpose: Normalise citation marker spacing in the assembled draft.
+    agents_md: ["§9"]
+  validate_citations:
+    stage: assemble
+    purpose: Check citation accuracy, dates, and duplicates in the assembled draft.
+    agents_md: ["§2", "§9"]
+  fact_check:
+    stage: assemble
+    purpose: >-
+      Mechanical claim extraction. Currently reads `state["research"]` — the legacy
+      blob — rather than the codified corpus the writer actually used; see
+      `context-v/issues/Validation-and-Fact-Checker-not-using-Research.md`.
+    agents_md: ["§2", "§11"]
+  attribution_audit:
+    stage: assemble
+    purpose: Flag claims whose numbers are real but attributed to the wrong company. The gate that actually tests truth.
+    agents_md: ["§7", "§11"]
+  fact_verify:
+    stage: assemble
+    purpose: Verify extracted claims against sources via Perplexity.
+    agents_md: ["§2", "§11"]
+  fact_correct:
+    stage: assemble
+    purpose: Apply verified corrections back to the section files — not to the assembled draft.
+    agents_md: ["§2", "§7", "§11"]
+  source_catalog:
+    stage: assemble
+    purpose: Compile the complete per-section source list.
+    agents_md: ["§2"]
+  validate:
+    stage: assemble
+    purpose: >-
+      Score the memo 0-10 against the style guide. Sees only the memo and the
+      style guide — no research, no source catalog — and runs three nodes before
+      the draft is rebuilt, so it critiques an artifact that no longer exists.
+      Both defects tracked in the validation issue.
+    agents_md: ["§1", "§11"]
+  scorecard:
+    stage: assemble
+    purpose: Evaluate against the firm's scorecard template.
+    agents_md: ["§11"]
+  integrate_scorecard:
+    stage: assemble
+    purpose: Insert the scorecard into its section and reassemble the final draft.
+    agents_md: ["§9"]
+  scorecard_nav:
+    stage: assemble
+    purpose: Insert the scorecard overview table into the Executive Summary.
+    agents_md: ["§9"]
+  toc:
+    stage: assemble
+    purpose: Generate the table of contents. The final content step — everything that mutates headings must already have run.
+    agents_md: ["§9"]
+
+  # ---- stage: export
+  one_pager:
+    stage: export
+    purpose: Generate the single-page visual cover summary.
+    agents_md: ["§6"]
+  finalize:
+    stage: export
+    purpose: Verify the final draft and save the state snapshot. Reached when the validator scores 8 or above.
+    agents_md: ["§8"]
+  human_review:
+    stage: export
+    purpose: Prepare the memo for human review with issues and suggestions. Reached when the validator scores below 8.
+    agents_md: ["§5"]
+
+notes: |
+  ### The graph has no entry point but the first one
+
+  `set_entry_point("dataroom")` is unconditional, and every node runs on every
+  invocation. The only thing making a re-run cheap is a content-hash cache inside
+  each agent — and content-hash caching is not a resume mechanism. Ordinary
+  maintenance (compressing an oversized deck, parking media as transcripts)
+  changes the bytes without changing the content, the cache orphans itself, and
+  the pipeline silently redoes settled work. The `stage` column above is the
+  proposed fix: an explicit, operator-chosen `--from <stage>`, where everything
+  before the named stage is *not run* rather than *cheaply re-run if a hash
+  matches*. Tracked in
+  `context-v/issues/Agent-Sequencing-For-Deals-We-Already-Have-Content-On.md`.
+
+  ### Two anti-hallucination gates
+
+  `cleanup_research` (GATE 1) runs after citation enrichment and before the
+  writer, so the writer never sees an unverified URL. `cleanup_sections`
+  (GATE 2) runs after revision and before assembly, catching anything the
+  enrichment passes introduced. Both are structural, not prompted.
+
+  ### Where the older references went
+
+  `docs/COMMANDS_CHEAT_SHEET.md`, `WARP.md`, and the README's *CLI Tools
+  Reference* / *Pipeline Agents Reference* tables all predate the firm-scoped IO
+  system, codified mode, and thesis frames. They are superseded by this file for
+  anything a machine can verify; the cheat sheet remains useful for its worked
+  examples.

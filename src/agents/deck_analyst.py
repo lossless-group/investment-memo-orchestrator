@@ -7,18 +7,64 @@ that subsequent agents can build upon.
 
 from pathlib import Path
 from typing import Dict, List, Any
-from langchain_anthropic import ChatAnthropic
 import json
-import base64
-import os
-from anthropic import Anthropic
+import shutil
+import tempfile
 import fitz  # PyMuPDF
-from io import BytesIO
 from PIL import Image
 from pptx import Presentation  # For PowerPoint files
 
 from ..state import MemoState, DeckAnalysisData, SectionDraft
 from ..outline_loader import load_outline_for_state
+from ..llm_provider import complete
+
+# Every model call in this module goes through llm_provider.complete(), which
+# tries the Claude Code seat before the metered API. It used to construct
+# ChatAnthropic() and Anthropic() directly across four sites — which is why a
+# run on a zero credit balance died here with five raw 400s and no output while
+# the dataroom extractors beside it degraded with a warning and kept going.
+# See context-v/issues/Route-Every-Claude-Call-Through-The-CLI-First-Provider.md.
+
+# The CLI reads each image with its own Read tool, so a vision call costs a tool
+# round-trip per slide on top of the completion itself. The extractor default
+# (300s) is sized for a single text extraction and is tight enough for a 5-slide
+# batch that a timeout would be indistinguishable from a model failure.
+_TEXT_TIMEOUT = 240
+_VISION_TIMEOUT = 900
+
+_VISION_MODEL = "claude-sonnet-4-5-20250929"
+
+
+def _render_pages_to_files(
+    doc,
+    page_numbers: List[int],
+    directory: Path,
+    *,
+    scale: float = 0.5,
+    quality: int = 85,
+) -> List[Path]:
+    """Render the given PDF pages to JPEGs on disk and return their paths.
+
+    Both vision paths used to base64-encode renders straight into an API
+    payload. `complete()` takes file paths instead, because the CLI cannot be
+    handed bytes — it reads images with its own Read tool from a directory
+    granted via --add-dir. The API fallback re-encodes from these same files, so
+    the render lands on disk either way and the two providers stay identical in
+    what they see.
+
+    Rendered at `scale` because a full-resolution page is far more image data
+    than classification or extraction can use; the deck's own text layer is
+    where precision comes from.
+    """
+    paths: List[Path] = []
+    matrix = fitz.Matrix(scale, scale)
+    for page_num in page_numbers:
+        pix = doc[page_num].get_pixmap(matrix=matrix)
+        image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        path = directory / f"page-{page_num + 1:03d}.jpg"
+        image.save(path, format="JPEG", quality=quality, optimize=True)
+        paths.append(path)
+    return paths
 
 # Mapping from screenshot categories to section filenames in 0-deck-sections/
 # Used to embed screenshots in the appropriate deck section files
@@ -225,12 +271,9 @@ def extract_screenshots_with_timeout(
     def _extract_screenshots():
         """Inner function that does the actual extraction."""
         try:
-            # Create Anthropic client for vision
-            client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-
             # Identify which pages have valuable visual content
             print("  Identifying visual pages with Claude Vision...", flush=True)
-            page_selections = identify_visual_pages(pdf_path, deck_analysis, client, firm=firm)
+            page_selections = identify_visual_pages(pdf_path, deck_analysis, firm=firm)
 
             if not page_selections:
                 print("  No significant visual content identified", flush=True)
@@ -405,11 +448,6 @@ def _deck_analyst_agent_uncached(state: Dict) -> Dict:
 
     # STEP 2: Analyze extracted text with Claude
     print("Analyzing deck content with Claude Sonnet 4.5...", flush=True)
-    llm = ChatAnthropic(
-        model="claude-sonnet-4-5-20250929",
-        temperature=0,
-        timeout=120  # 2 minute timeout to avoid hangs
-    )
 
     analysis_prompt = f"""You are a venture capital investment analyst reviewing a pitch deck.
 
@@ -444,16 +482,31 @@ IMPORTANT:
 """
 
     print("Sending deck to Claude for analysis...", flush=True)
-    response = llm.invoke(analysis_prompt)
+    completion = complete(
+        analysis_prompt,
+        max_tokens=4000,
+        model=_VISION_MODEL,
+        timeout=_TEXT_TIMEOUT,
+    )
+    if not completion.ok:
+        # A failed call is not a parse problem, and reporting it as one sends
+        # the reader to the JSON when the answer is the provider.
+        print(f"ERROR: deck text analysis failed: "
+              f"{completion.error or 'empty response'} "
+              f"(provider={completion.provider})", flush=True)
+        return {
+            "deck_analysis": None,
+            "messages": [f"Deck analysis failed (text mode): {completion.error or 'empty response'}"],
+        }
     print("Deck analysis complete, parsing results...", flush=True)
 
     # Parse JSON from response
     try:
-        deck_analysis = json.loads(response.content)
+        deck_analysis = json.loads(completion.text)
     except json.JSONDecodeError:
         # Try to extract JSON from markdown code block
         print("Extracting JSON from markdown code block...", flush=True)
-        content = response.content
+        content = completion.text
         if "```json" in content:
             json_start = content.find("```json") + 7
             json_end = content.find("```", json_start)
@@ -480,7 +533,7 @@ IMPORTANT:
 
     # STEP 3: Create initial section drafts where relevant info exists
     print("Creating initial section drafts from deck data...", flush=True)
-    section_drafts = create_initial_section_drafts(deck_analysis, state, llm)
+    section_drafts = create_initial_section_drafts(deck_analysis, state)
     print(f"Created {len(section_drafts)} initial section drafts", flush=True)
 
     # STEP 4: Save artifacts
@@ -727,7 +780,6 @@ def extract_deck_screenshots(
 def identify_visual_pages(
     pdf_path: str,
     deck_analysis: Dict[str, Any],
-    client: Anthropic,
     firm: str = None
 ) -> List[Dict[str, Any]]:
     """
@@ -739,7 +791,6 @@ def identify_visual_pages(
     Args:
         pdf_path: Path to PDF file
         deck_analysis: Already extracted deck analysis data
-        client: Anthropic client for vision API
         firm: Optional firm name for firm-scoped classification guide
 
     Returns:
@@ -759,28 +810,13 @@ def identify_visual_pages(
         pages_to_analyze += [5 + i * step for i in range(middle_count)]
         pages_to_analyze = sorted(set(pages_to_analyze))
 
-    # Convert pages to images for Claude
-    image_contents = []
-    for page_num in pages_to_analyze:
-        page = doc[page_num]
-        # 0.5x resolution — readable enough to classify tables, charts, and text
-        mat = fitz.Matrix(0.5, 0.5)
-        pix = page.get_pixmap(matrix=mat)
-
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        img_buffer = BytesIO()
-        img.save(img_buffer, format="JPEG", quality=70)
-        img_bytes = img_buffer.getvalue()
-        img_b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
-
-        image_contents.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/jpeg",
-                "data": img_b64
-            }
-        })
+    # Render pages to disk for Claude. 0.5x is readable enough to classify
+    # tables, charts, and text; quality 70 because this is a routing decision,
+    # not the extraction itself.
+    render_dir = Path(tempfile.mkdtemp(prefix="memopop-deck-classify-"))
+    image_paths = _render_pages_to_files(
+        doc, pages_to_analyze, render_dir, scale=0.5, quality=70
+    )
 
     doc.close()
 
@@ -859,18 +895,20 @@ Format:
 Return ONLY the JSON array, no other text. If no pages have significant visual value, return an empty array: []"""
 
     try:
-        content_blocks = image_contents + [{"type": "text", "text": prompt}]
-
-        response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+        completion = complete(
+            prompt,
+            images=image_paths,
             max_tokens=4000,
-            messages=[{
-                "role": "user",
-                "content": content_blocks
-            }]
+            model=_VISION_MODEL,
+            timeout=_VISION_TIMEOUT,
         )
+        if not completion.ok:
+            print(f"    ⚠ Visual page identification failed: "
+                  f"{completion.error or 'empty response'} "
+                  f"(provider={completion.provider})")
+            return []
 
-        content = response.content[0].text
+        content = completion.text
 
         # Parse JSON response
         try:
@@ -901,6 +939,12 @@ Return ONLY the JSON array, no other text. If no pages have significant visual v
     except Exception as e:
         print(f"    ⚠ Visual page identification failed: {e}")
         return []
+
+    finally:
+        # Every branch above returns, so this is the only place the renders get
+        # cleaned up. They are regenerable from the PDF; leaving them behind
+        # accumulates a temp directory per run.
+        shutil.rmtree(render_dir, ignore_errors=True)
 
 
 
@@ -972,8 +1016,9 @@ def analyze_pdf_with_vision(pdf_path: str, state: Dict) -> Dict:
     batch_size = 5
     all_deck_analyses = []
 
-    # Use Anthropic client directly for vision
-    client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    # Renders live here for the duration of the analysis. identify_visual_pages
+    # below re-renders its own; these are the extraction batches.
+    render_dir = Path(tempfile.mkdtemp(prefix="memopop-deck-vision-"))
 
     for batch_start in range(0, page_count, batch_size):
         batch_end = min(batch_start + batch_size, page_count)
@@ -982,31 +1027,16 @@ def analyze_pdf_with_vision(pdf_path: str, state: Dict) -> Dict:
 
         print(f"Processing slides {batch_start + 1}-{batch_end} (batch {batch_num}/{total_batches})...", flush=True)
 
-        # Convert batch pages to images
-        image_contents = []
-        for page_num in range(batch_start, batch_end):
-            page = doc[page_num]
-            # Render at 0.5x scale to reduce payload size (still readable)
-            mat = fitz.Matrix(0.5, 0.5)
-            pix = page.get_pixmap(matrix=mat)
+        # Render batch pages to disk at 0.5x (still readable, far less data)
+        image_paths = _render_pages_to_files(
+            doc,
+            list(range(batch_start, batch_end)),
+            render_dir,
+            scale=0.5,
+            quality=85,
+        )
 
-            # Convert to PIL Image to compress as JPEG
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            img_buffer = BytesIO()
-            img.save(img_buffer, format="JPEG", quality=85, optimize=True)
-            img_bytes = img_buffer.getvalue()
-            img_b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
-
-            image_contents.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": img_b64
-                }
-            })
-
-        print(f"Sending batch {batch_num} ({len(image_contents)} slides) to Claude...", flush=True)
+        print(f"Sending batch {batch_num} ({len(image_paths)} slides) to Claude...", flush=True)
 
         analysis_prompt = f"""You are a venture capital investment analyst reviewing slides {batch_start + 1}-{batch_end} of a pitch deck.
 
@@ -1037,22 +1067,28 @@ IMPORTANT:
 - Return ONLY valid JSON, no other text"""
 
         try:
-            # Build content blocks: all images followed by the prompt
-            content_blocks = image_contents + [{"type": "text", "text": analysis_prompt}]
-
-            response = client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+            completion = complete(
+                analysis_prompt,
+                images=image_paths,
                 max_tokens=4000,
-                messages=[{
-                    "role": "user",
-                    "content": content_blocks
-                }]
+                model=_VISION_MODEL,
+                timeout=_VISION_TIMEOUT,
             )
+            if not completion.ok:
+                # Skip this batch the way a parse failure does. The merge below
+                # already tolerates missing batches; what it cannot tolerate is
+                # every batch failing silently, which is why the provider is
+                # named here — a run that loses all five batches to a billing
+                # error should say "billing", not "no batches succeeded".
+                print(f"ERROR: Batch {batch_num} failed: "
+                      f"{completion.error or 'empty response'} "
+                      f"(provider={completion.provider})", flush=True)
+                continue
 
             print(f"✓ Batch {batch_num} complete, parsing results...", flush=True)
 
             # Extract JSON from response
-            content = response.content[0].text
+            content = completion.text
 
             try:
                 batch_analysis = json.loads(content)
@@ -1087,6 +1123,7 @@ IMPORTANT:
 
     # Close the PDF document
     doc.close()
+    shutil.rmtree(render_dir, ignore_errors=True)
 
     # Merge all batch analyses into a single comprehensive analysis
     print(f"\nMerging {len(all_deck_analyses)} batch analyses...", flush=True)
@@ -1142,13 +1179,8 @@ IMPORTANT:
 
     # Continue with the same flow as text-based analysis
     try:
-        llm = ChatAnthropic(
-            model="claude-sonnet-4-5-20250929",
-            temperature=0
-        )
-
         print("Creating initial section drafts from deck data...", flush=True)
-        section_drafts = create_initial_section_drafts(deck_analysis, state, llm)
+        section_drafts = create_initial_section_drafts(deck_analysis, state)
         print(f"Created {len(section_drafts)} initial section drafts", flush=True)
 
         # Save artifacts (same as text-based path)
@@ -1176,8 +1208,7 @@ IMPORTANT:
 
             output_dir = get_output_dir_from_state(state)
 
-            # Reuse the client we already have
-            page_selections = identify_visual_pages(pdf_path, deck_analysis, client, firm=firm)
+            page_selections = identify_visual_pages(pdf_path, deck_analysis, firm=firm)
 
             if page_selections:
                 print(f"  Found {len(page_selections)} pages with visual content", flush=True)
@@ -1228,7 +1259,7 @@ IMPORTANT:
         }
 
 
-def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnthropic) -> Dict[str, SectionDraft]:
+def create_initial_section_drafts(deck_analysis: Dict, state: Dict) -> Dict[str, SectionDraft]:
     """
     Create draft sections for ALL extracted deck data fields.
 
@@ -1239,7 +1270,6 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
     Args:
         deck_analysis: Extracted deck data
         state: Current memo state
-        llm: Language model for generating drafts
 
     Returns:
         Dictionary mapping section filenames to SectionDraft objects
@@ -1332,7 +1362,6 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
 
         # Generate draft content
         content = create_section_draft_from_deck(
-            llm,
             config["display_name"],
             deck_analysis,
             fields_with_data
@@ -1351,18 +1380,21 @@ def create_initial_section_drafts(deck_analysis: Dict, state: Dict, llm: ChatAnt
     return drafts
 
 
-def create_section_draft_from_deck(llm: ChatAnthropic, section_name: str, deck_data: Dict, fields: List[str]) -> str:
+def create_section_draft_from_deck(section_name: str, deck_data: Dict, fields: List[str]) -> str:
     """
     Generate a section draft from deck data.
 
+    Took an `llm` object before. A ChatAnthropic instance cannot be routed
+    through the provider layer, so the parameter went away rather than being
+    threaded further — nothing outside this module calls either helper.
+
     Args:
-        llm: Language model for generating drafts
         section_name: Name of the section being drafted
         deck_data: Extracted deck data
         fields: Relevant fields for this section
 
     Returns:
-        Draft section content in markdown
+        Draft section content in markdown, or a marker when the call fails
     """
     relevant_data = {k: deck_data.get(k) for k in fields if deck_data.get(k)}
 
@@ -1381,5 +1413,17 @@ This is an INITIAL DRAFT. The Research and Writer agents will augment with exter
 Return ONLY the section content in markdown format, no preamble.
 """
 
-    response = llm.invoke(prompt)
-    return response.content
+    completion = complete(
+        prompt,
+        max_tokens=2000,
+        model=_VISION_MODEL,
+        timeout=_TEXT_TIMEOUT,
+    )
+    if not completion.ok:
+        # A failed draft must not become apologetic prose in a deck section
+        # that downstream agents treat as source material — AGENTS.md §5.
+        print(f"    ⚠ Deck draft for {section_name!r} failed: "
+              f"{completion.error or 'empty response'} "
+              f"(provider={completion.provider})", flush=True)
+        return f'<insufficient-data field="{section_name}" />'
+    return completion.text
