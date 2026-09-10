@@ -53,23 +53,17 @@ gen = _load_generator()
 # Modules that still build an Anthropic client directly, with their call-site
 # count.
 #
-# Two steps of the refactor are done and gone from this list. deck_analyst.py
-# was first — four sites, the only image path, and the one that actually failed
-# a run. Then the single-call agents: validator, scorecard_evaluator,
-# table_generator, link_enrichment, visualization_enrichment.
+# The refactor is complete: every module under src/ that calls a model does so
+# through llm_provider. This dict is therefore EMPTY, and the tests below have
+# turned from a ratchet into an absolute guard — which is what
+# context-v/issues/Route-Every-Claude-Call-Through-The-CLI-First-Provider.md
+# asked for: "Add a regression test asserting no ChatAnthropic( or
+# anthropic.Anthropic( outside llm_provider.py, so the fix does not erode."
 #
-# Then the writer and the three researchers, which needed complete_with_retry
-# and the system-prompt fold.
-#
-# Remaining: the correctors, the standalone agents, and brand_fetch.py last —
-# it runs in the FastAPI sidecar, so the CLI has to be shown reachable from
-# there before it moves.
-#
-# When you route one of these through llm_provider, delete its line. Do not add
-# lines — a new entry means a new agent was written against the metered API.
-KNOWN_BYPASSING = {
-    "src/server/brand_fetch.py": 1,
-}
+# Do not add entries. A new one means an agent was written against the metered
+# API, which cannot use the Claude Code seat and dies outright on a zero credit
+# balance rather than degrading with a warning.
+KNOWN_BYPASSING: dict[str, int] = {}
 
 
 @pytest.fixture(scope="module")
@@ -175,12 +169,23 @@ def bypassing():
     return {rel: count for rel, count, _detail in modules}
 
 
-def test_no_new_modules_bypass_llm_provider(bypassing):
-    new = sorted(set(bypassing) - set(KNOWN_BYPASSING))
-    assert not new, (
-        f"new modules constructing an Anthropic client directly: {new}. "
-        "Route them through src/llm_provider.call() so they can use the Claude "
-        "Code seat and degrade with a warning instead of a 400."
+def test_nothing_bypasses_llm_provider(bypassing):
+    """The invariant the whole refactor exists to establish."""
+    offenders = sorted(set(bypassing) - set(KNOWN_BYPASSING))
+    assert not offenders, (
+        f"modules constructing an Anthropic client directly: {offenders}. "
+        "Route them through src/llm_provider.complete() so they can use the "
+        "Claude Code seat and degrade with a warning instead of a raw 400."
+    )
+
+
+def test_the_allowlist_is_empty(bypassing):
+    """A guard on the guard: re-populating KNOWN_BYPASSING would silently
+    re-open the hole the tests above are closing."""
+    assert KNOWN_BYPASSING == {}, (
+        f"KNOWN_BYPASSING should stay empty; it lists {sorted(KNOWN_BYPASSING)}. "
+        "If a module genuinely must build its own client, that is a decision "
+        "worth an issue, not an allowlist entry."
     )
 
 

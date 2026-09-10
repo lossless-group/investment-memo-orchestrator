@@ -107,8 +107,72 @@ def configured_provider() -> str:
     return value if value in ("cli", "api", "auto") else "auto"
 
 
+# Where `claude` lives when PATH does not say.
+#
+# A Tauri app launched from Finder gets the macOS GUI default PATH —
+# /usr/bin:/bin:/usr/sbin:/sbin — not the user's shell PATH. The FastAPI sidecar
+# is spawned by that app and inherits it, so `shutil.which("claude")` returns
+# None inside the sidecar even on a machine where the CLI is installed and
+# logged in. Every call then falls back to the metered API, silently, for every
+# memo generated from the desktop app. `bun run dev:native` inherits the
+# terminal's PATH, so this never reproduces in development.
+_CLAUDE_FALLBACK_DIRS = (
+    "/opt/homebrew/bin",          # Homebrew, Apple Silicon
+    "/usr/local/bin",             # Homebrew Intel, manual installs
+    "~/.local/bin",               # pipx / uv tool / manual
+    "~/.claude/local",            # Claude Code's own local install
+    "~/.bun/bin",                 # bun global
+    "~/.npm-global/bin",          # npm with a custom prefix
+    "/usr/bin",
+)
+
+_CLAUDE_BIN: Optional[str] = None
+_CLAUDE_BIN_RESOLVED = False
+_CLAUDE_BIN_LOCK = threading.Lock()
+
+
+def claude_binary() -> Optional[str]:
+    """Absolute path to the `claude` CLI, or None.
+
+    Resolution order: MEMOPOP_CLAUDE_BIN, then PATH, then the well-known install
+    locations above. Cached — a miss is as worth caching as a hit, since the
+    fallback sweep touches the filesystem.
+    """
+    global _CLAUDE_BIN, _CLAUDE_BIN_RESOLVED
+    with _CLAUDE_BIN_LOCK:
+        if _CLAUDE_BIN_RESOLVED:
+            return _CLAUDE_BIN
+
+        override = os.getenv("MEMOPOP_CLAUDE_BIN")
+        if override:
+            candidate = Path(override).expanduser()
+            _CLAUDE_BIN = str(candidate) if os.access(candidate, os.X_OK) else None
+            _CLAUDE_BIN_RESOLVED = True
+            return _CLAUDE_BIN
+
+        found = shutil.which("claude")
+        if not found:
+            for directory in _CLAUDE_FALLBACK_DIRS:
+                candidate = Path(directory).expanduser() / "claude"
+                if os.access(candidate, os.X_OK):
+                    found = str(candidate)
+                    break
+
+        _CLAUDE_BIN = found
+        _CLAUDE_BIN_RESOLVED = True
+        return _CLAUDE_BIN
+
+
+def reset_claude_binary_cache() -> None:
+    """Forget the resolved path. For tests, and for a PATH that changed."""
+    global _CLAUDE_BIN, _CLAUDE_BIN_RESOLVED
+    with _CLAUDE_BIN_LOCK:
+        _CLAUDE_BIN = None
+        _CLAUDE_BIN_RESOLVED = False
+
+
 def cli_available() -> bool:
-    return shutil.which("claude") is not None
+    return claude_binary() is not None
 
 
 def _isolated_dir() -> Path:
@@ -285,8 +349,12 @@ def _via_cli(
             f"{prompt}"
         )
 
+    # The resolved absolute path, not the bare name: PATH is exactly what is
+    # missing in the context this fallback exists for.
+    binary = claude_binary() or "claude"
+
     command: List[str] = [
-        "claude", "-p", body,
+        binary, "-p", body,
         "--output-format", "json",
         # Replace rather than append: none of the agent scaffolding applies to a
         # single-turn extraction, and it is the largest part of the overhead.
@@ -416,6 +484,9 @@ def describe_provider() -> str:
         return "LLM provider: metered API (MEMOPOP_LLM_PROVIDER=api)"
     if configured == "cli":
         return "LLM provider: Claude Code CLI, no fallback (MEMOPOP_LLM_PROVIDER=cli)"
-    if cli_available():
-        return "LLM provider: Claude Code CLI (subscription seat), metered API as fallback"
-    return "LLM provider: metered API — `claude` CLI not found on PATH"
+    binary = claude_binary()
+    if binary:
+        return (f"LLM provider: Claude Code CLI (subscription seat) at {binary}, "
+                "metered API as fallback")
+    return ("LLM provider: metered API — no `claude` binary found on PATH or in "
+            "the usual install locations; set MEMOPOP_CLAUDE_BIN to point at it")

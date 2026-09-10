@@ -6,7 +6,7 @@ date_authored_current_draft: 2026-09-10
 date_authored_final_draft: null
 date_first_published: null
 date_last_updated: 2026-09-10
-at_semantic_version: 0.0.0.3
+at_semantic_version: 0.0.1.0
 usage_index: 1
 publish: false
 category: Specification
@@ -18,11 +18,46 @@ authors:
 augmented_with: "Claude Code on Claude Opus 5"
 site_uuid: a322e4c6-d869-428f-9a0a-3b8d45344803
 hex_code: m1xtyl
-status: Open
+status: Resolved
 severity: High
 ---
 
 # Route Every Claude Call Through the CLI-First Provider
+
+## Status — Resolved 2026-09-10
+
+**Zero modules under `src/` construct an Anthropic client.** All 30 that call a
+model route through `src/llm_provider.py`. The generated inventory in
+`docs/PIPELINE-REFERENCE.md` now reads *"nothing constructs a client directly"*,
+and `tests/test_pipeline_reference.py` enforces it absolutely — `KNOWN_BYPASSING`
+is empty, with a second test asserting it stays that way, so re-populating the
+allowlist cannot quietly re-open the hole.
+
+Landed in seven commits across one day, in the order this issue proposed:
+
+| Step | Modules | Notes |
+|---|---|---|
+| 1 | `deck_analyst` | 4 sites, the only image path; renders now land on disk because the CLI reads images with its own Read tool |
+| 2 | the five single-call agents | surfaced `detect_prose_tables`, which had never produced a table |
+| 3 | the writer + three researchers | `complete_with_retry` replaced three retry loops that were about to go dead |
+| 4 | the sourcing trio | exposed a six-thread race on the isolated CLI working directory |
+| 5 | the two correction agents | one built its client at import time |
+| 6 | one-pager, scorecard, portfolio | and `main.py`, which exited 1 without an API key |
+| 7 | `server/brand_fetch.py` | tool-use loop replaced; Brandfetch supplies the facts it used to guess |
+
+**The finding that mattered most is not in this issue's original diagnosis.**
+`cli_available()` was `shutil.which("claude")`, and the FastAPI sidecar inherits
+a Finder-launched app's `PATH`, where `claude` is absent. Every routed call from
+the desktop app was still billing the metered API. See
+[[The-Sidecar-Cannot-See-The-Claude-CLI-On-PATH]] — without that fix this entire
+refactor was inert in the shipped product.
+
+Two guards that silently disabled features rather than failing are worth naming,
+because both would have survived a code review: `codified_section_researcher`
+downgraded to a raw source dump without an API key, and `fact_corrector`
+discarded every computed correction. Neither said anything an operator would
+notice in a run that prints hundreds of lines.
+
 
 ## The intended behaviour, which already exists
 

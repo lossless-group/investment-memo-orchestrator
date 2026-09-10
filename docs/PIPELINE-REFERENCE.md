@@ -118,11 +118,10 @@ The stage column groups nodes into the resume points the operator actually think
 | **other provider** | 6 | no Anthropic client; calls Perplexity/Tavily/Firecrawl |
 | **no model call** | 17 | no model or retrieval client in the node's own modules |
 
-Across all of `src/`: **1 module / 1 call site** still construct a client directly; **29 modules** route through `llm_provider`.
+Across all of `src/`: **nothing constructs a client directly**. All 30 modules that call a model route through `llm_provider`.
 
 | Module | Sites | Constructs |
 |--------|------:|------------|
-| `src/server/brand_fetch.py` | 1 | 1× `Anthropic()` |
 
 <details><summary>Modules already routing through <code>llm_provider</code></summary>
 
@@ -155,6 +154,7 @@ Across all of `src/`: **1 module / 1 call site** still construct a client direct
 - `src/agents/visualization_enrichment.py`
 - `src/agents/writer.py`
 - `src/main.py`
+- `src/server/brand_fetch.py`
 
 </details>
 

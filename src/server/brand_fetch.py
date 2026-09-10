@@ -3,9 +3,8 @@
 Exposes two operations:
 
   fetch_brand_from_url(firm, url) -> dict
-      Drives a Claude tool-use loop where Claude can call `fetch_url` to read
-      the firm's homepage, follow links to /about or /press, optionally fetch
-      a stylesheet, then call `submit_brand_config` with its best-guess values.
+      Asks Brandfetch for the firm's published brand data, reads the homepage
+      and /about, then asks a model for the fields Brandfetch does not carry.
       Returns a structured dict shaped like the brand-config YAML — does NOT
       write to disk. The caller (typically the API handler) hands this to the
       user for review/edit before saving.
@@ -17,8 +16,13 @@ Exposes two operations:
       creation scaffold, since the user typed that and Claude shouldn't
       override it.
 
-Uses ANTHROPIC_API_KEY from the orchestrator's environment — same key already
-required for memo generation. No new secret management.
+Colors, fonts, logos and the display name come from Brandfetch when
+BRANDFETCH_API_KEY is set — facts rather than readings. The model fills only
+what Brandfetch does not publish. Without the key the model infers everything,
+as it always did.
+
+Model calls go through `src/llm_provider`, so this runs on the Claude Code seat
+like the rest of the pipeline.
 """
 
 from __future__ import annotations
@@ -31,202 +35,163 @@ from typing import Any, Optional
 
 import httpx
 import yaml
-from anthropic import Anthropic
 
 from ..paths import get_io_root
+from ..llm_provider import cli_available, complete
+from .brandfetch_api import (
+    api_key_present as brandfetch_key_present,
+    describe_payload,
+    fetch_brand,
+    shape_for_brand_config,
+)
 
 # Model and limits.
 BRAND_FETCH_MODEL = os.environ.get("MEMOPOP_BRAND_MODEL", "claude-haiku-4-5-20251001")
-MAX_ITERATIONS = 8
-MAX_FETCH_BYTES = 60_000  # cap text returned to Claude per URL
+MAX_FETCH_BYTES = 60_000  # cap text returned to the model per URL
 HTTP_TIMEOUT_SECS = 10.0
+BRAND_FETCH_TIMEOUT_SECS = 420
 
 
-# --- Tool definitions surfaced to Claude ---
-
-_TOOL_FETCH_URL = {
-    "name": "fetch_url",
-    "description": (
-        "Fetch the contents of an absolute URL over HTTP. Returns the response "
-        "body as text (capped at ~60KB). Use this to retrieve HTML pages, "
-        "linked CSS files, robots.txt, or any other text-shaped resource. "
-        "Strategy: start with the firm's homepage. Follow links to /about, "
-        "/team, /press, or to the main stylesheet href if you need more signal "
-        "for colors, fonts, official names, or taglines. Avoid fetching the "
-        "same URL twice."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "url": {
-                "type": "string",
-                "description": "Absolute URL to fetch (must start with http:// or https://).",
-            },
-        },
-        "required": ["url"],
-    },
-}
-
-_TOOL_SUBMIT = {
-    "name": "submit_brand_config",
-    "description": (
-        "Call this exactly once when you have gathered enough information to "
-        "populate the firm's brand config. Provide your best-guess values. "
-        "It's OK to leave fields empty when you genuinely couldn't determine "
-        "them — the user will review and fill in the gaps. Hex colors must be "
-        "of the form `#RRGGBB`."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            # Identity
-            "company_name": {
-                "type": "string",
-                "description": "Official firm name as it appears on the website (e.g., 'Sequoia Capital', 'Hypernova Ventures').",
-            },
-            "company_legal_entity_name": {
-                "type": "string",
-                "description": "Legal entity name for disclosures (often hard to find — leave empty if not surfaced anywhere).",
-            },
-            "tagline": {
-                "type": "string",
-                "description": "Short marketing line. Usually the homepage hero text or meta description.",
-            },
-            # Light-mode colors
-            "primary_color": {"type": "string", "description": "Primary brand color, hex (e.g., '#5b21b6')."},
-            "secondary_color": {"type": "string"},
-            "accent_color": {"type": "string"},
-            "text_dark": {"type": "string", "description": "Dark text color used on light backgrounds."},
-            "text_light": {"type": "string", "description": "Light text color used on dark backgrounds (often '#ffffff')."},
-            "background": {"type": "string", "description": "Main page background (usually white or near-white)."},
-            "background_alt": {"type": "string", "description": "Alt background for callouts / code blocks."},
-            # Dark-mode colors (best guess; can derive from light by inverting)
-            "primary_color_dark": {"type": "string"},
-            "secondary_color_dark": {"type": "string"},
-            "accent_color_dark": {"type": "string"},
-            "background_dark": {"type": "string"},
-            "background_alt_dark": {"type": "string"},
-            # Fonts
-            "font_family": {"type": "string", "description": "Primary body font name (e.g., 'Inter', 'Helvetica Neue')."},
-            "google_fonts_url": {
-                "type": "string",
-                "description": "If using Google Fonts, the full link href (https://fonts.googleapis.com/...).",
-            },
-            "header_font_family": {"type": "string"},
-            # Logo
-            "logo_light_url": {"type": "string", "description": "Absolute URL to the logo for light backgrounds."},
-            "logo_dark_url": {
-                "type": "string",
-                "description": "Absolute URL to the logo for dark backgrounds. Often missing — leave empty if only one variant exists.",
-            },
-            "logo_alt_text": {"type": "string"},
-            # Meta
-            "confidence_notes": {
-                "type": "string",
-                "description": "One paragraph summarizing what you were confident about, what's a guess, and what was missing. Surfaces in the UI for the user to review.",
-            },
-        },
-    },
-}
+# --- The gap set ---
+#
+# Brandfetch publishes colors, fonts, logos and the display name as data. It does
+# not publish a legal entity name, a Google Fonts URL, a dark-mode palette, or a
+# tagline — its `description` is a sentence about the company, not a hero line.
+# These are the keys the model is asked for, and only these.
+_MODEL_GAP_KEYS = (
+    "company_name",
+    "company_legal_entity_name",
+    "tagline",
+    "primary_color",
+    "secondary_color",
+    "accent_color",
+    "text_dark",
+    "text_light",
+    "background",
+    "background_alt",
+    "primary_color_dark",
+    "secondary_color_dark",
+    "accent_color_dark",
+    "background_dark",
+    "background_alt_dark",
+    "font_family",
+    "google_fonts_url",
+    "header_font_family",
+    "logo_light_url",
+    "logo_dark_url",
+    "logo_alt_text",
+    "confidence_notes",
+)
 
 
 # --- Public API ---
 
 
 def fetch_brand_from_url(firm: str, url: str) -> dict[str, Any]:
-    """Run the Claude tool-use loop to extract a brand config from a URL.
+    """Build a brand config for `url`: Brandfetch for facts, a model for the gaps.
 
-    Returns a structured dict shaped like the brand-config YAML. Does NOT
-    write to disk — the caller surfaces this to the user for review.
+    Returns a structured dict shaped like the brand-config YAML. Does NOT write
+    to disk — the caller surfaces this to the user for review.
+
+    **Brandfetch wins.** Anything the API supplied is copied over the model's
+    answer for that key, whatever the model said. A hex that came from a brand
+    data API is checkable; a hex a model read off a stylesheet is a reading. This
+    matters more than it sounds: a brand config copy-pasted between firms with
+    its colors never updated is a failure this repo has actually shipped, and the
+    only durable defence is a factual source.
+
+    **What this gave up.** It used to be a Claude tool-use loop that could follow
+    whatever links it judged useful — /about, /press, a stylesheet href — across
+    up to eight turns. `llm_provider.complete()` is single-turn and has no tool
+    surface, so the pages are fetched here instead: the homepage and, when it
+    resolves, /about. That is less adaptive. It is the right trade now that the
+    fields hardest to infer arrive as data, and it is what lets this module use
+    the Claude Code seat like every other agent in the pipeline.
 
     Raises:
-        RuntimeError: if Claude finishes without calling submit_brand_config,
-                      or the iteration cap is hit, or ANTHROPIC_API_KEY is unset.
+        ValueError: if the URL is not absolute.
+        RuntimeError: if no model provider is reachable, or the call fails.
     """
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY is not set. The brand fetcher uses the same key "
-            "as memo generation; add it to the orchestrator's .env file."
-        )
     if not url.startswith(("http://", "https://")):
         raise ValueError(f"URL must start with http:// or https://, got: {url}")
 
-    client = Anthropic()
-    messages: list[dict[str, Any]] = [
-        {
-            "role": "user",
-            "content": (
-                f"Extract the brand identity for the firm whose website is {url}.\n\n"
-                "Start with the homepage. If you need more signal for colors, fonts, "
-                "an official legal name, or a tagline, fetch a linked /about, /team, "
-                "/press page, or the main stylesheet. Don't fetch the same URL twice. "
-                "Aim for at most 4–5 fetches.\n\n"
-                "When you've gathered enough, call submit_brand_config with your best-guess "
-                "values. Include a confidence_notes paragraph describing what was confident, "
-                "what was a guess, and what you couldn't find. Leave any genuinely-missing "
-                "field empty — the user will fill gaps in the next step."
-            ),
-        }
-    ]
-
-    final_config: Optional[dict[str, Any]] = None
-    fetched_urls: set[str] = set()
-
-    for iteration in range(MAX_ITERATIONS):
-        response = client.messages.create(
-            model=BRAND_FETCH_MODEL,
-            max_tokens=4096,
-            tools=[_TOOL_FETCH_URL, _TOOL_SUBMIT],
-            messages=messages,
-        )
-
-        # Mirror the assistant message into history so the next turn has context.
-        messages.append({"role": "assistant", "content": response.content})
-
-        if response.stop_reason != "tool_use":
-            # Claude stopped without calling submit_brand_config. Bail with what we have.
-            break
-
-        tool_results: list[dict[str, Any]] = []
-        for block in response.content:
-            if getattr(block, "type", None) != "tool_use":
-                continue
-
-            if block.name == "fetch_url":
-                target = block.input.get("url", "")
-                if target in fetched_urls:
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": "Skipped: already fetched this URL earlier in the session.",
-                    })
-                else:
-                    fetched_urls.add(target)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": _run_fetch_url(target),
-                    })
-            elif block.name == "submit_brand_config":
-                final_config = dict(block.input)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": "Brand config received. The user will review and confirm.",
-                })
-
-        messages.append({"role": "user", "content": tool_results})
-
-        if final_config is not None:
-            break
-
-    if final_config is None:
+    if not (cli_available() or os.environ.get("ANTHROPIC_API_KEY")):
         raise RuntimeError(
-            "Claude completed its tool-use loop without calling submit_brand_config. "
-            "Try a different URL or fill in the brand config manually."
+            "No model provider is reachable. Either install and log in to the "
+            "Claude Code CLI, or set ANTHROPIC_API_KEY in the orchestrator's .env."
         )
 
-    return _shape_brand_config(firm, final_config)
+    # 1. Facts.
+    known: dict[str, Any] = {}
+    payload = fetch_brand(url)
+    if payload:
+        known = shape_for_brand_config(payload)
+        print(f"    🎨 Brandfetch: {describe_payload(payload)} — "
+              f"{len(known)} field(s) resolved from data")
+    elif not brandfetch_key_present():
+        print("    ℹ️  BRANDFETCH_API_KEY not set — inferring every field from the site")
+
+    # 2. Page text for whatever is left.
+    pages = [(url, _run_fetch_url(url))]
+    about = url.rstrip("/") + "/about"
+    about_text = _run_fetch_url(about)
+    if about_text and not about_text.startswith("Error"):
+        pages.append((about, about_text))
+
+    corpus = "\n\n".join(
+        f"===== {page_url} =====\n{text}" for page_url, text in pages
+    )
+
+    missing = [k for k in _MODEL_GAP_KEYS if k not in known]
+    known_block = (
+        "\n".join(f"  {k}: {v}" for k, v in sorted(known.items()))
+        or "  (nothing — the brand data API had no record of this domain)"
+    )
+
+    prompt = (
+        "You are extracting a firm's brand identity for a document template.\n\n"
+        "ALREADY ESTABLISHED from a brand data API. These are facts. Do not "
+        "contradict them, do not restate them, do not include them in your "
+        "answer:\n"
+        f"{known_block}\n\n"
+        "WEBSITE CONTENT:\n"
+        f"{corpus}\n\n"
+        "Return ONLY a JSON object filling in as many of these keys as the "
+        "content supports:\n"
+        f"  {', '.join(missing)}\n\n"
+        "Rules:\n"
+        "- Hex colors must be of the form #RRGGBB.\n"
+        "- Omit a key entirely rather than guessing at it. An absent field is "
+        "reviewed and filled by a human; a wrong one is shipped.\n"
+        "- `tagline` is the homepage hero line or meta description, not a "
+        "sentence describing the company.\n"
+        "- Dark-mode colors may be derived from the established light-mode "
+        "palette if the site has no dark theme; say so in confidence_notes.\n"
+        "- `confidence_notes` is one paragraph: what was certain, what was "
+        "inferred, what was missing.\n"
+    )
+
+    completion = complete(
+        prompt,
+        max_tokens=4096,
+        model=BRAND_FETCH_MODEL,
+        timeout=BRAND_FETCH_TIMEOUT_SECS,
+    )
+    if not completion.ok:
+        raise RuntimeError(
+            f"Brand extraction failed: {completion.error or 'empty response'} "
+            f"(provider={completion.provider})"
+        )
+
+    inferred = completion.json()
+    if not isinstance(inferred, dict):
+        # Brandfetch data alone is still a usable config; refusing to return it
+        # because the prose pass produced no JSON would throw away good facts.
+        print("    ⚠️  Brand model returned no usable JSON; using Brandfetch data alone")
+        inferred = {}
+
+    merged = {**{k: v for k, v in inferred.items() if k in _MODEL_GAP_KEYS}, **known}
+    return _shape_brand_config(firm, merged)
 
 
 def save_brand_config(firm: str, config: dict[str, Any]) -> Path:
