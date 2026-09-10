@@ -19,9 +19,12 @@ import os
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
-from langchain_anthropic import ChatAnthropic
-
 from ..utils import get_latest_output_dir
+from ..llm_provider import complete
+
+# Both bookend sections are rewritten against up to 50k characters of assembled
+# memo. That is a long single call, not an extraction.
+_TIMEOUT = 600
 
 
 # Executive Summary revision prompt
@@ -428,9 +431,7 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     print(f"     Traction: {traction_data[:80]}..." if len(traction_data) > 80 else f"     Traction: {traction_data}")
     print(f"     Market: {market_data[:80]}..." if len(market_data) > 80 else f"     Market: {market_data}")
 
-    # Initialize LLM
     model = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929")
-    llm = ChatAnthropic(model=model, temperature=0.3, max_tokens=4096)
 
     messages = []
 
@@ -455,8 +456,15 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        response = llm.invoke(exec_prompt)
-        revised_exec = response.content
+        completion = complete(
+            exec_prompt, max_tokens=4096, model=model, timeout=_TIMEOUT
+        )
+        if not completion.ok:
+            raise RuntimeError(
+                f"{completion.error or 'empty response'} "
+                f"(provider={completion.provider})"
+            )
+        revised_exec = completion.text
 
         # Ensure proper header format
         if not revised_exec.strip().startswith("#"):
@@ -502,8 +510,15 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        response = llm.invoke(closing_prompt)
-        revised_closing = response.content
+        completion = complete(
+            closing_prompt, max_tokens=4096, model=model, timeout=_TIMEOUT
+        )
+        if not completion.ok:
+            raise RuntimeError(
+                f"{completion.error or 'empty response'} "
+                f"(provider={completion.provider})"
+            )
+        revised_closing = completion.text
 
         # Ensure proper header format
         if not revised_closing.strip().startswith("#"):

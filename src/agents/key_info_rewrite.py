@@ -11,16 +11,19 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
-from anthropic import Anthropic
 from rich.console import Console
 
 from src.corrections import CorrectionObject, CorrectionsConfig
 from src.versioning import VersionManager
 from src.artifacts import sanitize_filename
+from src.llm_provider import complete
 
+# Rewriting a whole section around one correction is a long single call.
+_TIMEOUT = 600
 
-# Initialize Anthropic client
-anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+# The Anthropic client used to be constructed here, at module scope, so merely
+# importing this module reached for ANTHROPIC_API_KEY. Calls go through
+# llm_provider now, which resolves a provider per call and prefers the seat.
 
 
 def apply_correction_to_section(
@@ -54,13 +57,24 @@ def apply_correction_to_section(
     # Call Claude for correction
     console.print(f"  [dim]Processing: {section_file.name}...[/dim]")
 
-    response = anthropic_client.messages.create(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+    completion = complete(
+        prompt,
         max_tokens=8000,
-        messages=[{"role": "user", "content": prompt}]
+        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        timeout=_TIMEOUT,
     )
+    if not completion.ok:
+        # Returning the original leaves the section exactly as it was, which is
+        # the safe failure for a correction pass: better an uncorrected section
+        # than one silently replaced by an error string.
+        console.print(
+            f"  [red]LLM call failed for {section_file.name}: "
+            f"{completion.error or 'empty response'} "
+            f"(provider={completion.provider})[/red]"
+        )
+        return original_content, 0
 
-    corrected_content = response.content[0].text
+    corrected_content = completion.text
 
     # Count changes (rough estimate)
     instances_corrected = count_correction_instances(original_content, corrected_content, correction)

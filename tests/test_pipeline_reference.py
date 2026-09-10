@@ -70,8 +70,6 @@ gen = _load_generator()
 KNOWN_BYPASSING = {
     "src/agents/one_pager_generator.py": 2,
     "src/agents/portfolio_listing_agent.py": 1,
-    "src/agents/key_info_rewrite.py": 1,
-    "src/agents/revise_summary_sections.py": 1,
     "src/agents/scorecard_agent.py": 1,
     "src/server/brand_fetch.py": 1,
 }

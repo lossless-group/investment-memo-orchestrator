@@ -33,7 +33,7 @@ Entry point: **`dataroom`**. Every node runs on every invocation; see the
 | 15 | `generate_tables` | write | `src/agents/table_generator.py` | routed | Build markdown tables from structured state data and section prose. | §3, §12 |
 | 16 | `generate_diagrams` | write | `src/agents/diagram_generator.py` | no model call | Render diagrams — TAM/SAM/SOM concentric circles, funnels, and similar. | §12 |
 | 17 | `enrich_visualizations` | write | `src/agents/visualization_enrichment.py` | routed (via Perplexity/OpenAI) | Find and embed supporting visualizations. Currently disabled. | §12 |
-| 18 | `revise_summaries` | write | `src/agents/revise_summary_sections.py` | bypasses (1× `ChatAnthropic()`) | Rewrite the Executive Summary and Closing Assessment against the complete draft, which is the only point either can be accurate. | §3, §6, §9 |
+| 18 | `revise_summaries` | write | `src/agents/revise_summary_sections.py` | routed | Rewrite the Executive Summary and Closing Assessment against the complete draft, which is the only point either can be accurate. | §3, §6, §9 |
 | 19 | `cleanup_sections` | assemble | `src/agents/remove_invalid_sources.py` | no model call | GATE 2 — validate every URL in `2-sections/`, catching anything enrichment or revision introduced. | §2 |
 | 20 | `assemble_citations` | assemble | `src/agents/citation_assembly.py` | no model call | Consolidate citations, renumber globally, and create the final draft file. Reads definitions from `1-research/` as a fallback. | §9 |
 | 21 | `fix_citation_spacing` | assemble | `src/agents/citation_spacing.py` | no model call | Normalise citation marker spacing in the assembled draft. | §9 |
@@ -114,19 +114,17 @@ The stage column groups nodes into the resume points the operator actually think
 
 | Routing | Nodes | Meaning |
 |---------|-------|---------|
-| **routed** | 10 | goes through `llm_provider` — can use the seat |
-| **bypasses** | 2 | builds an Anthropic client directly — always metered |
+| **routed** | 11 | goes through `llm_provider` — can use the seat |
+| **bypasses** | 1 | builds an Anthropic client directly — always metered |
 | **other provider** | 6 | no Anthropic client; calls Perplexity/Tavily/Firecrawl |
 | **no model call** | 17 | no model or retrieval client in the node's own modules |
 
-Across all of `src/`: **6 modules / 7 call sites** construct a client directly; **23 modules** route through `llm_provider`.
+Across all of `src/`: **4 modules / 5 call sites** construct a client directly; **25 modules** route through `llm_provider`.
 
 | Module | Sites | Constructs |
 |--------|------:|------------|
 | `src/agents/one_pager_generator.py` | 2 | 2× `Anthropic()` |
-| `src/agents/key_info_rewrite.py` | 1 | 1× `Anthropic()` |
 | `src/agents/portfolio_listing_agent.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/revise_summary_sections.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/scorecard_agent.py` | 1 | 1× `ChatAnthropic()` |
 | `src/server/brand_fetch.py` | 1 | 1× `Anthropic()` |
 
@@ -143,10 +141,12 @@ Across all of `src/`: **6 modules / 7 call sites** construct a client directly; 
 - `src/agents/dataroom/extractors/traction_extractor.py`
 - `src/agents/deck_analyst.py`
 - `src/agents/fact_corrector.py`
+- `src/agents/key_info_rewrite.py`
 - `src/agents/link_enrichment.py`
 - `src/agents/perplexity_sources.py`
 - `src/agents/research_enhanced.py`
 - `src/agents/researcher.py`
+- `src/agents/revise_summary_sections.py`
 - `src/agents/scorecard_evaluator.py`
 - `src/agents/slides/slide_stenographer.py`
 - `src/agents/slides/visual_collector.py`
