@@ -14,9 +14,8 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from langchain_anthropic import ChatAnthropic
-
 from ..state import MemoState, ScorecardResults, DimensionScore
+from ..llm_provider import complete
 from ..scorecard_loader import (
     load_scorecard,
     ScorecardDefinition,
@@ -70,7 +69,6 @@ def score_dimension(
     dimension: DimensionDefinition,
     section_content: str,
     company_name: str,
-    model: ChatAnthropic
 ) -> DimensionScore:
     """
     Score a single dimension using LLM.
@@ -79,7 +77,6 @@ def score_dimension(
         dimension: The dimension to score
         section_content: Relevant section content
         company_name: Company name
-        model: LLM model instance
 
     Returns:
         DimensionScore with score, percentile, evidence, improvements
@@ -147,31 +144,46 @@ Respond in JSON format:
 
 JSON Response:"""
 
-    # Invoke with retry logic
+    # Invoke with retry logic.
+    #
+    # This used to catch anthropic's InternalServerError and RateLimitError.
+    # complete() never raises for a provider failure — it returns an
+    # LLMResponse with .ok False and the reason in .error — so an
+    # exception-keyed retry would have become dead code that silently stopped
+    # retrying anything. The loop now keys on .ok, which also covers the
+    # failures the exception list never named: a CLI timeout, a non-zero exit,
+    # and an empty completion.
     import time
-    from anthropic import InternalServerError, RateLimitError
 
     max_retries = 3
     retry_delay = 2
+    content = ""
 
     for attempt in range(max_retries):
-        try:
-            response = model.invoke(prompt)
-            content = response.content.strip()
+        completion = complete(
+            prompt,
+            max_tokens=1000,
+            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        )
+        if completion.ok:
+            content = completion.text.strip()
             break
-        except (InternalServerError, RateLimitError) as e:
-            if attempt < max_retries - 1:
-                wait_time = retry_delay * (2 ** attempt)
-                print(f"      ⚠️  API error (attempt {attempt + 1}/{max_retries}): {type(e).__name__}")
-                time.sleep(wait_time)
-            else:
-                print(f"      ❌ API error after {max_retries} attempts")
-                return DimensionScore(
-                    score=3,
-                    percentile="Top 50%",
-                    evidence="Unable to evaluate due to API error",
-                    improvements=["Evaluation needs manual review"]
-                )
+
+        if attempt < max_retries - 1:
+            wait_time = retry_delay * (2 ** attempt)
+            print(f"      ⚠️  LLM error (attempt {attempt + 1}/{max_retries}): "
+                  f"{completion.error or 'empty response'} "
+                  f"(provider={completion.provider})")
+            time.sleep(wait_time)
+        else:
+            print(f"      ❌ LLM error after {max_retries} attempts: "
+                  f"{completion.error or 'empty response'}")
+            return DimensionScore(
+                score=3,
+                percentile="Top 50%",
+                evidence="Unable to evaluate due to API error",
+                improvements=["Evaluation needs manual review"]
+            )
 
     # Extract JSON from response
     try:
@@ -462,21 +474,6 @@ def scorecard_evaluator_agent(state: MemoState) -> Dict[str, Any]:
             "messages": [f"Scorecard evaluation failed: {e}"]
         }
 
-    # Initialize LLM
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("   ❌ ANTHROPIC_API_KEY not set")
-        return {
-            "messages": ["Scorecard evaluation failed: API key not set"]
-        }
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0.3,  # Lower temperature for consistent scoring
-        max_tokens=1000
-    )
-
     # Get all section content for evaluation
     all_content = get_all_section_content(sections)
 
@@ -491,7 +488,6 @@ def scorecard_evaluator_agent(state: MemoState) -> Dict[str, Any]:
             dimension=dimension,
             section_content=all_content,
             company_name=company_name,
-            model=model
         )
         results[dim_id] = result
         print(f"{result['score']}/5")

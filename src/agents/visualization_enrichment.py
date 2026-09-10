@@ -10,11 +10,10 @@ This agent enriches memo sections by finding and embedding:
 Images are embedded using markdown syntax: ![Alt text](image-url)
 """
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 import os
 from typing import Dict, Any, List
 from ..state import MemoState
+from ..llm_provider import complete
 import json
 from openai import OpenAI  # Perplexity uses OpenAI SDK
 
@@ -179,17 +178,6 @@ def visualization_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     candidate_images = market_viz + product_viz
     print(f"Found {len(candidate_images)} candidate visualizations")
 
-    # Initialize Claude
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0,
-    )
-
     # Create visualization identification prompt
     import json
 
@@ -228,18 +216,26 @@ Return JSON in this format:
 }}
 """
 
-    # Call Claude
-    messages = [
-        SystemMessage(content=VISUALIZATION_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt)
-    ]
-
+    # Call Claude. System prompt folded into the body — the CLI path replaces
+    # the system role with its own preamble, so it would otherwise be dropped.
     print("Analyzing memo for visualization opportunities...")
-    response = model.invoke(messages)
+    completion = complete(
+        f"{VISUALIZATION_SYSTEM_PROMPT}\n\n---\n\n{user_prompt}",
+        max_tokens=4000,
+        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+    )
+    if not completion.ok:
+        print(f"   ⚠️  Visualization analysis failed: "
+              f"{completion.error or 'empty response'} "
+              f"(provider={completion.provider})")
+        return {
+            "messages": [f"Visualization enrichment skipped for {company_name}: "
+                         f"{completion.error or 'empty response'}"]
+        }
 
     try:
         # Parse JSON response
-        viz_recommendations = json.loads(response.content)
+        viz_recommendations = json.loads(completion.text)
         visualizations = viz_recommendations.get("visualizations", [])
 
         if not visualizations:

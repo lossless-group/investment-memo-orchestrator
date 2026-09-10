@@ -15,10 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
-
 from ..state import MemoState
+from ..llm_provider import complete
 from ..utils import get_output_dir_from_state
 
 
@@ -412,10 +410,14 @@ SECTION CONTENT:
 
 def detect_prose_tables(
     content: str,
-    model: ChatAnthropic,
     section_name: str,
 ) -> List[Dict[str, Any]]:
-    """Use LLM to detect tabular data patterns in prose content."""
+    """Use LLM to detect tabular data patterns in prose content.
+
+    Took a `model` between `content` and `section_name`. The provider layer
+    exposes a function rather than an object, so the parameter went away; the
+    only caller is in this module.
+    """
     if len(content) < 200:
         return []
 
@@ -424,12 +426,25 @@ def detect_prose_tables(
         return []
 
     try:
-        response = model.invoke([
-            SystemMessage(content="You are a data analyst. Return ONLY valid JSON, no markdown fences."),
-            HumanMessage(content=PROSE_DETECTION_PROMPT.format(content=content)),
-        ])
+        completion = complete(
+            "You are a data analyst. Return ONLY valid JSON, no markdown fences.\n\n"
+            # .replace, not .format: the prompt embeds a JSON example whose
+            # single braces .format() reads as replacement fields, so every call
+            # raised KeyError('\n    "tables"'), was swallowed by the except
+            # below, and logged a warning indistinguishable from "no tables
+            # found". Prose-table detection had therefore never once produced a
+            # table. .replace cannot be broken by editing the example.
+            + PROSE_DETECTION_PROMPT.replace("{content}", content),
+            max_tokens=4000,
+            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        )
+        if not completion.ok:
+            print(f"    Warning: Prose detection failed for {section_name}: "
+                  f"{completion.error or 'empty response'} "
+                  f"(provider={completion.provider})")
+            return []
 
-        result = _parse_json_response(response.content)
+        result = _parse_json_response(completion.text)
         if result and isinstance(result.get("tables"), list):
             return result["tables"]
     except Exception as e:
@@ -544,18 +559,6 @@ def table_generator_agent(state: MemoState) -> Dict[str, Any]:
         print("⊘ Table generator skipped — no sections directory")
         return {"messages": ["Table generator skipped — no sections directory"]}
 
-    # --- Initialize LLM for prose detection ---
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0,
-        max_tokens=4000,
-    )
-
     print(f"\n📊 Generating tables for {company_name}...")
 
     section_files = sorted(sections_dir.glob("*.md"))
@@ -667,7 +670,7 @@ def table_generator_agent(state: MemoState) -> Dict[str, Any]:
         if section_has_table(content):
             continue
 
-        detected = detect_prose_tables(content, model, section_name)
+        detected = detect_prose_tables(content, section_name)
         if not detected:
             continue
 

@@ -12,11 +12,10 @@ This agent enriches memo sections by adding markdown links to:
 Links are added in-place without changing the narrative flow.
 """
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 import os
 from typing import Dict, Any
 from ..state import MemoState
+from ..llm_provider import complete
 
 
 LINK_ENRICHMENT_SYSTEM_PROMPT = """You are a link enrichment specialist for investment memos.
@@ -89,17 +88,6 @@ def link_enrichment_agent(state: MemoState) -> Dict[str, Any]:
         print("⊘ Link enrichment skipped - no sections directory found")
         return {"messages": ["Link enrichment skipped - no sections found"]}
 
-    # Initialize Claude
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0,  # Deterministic for link addition
-    )
-
     print(f"\n🔗 Enriching links section-by-section...")
 
     # Load all section files
@@ -150,15 +138,24 @@ INSTRUCTIONS:
 
 Output the full section with links enriched."""
 
-        # Call Claude for link enrichment
-        messages = [
-            SystemMessage(content=LINK_ENRICHMENT_SYSTEM_PROMPT),
-            HumanMessage(content=user_prompt)
-        ]
-
+        # Call Claude for link enrichment. System prompt folded into the body —
+        # the CLI path substitutes its own system role, so the enrichment rules
+        # have to ride in the prompt to reach both providers.
         try:
-            response = model.invoke(messages)
-            enriched_content = response.content
+            completion = complete(
+                f"{LINK_ENRICHMENT_SYSTEM_PROMPT}\n\n---\n\n{user_prompt}",
+                max_tokens=8000,
+                model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+            )
+            if not completion.ok:
+                # One section failing must not abandon the rest — the loop below
+                # already continues past a raised exception, and a provider
+                # failure is the same kind of event.
+                raise RuntimeError(
+                    f"{completion.error or 'empty response'} "
+                    f"(provider={completion.provider})"
+                )
+            enriched_content = completion.text
 
             # Restore image embeds from placeholders
             for placeholder, original_image in image_placeholders.items():

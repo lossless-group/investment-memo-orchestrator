@@ -53,11 +53,14 @@ gen = _load_generator()
 # Modules that still build an Anthropic client directly, with their call-site
 # count.
 #
-# deck_analyst.py is gone from this list: it was the first step of the refactor,
-# four sites including the only image path, and the one that actually failed a
-# run. Remaining order is the single-call agents, then the writer and
-# researchers, then brand_fetch last (it runs in the FastAPI sidecar, so the CLI
-# has to be shown reachable from there first).
+# Two steps of the refactor are done and gone from this list. deck_analyst.py
+# was first — four sites, the only image path, and the one that actually failed
+# a run. Then the single-call agents: validator, scorecard_evaluator,
+# table_generator, link_enrichment, visualization_enrichment.
+#
+# Remaining: the writer and researchers (highest volume, most JSON parsing),
+# then brand_fetch.py last — it runs in the FastAPI sidecar, so the CLI has to
+# be shown reachable from there before it moves.
 #
 # When you route one of these through llm_provider, delete its line. Do not add
 # lines — a new entry means a new agent was written against the metered API.
@@ -68,16 +71,11 @@ KNOWN_BYPASSING = {
     "src/agents/codified_section_researcher.py": 1,
     "src/agents/fact_corrector.py": 1,
     "src/agents/key_info_rewrite.py": 1,
-    "src/agents/link_enrichment.py": 1,
     "src/agents/research_enhanced.py": 1,
     "src/agents/researcher.py": 1,
     "src/agents/revise_summary_sections.py": 1,
     "src/agents/scorecard_agent.py": 1,
-    "src/agents/scorecard_evaluator.py": 1,
     "src/agents/source_extractor.py": 1,
-    "src/agents/table_generator.py": 1,
-    "src/agents/validator.py": 1,
-    "src/agents/visualization_enrichment.py": 1,
     "src/agents/writer.py": 1,
     "src/server/brand_fetch.py": 1,
 }

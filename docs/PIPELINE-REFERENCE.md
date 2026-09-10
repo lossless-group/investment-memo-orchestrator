@@ -29,10 +29,10 @@ Entry point: **`dataroom`**. Every node runs on every invocation; see the
 | 11 | `inject_deck_images` | write | `src/agents/inject_deck_images.py` | no model call | Place deck screenshots into the section files. | §12 |
 | 12 | `enrich_trademark` | write | `src/agents/trademark_enrichment.py` | no model call | Insert the company trademark into the header. | §12 |
 | 13 | `enrich_socials` | write | `src/agents/socials_enrichment.py` | other provider (via Tavily) | Attach LinkedIn and professional profile links to named team members. | §12 |
-| 14 | `enrich_links` | write | `src/agents/link_enrichment.py` | bypasses (1× `ChatAnthropic()`) | Hyperlink named organizations, investors, and partners. | §12 |
-| 15 | `generate_tables` | write | `src/agents/table_generator.py` | bypasses (1× `ChatAnthropic()`) | Build markdown tables from structured state data and section prose. | §3, §12 |
+| 14 | `enrich_links` | write | `src/agents/link_enrichment.py` | routed | Hyperlink named organizations, investors, and partners. | §12 |
+| 15 | `generate_tables` | write | `src/agents/table_generator.py` | routed | Build markdown tables from structured state data and section prose. | §3, §12 |
 | 16 | `generate_diagrams` | write | `src/agents/diagram_generator.py` | no model call | Render diagrams — TAM/SAM/SOM concentric circles, funnels, and similar. | §12 |
-| 17 | `enrich_visualizations` | write | `src/agents/visualization_enrichment.py` | bypasses (1× `ChatAnthropic()`, via Perplexity/OpenAI) | Find and embed supporting visualizations. Currently disabled. | §12 |
+| 17 | `enrich_visualizations` | write | `src/agents/visualization_enrichment.py` | routed (via Perplexity/OpenAI) | Find and embed supporting visualizations. Currently disabled. | §12 |
 | 18 | `revise_summaries` | write | `src/agents/revise_summary_sections.py` | bypasses (1× `ChatAnthropic()`) | Rewrite the Executive Summary and Closing Assessment against the complete draft, which is the only point either can be accurate. | §3, §6, §9 |
 | 19 | `cleanup_sections` | assemble | `src/agents/remove_invalid_sources.py` | no model call | GATE 2 — validate every URL in `2-sections/`, catching anything enrichment or revision introduced. | §2 |
 | 20 | `assemble_citations` | assemble | `src/agents/citation_assembly.py` | no model call | Consolidate citations, renumber globally, and create the final draft file. Reads definitions from `1-research/` as a fallback. | §9 |
@@ -43,8 +43,8 @@ Entry point: **`dataroom`**. Every node runs on every invocation; see the
 | 25 | `fact_verify` | assemble | `src/agents/fact_verifier.py` | other provider (via Perplexity/OpenAI) | Verify extracted claims against sources via Perplexity. | §2, §11 |
 | 26 | `fact_correct` | assemble | `src/agents/fact_corrector.py` | bypasses (1× `Anthropic()`) | Apply verified corrections back to the section files — not to the assembled draft. | §2, §7, §11 |
 | 27 | `source_catalog` | assemble | `src/agents/source_cataloger.py` | no model call | Compile the complete per-section source list. | §2 |
-| 28 | `validate` | assemble | `src/agents/validator.py` | bypasses (1× `ChatAnthropic()`) | Score the memo 0-10 against the style guide. Sees only the memo and the style guide — no research, no source catalog — and runs three nodes before the draft is rebuilt, so it critiques an artifact that no longer exists. Both defects tracked in the validation issue. | §1, §11 |
-| 29 | `scorecard` | assemble | `src/agents/scorecard_evaluator.py` | bypasses (1× `ChatAnthropic()`) | Evaluate against the firm's scorecard template. | §11 |
+| 28 | `validate` | assemble | `src/agents/validator.py` | routed | Score the memo 0-10 against the style guide. Sees only the memo and the style guide — no research, no source catalog — and runs three nodes before the draft is rebuilt, so it critiques an artifact that no longer exists. Both defects tracked in the validation issue. | §1, §11 |
+| 29 | `scorecard` | assemble | `src/agents/scorecard_evaluator.py` | routed | Evaluate against the firm's scorecard template. | §11 |
 | 30 | `integrate_scorecard` | assemble | `src/workflow.py` | no model call | Insert the scorecard into its section and reassemble the final draft. | §9 |
 | 31 | `scorecard_nav` | assemble | `src/agents/scorecard_navigator.py` | no model call | Insert the scorecard overview table into the Executive Summary. | §9 |
 | 32 | `toc` | assemble | `src/agents/toc_generator.py` | no model call | Generate the table of contents. The final content step — everything that mutates headings must already have run. | §9 |
@@ -114,12 +114,12 @@ The stage column groups nodes into the resume points the operator actually think
 
 | Routing | Nodes | Meaning |
 |---------|-------|---------|
-| **routed** | 2 | goes through `llm_provider` — can use the seat |
-| **bypasses** | 10 | builds an Anthropic client directly — always metered |
+| **routed** | 7 | goes through `llm_provider` — can use the seat |
+| **bypasses** | 5 | builds an Anthropic client directly — always metered |
 | **other provider** | 6 | no Anthropic client; calls Perplexity/Tavily/Firecrawl |
 | **no model call** | 17 | no model or retrieval client in the node's own modules |
 
-Across all of `src/`: **18 modules / 19 call sites** construct a client directly; **11 modules** route through `llm_provider`.
+Across all of `src/`: **13 modules / 14 call sites** construct a client directly; **16 modules** route through `llm_provider`.
 
 | Module | Sites | Constructs |
 |--------|------:|------------|
@@ -128,17 +128,12 @@ Across all of `src/`: **18 modules / 19 call sites** construct a client directly
 | `src/agents/codified_section_researcher.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/fact_corrector.py` | 1 | 1× `Anthropic()` |
 | `src/agents/key_info_rewrite.py` | 1 | 1× `Anthropic()` |
-| `src/agents/link_enrichment.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/portfolio_listing_agent.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/research_enhanced.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/researcher.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/revise_summary_sections.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/scorecard_agent.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/scorecard_evaluator.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/source_extractor.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/table_generator.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/validator.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/visualization_enrichment.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/writer.py` | 1 | 1× `ChatAnthropic()` |
 | `src/server/brand_fetch.py` | 1 | 1× `Anthropic()` |
 
@@ -152,9 +147,14 @@ Across all of `src/`: **18 modules / 19 call sites** construct a client directly
 - `src/agents/dataroom/extractors/team_extractor.py`
 - `src/agents/dataroom/extractors/traction_extractor.py`
 - `src/agents/deck_analyst.py`
+- `src/agents/link_enrichment.py`
 - `src/agents/perplexity_sources.py`
+- `src/agents/scorecard_evaluator.py`
 - `src/agents/slides/slide_stenographer.py`
 - `src/agents/slides/visual_collector.py`
+- `src/agents/table_generator.py`
+- `src/agents/validator.py`
+- `src/agents/visualization_enrichment.py`
 
 </details>
 

@@ -5,14 +5,18 @@ This agent validates investment memos against a comprehensive checklist
 and provides specific feedback for improvements.
 """
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 import json
 import os
 from pathlib import Path
 from typing import Dict, Any
 
 from ..state import MemoState, ValidationFeedback
+from ..llm_provider import complete
+
+# Scoring a whole memo is one long call, not an extraction. The CLI carries
+# fixed per-call overhead before it sees the prompt, so the 300s provider
+# default is tight for a full draft.
+_TIMEOUT = 600
 from ..artifacts import sanitize_filename, save_validation_artifacts
 from ..versioning import VersionManager
 
@@ -140,17 +144,6 @@ def validator_agent(state: MemoState) -> Dict[str, Any]:
     # Load style guide
     style_guide = load_style_guide()
 
-    # Initialize Claude
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0.3,  # Lower temperature for consistent evaluation
-    )
-
     # Create validation prompt
     user_prompt = f"""Validate this investment memo for {company_name} against Hypernova quality standards.
 
@@ -174,20 +167,33 @@ Return your validation as JSON matching the schema in your system prompt."""
         f"{VALIDATOR_SYSTEM_PROMPT_BASE}"
     )
 
-    # Call Claude for validation
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt)
-    ]
-
-    response = model.invoke(messages)
+    # Call Claude for validation.
+    #
+    # The system prompt is folded into the body rather than sent as a separate
+    # role: the CLI path replaces the system prompt with its own extraction
+    # preamble, so anything load-bearing — here the scoring schema and the style
+    # guide — has to travel in the prompt itself to survive both providers.
+    #
+    # Temperature was 0.3 "for consistent evaluation"; the provider pins it to 0,
+    # which serves that intent more strictly, not less.
+    completion = complete(
+        f"{system_prompt}\n\n---\n\n{user_prompt}",
+        max_tokens=4000,
+        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        timeout=_TIMEOUT,
+    )
+    if not completion.ok:
+        raise ValueError(
+            f"Validation call failed: {completion.error or 'empty response'} "
+            f"(provider={completion.provider})"
+        )
 
     # Parse response as JSON
     try:
-        validation_data = json.loads(response.content)
+        validation_data = json.loads(completion.text)
     except json.JSONDecodeError:
         # Try to extract JSON from markdown code block
-        content = response.content
+        content = completion.text
         if "```json" in content:
             json_start = content.find("```json") + 7
             json_end = content.find("```", json_start)
