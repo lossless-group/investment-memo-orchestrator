@@ -1578,7 +1578,73 @@ def format_team_report(team_data: dict, company_name: str) -> str:
 
 
 # Artifacts that together mean a dataroom pass finished.
-_DATAROOM_ARTIFACTS = ("0-dataroom-inventory.json", "state.json")
+# The inventory alone. state.json is written once at the very end, so
+# requiring it here discards every interrupted run's completed work.
+_DATAROOM_ARTIFACTS = ("0-dataroom-inventory.json",)
+
+
+# Artifact filename -> the `dataroom_analysis` key it was written from. Used to
+# rebuild the analysis when a run wrote its artifacts and then died before the
+# state snapshot.
+_ARTIFACT_KEYS = {
+    "1-competitive-analysis.json": "competitive",
+    "2-cap-table.json": "cap_table",
+    "3-financial-analysis.json": "financials",
+    "4-traction-analysis.json": "traction",
+    "5-team-analysis.json": "team",
+    "5b-legal-terms.json": "legal_docs",
+    "5b-legal-summary.json": "legal_summary",
+    "6-synthesis-report.json": "synthesis",
+}
+
+
+def _analysis_from_artifacts(cand, dataroom_path: str):
+    """
+    Rebuild `dataroom_analysis` from a version directory's artifacts.
+
+    Extractor results are written as each one completes, precisely so a run that
+    dies partway is not wasted. But `_reusable_dataroom_analysis` looked only at
+    state.json, which is written once at the very end — so a run killed after an
+    hour of extraction left a complete set of artifacts that nothing would ever
+    reuse, and the next run paid for all of it again. That is exactly what
+    happened to ProfileHealth v0.0.4.
+
+    Returns None when the inventory is missing; a partial extractor set is fine,
+    since a missing key reads as "nothing extracted for that category" either way.
+    """
+    import json as _json
+    from pathlib import Path as _P
+
+    inventory_file = _P(cand) / "0-dataroom-inventory.json"
+    if not inventory_file.exists():
+        return None
+    try:
+        inventory = _json.loads(inventory_file.read_text())
+    except (OSError, ValueError):
+        return None
+
+    docs = inventory.get("inventory") or inventory.get("documents") or []
+    if not docs:
+        return None
+
+    analysis = {
+        "dataroom_path": inventory.get("dataroom_path", dataroom_path),
+        "analysis_date": inventory.get("analysis_date"),
+        "document_count": len(docs),
+        "documents_by_type": inventory.get("documents_by_type", {}),
+        "inventory": docs,
+        "unreadable_files": inventory.get("unreadable_files", []),
+        "rebuilt_from_artifacts": str(cand),
+    }
+    for filename, key in _ARTIFACT_KEYS.items():
+        path = _P(cand) / filename
+        if not path.exists():
+            continue
+        try:
+            analysis[key] = _json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+    return analysis
 
 
 def _reusable_dataroom_analysis(output_dir, dataroom_path: str, fresh: bool = False):
@@ -1640,18 +1706,39 @@ def _reusable_dataroom_analysis(output_dir, dataroom_path: str, fresh: bool = Fa
                 discount = normalized_byte_delta(_Path(dataroom_path))
             except Exception:  # noqa: BLE001
                 discount = 0
-            if abs((was_bytes - discount) - now_bytes) > max(1024, now_bytes // 1000):
+            # Normalization only ever shrinks, and a candidate's inventory may
+            # have been recorded either before or after it ran. Accept a match on
+            # either baseline rather than assuming one: subtracting the discount
+            # from an already-normalized inventory manufactures a 230MB gap and
+            # discards a perfectly current analysis.
+            tolerance = max(1024, now_bytes // 1000)
+            direct = abs(was_bytes - now_bytes) <= tolerance
+            discounted = discount and abs((was_bytes - discount) - now_bytes) <= tolerance
+            if not (direct or discounted):
                 print(f"   ↻ dataroom contents changed since {cand.name} — re-analysing")
                 continue
-            if discount:
+            if discounted and not direct:
                 print(f"   ℹ️  {discount / 1048576:.0f} MB of the difference is asset "
                       f"normalization, not changed documents")
 
             # The extraction lives in the prior run's state, not in the synthesis
             # report — the report summarises, `dataroom_analysis` is the thing
             # itself, with legal_docs, cap_table, financials, traction and team.
-            prior = json.loads((cand / "state.json").read_text())
-            analysis = prior.get("dataroom_analysis")
+            analysis = None
+            state_file = cand / "state.json"
+            if state_file.exists():
+                try:
+                    analysis = json.loads(state_file.read_text()).get("dataroom_analysis")
+                except (OSError, ValueError):
+                    analysis = None
+            if not isinstance(analysis, dict) or not analysis.get("document_count"):
+                # No state snapshot, or an unusable one. The artifacts are still
+                # there and are what the analysis was written from, so rebuild
+                # rather than re-extract.
+                analysis = _analysis_from_artifacts(cand, dataroom_path)
+                if analysis:
+                    print(f"   🧩 rebuilt {cand.name}'s dataroom analysis from its "
+                          f"artifacts (no state snapshot — run ended early)")
             if not isinstance(analysis, dict) or not analysis.get("document_count"):
                 print(f"   ↻ {cand.name} has no usable dataroom_analysis — re-analysing")
                 continue
