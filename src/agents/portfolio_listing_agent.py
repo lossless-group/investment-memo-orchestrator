@@ -22,7 +22,7 @@ Responsibilities:
    unlinked entities get links where possible.
 
 NOTE: This agent intentionally delegates heavy parsing and web lookup to
-Anthropic (ChatAnthropic), similar to other agents in this project.
+the shared CLI-first provider layer, like every other agent in this project.
 """
 
 from __future__ import annotations
@@ -32,11 +32,12 @@ import os
 from pathlib import Path
 from typing import Any, Dict
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
-
 from ..state import MemoState
 from ..utils import get_latest_output_dir
+from ..llm_provider import complete
+
+# One pass over the whole fund context, returning JSON plus markdown.
+_TIMEOUT = 600
 from .link_enrichment import link_enrichment_agent
 
 
@@ -162,29 +163,28 @@ def portfolio_listing_agent(state: MemoState) -> Dict[str, Any]:
         "research_traction": research_traction,
     }
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0,
-    )
-
     print("\n📊 Building portfolio company listing (Current Portfolio section)...")
 
-    system_msg = SystemMessage(content=PORTFOLIO_LISTING_SYSTEM_PROMPT)
-    user_msg = HumanMessage(
-        content=(
-            "Use the following structured context (state + deck_analysis + research) "
-            "to build the portfolio listing.\n\nCONTEXT:\n" + json.dumps(context, indent=2)
-        )
+    # System prompt folded into the body — it defines the JSON:/MARKDOWN: split
+    # the parser below depends on, and the CLI path replaces the system role.
+    user_content = (
+        "Use the following structured context (state + deck_analysis + research) "
+        "to build the portfolio listing.\n\nCONTEXT:\n" + json.dumps(context, indent=2)
     )
 
     try:
-        response = model.invoke([system_msg, user_msg])
-        raw_content: str = response.content if isinstance(response.content, str) else str(response.content)
+        completion = complete(
+            f"{PORTFOLIO_LISTING_SYSTEM_PROMPT}\n\n---\n\n{user_content}",
+            max_tokens=8000,
+            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+            timeout=_TIMEOUT,
+        )
+        if not completion.ok:
+            raise RuntimeError(
+                f"{completion.error or 'empty response'} "
+                f"(provider={completion.provider})"
+            )
+        raw_content: str = completion.text
     except Exception as e:
         print(f"⊘ Portfolio listing failed: {e}")
         return {"messages": [f"Portfolio listing failed: {e}"]}

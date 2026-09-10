@@ -25,6 +25,11 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 
 from ..state import MemoState
+from ..llm_provider import cli_available, complete
+
+# The design pass returns a full HTML page; the extraction pass returns a small
+# JSON object. Both get headroom over the extractor default for CLI overhead.
+_TIMEOUT = 600
 
 
 # ── Step 1: Content extraction schemas ──────────────────────────────
@@ -283,24 +288,27 @@ def render_one_pager(
         firm = state.get("firm")
         brand_config = BrandConfig.load(brand_name=firm, firm=firm)
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY not set")
-
-    from anthropic import Anthropic
-    client = Anthropic(api_key=api_key)
-
     prompt = _build_design_prompt(slots, brand_config, state, mode)
 
     print(f"  Generating {mode} mode layout via Claude...")
-    response = client.messages.create(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+    # temperature was 0.3 here, "some creative latitude for design". The provider
+    # pins it to 0; a one-pager laid out from fixed slots and a brand config has
+    # little to gain from sampling variance and something to lose — this artifact
+    # is regenerated per mode and should match itself across them.
+    completion = complete(
+        prompt,
         max_tokens=8000,
-        temperature=0.3,  # Some creative latitude for design
-        messages=[{"role": "user", "content": prompt}]
+        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        timeout=_TIMEOUT,
     )
+    if not completion.ok:
+        raise RuntimeError(
+            f"One-pager {mode} layout failed: "
+            f"{completion.error or 'empty response'} "
+            f"(provider={completion.provider})"
+        )
 
-    html = _parse_html_response(response.content[0].text)
+    html = _parse_html_response(completion.text)
 
     # Mechanical disambiguation: fix company name and URL mutations
     company_name = state.get("company_name", "")
@@ -399,27 +407,32 @@ def one_pager_generator_agent(state: MemoState) -> Dict[str, Any]:
     print(f"📄 GENERATING ONE-PAGER FOR {company_name}")
     print("=" * 70)
 
-    # Check API key
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("⊘ One-pager skipped - no ANTHROPIC_API_KEY")
-        return {"messages": ["One-pager skipped - no API key"]}
-
-    from anthropic import Anthropic
-    client = Anthropic(api_key=api_key)
+    # This checked ANTHROPIC_API_KEY and skipped the one-pager without it,
+    # which on a seat-only run means the memo ships without its cover sheet
+    # and the reason scrolls past in a long log. Ask whether any provider is
+    # reachable instead.
+    if not (cli_available() or os.getenv("ANTHROPIC_API_KEY")):
+        print("⊘ One-pager skipped - no model provider reachable "
+              "(no `claude` CLI on PATH and no ANTHROPIC_API_KEY)")
+        return {"messages": ["One-pager skipped - no model provider reachable"]}
 
     # Step 1: Extract content slots
     prompt = _build_extraction_prompt(final_draft_text, state, investment_type)
 
     print("  Step 1: Extracting content slots...")
     try:
-        response = client.messages.create(
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        completion = complete(
+            prompt,
             max_tokens=2000,
-            temperature=0.1,
-            messages=[{"role": "user", "content": prompt}]
+            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+            timeout=_TIMEOUT,
         )
-        slots = _parse_extraction_response(response.content[0].text)
+        if not completion.ok:
+            raise RuntimeError(
+                f"{completion.error or 'empty response'} "
+                f"(provider={completion.provider})"
+            )
+        slots = _parse_extraction_response(completion.text)
     except Exception as e:
         print(f"  ❌ Content extraction failed: {e}")
         return {"messages": [f"One-pager failed: {e}"]}

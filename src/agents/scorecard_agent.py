@@ -3,10 +3,12 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 
-from langchain_anthropic import ChatAnthropic
-
 from ..state import MemoState
 from ..utils import get_latest_output_dir
+from ..llm_provider import complete
+
+# A full scorecard rendered from a template against research and sections.
+_TIMEOUT = 600
 
 
 def _load_scorecard_template() -> Dict[str, Any]:
@@ -188,18 +190,19 @@ def scorecard_agent(state: MemoState) -> Dict[str, Any]:
 
     prompt = _build_scorecard_prompt(state, scorecard_schema, research, sections)
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
+    completion = complete(
+        prompt,
+        max_tokens=4000,
         model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0,
+        timeout=_TIMEOUT,
     )
-
-    response = model.invoke(prompt)
-    markdown_scorecard = response.content
+    if not completion.ok:
+        raise RuntimeError(
+            f"Scorecard generation failed: "
+            f"{completion.error or 'empty response'} "
+            f"(provider={completion.provider})"
+        )
+    markdown_scorecard = completion.text
 
     scorecard_md_path = output_dir / "scorecard.md"
     with open(scorecard_md_path, "w") as f:

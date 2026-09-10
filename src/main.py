@@ -29,11 +29,23 @@ def main():
     # Load environment variables
     load_dotenv()
 
-    # Check for API key
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        console.print("[bold red]Error:[/bold red] ANTHROPIC_API_KEY not set in environment")
-        console.print("Please set it in .env file or environment variables")
+    # Check that *some* model provider is reachable.
+    #
+    # This demanded ANTHROPIC_API_KEY and exited 1 without it — which made the
+    # entry point the last thing standing between this pipeline and a seat-only
+    # run. Every agent can route through the Claude Code CLI and it would not
+    # have mattered: main() refused to start. See
+    # context-v/issues/Route-Every-Claude-Call-Through-The-CLI-First-Provider.md
+    from .llm_provider import cli_available, describe_provider
+
+    if not (cli_available() or os.getenv("ANTHROPIC_API_KEY")):
+        console.print("[bold red]Error:[/bold red] no model provider is reachable")
+        console.print("Either install and log in to the Claude Code CLI (`claude`),")
+        console.print("or set ANTHROPIC_API_KEY in .env or the environment.")
         sys.exit(1)
+
+    # Say what is about to be billed, before anything is.
+    console.print(f"[dim]{describe_provider()}[/dim]")
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(

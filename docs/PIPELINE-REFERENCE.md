@@ -48,7 +48,7 @@ Entry point: **`dataroom`**. Every node runs on every invocation; see the
 | 30 | `integrate_scorecard` | assemble | `src/workflow.py` | no model call | Insert the scorecard into its section and reassemble the final draft. | §9 |
 | 31 | `scorecard_nav` | assemble | `src/agents/scorecard_navigator.py` | no model call | Insert the scorecard overview table into the Executive Summary. | §9 |
 | 32 | `toc` | assemble | `src/agents/toc_generator.py` | no model call | Generate the table of contents. The final content step — everything that mutates headings must already have run. | §9 |
-| 33 | `one_pager` | export | `src/agents/one_pager_generator.py` | bypasses (2× `Anthropic()`) | Generate the single-page visual cover summary. | §6 |
+| 33 | `one_pager` | export | `src/agents/one_pager_generator.py` | routed | Generate the single-page visual cover summary. | §6 |
 | 34 | `finalize` | export | `src/workflow.py` | no model call | Verify the final draft and save the state snapshot. Reached when the validator scores 8 or above. | §8 |
 | 35 | `human_review` | export | `src/workflow.py` | no model call | Prepare the memo for human review with issues and suggestions. Reached when the validator scores below 8. | §5 |
 
@@ -114,18 +114,14 @@ The stage column groups nodes into the resume points the operator actually think
 
 | Routing | Nodes | Meaning |
 |---------|-------|---------|
-| **routed** | 11 | goes through `llm_provider` — can use the seat |
-| **bypasses** | 1 | builds an Anthropic client directly — always metered |
+| **routed** | 12 | goes through `llm_provider` — can use the seat |
 | **other provider** | 6 | no Anthropic client; calls Perplexity/Tavily/Firecrawl |
 | **no model call** | 17 | no model or retrieval client in the node's own modules |
 
-Across all of `src/`: **4 modules / 5 call sites** construct a client directly; **25 modules** route through `llm_provider`.
+Across all of `src/`: **1 module / 1 call site** still construct a client directly; **29 modules** route through `llm_provider`.
 
 | Module | Sites | Constructs |
 |--------|------:|------------|
-| `src/agents/one_pager_generator.py` | 2 | 2× `Anthropic()` |
-| `src/agents/portfolio_listing_agent.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/scorecard_agent.py` | 1 | 1× `ChatAnthropic()` |
 | `src/server/brand_fetch.py` | 1 | 1× `Anthropic()` |
 
 <details><summary>Modules already routing through <code>llm_provider</code></summary>
@@ -143,10 +139,13 @@ Across all of `src/`: **4 modules / 5 call sites** construct a client directly; 
 - `src/agents/fact_corrector.py`
 - `src/agents/key_info_rewrite.py`
 - `src/agents/link_enrichment.py`
+- `src/agents/one_pager_generator.py`
 - `src/agents/perplexity_sources.py`
+- `src/agents/portfolio_listing_agent.py`
 - `src/agents/research_enhanced.py`
 - `src/agents/researcher.py`
 - `src/agents/revise_summary_sections.py`
+- `src/agents/scorecard_agent.py`
 - `src/agents/scorecard_evaluator.py`
 - `src/agents/slides/slide_stenographer.py`
 - `src/agents/slides/visual_collector.py`
@@ -155,6 +154,7 @@ Across all of `src/`: **4 modules / 5 call sites** construct a client directly; 
 - `src/agents/validator.py`
 - `src/agents/visualization_enrichment.py`
 - `src/agents/writer.py`
+- `src/main.py`
 
 </details>
 

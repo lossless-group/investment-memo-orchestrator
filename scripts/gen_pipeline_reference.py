@@ -570,11 +570,21 @@ def render(nodes, entry, edges, conditionals, overlay) -> str:
 
     bypassing, routing_files = repo_inventory()
     total_sites = sum(n for _, n, _ in bypassing)
-    w(
-        f"Across all of `src/`: **{len(bypassing)} modules / {total_sites} call sites** "
-        f"construct a client directly; **{len(routing_files)} modules** route through "
-        "`llm_provider`."
-    )
+    def _plural(n: int, word: str) -> str:
+        return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+    if bypassing:
+        w(
+            f"Across all of `src/`: **{_plural(len(bypassing), 'module')} / "
+            f"{_plural(total_sites, 'call site')}** still construct a client directly; "
+            f"**{_plural(len(routing_files), 'module')}** route through `llm_provider`."
+        )
+    else:
+        w(
+            f"Across all of `src/`: **nothing constructs a client directly**. "
+            f"All {_plural(len(routing_files), 'module')} that call a model route "
+            "through `llm_provider`."
+        )
     w("")
     w("| Module | Sites | Constructs |")
     w("|--------|------:|------------|")

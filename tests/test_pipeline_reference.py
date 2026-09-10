@@ -68,9 +68,6 @@ gen = _load_generator()
 # When you route one of these through llm_provider, delete its line. Do not add
 # lines — a new entry means a new agent was written against the metered API.
 KNOWN_BYPASSING = {
-    "src/agents/one_pager_generator.py": 2,
-    "src/agents/portfolio_listing_agent.py": 1,
-    "src/agents/scorecard_agent.py": 1,
     "src/server/brand_fetch.py": 1,
 }
 
