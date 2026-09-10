@@ -49,6 +49,11 @@ from ..curation.source_file import (
     write_source_file,
 )
 from ..grounding import normalize
+from ..llm_provider import complete
+
+# Per-source extraction over up to max_chars of document text. Six of these run
+# concurrently, each as its own CLI subprocess when the seat is in use.
+_TIMEOUT = 420
 
 EXTRACTION_SYSTEM = """You are a research analyst reading ONE source document and recording what it actually says.
 
@@ -83,10 +88,13 @@ Return ONLY a JSON object:
             "topic": "2-5 word tag, e.g. pricing, competition, regulation"}]}"""
 
 
-def _extract_one(llm, sf, max_chars: int) -> Dict[str, Any]:
-    """One source: extract, verify every span, return items + rejects."""
-    from langchain_core.messages import HumanMessage, SystemMessage
+def _extract_one(sf, max_chars: int) -> Dict[str, Any]:
+    """One source: extract, verify every span, return items + rejects.
 
+    Took an `llm` as its first argument, shared across the thread pool. The
+    provider layer is a function, so there is nothing to share — each call is
+    independent, which is what the pool wanted in the first place.
+    """
     content, _ = _split_content(sf.body)
     text = (content or sf.excerpt or "")[:max_chars]
     label = sf.title or sf.url
@@ -98,13 +106,20 @@ def _extract_one(llm, sf, max_chars: int) -> Dict[str, Any]:
     scope = "full" if content.strip() else "excerpt"
     user = (f"Source title: {sf.title or sf.url}\nSource URL: {sf.url}\n\n"
             f"DOCUMENT TEXT:\n{text}\n\nExtract now. JSON only.")
-    try:
-        resp = llm.invoke([SystemMessage(content=EXTRACTION_SYSTEM),
-                           HumanMessage(content=user)])
-        raw = resp.content if hasattr(resp, "content") else str(resp)
-    except Exception as exc:  # noqa: BLE001
+    # EXTRACTION_SYSTEM is folded into the body: it defines the JSON shape and
+    # the verbatim-span rule that every item is checked against below, and the
+    # CLI path replaces the system role with its own preamble.
+    completion = complete(
+        f"{EXTRACTION_SYSTEM}\n\n---\n\n{user}",
+        max_tokens=4000,
+        model=os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        timeout=_TIMEOUT,
+    )
+    if not completion.ok:
         return {"sf": sf, "items": [], "rejected": [], "scope": scope,
-                "note": f"extraction failed: {exc}"[:160]}
+                "note": f"extraction failed: {completion.error or 'empty response'} "
+                        f"(provider={completion.provider})"[:160]}
+    raw = completion.text
 
     m = re.search(r"\{.*\}", raw, re.S)
     try:
@@ -164,11 +179,6 @@ def extract_for_deal(
     workers: int = 6,
 ) -> Dict[str, Any]:
     """Extract from every per-source file that has content, writing MD in place."""
-    try:
-        from langchain_anthropic import ChatAnthropic
-    except ImportError:
-        return {"extracted": 0, "note": "langchain_anthropic unavailable"}
-
     from ..curation.source_file import sources_dir
     sdir = sources_dir(Path(deal_inputs_dir))
     if not sdir.exists():
@@ -198,15 +208,10 @@ def extract_for_deal(
     if not files:
         return {"extracted": 0, "note": "no source files"}
 
-    llm = ChatAnthropic(
-        model=os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        max_tokens=4000, temperature=0,
-    )
-
     print(f"  📑 Extracting from {len(files)} source file(s), one pass each…")
     results: List[Dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(_extract_one, llm, sf, max_chars): sf for sf in files}
+        futures = {pool.submit(_extract_one, sf, max_chars): sf for sf in files}
         for fut in as_completed(futures):
             sf = futures[fut]
             try:

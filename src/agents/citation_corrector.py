@@ -19,18 +19,14 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from anthropic import Anthropic
-
+from ..llm_provider import complete
 from ..scrapers.research_pdf import scrape_research_pdf
 from ..schemas.research_pdf import ParsedCitation, PDFParseResult
 
-
-# Initialize Anthropic client
-def get_anthropic_client():
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-    return Anthropic(api_key=api_key)
+# Citation batches are structured extractions over a bibliography, not long-form
+# generation — but the CLI carries fixed per-call overhead, so the extractor
+# default gets some headroom.
+_TIMEOUT = 420
 
 
 class CitationCorrectorAgent:
@@ -46,7 +42,6 @@ class CitationCorrectorAgent:
             model: Claude model to use for corrections
         """
         self.model = model
-        self.client = get_anthropic_client()
 
     def process_pdf(
         self,
@@ -195,13 +190,19 @@ Return a JSON array with corrected citations. Each object should have:
 Return ONLY the JSON array, no other text."""
 
         try:
-            response = self.client.messages.create(
-                model=self.model,
+            completion = complete(
+                prompt,
                 max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model,
+                timeout=_TIMEOUT,
             )
+            if not completion.ok:
+                raise RuntimeError(
+                    f"{completion.error or 'empty response'} "
+                    f"(provider={completion.provider})"
+                )
 
-            response_text = response.content[0].text.strip()
+            response_text = completion.text.strip()
 
             # Extract JSON from response
             if response_text.startswith("```"):
@@ -293,13 +294,19 @@ Return a JSON array with objects containing:
 Return ONLY the JSON array. If you can't find a citation for a reference, don't include it."""
 
         try:
-            response = self.client.messages.create(
-                model=self.model,
+            completion = complete(
+                prompt,
                 max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model,
+                timeout=_TIMEOUT,
             )
+            if not completion.ok:
+                raise RuntimeError(
+                    f"{completion.error or 'empty response'} "
+                    f"(provider={completion.provider})"
+                )
 
-            response_text = response.content[0].text.strip()
+            response_text = completion.text.strip()
 
             if response_text.startswith("```"):
                 response_text = re.sub(r'^```(?:json)?\n?', '', response_text)

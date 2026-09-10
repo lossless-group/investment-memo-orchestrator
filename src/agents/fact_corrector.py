@@ -22,6 +22,10 @@ from pathlib import Path
 from datetime import datetime
 
 from ..state import MemoState
+from ..llm_provider import cli_available, complete
+
+# Rewriting a whole section around a set of corrections is a long single call.
+_TIMEOUT = 600
 
 
 def _build_correction_prompt(
@@ -205,14 +209,13 @@ def fact_corrector_agent(state: MemoState) -> Dict[str, Any]:
         section = claim.get("section", "Unknown")
         by_section.setdefault(section, []).append(claim)
 
-    # Initialize LLM client (use Anthropic Claude for correction, not Perplexity)
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    if not anthropic_key:
-        print("⊘ Fact correction skipped - no ANTHROPIC_API_KEY")
-        return {"messages": ["Fact correction skipped - no Anthropic API key"]}
-
-    from anthropic import Anthropic
-    client = Anthropic(api_key=anthropic_key)
+    # This skipped the whole correction pass when ANTHROPIC_API_KEY was unset,
+    # which on a CLI-first run means the fact-checker's findings were computed
+    # and then silently discarded. Ask whether any provider is reachable.
+    if not (cli_available() or os.getenv("ANTHROPIC_API_KEY")):
+        print("⊘ Fact correction skipped - no model provider reachable "
+              "(no `claude` CLI on PATH and no ANTHROPIC_API_KEY)")
+        return {"messages": ["Fact correction skipped - no model provider reachable"]}
 
     sections_dir = output_dir / "2-sections"
     corrections_log = []
@@ -241,18 +244,19 @@ def fact_corrector_agent(state: MemoState) -> Dict[str, Any]:
         prompt = _build_correction_prompt(original_content, section_claims, company_name)
 
         try:
-            response = client.messages.create(
-                model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+            completion = complete(
+                prompt,
                 max_tokens=8000,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
+                model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+                timeout=_TIMEOUT,
             )
+            if not completion.ok:
+                raise RuntimeError(
+                    f"{completion.error or 'empty response'} "
+                    f"(provider={completion.provider})"
+                )
 
-            corrected_content = response.content[0].text
+            corrected_content = completion.text
 
             # Validate: corrected content should be roughly the same length
             # (not a completely different document)

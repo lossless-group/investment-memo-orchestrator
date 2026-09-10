@@ -39,6 +39,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,6 +56,12 @@ EXTRACTION_SYSTEM_PROMPT = (
 # Where CLI calls run from. Deliberately outside any repo: a working directory
 # containing CLAUDE.md files loads all of them into every call.
 _ISOLATED_DIR: Optional[Path] = None
+
+# source_extractor runs six concurrent extractions, each of which reaches
+# _via_cli. Without this, two threads can both observe _ISOLATED_DIR as None and
+# both mkdtemp; one wins the assignment and the other's directory leaks with a
+# --mcp-config the losing call is no longer pointed at.
+_ISOLATED_DIR_LOCK = threading.Lock()
 
 DEFAULT_TIMEOUT = 300
 
@@ -112,10 +119,15 @@ def _isolated_dir() -> Path:
     This costs nothing to create and removes about 26k tokens per call.
     """
     global _ISOLATED_DIR
-    if _ISOLATED_DIR is None or not _ISOLATED_DIR.exists():
-        _ISOLATED_DIR = Path(tempfile.mkdtemp(prefix="memopop-llm-"))
-        (_ISOLATED_DIR / "empty-mcp.json").write_text('{"mcpServers":{}}', encoding="utf-8")
-    return _ISOLATED_DIR
+    with _ISOLATED_DIR_LOCK:
+        if _ISOLATED_DIR is None or not _ISOLATED_DIR.exists():
+            directory = Path(tempfile.mkdtemp(prefix="memopop-llm-"))
+            (directory / "empty-mcp.json").write_text('{"mcpServers":{}}', encoding="utf-8")
+            # Publish only once the config file exists — a concurrent caller
+            # that saw the path first would pass --mcp-config for a file that
+            # was not written yet.
+            _ISOLATED_DIR = directory
+        return _ISOLATED_DIR
 
 
 # =============================================================================

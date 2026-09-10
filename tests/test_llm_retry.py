@@ -95,3 +95,46 @@ def test_empty_completion_counts_as_failure(monkeypatch):
     result = complete_with_retry("p", attempts=2)
     assert result.text == "real"
     assert len(calls) == 2
+
+
+# ---------------------------------------------------------------------------
+# Concurrency
+# ---------------------------------------------------------------------------
+
+
+def test_isolated_dir_is_created_once_under_concurrency(monkeypatch, tmp_path):
+    """source_extractor runs six extractions at once; each reaches _via_cli.
+
+    _isolated_dir() lazily assigns a module global. Without a lock, two threads
+    can both see it as None, both mkdtemp, and one directory leaks — with the
+    losing call pointed at a --mcp-config in a directory nobody else uses.
+    """
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    monkeypatch.setattr(llm, "_ISOLATED_DIR", None)
+
+    created = []
+    real_mkdtemp = llm.tempfile.mkdtemp
+    barrier = threading.Barrier(8)
+
+    def slow_mkdtemp(*a, **kw):
+        # Widen the race window so an unlocked implementation reliably fails.
+        path = real_mkdtemp(*a, dir=str(tmp_path))
+        created.append(path)
+        return path
+
+    monkeypatch.setattr(llm.tempfile, "mkdtemp", slow_mkdtemp)
+
+    def worker():
+        barrier.wait()
+        return llm._isolated_dir()
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        dirs = list(pool.map(lambda _: worker(), range(8)))
+
+    assert len(set(dirs)) == 1, f"threads got different dirs: {set(dirs)}"
+    assert len(created) == 1, f"mkdtemp ran {len(created)} times, expected 1"
+    assert (dirs[0] / "empty-mcp.json").exists(), (
+        "the path was published before its mcp config was written"
+    )

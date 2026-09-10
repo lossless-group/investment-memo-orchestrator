@@ -41,7 +41,7 @@ Entry point: **`dataroom`**. Every node runs on every invocation; see the
 | 23 | `fact_check` | assemble | `src/agents/fact_checker.py` | no model call | Mechanical claim extraction. Currently reads `state["research"]` — the legacy blob — rather than the codified corpus the writer actually used; see `context-v/issues/Validation-and-Fact-Checker-not-using-Research.md`. | §2, §11 |
 | 24 | `attribution_audit` | assemble | `src/agents/attribution_audit.py` | no model call | Flag claims whose numbers are real but attributed to the wrong company. The gate that actually tests truth. | §7, §11 |
 | 25 | `fact_verify` | assemble | `src/agents/fact_verifier.py` | other provider (via Perplexity/OpenAI) | Verify extracted claims against sources via Perplexity. | §2, §11 |
-| 26 | `fact_correct` | assemble | `src/agents/fact_corrector.py` | bypasses (1× `Anthropic()`) | Apply verified corrections back to the section files — not to the assembled draft. | §2, §7, §11 |
+| 26 | `fact_correct` | assemble | `src/agents/fact_corrector.py` | routed | Apply verified corrections back to the section files — not to the assembled draft. | §2, §7, §11 |
 | 27 | `source_catalog` | assemble | `src/agents/source_cataloger.py` | no model call | Compile the complete per-section source list. | §2 |
 | 28 | `validate` | assemble | `src/agents/validator.py` | routed | Score the memo 0-10 against the style guide. Sees only the memo and the style guide — no research, no source catalog — and runs three nodes before the draft is rebuilt, so it critiques an artifact that no longer exists. Both defects tracked in the validation issue. | §1, §11 |
 | 29 | `scorecard` | assemble | `src/agents/scorecard_evaluator.py` | routed | Evaluate against the firm's scorecard template. | §11 |
@@ -114,27 +114,25 @@ The stage column groups nodes into the resume points the operator actually think
 
 | Routing | Nodes | Meaning |
 |---------|-------|---------|
-| **routed** | 9 | goes through `llm_provider` — can use the seat |
-| **bypasses** | 3 | builds an Anthropic client directly — always metered |
+| **routed** | 10 | goes through `llm_provider` — can use the seat |
+| **bypasses** | 2 | builds an Anthropic client directly — always metered |
 | **other provider** | 6 | no Anthropic client; calls Perplexity/Tavily/Firecrawl |
 | **no model call** | 17 | no model or retrieval client in the node's own modules |
 
-Across all of `src/`: **9 modules / 10 call sites** construct a client directly; **20 modules** route through `llm_provider`.
+Across all of `src/`: **6 modules / 7 call sites** construct a client directly; **23 modules** route through `llm_provider`.
 
 | Module | Sites | Constructs |
 |--------|------:|------------|
 | `src/agents/one_pager_generator.py` | 2 | 2× `Anthropic()` |
-| `src/agents/citation_corrector.py` | 1 | 1× `Anthropic()` |
-| `src/agents/fact_corrector.py` | 1 | 1× `Anthropic()` |
 | `src/agents/key_info_rewrite.py` | 1 | 1× `Anthropic()` |
 | `src/agents/portfolio_listing_agent.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/revise_summary_sections.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/scorecard_agent.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/source_extractor.py` | 1 | 1× `ChatAnthropic()` |
 | `src/server/brand_fetch.py` | 1 | 1× `Anthropic()` |
 
 <details><summary>Modules already routing through <code>llm_provider</code></summary>
 
+- `src/agents/citation_corrector.py`
 - `src/agents/codified_section_researcher.py`
 - `src/agents/dataroom/document_classifier.py`
 - `src/agents/dataroom/extractors/cap_table_extractor.py`
@@ -144,6 +142,7 @@ Across all of `src/`: **9 modules / 10 call sites** construct a client directly;
 - `src/agents/dataroom/extractors/team_extractor.py`
 - `src/agents/dataroom/extractors/traction_extractor.py`
 - `src/agents/deck_analyst.py`
+- `src/agents/fact_corrector.py`
 - `src/agents/link_enrichment.py`
 - `src/agents/perplexity_sources.py`
 - `src/agents/research_enhanced.py`
@@ -151,6 +150,7 @@ Across all of `src/`: **9 modules / 10 call sites** construct a client directly;
 - `src/agents/scorecard_evaluator.py`
 - `src/agents/slides/slide_stenographer.py`
 - `src/agents/slides/visual_collector.py`
+- `src/agents/source_extractor.py`
 - `src/agents/table_generator.py`
 - `src/agents/validator.py`
 - `src/agents/visualization_enrichment.py`
