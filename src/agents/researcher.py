@@ -6,13 +6,12 @@ an investment memo, including company fundamentals, market sizing, competitive
 landscape, team backgrounds, and traction metrics.
 """
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 import json
 import os
 from typing import Dict, Any
 
 from ..state import MemoState, ResearchData
+from ..llm_provider import complete
 
 
 # System prompt for Research Agent
@@ -98,17 +97,6 @@ def research_agent(state: MemoState) -> Dict[str, Any]:
     """
     company_name = state["company_name"]
 
-    # Initialize Claude
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0.3,  # Lower temperature for factual research
-    )
-
     # Create research prompt
     user_prompt = f"""Research the company "{company_name}" and gather comprehensive information for an investment memo.
 
@@ -121,20 +109,27 @@ Focus on providing the type and quality of information that would be needed for 
 
 Return your research as valid JSON matching the schema provided in your system prompt."""
 
-    # Call Claude for research
-    messages = [
-        SystemMessage(content=RESEARCH_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt)
-    ]
-
-    response = model.invoke(messages)
+    # Call Claude for research. The system prompt carries the JSON schema, so it
+    # is folded into the body: the CLI path substitutes its own system prompt and
+    # would otherwise drop the very thing the parse below depends on.
+    completion = complete(
+        f"{RESEARCH_SYSTEM_PROMPT}\n\n---\n\n{user_prompt}",
+        max_tokens=4000,
+        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        timeout=600,
+    )
+    if not completion.ok:
+        raise ValueError(
+            f"Research call failed: {completion.error or 'empty response'} "
+            f"(provider={completion.provider})"
+        )
 
     # Parse response as JSON
     try:
-        research_data = json.loads(response.content)
+        research_data = json.loads(completion.text)
     except json.JSONDecodeError:
         # If response isn't valid JSON, try to extract JSON from markdown code block
-        content = response.content
+        content = completion.text
         if "```json" in content:
             json_start = content.find("```json") + 7
             json_end = content.find("```", json_start)

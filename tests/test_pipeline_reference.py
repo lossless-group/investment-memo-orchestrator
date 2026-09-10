@@ -58,9 +58,12 @@ gen = _load_generator()
 # a run. Then the single-call agents: validator, scorecard_evaluator,
 # table_generator, link_enrichment, visualization_enrichment.
 #
-# Remaining: the writer and researchers (highest volume, most JSON parsing),
-# then brand_fetch.py last — it runs in the FastAPI sidecar, so the CLI has to
-# be shown reachable from there before it moves.
+# Then the writer and the three researchers, which needed complete_with_retry
+# and the system-prompt fold.
+#
+# Remaining: the correctors, the standalone agents, and brand_fetch.py last —
+# it runs in the FastAPI sidecar, so the CLI has to be shown reachable from
+# there before it moves.
 #
 # When you route one of these through llm_provider, delete its line. Do not add
 # lines — a new entry means a new agent was written against the metered API.
@@ -68,15 +71,11 @@ KNOWN_BYPASSING = {
     "src/agents/one_pager_generator.py": 2,
     "src/agents/portfolio_listing_agent.py": 1,
     "src/agents/citation_corrector.py": 1,
-    "src/agents/codified_section_researcher.py": 1,
     "src/agents/fact_corrector.py": 1,
     "src/agents/key_info_rewrite.py": 1,
-    "src/agents/research_enhanced.py": 1,
-    "src/agents/researcher.py": 1,
     "src/agents/revise_summary_sections.py": 1,
     "src/agents/scorecard_agent.py": 1,
     "src/agents/source_extractor.py": 1,
-    "src/agents/writer.py": 1,
     "src/server/brand_fetch.py": 1,
 }
 

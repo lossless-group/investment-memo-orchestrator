@@ -15,7 +15,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from ..state import MemoState, ScorecardResults, DimensionScore
-from ..llm_provider import complete
+from ..llm_provider import complete_with_retry
 from ..scorecard_loader import (
     load_scorecard,
     ScorecardDefinition,
@@ -144,46 +144,26 @@ Respond in JSON format:
 
 JSON Response:"""
 
-    # Invoke with retry logic.
-    #
-    # This used to catch anthropic's InternalServerError and RateLimitError.
-    # complete() never raises for a provider failure — it returns an
-    # LLMResponse with .ok False and the reason in .error — so an
-    # exception-keyed retry would have become dead code that silently stopped
-    # retrying anything. The loop now keys on .ok, which also covers the
-    # failures the exception list never named: a CLI timeout, a non-zero exit,
-    # and an empty completion.
-    import time
-
-    max_retries = 3
-    retry_delay = 2
-    content = ""
-
-    for attempt in range(max_retries):
-        completion = complete(
-            prompt,
-            max_tokens=1000,
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+    # Retry transient failures, then emit a neutral score rather than failing the
+    # run. This used to catch anthropic's InternalServerError and RateLimitError;
+    # complete() reports provider failures on the response instead of raising, so
+    # the shared helper keys on .ok — which also covers a CLI timeout, a non-zero
+    # exit, and an empty completion.
+    completion = complete_with_retry(
+        prompt,
+        max_tokens=1000,
+        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        label=f"score {dimension.name!r}",
+    )
+    if not completion.ok:
+        return DimensionScore(
+            score=3,
+            percentile="Top 50%",
+            evidence="Unable to evaluate due to API error",
+            improvements=["Evaluation needs manual review"]
         )
-        if completion.ok:
-            content = completion.text.strip()
-            break
 
-        if attempt < max_retries - 1:
-            wait_time = retry_delay * (2 ** attempt)
-            print(f"      ⚠️  LLM error (attempt {attempt + 1}/{max_retries}): "
-                  f"{completion.error or 'empty response'} "
-                  f"(provider={completion.provider})")
-            time.sleep(wait_time)
-        else:
-            print(f"      ❌ LLM error after {max_retries} attempts: "
-                  f"{completion.error or 'empty response'}")
-            return DimensionScore(
-                score=3,
-                percentile="Top 50%",
-                evidence="Unable to evaluate due to API error",
-                improvements=["Evaluation needs manual review"]
-            )
+    content = completion.text.strip()
 
     # Extract JSON from response
     try:

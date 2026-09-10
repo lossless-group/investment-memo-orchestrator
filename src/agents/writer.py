@@ -5,13 +5,22 @@ This agent is responsible for transforming research data into well-written
 memo sections that follow the Hypernova style guide and template structure.
 """
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 from ..state import MemoState, SectionDraft
+from ..llm_provider import complete, complete_with_retry
+
+# A section is one long generation, not an extraction, and the CLI carries fixed
+# per-call overhead before it sees the prompt. The 300s provider default is tight
+# for a 500-word section written against a full research file.
+_TIMEOUT = 600
+
+# Temperature was 0.7 here. The provider pins prose generation to 0, which AGENTS.md
+# §8 permits either way — sampling temperature is explicitly allowed to vary because
+# it must not change the cited facts, the source set, or the section structure.
+_MODEL = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929")
 from ..artifacts import sanitize_filename, save_section_artifact
 from ..versioning import VersionManager
 from ..frame_context import writer_block
@@ -153,7 +162,6 @@ def augment_section_draft(
     existing_draft: str,
     research: Dict[str, Any],
     deck_data: Dict[str, Any],
-    model: ChatAnthropic
 ) -> str:
     """
     Augment existing section draft with research findings.
@@ -163,7 +171,6 @@ def augment_section_draft(
         existing_draft: Existing draft from deck analysis
         research: Research data
         deck_data: Deck analysis data (for context)
-        model: Language model for augmentation
 
     Returns:
         Augmented section content
@@ -190,8 +197,16 @@ Output the AUGMENTED section (300-500 words) in markdown format.
 Return ONLY the section content, no preamble.
 """
 
-    response = model.invoke(prompt)
-    return response.content
+    completion = complete(prompt, max_tokens=4000, model=_MODEL, timeout=_TIMEOUT)
+    if not completion.ok:
+        # Returning the draft unchanged is the honest degradation: the deck-derived
+        # text is real, it is simply un-augmented. Substituting an apology would put
+        # meta-commentary into a section file (AGENTS.md §6).
+        print(f"      ⚠️  Augmentation failed for {section_name}: "
+              f"{completion.error or 'empty response'} "
+              f"(provider={completion.provider}); keeping the deck draft")
+        return existing_draft
+    return completion.text
 
 
 
@@ -348,7 +363,6 @@ def polish_section_research(
     company_name: str,
     memo_mode: str,
     style_guide: str,
-    model: ChatAnthropic,
     dataroom_facts: str = "",
     frame: Optional[Any] = None,
     output_dir: Optional[Any] = None,
@@ -364,7 +378,6 @@ def polish_section_research(
         company_name: Company name
         memo_mode: Memo mode
         style_guide: Style guide content
-        model: LLM model
 
     Returns:
         Polished section content with preserved citations
@@ -478,32 +491,23 @@ VALIDATION: Your output will be checked to ensure ALL {citations_before} citatio
 Output the polished section content (no section header "## {section_def.number}. {section_def.name}") followed by the complete "### Citations" section.
 """
 
-    # Invoke with retry logic for transient API errors
-    import time
-    from anthropic import InternalServerError, RateLimitError
+    # Retry transient failures, then fall back to the unpolished research.
+    # The retry used to catch anthropic's InternalServerError and RateLimitError;
+    # complete() reports provider failures on the response rather than raising,
+    # so complete_with_retry keys on .ok — which also covers a CLI timeout and an
+    # empty completion, neither of which that exception list named.
+    completion = complete_with_retry(
+        polish_prompt,
+        max_tokens=4000,
+        model=_MODEL,
+        timeout=_TIMEOUT,
+        label=f"polish {section_def.name!r}",
+    )
+    if not completion.ok:
+        print(f"      Using original research content without polishing")
+        return research_content  # Fallback to original research
 
-    max_retries = 3
-    retry_delay = 2  # seconds
-
-    for attempt in range(max_retries):
-        try:
-            response = model.invoke(polish_prompt)
-            polished_content = response.content.strip()
-            break  # Success, exit retry loop
-        except (InternalServerError, RateLimitError) as e:
-            if attempt < max_retries - 1:
-                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
-                print(f"      ⚠️  API error (attempt {attempt + 1}/{max_retries}): {type(e).__name__}")
-                print(f"      Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-            else:
-                print(f"      ❌ API error after {max_retries} attempts: {e}")
-                print(f"      Using original research content without polishing")
-                return research_content  # Fallback to original research
-        except Exception as e:
-            print(f"      ❌ Unexpected error during polishing: {e}")
-            print(f"      Using original research content without polishing")
-            return research_content  # Fallback to original research
+    polished_content = completion.text.strip()
 
     # Validate citations preserved (alphanumeric keys)
     all_citations_after = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', polished_content))
@@ -583,7 +587,6 @@ def write_single_section(
     investment_type: str,
     memo_mode: str,
     style_guide: str,
-    model: ChatAnthropic,
     current_date: str,
     dataroom_facts: str = "",
     frame: Optional[Any] = None,
@@ -602,7 +605,6 @@ def write_single_section(
         investment_type: Investment type
         memo_mode: Memo mode
         style_guide: Style guide content
-        model: LLM model
         current_date: Current date string
 
     Returns:
@@ -766,29 +768,23 @@ Target: {target_length} words (min: {section_def.target_length.min_words}, max: 
 SECTION CONTENT:
 """
 
-    # Invoke with retry logic for transient API errors
-    import time
-    from anthropic import InternalServerError, RateLimitError
-
-    max_retries = 3
-    retry_delay = 2  # seconds
-
-    for attempt in range(max_retries):
-        try:
-            response = model.invoke(user_prompt)
-            return response.content.strip()
-        except (InternalServerError, RateLimitError) as e:
-            if attempt < max_retries - 1:
-                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
-                print(f"      ⚠️  API error (attempt {attempt + 1}/{max_retries}): {type(e).__name__}")
-                print(f"      Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-            else:
-                print(f"      ❌ API error after {max_retries} attempts: {e}")
-                raise  # Re-raise after all retries exhausted
-        except Exception as e:
-            print(f"      ❌ Unexpected error during writing: {e}")
-            raise  # Re-raise unexpected errors
+    # Retry transient failures. Unlike the polish path there is no prior artifact
+    # to fall back to — this branch runs precisely because no research file
+    # exists — so exhausting the retries raises, as it did before.
+    completion = complete_with_retry(
+        user_prompt,
+        max_tokens=4000,
+        model=_MODEL,
+        timeout=_TIMEOUT,
+        label=f"write {section_def.name!r}",
+    )
+    if not completion.ok:
+        raise RuntimeError(
+            f"Writing section {section_def.name!r} failed: "
+            f"{completion.error or 'empty response'} "
+            f"(provider={completion.provider})"
+        )
+    return completion.text.strip()
 
 
 def writer_agent(state: MemoState) -> Dict[str, Any]:
@@ -818,18 +814,6 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
 
     # Load style guide (still used for general writing guidance)
     style_guide = load_style_guide()
-
-    # Initialize Claude
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0.7,
-        max_tokens=4000  # Smaller context per section
-    )
 
     # Get current date
     from datetime import datetime
@@ -924,7 +908,6 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 company_name=company_name,
                 memo_mode=memo_mode,
                 style_guide=style_guide,
-                model=model,
                 dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
                 frame=frame,
                 output_dir=output_dir,
@@ -940,7 +923,6 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 investment_type=investment_type,
                 memo_mode=memo_mode,
                 style_guide=style_guide,
-                model=model,
                 current_date=current_date,
                 dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
                 frame=frame,

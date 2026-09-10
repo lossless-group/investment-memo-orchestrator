@@ -15,7 +15,7 @@ the analyst ranks/prunes sources up-front; the pipeline doesn't waste
 budget on broad search and doesn't introduce LLM-fabricated URLs at the
 research layer.
 
-When ANTHROPIC_API_KEY is present, the agent additionally invokes Claude
+When a model provider is reachable, the agent additionally invokes Claude
 to synthesize per-section research notes with proper [^N] citations
 from the curated content — matching the Perplexity output format. When
 absent (or by `mode: codified-raw`), the agent writes the raw fetched
@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional
 
 from ..state import MemoState
 from ..outline_loader import load_outline_for_state
+from ..llm_provider import cli_available, complete
 from ..curation import (
     SourceEntry,
     SourcesMd,
@@ -195,7 +196,14 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
                   f"document(s) as curated sources")
 
     # Per-section research file generation.
-    use_llm = bool(os.environ.get("ANTHROPIC_API_KEY")) and sources_md.mode == "codified"
+    #
+    # This gated on ANTHROPIC_API_KEY, which is backwards on a CLI-first
+    # pipeline: with a Claude Code seat available and no API key set, codified
+    # synthesis silently downgraded to a raw source dump — the closed-corpus
+    # feature quietly turning itself off on precisely the configuration the
+    # pipeline prefers. Ask whether *a* provider is reachable instead.
+    provider_available = cli_available() or bool(os.environ.get("ANTHROPIC_API_KEY"))
+    use_llm = provider_available and sources_md.mode == "codified"
     if use_llm:
         synthesize = _synthesize_via_claude
     else:
@@ -395,13 +403,10 @@ def _synthesize_via_claude(
     sources only. Produces a research file in the same shape Perplexity
     would have written.
     """
-    try:
-        from langchain_anthropic import ChatAnthropic
-        from langchain_core.messages import HumanMessage, SystemMessage
-    except ImportError:
-        # Fall back gracefully if langchain isn't available.
-        return _synthesize_raw(research_dir, idx, section, matching, fetched, state)
-
+    # There used to be a try/except ImportError here guarding `langchain_anthropic`,
+    # falling back to a raw source dump when it was absent. The model call now goes
+    # through src/llm_provider, a first-party module that cannot fail to import, so
+    # the guard has nothing left to catch.
     section_name = getattr(section, "name", f"Section {idx}")
     guiding_questions = getattr(section, "guiding_questions", []) or []
     guidance = "\n".join(f"- {q}" for q in guiding_questions) or "(no explicit guiding questions — synthesize whatever the sources support)"
@@ -477,16 +482,25 @@ def _synthesize_via_claude(
     }
     _all_markers = [str(n) for n in range(1, len(matching) + 1)]
 
+    model_id = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-5-20250929")
+
     try:
-        llm = ChatAnthropic(
-            model=os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        # System prompt folded into the body. It states the closed-corpus rule
+        # this whole agent exists to enforce; the CLI path replaces the system
+        # role with its own preamble, so leaving it there would drop the
+        # constraint on the preferred provider.
+        completion = complete(
+            f"{system_prompt}\n\n---\n\n{user_prompt}",
             max_tokens=4000,
+            model=model_id,
+            timeout=600,
         )
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ])
-        content = response.content if hasattr(response, "content") else str(response)
+        if not completion.ok:
+            raise RuntimeError(
+                f"{completion.error or 'empty response'} "
+                f"(provider={completion.provider})"
+            )
+        content = completion.text
 
         # ── Enforcement: a rule with no validation is a suggestion. ──────────
         # The writer agent already proves this pattern works: state the count,
@@ -521,18 +535,31 @@ def _synthesize_via_claude(
                 )
             print(f"      \u21ba Re-prompting: {len(skipped)} source(s) unused, "
                   f"{len(fabricated)} ungrounded claim(s)")
-            retry = llm.invoke([
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-                *( [] ),
-                HumanMessage(content=(
-                    "Your draft failed validation.\n\n"
-                    + "\n\n".join(problems)
-                    + "\n\nRewrite the research notes now, fixing both issues. "
-                      "Keep everything that was correct."
-                )),
-            ])
-            retry_content = retry.content if hasattr(retry, "content") else str(retry)
+            # The draft being corrected is now IN the correction prompt.
+            #
+            # This used to send system + user + the complaint, with a vestigial
+            # `*([])` where the assistant turn belonged — so the model was told
+            # to "keep everything that was correct" about a draft it could not
+            # see, and had to regenerate from scratch each time. Same defect the
+            # `amend` directive had: the minimum change is not followable
+            # without the thing being changed.
+            retry_completion = complete(
+                f"{system_prompt}\n\n---\n\n{user_prompt}\n\n---\n\n"
+                f"YOUR PREVIOUS DRAFT:\n\n{content}\n\n---\n\n"
+                "Your draft failed validation.\n\n"
+                + "\n\n".join(problems)
+                + "\n\nRewrite the research notes now, fixing both issues. "
+                  "Keep everything that was correct.",
+                max_tokens=4000,
+                model=model_id,
+                timeout=600,
+            )
+            if not retry_completion.ok:
+                raise RuntimeError(
+                    f"{retry_completion.error or 'empty response'} "
+                    f"(provider={retry_completion.provider})"
+                )
+            retry_content = retry_completion.text
             retry_skipped = uncited_sources(retry_content, _all_markers)
             retry_report = verify(retry_content, _source_text)
             # Accept the retry only if it is strictly better on both axes.

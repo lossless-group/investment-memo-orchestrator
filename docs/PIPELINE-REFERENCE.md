@@ -18,14 +18,14 @@ Entry point: **`dataroom`**. Every node runs on every invocation; see the
 |---|------|-------|--------|-------------|---------|-----------|
 | 1 | `dataroom` | dataroom | `src/agents/dataroom/` | routed | Classify and extract every document in the dataroom; skips when no dataroom is anchored. | §7, §11 |
 | 2 | `deck_analyst` | deck | `src/agents/deck_analyst.py` | routed | Read the pitch deck via Claude vision, batching page renders; skips when no deck is present. | §7, §11 |
-| 3 | `research` | research | `src/agents/research_enhanced.py / src/agents/researcher.py` | bypasses (2× `ChatAnthropic()`, via Perplexity/OpenAI, Tavily) | General web research via Tavily. Node function is chosen at build time by `USE_WEB_SEARCH`; the enhanced agent is the default and the plain one is the fallback. | §2, §10, §11 |
+| 3 | `research` | research | `src/agents/research_enhanced.py / src/agents/researcher.py` | routed (via Perplexity/OpenAI, Tavily) | General web research via Tavily. Node function is chosen at build time by `USE_WEB_SEARCH`; the enhanced agent is the default and the plain one is the fallback. | §2, §10, §11 |
 | 4 | `section_research` | research | `src/agents/perplexity_section_researcher.py` | other provider (via Perplexity/OpenAI) | Per-section deep research through Perplexity Sonar Pro, keeping the retrieved-source array so citations reconcile. | §2, §10, §11 |
 | 5 | `competitive_researcher` | research | `src/agents/competitive_landscape_researcher.py` | other provider (via Perplexity/OpenAI) | Discover competitor candidates across multiple queries. | §2, §10 |
 | 6 | `competitive_evaluator` | research | `src/agents/competitive_landscape_evaluator.py` | other provider (via Perplexity/OpenAI) | Classify candidates direct/indirect/adjacent and run gap analysis. | §11 |
 | 7 | `cite` | research | `src/agents/citation_enrichment.py` | other provider (via Perplexity/OpenAI) | Add inline citations to the research files, preserving existing ones. | §2, §11 |
 | 8 | `cleanup_research` | research | `src/workflow.py` | no model call | GATE 1 — validate every URL in `1-research/` and remove 404s and hallucinations before the writer ever sees them. | §2 |
 | 9 | `aggregate_sources` | research | `src/agents/source_aggregator.py` | no model call | Aggregate broad-search URLs into a curated `Sources.md` draft and HALT for analyst curation. In codified mode the curated list is already authoritative and the halt is skipped. This is the seam the closed corpus depends on. | §2 |
-| 10 | `draft` | write | `src/agents/writer.py` | bypasses (1× `ChatAnthropic()`) | Write each section in isolation from the outline and the codified research. The writer has no search tool. | §1, §3, §4, §5, §6, §7, §9 |
+| 10 | `draft` | write | `src/agents/writer.py` | routed | Write each section in isolation from the outline and the codified research. The writer has no search tool. | §1, §3, §4, §5, §6, §7, §9 |
 | 11 | `inject_deck_images` | write | `src/agents/inject_deck_images.py` | no model call | Place deck screenshots into the section files. | §12 |
 | 12 | `enrich_trademark` | write | `src/agents/trademark_enrichment.py` | no model call | Insert the company trademark into the header. | §12 |
 | 13 | `enrich_socials` | write | `src/agents/socials_enrichment.py` | other provider (via Tavily) | Attach LinkedIn and professional profile links to named team members. | §12 |
@@ -114,31 +114,28 @@ The stage column groups nodes into the resume points the operator actually think
 
 | Routing | Nodes | Meaning |
 |---------|-------|---------|
-| **routed** | 7 | goes through `llm_provider` — can use the seat |
-| **bypasses** | 5 | builds an Anthropic client directly — always metered |
+| **routed** | 9 | goes through `llm_provider` — can use the seat |
+| **bypasses** | 3 | builds an Anthropic client directly — always metered |
 | **other provider** | 6 | no Anthropic client; calls Perplexity/Tavily/Firecrawl |
 | **no model call** | 17 | no model or retrieval client in the node's own modules |
 
-Across all of `src/`: **13 modules / 14 call sites** construct a client directly; **16 modules** route through `llm_provider`.
+Across all of `src/`: **9 modules / 10 call sites** construct a client directly; **20 modules** route through `llm_provider`.
 
 | Module | Sites | Constructs |
 |--------|------:|------------|
 | `src/agents/one_pager_generator.py` | 2 | 2× `Anthropic()` |
 | `src/agents/citation_corrector.py` | 1 | 1× `Anthropic()` |
-| `src/agents/codified_section_researcher.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/fact_corrector.py` | 1 | 1× `Anthropic()` |
 | `src/agents/key_info_rewrite.py` | 1 | 1× `Anthropic()` |
 | `src/agents/portfolio_listing_agent.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/research_enhanced.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/researcher.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/revise_summary_sections.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/scorecard_agent.py` | 1 | 1× `ChatAnthropic()` |
 | `src/agents/source_extractor.py` | 1 | 1× `ChatAnthropic()` |
-| `src/agents/writer.py` | 1 | 1× `ChatAnthropic()` |
 | `src/server/brand_fetch.py` | 1 | 1× `Anthropic()` |
 
 <details><summary>Modules already routing through <code>llm_provider</code></summary>
 
+- `src/agents/codified_section_researcher.py`
 - `src/agents/dataroom/document_classifier.py`
 - `src/agents/dataroom/extractors/cap_table_extractor.py`
 - `src/agents/dataroom/extractors/competitive_extractor.py`
@@ -149,12 +146,15 @@ Across all of `src/`: **13 modules / 14 call sites** construct a client directly
 - `src/agents/deck_analyst.py`
 - `src/agents/link_enrichment.py`
 - `src/agents/perplexity_sources.py`
+- `src/agents/research_enhanced.py`
+- `src/agents/researcher.py`
 - `src/agents/scorecard_evaluator.py`
 - `src/agents/slides/slide_stenographer.py`
 - `src/agents/slides/visual_collector.py`
 - `src/agents/table_generator.py`
 - `src/agents/validator.py`
 - `src/agents/visualization_enrichment.py`
+- `src/agents/writer.py`
 
 </details>
 

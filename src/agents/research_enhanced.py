@@ -5,8 +5,6 @@ This version actively searches the web for company information instead of
 just acknowledging data gaps.
 """
 
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 import json
 import os
 from typing import Dict, Any, List, Optional
@@ -15,6 +13,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from ..state import MemoState, ResearchData
+from ..llm_provider import complete
 from ..artifacts import create_artifact_directory, save_research_artifacts
 from ..versioning import VersionManager
 from ..outline_loader import load_outline_for_state
@@ -506,16 +505,6 @@ MANDATORY RULES FOR DISAMBIGUATION:
     research_text = "\n\n---\n\n".join(research_context) if research_context else "No web search results available."
 
     # Use Claude to synthesize the research
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-
-    model = ChatAnthropic(
-        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
-        api_key=api_key,
-        temperature=0.3,
-    )
-
     system_prompt = """You are an investment research specialist synthesizing web search results into structured company data.
 
 Your task is to extract and organize information from web search results into a structured JSON format for investment analysis.
@@ -626,19 +615,29 @@ Extract and organize this information into the JSON schema provided in your syst
 Return valid JSON only."""
 
     print("Synthesizing research with Claude...")
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt)
-    ]
-
-    response = model.invoke(messages)
+    # System prompt folded into the body. It carries the closed-corpus rule —
+    # "use ONLY information found in the provided search results" — and the JSON
+    # schema. The CLI path substitutes its own system prompt, so leaving those in
+    # the system role would drop the anti-fabrication constraint on exactly the
+    # provider this pipeline prefers.
+    completion = complete(
+        f"{system_prompt}\n\n---\n\n{user_prompt}",
+        max_tokens=4000,
+        model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+        timeout=600,
+    )
+    if not completion.ok:
+        raise ValueError(
+            f"Research synthesis failed: {completion.error or 'empty response'} "
+            f"(provider={completion.provider})"
+        )
 
     # Parse response as JSON
     try:
-        research_data = json.loads(response.content)
+        research_data = json.loads(completion.text)
     except json.JSONDecodeError:
         # Try to extract JSON from markdown code block
-        content = response.content
+        content = completion.text
         if "```json" in content:
             json_start = content.find("```json") + 7
             json_end = content.find("```", json_start)

@@ -39,6 +39,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -172,6 +173,48 @@ def complete(
 
     response = _via_api(prompt, images, max_tokens, model)
     response.notes.append("`claude` CLI not found; used the metered API")
+    return response
+
+
+def complete_with_retry(
+    prompt: str,
+    *,
+    attempts: int = 3,
+    base_delay: float = 2.0,
+    label: str = "LLM call",
+    **kwargs,
+) -> LLMResponse:
+    """``complete()`` retried with exponential backoff on a failed response.
+
+    Agents used to wrap ``model.invoke`` in
+    ``except (InternalServerError, RateLimitError)``. ``complete()`` never
+    raises for a provider failure — it returns a response whose ``.ok`` is
+    False — so an exception-keyed retry silently becomes dead code the moment
+    an agent is routed through this module. Three separate agents carried that
+    pattern; this is the one implementation they now share.
+
+    Keying on ``.ok`` also covers the failures that exception list never named:
+    a CLI timeout, a non-zero exit, and a call that returns empty.
+
+    Returns the **last** response when every attempt fails rather than raising,
+    because the callers differ in what a give-up means — the writer falls back
+    to unpolished research, the scorecard emits a default score. Forcing an
+    exception would take that choice away from them.
+    """
+    response = complete(prompt, **kwargs)
+    for attempt in range(1, attempts):
+        if response.ok:
+            return response
+        wait = base_delay * (2 ** (attempt - 1))
+        print(f"      ⚠️  {label} failed (attempt {attempt}/{attempts}): "
+              f"{response.error or 'empty response'} "
+              f"(provider={response.provider}); retrying in {wait:.0f}s")
+        time.sleep(wait)
+        response = complete(prompt, **kwargs)
+
+    if not response.ok:
+        print(f"      ❌ {label} failed after {attempts} attempts: "
+              f"{response.error or 'empty response'}")
     return response
 
 
