@@ -414,7 +414,8 @@ def format_research_summary(research_data: Dict[str, Any]) -> str:
 
 
 def save_section_artifact(output_dir: Path, section_number: int,
-                          section_name: str, content: str) -> None:
+                          section_name: str, content: str,
+                          outline_filename: str = "") -> None:
     """
     Save individual section to artifacts.
 
@@ -423,11 +424,25 @@ def save_section_artifact(output_dir: Path, section_number: int,
         section_number: Section number (1-10)
         section_name: Name of the section
         content: Section content
+        outline_filename: The filename the active outline declares for this
+            section. Preferred over a slug of the name; see below.
     """
     import re
 
     sections_dir = output_dir / "2-sections"
-    filename = f"{section_number:02d}-{sanitize_filename(section_name).lower()}.md"
+    # The outline's declared filename when we have it, a slug of the title
+    # otherwise. These two disagreed for any section whose filename is not a
+    # slug of its name — §7, §8 and §9 of the 12Ps outline — so a run wrote
+    # `07-risks--what-could-go-wrong.md` while the writer's frame guard, the
+    # research lookup and the assembler's expectations all keyed on
+    # `07-risks.md`. Both files then landed in 2-sections/ and assembly, which
+    # is a plain glob, concatenated both into the memo.
+    #
+    # AGENTS.md §1: the outline is the contract.
+    filename = (
+        outline_filename
+        or f"{section_number:02d}-{sanitize_filename(section_name).lower()}.md"
+    )
 
     # Deduplicate leading heading from LLM output. The LLM sometimes includes
     # a section header despite being told not to. We add the canonical

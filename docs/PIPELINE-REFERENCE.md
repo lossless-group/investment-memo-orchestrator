@@ -118,7 +118,7 @@ The stage column groups nodes into the resume points the operator actually think
 | **other provider** | 6 | no Anthropic client; calls Perplexity/Tavily/Firecrawl |
 | **no model call** | 17 | no model or retrieval client in the node's own modules |
 
-Across all of `src/`: **nothing constructs a client directly**. All 30 modules that call a model route through `llm_provider`.
+Across all of `src/`: **nothing constructs a client directly**. All 31 modules that call a model route through `llm_provider`.
 
 | Module | Sites | Constructs |
 |--------|------:|------------|
@@ -146,6 +146,7 @@ Across all of `src/`: **nothing constructs a client directly**. All 30 modules t
 - `src/agents/revise_summary_sections.py`
 - `src/agents/scorecard_agent.py`
 - `src/agents/scorecard_evaluator.py`
+- `src/agents/section_reviser.py`
 - `src/agents/slides/slide_stenographer.py`
 - `src/agents/slides/visual_collector.py`
 - `src/agents/source_extractor.py`
@@ -211,6 +212,7 @@ Every executable under `cli/`, `cli/utils/`, and `src/cli/`. Purpose is each fil
 | `cli/recompile_memo.py` | `target` · `--firm`, `--deal`, `--version` | Recompile a memo from sections and consolidate citations. |
 | `cli/refocus_section.py` | `target`, `section` · `--firm`, `--deal`, `--version` | Refocus or repair a specific memo section when web research is thin or noisy. |
 | `cli/resume_from_interruption.py` | `company_name` · `--firm`, `--deal`, `--version` | Resume workflow from last interruption. |
+| `cli/revise_section.py` | `section` · `--firm`, `--deal`, `--company`, `--version`, `--path`, `--angle`, `--angle-file`, `--attempts`, `--model`, `--reassemble`, `--dry-run` | Revise one memo section against an angle you supply, without losing its facts. |
 | `cli/rewrite_key_info.py` | `--corrections`, `--preview`, `--output-mode`, `--source-version`, `--source-path` | Correct crucial information in investment memos using YAML correction files. |
 | `cli/sanitize_commentary.py` | `company_or_path` · `--firm`, `--deal`, `--version`, `--preview`, `--reassemble`, `--no-reassemble` | Sanitize Commentary CLI |
 | `cli/score_memo.py` | `company` · `--firm`, `--deal`, `--version`, `--scorecard`, `--output`, `--model` | CLI tool for scoring an existing memo against a scorecard. |

@@ -222,7 +222,7 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
 
         if not matching:
             sections_with_no_sources.append(section_name)
-            _write_section_stub(research_dir, idx, section_name)
+            _write_section_stub(research_dir, idx, section_name, section=section)
             continue
 
         # Only pass entries whose URL actually fetched cleanly.
@@ -232,12 +232,13 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
             _write_section_stub(
                 research_dir, idx, section_name,
                 reason="curated sources tagged but all fetches failed",
+                section=section,
             )
             continue
 
         synthesize(research_dir, idx, section, usable, fetched, state)
         sections_written += 1
-        print(f"    ✓ wrote {idx:02d}-{_slugify(section_name)}-research.md ({len(usable)} sources)")
+        print(f"    ✓ wrote {research_filename_for(idx, section)} ({len(usable)} sources)")
 
     print(
         f"\n✓ Codified research complete: {sections_written}/{len(outline.sections)} "
@@ -385,7 +386,7 @@ def _synthesize_raw(
     lines.extend(citation_entries)
     lines.append("")
 
-    section_filename = f"{idx:02d}-{_slugify(section_name)}-research.md"
+    section_filename = research_filename_for(idx, section)
     _write_research(research_dir, section_filename, "\n".join(lines), section, state)
 
 
@@ -579,7 +580,7 @@ def _synthesize_via_claude(
         print(f"    ⚠️  Claude synthesis failed: {e}; falling back to raw dump")
         return _synthesize_raw(research_dir, idx, section, matching, fetched, state)
 
-    section_filename = f"{idx:02d}-{_slugify(section_name)}-research.md"
+    section_filename = research_filename_for(idx, section)
     _write_research(research_dir, section_filename, content, section, state)
 
 
@@ -619,14 +620,46 @@ def _run_version(state: MemoState) -> str:
     return Path(out).name if out else "unversioned"
 
 
+def research_filename_for(idx: int, section) -> str:
+    """The research filename for a section — the outline's, not a slug of its name.
+
+    These disagreed. This module wrote `{idx}-{slugify(section.name)}-research.md`
+    while writer.py read `section_def.filename.replace(".md", "-research.md")`.
+    For any section whose declared filename is not a slug of its title they name
+    different files, so the research written here was never read there.
+
+    On ProfileHealth's outline that is §7, §8 and §9. The frame appended its
+    long-term-care evidence to `07-risks-and-what-could-go-wrong-research.md`;
+    the writer opened `07-risks-research.md`, found a stub, and fell back to
+    general research. The section came out with none of the thesis the frame had
+    just researched, and nothing reported a problem.
+
+    AGENTS.md §1: the outline is the contract. `section.filename` is the name.
+    """
+    declared = getattr(section, "filename", "") or ""
+    if declared:
+        return declared.replace(".md", "-research.md")
+    # No declared filename (a template-driven run) — fall back to the old shape.
+    name = getattr(section, "name", None) or f"Section {idx}"
+    return f"{idx:02d}-{_slugify(name)}-research.md"
+
+
 def _write_section_stub(
     research_dir: Path,
     idx: int,
     section_name: str,
     reason: str = "no curated sources tagged for this section",
+    section=None,
 ) -> None:
-    """When a section has no curated sources, write a minimal placeholder."""
-    section_filename = f"{idx:02d}-{_slugify(section_name)}-research.md"
+    """When a section has no curated sources, write a minimal placeholder.
+
+    The stub has to land on the same name the real file would, or the writer
+    reads a stub that a later run's real research never replaces.
+    """
+    section_filename = (
+        research_filename_for(idx, section) if section is not None
+        else f"{idx:02d}-{_slugify(section_name)}-research.md"
+    )
     body = (
         f"# {section_name} — Research\n"
         f"\n"

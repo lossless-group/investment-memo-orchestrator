@@ -324,6 +324,44 @@ IMPROVED SECTION CONTENT:
     improved_content = response.choices[0].message.content
 
     # Save the improved section
+
+    # --- evidence gate -------------------------------------------------
+    #
+    # These tools rewrite a BODY section — one that carries the argument and its
+    # evidence. Every marker in it is load-bearing: losing one orphans a claim,
+    # and the prose reads better afterwards, which is what makes it dangerous.
+    # Neither tool checked anything before; both went straight from the model's
+    # reply to save_section_artifact.
+    #
+    # Unlike the bookends, a body section may not shed markers. See
+    # src/preservation.py for why the two regimes differ.
+    from src.preservation import BODY, Preservation, compare, correction, instructions
+
+    _before = existing_content or ""
+    _keep = Preservation.of(_before)
+    if _before.strip() and (_keep.citations or _keep.figures):
+        _discipline = instructions(_keep, mode=BODY)
+        _losses = compare(_keep, Preservation.of(improved_content), mode=BODY)
+        if _losses.any:
+            console.print(f"[yellow]  Draft lost {{_losses.summary()}}; asking once more[/yellow]")
+            _retry = perplexity_client.chat.completions.create(
+                model="sonar-pro",
+                messages=[{{"role": "user", "content":
+                           prompt + "\n\n" + _discipline + "\n\n"
+                           + correction(improved_content, _losses)}}],
+            )
+            _second = _retry.choices[0].message.content
+            if not compare(_keep, Preservation.of(_second), mode=BODY).any:
+                improved_content = _second
+                console.print("[green]  Second attempt preserved everything[/green]")
+            else:
+                console.print(
+                    "[bold red]  Refused:[/bold red] the rewrite still drops "
+                    f"{{compare(_keep, Preservation.of(_second), mode=BODY).summary()}}. "
+                    "The section on disk is unchanged."
+                )
+                return
+
     save_section_artifact(artifact_dir, section_num, section_name, improved_content)
 
     console.print(f"[green]✓ Saved improved section to:[/green] {artifact_dir}/2-sections/{section_file}")

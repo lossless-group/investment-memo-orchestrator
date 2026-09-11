@@ -21,6 +21,9 @@ from pathlib import Path
 
 from ..utils import get_latest_output_dir
 from ..llm_provider import complete
+from ..preservation import (
+    SUMMARY, Preservation, correction, guard, instructions,
+)
 
 # Both bookend sections are rewritten against up to 50k characters of assembled
 # memo. That is a long single call, not an extraction.
@@ -28,6 +31,56 @@ _TIMEOUT = 600
 
 
 # Executive Summary revision prompt
+class _BookendRefused(Exception):
+    """The evidence gate declined the rewrite. Caught by the caller's handler,
+    which already leaves the existing section in place."""
+
+
+def _revise_bookend(
+    label: str,
+    base_prompt: str,
+    existing_text: str,
+    full_memo: str,
+    model,
+) -> str:
+    """Rewrite a bookend section under SUMMARY discipline.
+
+    The Executive Summary and Closing Assessment summarise sections that are
+    already sourced, so they are NOT required to carry markers — a summary
+    studded with footnotes for figures the body already vouches for is worse
+    prose and no more traceable. They are required to keep the numbers honest
+    and never cite something that does not resolve.
+
+    Before this, neither prompt mentioned citations or figures at all, and
+    nothing checked the output. ProfileHealth v0.0.4 went from 2 markers to 0 in
+    the Executive Summary and 5 to 0 in the Closing Assessment in one unattended
+    run, and the log said "Revised" both times. The markers were the acceptable
+    half of that; a rounded figure would not have been, and nothing would have
+    caught it either.
+
+    Returns the revised text, or "" when the gate refuses — the caller keeps the
+    existing section.
+    """
+    keep = Preservation.of(existing_text) if existing_text else Preservation()
+    known = set(Preservation.of(full_memo).citations)
+    discipline = instructions(keep, mode=SUMMARY)
+    prompt = f"{base_prompt}\n\n{discipline}" if discipline else base_prompt
+
+    def attempt(n, previous, losses):
+        text = prompt if previous is None else f"{prompt}\n\n{correction(previous, losses)}"
+        completion = complete(text, max_tokens=4096, model=model, timeout=_TIMEOUT)
+        if not completion.ok:
+            print(f"     ❌ {label} call failed: {completion.error or 'empty response'} "
+                  f"(provider={completion.provider})")
+            return None
+        return completion.text.strip()
+
+    accepted, _log = guard(
+        existing_text or "", attempt, label=label, mode=SUMMARY, known_citations=known,
+    )
+    return accepted or ""
+
+
 EXEC_SUMMARY_PROMPT = """You are revising the Executive Summary for an investment memo.
 
 You have access to the COMPLETE final memo below. Write a NEW Executive Summary that:
@@ -456,15 +509,16 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        completion = complete(
-            exec_prompt, max_tokens=4096, model=model, timeout=_TIMEOUT
+        existing_exec = exec_file.read_text() if exec_file.exists() else ""
+        revised_exec = _revise_bookend(
+            "Executive Summary", exec_prompt, existing_exec, full_memo, model
         )
-        if not completion.ok:
-            raise RuntimeError(
-                f"{completion.error or 'empty response'} "
-                f"(provider={completion.provider})"
-            )
-        revised_exec = completion.text
+        if not revised_exec:
+            # The gate refused, or the call failed. An existing summary that is
+            # merely stale beats one that quietly rounded a number.
+            print("  ⊘ Executive Summary left as it was")
+            messages.append("Executive Summary unchanged (revision refused by the evidence gate)")
+            raise _BookendRefused()
 
         # Ensure proper header format
         if not revised_exec.strip().startswith("#"):
@@ -510,15 +564,14 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     try:
-        completion = complete(
-            closing_prompt, max_tokens=4096, model=model, timeout=_TIMEOUT
+        existing_closing = closing_file.read_text() if closing_file.exists() else ""
+        revised_closing = _revise_bookend(
+            "Closing Assessment", closing_prompt, existing_closing, full_memo, model
         )
-        if not completion.ok:
-            raise RuntimeError(
-                f"{completion.error or 'empty response'} "
-                f"(provider={completion.provider})"
-            )
-        revised_closing = completion.text
+        if not revised_closing:
+            print("  ⊘ Closing Assessment left as it was")
+            messages.append("Closing Assessment unchanged (revision refused by the evidence gate)")
+            raise _BookendRefused()
 
         # Ensure proper header format
         if not revised_closing.strip().startswith("#"):

@@ -384,8 +384,23 @@ def polish_section_research(
     """
     import re
 
+    # The section as it stands, when a frame marks this an `amend`. Empty
+    # otherwise — every other directive is a clean regeneration and must not see
+    # the old prose, or it anchors on it and defeats the reframing.
+    prior_prose = _prior_section_prose(frame, section_def, output_dir)
+    amending = bool(prior_prose.strip())
+
     # Count citations before polishing (alphanumeric keys like [^1], [^deck], [^source_name])
+    #
+    # On an amend the section's OWN citations are as much at stake as the
+    # research's — more so, since they are attached to prose a human may have
+    # written. Measuring only `research_content` left them outside the gate
+    # entirely: ProfileHealth §7 went into an amend with 2 citations in the
+    # section and 1 in the research, so the validation below was watching the
+    # wrong set and would have reported success while the section lost both.
     all_citations_before = set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', research_content))
+    if amending:
+        all_citations_before |= set(re.findall(r'\[\^([a-zA-Z0-9_]+)\]', prior_prose))
     citations_before = len(all_citations_before)
 
     # Find any embedded images in the research content
@@ -412,14 +427,45 @@ def polish_section_research(
     frame_guidance = writer_block(
         frame,
         getattr(section_def, "filename", "") or "",
-        prior_prose=_prior_section_prose(frame, section_def, output_dir),
+        prior_prose=prior_prose,
     )
 
-    polish_prompt = f"""Rewrite the following Perplexity research into a polished "{section_def.name}" section for {company_name}.
+    # The opening line is the task, and it has to match the directive.
+    #
+    # This always read "Rewrite the following research into a polished section",
+    # with the amend guidance buried below it. A model handed "regenerate from
+    # this research" plus "make the minimum change to the existing section"
+    # follows the first one: it is the framing, it comes first, and the research
+    # is the bulk of what follows. ProfileHealth §7 was marked `amend`, was given
+    # its prior prose, and still came back at 173 words against 959 — a section
+    # rebuilt from a 3.8 KB research file rather than amended.
+    #
+    # So when there is prior prose, the task is stated as an amendment and the
+    # research is presented as new material to fold in, not as the source.
+    if amending:
+        task_line = (
+            f'Amend the existing "{section_def.name}" section for {company_name} so it '
+            f'incorporates the new research below.\n\n'
+            f'This is an AMENDMENT, not a regeneration. The existing section is the '
+            f'starting point and most of it should survive verbatim. Add what the new '
+            f'research supports, adjust what it changes, and leave the rest alone. Do '
+            f'not re-order, re-style, or re-argue passages the new material does not '
+            f'touch. A correct amendment is usually LONGER than the section it started '
+            f'from, never shorter.'
+        )
+        research_label = "NEW RESEARCH TO FOLD IN (with citations):"
+    else:
+        task_line = (
+            f'Rewrite the following Perplexity research into a polished '
+            f'"{section_def.name}" section for {company_name}.'
+        )
+        research_label = "PERPLEXITY RESEARCH (with citations):"
+
+    polish_prompt = f"""{task_line}
 {dataroom_facts}
 {frame_guidance}
 
-PERPLEXITY RESEARCH (with citations):
+{research_label}
 {research_content}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -443,7 +489,7 @@ PE FRAMING (what to avoid):
 Observations and conclusions are GOOD - just frame them as opportunity, not skepticism.
 
 SECTION REQUIREMENTS:
-- Target length: {target_words} words
+- Target length: {target_words if not amending else f"at least {max(target_words, len(prior_prose.split()))} words — an amendment adds to what is there"}
 - Analytical tone (not promotional, not PE-skeptical)
 - Organized with clear subsections
 - Scannable (use bullets where appropriate)
@@ -931,7 +977,10 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
             sections_written += 1
 
         # Save individual section
-        save_section_artifact(output_dir, section_num, section_name, section_content)
+        # Pass the outline's filename so the section lands where the frame
+        # guard, the research lookup and the assembler all expect it.
+        save_section_artifact(output_dir, section_num, section_name, section_content,
+                              outline_filename=section_def.filename)
         word_count = len(section_content.split())
         total_words += word_count
 

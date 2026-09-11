@@ -665,6 +665,16 @@ def convert_to_branded_html(
             extra_args=[
                 '--standalone',
                 '--embed-resources',
+                # Without this, --embed-resources silently does nothing for the
+                # deck screenshots. Pandoc resolves relative resources against
+                # the WORKING directory, not the input file, and exports are run
+                # from the repo root — so `deck-screenshots/page-03.png` was
+                # looked for at <repo>/deck-screenshots/ and not found. Pandoc
+                # does not warn; it leaves the src attribute untouched, and
+                # WeasyPrint then resolves it against the HTML's own directory
+                # (exports/dark/), where it also does not exist. Every deck
+                # screenshot was missing from every PDF, quietly.
+                f'--resource-path={input_path.parent}',
                 f'--template={template_path}',
                 '--toc',
                 '--toc-depth=3'

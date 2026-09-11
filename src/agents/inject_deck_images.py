@@ -130,10 +130,21 @@ def inject_deck_images_agent(state: MemoState) -> Dict[str, Any]:
         # Read current content
         current_content = section_file.read_text()
 
-        # Check for already-embedded images
-        existing_images = set(
-            path for _, path in re.findall(r'!\[([^\]]*)\]\(([^)]+)\)', current_content)
-        )
+        # Check for already-embedded images, by FILENAME rather than by path.
+        #
+        # This compared full path strings. A section that already carried
+        # `../deck-screenshots/page-15.png` did not match a freshly computed
+        # `deck-screenshots/page-15.png`, so the same screenshot was injected a
+        # second time — the two spellings coexisted and the reader saw the slide
+        # twice. Four ProfileHealth sections ended up with every image doubled.
+        #
+        # The path prefix has changed at least once in this repo's history (see
+        # the deal-level deck cache work), so any check anchored to the exact
+        # string is one convention change away from duplicating everything.
+        existing_images = {
+            Path(path).name
+            for _, path in re.findall(r'!\[([^\]]*)\]\(([^)]+)\)', current_content)
+        }
 
         # Place each matching image under the best header
         new_content = current_content
@@ -143,7 +154,7 @@ def inject_deck_images_agent(state: MemoState) -> Dict[str, Any]:
             img_path = img["path"]
 
             # Skip if already embedded or at placement limit
-            if img_path in existing_images:
+            if Path(img_path).name in existing_images:
                 continue
             if placement_count.get(img_path, 0) >= 2:
                 continue

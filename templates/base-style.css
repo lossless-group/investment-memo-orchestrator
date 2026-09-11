@@ -78,12 +78,28 @@ body {
    DARK MODE STYLES
    ======================================== */
 
+/* Dark mode.
+ *
+ * primary and secondary were inverted here, systematically. The page was
+ * painted with var(--brand-primary) — the brand ACCENT, Humain's bio-green
+ * #29a380 — while every border, link, inline code span and meta label was
+ * painted with var(--brand-secondary), which in a dark palette is the dark
+ * SURFACE colour (#0a1326, the same value as --brand-background).
+ *
+ * So the export came out bright green with navy-on-navy text: unreadable where
+ * it was not simply wrong. The PDF partly hid it, because WeasyPrint ignores
+ * :has() and the content blocks paint over the body, but the HTML showed it
+ * plainly.
+ *
+ * The rule is: the page is --brand-background; accents are --brand-primary.
+ * A dark palette does not swap those roles, it only changes their values.
+ */
 html:has(body.dark-mode) {
-    background: var(--brand-primary);
+    background: var(--brand-background);
 }
 
 body.dark-mode {
-    background: var(--brand-primary);
+    background: var(--brand-background);
     color: var(--brand-text-light);
 }
 
@@ -95,7 +111,7 @@ body.dark-mode h4 {
 }
 
 body.dark-mode h1 {
-    border-bottom-color: var(--brand-secondary);
+    border-bottom-color: var(--brand-primary);
 }
 
 body.dark-mode .memo-title {
@@ -103,16 +119,16 @@ body.dark-mode .memo-title {
 }
 
 body.dark-mode .memo-subtitle {
-    color: var(--brand-secondary);
+    color: var(--brand-primary);
 }
 
 body.dark-mode .memo-meta {
-    border-top-color: var(--brand-secondary);
-    border-bottom-color: var(--brand-secondary);
+    border-top-color: var(--brand-primary);
+    border-bottom-color: var(--brand-primary);
 }
 
 body.dark-mode .memo-meta-label {
-    color: var(--brand-secondary);
+    color: var(--brand-primary);
 }
 
 body.dark-mode .memo-meta-value {
@@ -120,14 +136,18 @@ body.dark-mode .memo-meta-value {
 }
 
 body.dark-mode blockquote {
-    background: rgba(29, 211, 211, 0.1);
-    border-left-color: var(--brand-secondary);
+    /* Was rgba(29, 211, 211, 0.1) — a hardcoded cyan belonging to no brand in
+     * this repo, tinting every dark-mode blockquote the same colour whichever
+     * firm the memo was exported for. background_alt is the key each brand
+     * config already declares for exactly this surface. */
+    background: var(--brand-background-alt);
+    border-left-color: var(--brand-primary);
     color: var(--brand-text-light);
 }
 
 body.dark-mode code {
     background: rgba(255, 255, 255, 0.1);
-    color: var(--brand-secondary);
+    color: var(--brand-primary);
 }
 
 body.dark-mode pre {
@@ -139,7 +159,7 @@ body.dark-mode pre code {
 }
 
 body.dark-mode table thead {
-    background: rgba(29, 211, 211, 0.2);
+    background: var(--brand-background-alt);
 }
 
 body.dark-mode td {
@@ -147,20 +167,20 @@ body.dark-mode td {
 }
 
 body.dark-mode tbody tr:hover {
-    background: rgba(29, 211, 211, 0.1);
+    background: var(--brand-background-alt);
 }
 
 body.dark-mode hr {
-    border-top-color: var(--brand-secondary);
+    border-top-color: var(--brand-primary);
 }
 
 body.dark-mode .callout {
-    background: rgba(29, 211, 211, 0.1);
-    border-left-color: var(--brand-secondary);
+    background: var(--brand-background-alt);
+    border-left-color: var(--brand-primary);
 }
 
 body.dark-mode .footnotes {
-    border-top-color: var(--brand-secondary);
+    border-top-color: var(--brand-primary);
 }
 
 body.dark-mode .footnotes h2 {
@@ -168,7 +188,7 @@ body.dark-mode .footnotes h2 {
 }
 
 body.dark-mode .memo-footer {
-    border-top-color: var(--brand-secondary);
+    border-top-color: var(--brand-primary);
     color: rgba(255, 255, 255, 0.7);
 }
 
@@ -177,11 +197,11 @@ body.dark-mode .memo-footer-logo {
 }
 
 body.dark-mode a {
-    color: var(--brand-secondary);
+    color: var(--brand-primary);
 }
 
 body.dark-mode a:hover {
-    border-bottom-color: var(--brand-secondary);
+    border-bottom-color: var(--brand-primary);
 }
 
 body.dark-mode .footnote-ref + .footnote-ref::before {
@@ -324,7 +344,15 @@ h4 {
 
 p {
     margin: 0.75rem 0;
-    text-align: justify;
+    /* Ragged right, not justified.
+     *
+     * WeasyPrint justifies by stretching word-spacing only — it does not
+     * hyphenate unless `hyphens: auto` is set with a language, and even then
+     * it will not break an inline code span, a URL or a citation marker. A
+     * memo paragraph is full of all three, so justification left rivers of
+     * whitespace down the page. Ragged right is the correct setting for this
+     * content, not merely the safer one. */
+    text-align: left;
 }
 
 /* Links */
