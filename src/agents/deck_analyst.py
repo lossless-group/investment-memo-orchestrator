@@ -959,7 +959,7 @@ def deck_analyst_agent(state: Dict) -> Dict:
     import json
     from pathlib import Path as _Path
     from ..deck_cache import (
-        cache_dir_for, fingerprint_file, is_usable, restore, store,
+        fingerprint_file, is_usable, resolve_cache_dir, restore, store,
     )
 
     deck_path = state.get("deck_path")
@@ -967,7 +967,10 @@ def deck_analyst_agent(state: Dict) -> Dict:
         return _deck_analyst_agent_uncached(state)
 
     fp = fingerprint_file(_Path(deck_path))
-    cache_dir = cache_dir_for(state, fp) if fp else None
+    # Resolve through the parked pre-normalization original when the live file's
+    # own hash misses: compressing a deck does not make it a different deck, and
+    # a content-hash cache cannot tell the difference on its own.
+    cache_dir, fp = resolve_cache_dir(state, _Path(deck_path), fp)
     output_dir = state.get("output_dir")
 
     if state.get("fresh"):

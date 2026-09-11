@@ -85,6 +85,62 @@ def cache_dir_for(state: Dict[str, Any], fingerprint: str, kind: str = "deck") -
     return deal_dir / CACHE_DIRNAME / f"{kind}-{fingerprint}"
 
 
+def parked_original_for(deck_path: Path) -> Optional[Path]:
+    """The pre-normalization copy of `deck_path`, if asset normalization parked one.
+
+    `src/asset_normalize.py` compresses oversized assets in place and parks the
+    original under `_zip-originals/oversized/<path relative to the dataroom>`.
+    The content the pipeline reads is unchanged — ProfileHealth's deck OCR'd to
+    2,417 characters against the original's 2,415 — but the bytes are not, so
+    the content hash moves and the deal-level cache orphans itself.
+
+    Returns the parked file so the caller can ask whether the cache was keyed on
+    it. Normalization is exactly the kind of routine maintenance that must not
+    cost an hour of re-extraction.
+    """
+    deck = Path(deck_path)
+    for parent in deck.parents:
+        parked_root = parent / "_zip-originals" / "oversized"
+        if not parked_root.is_dir():
+            continue
+        try:
+            relative = deck.relative_to(parent)
+        except ValueError:  # pragma: no cover - parents() guarantees this holds
+            continue
+        candidate = parked_root / relative
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def resolve_cache_dir(
+    state: Dict[str, Any], deck_path: Path, fingerprint: Optional[str]
+) -> tuple[Optional[Path], Optional[str]]:
+    """The cache directory to use for this deck, and the fingerprint it is keyed on.
+
+    Prefers the live file's own fingerprint. When that misses and a parked
+    pre-normalization original exists, the original's fingerprint is tried: a
+    deck whose parked original hashes to a cached key *is* the cached deck,
+    compressed. Returns the live fingerprint when neither hits, so a fresh run
+    stores under the current bytes rather than perpetuating the old key.
+    """
+    live_dir = cache_dir_for(state, fingerprint) if fingerprint else None
+    if is_usable(live_dir):
+        return live_dir, fingerprint
+
+    parked = parked_original_for(deck_path)
+    if parked:
+        parked_fp = fingerprint_file(parked)
+        if parked_fp and parked_fp != fingerprint:
+            parked_dir = cache_dir_for(state, parked_fp)
+            if is_usable(parked_dir):
+                print(f"♻️  deck cache keyed on the pre-normalization original "
+                      f"({parked_fp}); current file is {fingerprint}", flush=True)
+                return parked_dir, parked_fp
+
+    return live_dir, fingerprint
+
+
 def _copy(src: Path, dst: Path) -> None:
     if src.is_dir():
         shutil.copytree(src, dst, dirs_exist_ok=True)
