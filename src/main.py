@@ -137,6 +137,35 @@ def main():
     if args.resume:
         from pathlib import Path as PathLib
 
+        # --resume delegates to cli/resume_from_interruption.py, which has no
+        # frame support and is not given one. Combining the flags therefore ran
+        # an UNFRAMED resume while printing nothing about it — on ProfileHealth
+        # v0.0.4 that rewrote the Executive Summary and Closing Assessment with
+        # no frame content and stripped every inline citation from both.
+        #
+        # Refuse rather than silently drop. A flag that is accepted and ignored
+        # is worse than one that is rejected.
+        if args.frame_slug:
+            console.print(
+                "[bold red]Error:[/bold red] --frame cannot be combined with --resume"
+            )
+            console.print(
+                "\n--resume hands off to the interruption-recovery script, which "
+                "resumes from a detected\ncheckpoint and knows nothing about "
+                "thesis frames. Your frame would be ignored."
+            )
+            console.print(
+                f"\nFor a framed run against an existing version, drop --resume:"
+                f"\n  python -m src.main --firm {firm or '<firm>'} --deal {company_name} "
+                f"--frame {args.frame_slug}"
+                + (f" --version {args.set_version}" if args.set_version else "")
+            )
+            console.print(
+                "\nThe version directory is reused, not recreated — seeded research "
+                "and sections survive."
+            )
+            sys.exit(1)
+
         # Find output directory (firm-aware)
         try:
             if args.set_version:
