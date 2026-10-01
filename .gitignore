@@ -79,3 +79,6 @@ searxng/uwsgi.ini
 .image-staging/
 .coverage
 .coverage-html/
+
+# Ad-hoc run logs (e.g. `python run_x.py > run.log`)
+*.log
