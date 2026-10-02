@@ -859,7 +859,7 @@ A local Chroma database is wired into Claude Code via the `chroma` MCP server. F
 
 The full algorithm (decompose → execute → evaluate → synthesize, plus `where`-filter patterns, anti-patterns, and when NOT to use it) lives in the `search-lossless-corpus` skill, which auto-loads when the question matches the trigger shapes. This block is the backstop so the corpus is known to exist even when the skill description does not match.
 
-Ingestion lives under `ai-labs/context-vigilance-kit/scripts/` (`ingest-all.sh` is the master). Do not re-ingest as a side effect of unrelated work — the user runs it deliberately.
+Ingestion lives under `context-v-corpus/scripts/` at the anchor root (`ingest-all.sh` is the master). Do not re-ingest as a side effect of unrelated work — the user runs it deliberately.
 
 <!-- lossless:browser-drive:start -->
 ## Browser-drive verification (Playwright MCP + Claude Chrome)
@@ -882,5 +882,5 @@ Rules that make it safe and cheap:
 4. The drive's click-path is **named in the phase plan before implementation**; a drive that lives only in a session transcript is not codified.
 5. A browser drive proves the buttons **work**; the human walk-through still judges whether the surface is **usable**. It augments the human rung, never replaces it.
 
-Full pattern: `context-v/blueprints/Browser-Drive-Verification-For-Agent-Sessions.md` at the anchor monorepo root (kit rollout draft: `ai-labs/context-vigilance-kit/context-v/blueprints/`). Loop integration proven in `ai-labs/augment-it/context-v/loops/`.
+Full pattern: `context-v/blueprints/Browser-Drive-Verification-For-Agent-Sessions.md` at the anchor monorepo root (rollout draft: `context-v-corpus/context-v/blueprints/` at the anchor root). Loop integration proven in `ai-labs/augment-it/context-v/loops/`.
 <!-- lossless:browser-drive:end -->
