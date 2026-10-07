@@ -10,6 +10,31 @@ Investment Memo Orchestrator: A multi-agent system using LangGraph to generate p
 
 **Goal**: every run produces a workable first draft an investment analyst can pick up, spot-check, and send to a partner without rewriting from scratch.
 
+## HARD RULE: new firm or new deal — use the built procedure, ask before the first run
+
+This pipeline has been run 30+ times across a dozen firms. Setting up a firm or a
+deal is a solved workflow, not a design problem. Do not improvise it.
+
+1. **Load the `setup-new-firm` skill and walk its phases in order**, even when the
+   operator's follow-up message reframes the request ("call it X", "replicate how we
+   do it for other firms"). That reframing changes names, not the procedure.
+2. **Read `docs/PIPELINE-REFERENCE.md` and two sibling deals under `io/*/deals/`**
+   before writing a deal JSON. Copy their shape; don't invent fields or omit ones
+   every other deal sets.
+3. **Ask the operator, and never default, before the first `src.main` run:**
+   - `mode`: `justify` (the decision is made, the memo supports it) or `consider`
+     (the memo weighs it and renders PASS/CONSIDER/COMMIT). Getting this wrong
+     costs a full rerun, and in `consider` the writer volunteers a verdict.
+   - `outline`: name one explicitly (`direct-early-stage-12Ps` is the most used,
+     and firms with a framework have their own). No deal should rely on the loader's
+     default.
+   - Any scorecard or thesis frame the firm uses (`--list-frames`).
+4. **Codified sources**: curate `inputs/Sources.md` with `verdict: approved` on every
+   kept entry (unapproved entries are never fetched) and stage a `local_path` copy
+   for anything behind a bot wall.
+
+If a step looks unnecessary, ask. Don't skip it.
+
 ## Architectural direction (2026-05)
 
 Two recent explorations capture where the pipeline is heading. New code should respect these directions; legacy code is being migrated:
