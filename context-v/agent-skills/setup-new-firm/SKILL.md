@@ -350,6 +350,21 @@ The directory name **matters operationally** — it's parsed for display, and
 renaming it later requires sweeping multiple files (see "Operational rename
 checklist" below).
 
+### Ask first — these are the operator's decisions, never defaults
+
+Before writing the deal JSON, ask and record:
+
+- **`mode`**: `justify` (the decision is already made and the memo supports it)
+  or `consider` (the memo weighs it and renders PASS / CONSIDER / COMMIT).
+  Getting this wrong costs a full rerun, and in `consider` the writer volunteers
+  a verdict the operator didn't ask for. *(TWF/Terrafirma, 2026-10-06: the
+  sibling deal said `consider`, the deal was `justify`, and it took two reruns.)*
+- **`outline`**: always name one. `direct-early-stage-12Ps` is the most used,
+  and firms with their own framework have their own. Never leave it blank and
+  rely on the loader's default.
+- **Scorecard and thesis frame**, if the firm uses them (`--list-frames`).
+- **Stage**, which also goes into the directory name (below).
+
 ### Naming convention
 
 `<CompanyName>-Deck-<Stage>` — example: `Panthalassa-Deck-Series-B`. Confirm
