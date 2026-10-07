@@ -363,5 +363,12 @@ def _normalize_tag(s: str) -> str:
     Lowercase, strip, replace whitespace and underscores with hyphens —
     so 'Market Context', 'market-context', and 'market_context' all
     match the same tag.
+
+    '&' and 'and' are dropped and hyphen runs collapsed, so the section name
+    'Technology & Product' and the aggregator's filename-derived tag
+    'technology--product' both become 'technology-product'. Without this,
+    every '&' section in a codified run received zero sources.
     """
-    return (s or "").strip().lower().replace(" ", "-").replace("_", "-")
+    s = (s or "").strip().lower().replace(" ", "-").replace("_", "-").replace("&", "-")
+    s = re.sub(r"(^|-)and(-|$)", "-", s)
+    return re.sub(r"-{2,}", "-", s).strip("-")

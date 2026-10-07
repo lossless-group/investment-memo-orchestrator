@@ -31,3 +31,6 @@
 [submodule "io/lossless"]
 	path = io/lossless
 	url = https://github.com/lossless-group/lossless-memopop-workspace.git
+[submodule "io/twf-memobox-secure"]
+	path = io/twf-memobox-secure
+	url = https://github.com/lossless-group/twf-memobox-secure.git

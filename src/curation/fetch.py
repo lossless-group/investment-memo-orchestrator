@@ -96,8 +96,12 @@ def _fetch_via_httpx(url: str, *, timeout: int = 25) -> Optional[Dict[str, Any]]
         return None
 
     content_type = (response.headers.get("content-type") or "").lower()
+    if "pdf" in content_type or response.content[:5] == b"%PDF-":
+        # Reports and surveys are routinely PDFs; returning None here dropped
+        # every one of them from a codified run without a word.
+        return _pdf_response_to_markdown(url, response.content)
     if "html" not in content_type:
-        # Non-HTML (PDF, JSON) — out of scope for the fallback path.
+        # Non-HTML, non-PDF (JSON, images) — out of scope for the fallback path.
         return None
 
     try:
@@ -126,6 +130,29 @@ def _fetch_via_httpx(url: str, *, timeout: int = 25) -> Optional[Dict[str, Any]]
         "title": title,
         "markdown": f"Title: {title}\n\nURL Source: {url}\n\n{text}",
         "via": "httpx",
+    }
+
+
+def _pdf_response_to_markdown(url: str, content: bytes) -> Optional[Dict[str, Any]]:
+    """Extract text from fetched PDF bytes through PyMuPDF."""
+    try:
+        import fitz  # PyMuPDF
+        with fitz.open(stream=content, filetype="pdf") as doc:
+            title = (doc.metadata or {}).get("title") or url.rsplit("/", 1)[-1]
+            text = "\n\n".join(page.get_text() for page in doc)
+    except Exception:
+        return None
+
+    text = re.sub(r"\n{3,}", "\n\n", text.strip())
+    if not text:
+        return None
+
+    return {
+        "url": url,
+        "fetched_at": datetime.now().isoformat(timespec="seconds"),
+        "title": title,
+        "markdown": f"Title: {title}\n\nURL Source: {url}\n\n{text}",
+        "via": "httpx-pdf",
     }
 
 

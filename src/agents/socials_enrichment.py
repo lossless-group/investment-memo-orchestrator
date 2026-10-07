@@ -409,6 +409,10 @@ def socials_enrichment_agent(state: MemoState) -> Dict[str, Any]:
     # Also check for key hires if available
     team_data = research.get("team", {}) if research else {}
     key_hires = team_data.get("key_hires", [])
+    # Research sometimes returns key_hires as one prose string; extend() on a
+    # str adds it a character at a time, and each letter got its own LinkedIn search.
+    if isinstance(key_hires, str):
+        key_hires = []
     if key_hires and key_hires != ["Data not available"]:
         team_members.extend(key_hires)
 

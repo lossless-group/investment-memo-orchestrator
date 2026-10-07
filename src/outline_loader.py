@@ -30,6 +30,12 @@ from src.schemas.outline_schema import (
 # Cache loaded outlines for performance
 _outline_cache: Dict[str, OutlineDefinition] = {}
 
+# Outlines renamed in 2c6bc7a (content unchanged). Old names still resolve.
+RENAMED_OUTLINES: Dict[str, str] = {
+    "direct-investment": "standard-direct-investment",
+    "fund-commitment": "hypernova-fund-commitment",
+}
+
 
 def get_templates_dir() -> Path:
     """Get the templates directory path."""
@@ -334,9 +340,11 @@ def load_outline(investment_type: str, mode: Optional[str] = None) -> OutlineDef
     templates_dir = get_templates_dir()
 
     # Map investment type to outline filename
+    # 2c6bc7a renamed both defaults without touching this map; every deal with
+    # no `outline` set died at section research with FileNotFoundError.
     outline_map = {
-        "direct": "direct-investment.yaml",
-        "fund": "fund-commitment.yaml",
+        "direct": "standard-direct-investment.yaml",
+        "fund": "hypernova-fund-commitment.yaml",
     }
 
     if investment_type not in outline_map:
@@ -378,6 +386,9 @@ def load_custom_outline(outline_name: str, investment_type: str, firm: str = Non
     """
     templates_dir = get_templates_dir()
     custom_dir = templates_dir / "custom"
+
+    # Deal JSONs written before 2c6bc7a still name the pre-rename files.
+    outline_name = RENAMED_OUTLINES.get(outline_name, outline_name)
 
     cache_key = f"custom_{outline_name}_{firm or 'default'}"
 
