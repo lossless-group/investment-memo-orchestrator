@@ -17,6 +17,7 @@ Runs AFTER: citation_enrichment, toc_generator, revise_summaries, remove_invalid
 Runs BEFORE: validate_citations, fact_checker
 """
 
+import json
 import re
 import sys
 from typing import Dict, Any, List, Tuple, Optional
@@ -297,7 +298,7 @@ def citation_assembly_agent(state: MemoState) -> Dict[str, Any]:
             "messages": ["Citation assembly skipped: no output directory found"]
         }
 
-    return assemble_citations(output_dir)
+    return assemble_citations(output_dir, state)
 
 
 def renumber_citations(output_dir: Path) -> Dict[str, Any]:
@@ -474,7 +475,7 @@ def renumber_citations(output_dir: Path) -> Dict[str, Any]:
     }
 
 
-def assemble_citations(output_dir: Path) -> Dict[str, Any]:
+def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Full citation assembly: renumber citations AND assemble the final draft.
 
@@ -489,11 +490,22 @@ def assemble_citations(output_dir: Path) -> Dict[str, Any]:
 
     Args:
         output_dir: Path to output directory containing 2-sections/
+        state: Pipeline state, used to find the deal's Sources.md for the
+            Background Sources block. When omitted (standalone CLI), it is
+            read from the run's state.json.
 
     Returns:
         Dict with messages and stats
     """
     output_dir = Path(output_dir)
+    if state is None:
+        # The Background Sources block referenced a `state` this function never
+        # received, so it raised NameError and was skipped on every run.
+        state_file = output_dir / "state.json"
+        try:
+            state = json.loads(state_file.read_text()) if state_file.exists() else {}
+        except (OSError, ValueError):
+            state = {}
     sections_dir = output_dir / "2-sections"
     header_file = output_dir / "header.md"
 

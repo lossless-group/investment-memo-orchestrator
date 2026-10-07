@@ -398,7 +398,7 @@ def integrate_scorecard(state: MemoState) -> dict:
 
     # Reassemble final draft (citations only — TOC runs as final step in workflow)
     from .agents.citation_assembly import assemble_citations
-    assemble_result = assemble_citations(output_dir)
+    assemble_result = assemble_citations(output_dir, state)
 
     from .final_draft import find_final_draft
     final_draft_path = find_final_draft(output_dir)
