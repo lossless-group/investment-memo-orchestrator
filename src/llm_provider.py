@@ -223,6 +223,10 @@ def complete(
     """
     order = provider or configured_provider()
     model = model or os.getenv("DEFAULT_MODEL")
+    # PDF text extraction can carry NUL bytes. The CLI receives the prompt as
+    # an argv element, and argv cannot hold one: every extractor fed such a
+    # document raised "embedded null byte" and silently returned nothing.
+    prompt = prompt.replace("\x00", "")
 
     if order == "api":
         return _via_api(prompt, images, max_tokens, model)
@@ -237,6 +241,14 @@ def complete(
 
     # auto: the seat first, credits second, and say so when it falls through.
     if cli_available():
+        response = _via_cli(prompt, images, model, timeout)
+        if response.ok:
+            return response
+        # One fresh CLI attempt before paying for the API. A call stranded by a
+        # system sleep or a dropped connection is transient, and the API
+        # fallback may have no credit at all — in which case falling through
+        # turned a recoverable stall into a degraded section.
+        print(f"   ⚠️  CLI call failed ({response.error}); retrying the CLI once")
         response = _via_cli(prompt, images, model, timeout)
         if response.ok:
             return response

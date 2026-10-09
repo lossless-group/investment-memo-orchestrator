@@ -32,10 +32,12 @@ def fetch_url_markdown(
            markdown with a `Title:` header line plus the article body.
         2. On failure, fall back to httpx GET + BeautifulSoup text
            extraction. Coarse but better than nothing.
+        3. On failure, Firecrawl (when FIRECRAWL_API_KEY is set), which
+           renders JavaScript and gets past most bot walls.
 
     Returns:
         Dict with keys `url`, `fetched_at`, `title`, `markdown`, and
-        `via` (jina | httpx | None), or None if both paths fail.
+        `via` (jina | httpx | firecrawl), or None if every path fails.
     """
     if not url:
         return None
@@ -45,7 +47,48 @@ def fetch_url_markdown(
         return via_jina
 
     via_httpx = _fetch_via_httpx(url, timeout=timeout)
-    return via_httpx
+    if via_httpx:
+        return via_httpx
+
+    return _fetch_via_firecrawl(url, timeout=max(timeout, 60))
+
+
+def _fetch_via_firecrawl(url: str, *, timeout: int = 60) -> Optional[Dict[str, Any]]:
+    """
+    Third tier: Firecrawl, when FIRECRAWL_API_KEY is set.
+
+    Trade press (Healthcare Dive, Becker's), investor-relations sites and
+    JavaScript-rendered pages such as Europe PMC defeat both Jina and a plain
+    GET. Curation verifies sources with Firecrawl, so without this tier a URL
+    proven fetchable at curation time silently dropped out of the run.
+    """
+    api_key = os.getenv("FIRECRAWL_API_KEY")
+    if not api_key:
+        return None
+    try:
+        response = httpx.post(
+            "https://api.firecrawl.dev/v1/scrape",
+            json={"url": url, "formats": ["markdown"], "onlyMainContent": True},
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=timeout,
+        )
+        if response.status_code != 200:
+            return None
+        data = response.json().get("data") or {}
+    except Exception:
+        return None
+
+    markdown = data.get("markdown") or ""
+    if len(markdown.strip()) < 200:
+        return None
+    metadata = data.get("metadata") or {}
+    return {
+        "url": url,
+        "fetched_at": datetime.now().isoformat(timespec="seconds"),
+        "title": metadata.get("title") or url,
+        "markdown": markdown,
+        "via": "firecrawl",
+    }
 
 
 def _fetch_via_jina(url: str, *, timeout: int = 25) -> Optional[Dict[str, Any]]:

@@ -368,7 +368,10 @@ def _normalize_tag(s: str) -> str:
     'Technology & Product' and the aggregator's filename-derived tag
     'technology--product' both become 'technology-product'. Without this,
     every '&' section in a codified run received zero sources.
+
+    Commas go the same way: 'Business, Economics & Ethics' normalized to
+    'business,-economics-ethics' and matched no tag at all.
     """
-    s = (s or "").strip().lower().replace(" ", "-").replace("_", "-").replace("&", "-")
+    s = (s or "").strip().lower().replace(" ", "-").replace("_", "-").replace("&", "-").replace(",", "-")
     s = re.sub(r"(^|-)and(-|$)", "-", s)
     return re.sub(r"-{2,}", "-", s).strip("-")

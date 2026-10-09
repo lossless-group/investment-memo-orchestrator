@@ -37,7 +37,9 @@ def _parse_dollar_value(text: str) -> Optional[float]:
     text = text.strip().replace(",", "")
 
     # Match patterns like $50B, $12.5M, $800K, $1.2T
-    match = re.search(r"\$?([\d.]+)\s*(T|B|billion|M|million|K|thousand)?", text, re.IGNORECASE)
+    # The number must contain a digit. `[\d.]+` alone matched a bare "." (a
+    # sentence-ending period in "N/A." or "TBD.") and float(".") crashed the run.
+    match = re.search(r"\$?(\d+(?:\.\d+)?|\.\d+)\s*(T|B|billion|M|million|K|thousand)?", text, re.IGNORECASE)
     if not match:
         return None
 
