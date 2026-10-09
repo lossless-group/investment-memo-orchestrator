@@ -118,3 +118,36 @@ def write_or_append_research(
     )
     path.write_text(merged)
     return "appended"
+
+
+AUGMENT_SLUG = "augment"
+
+
+def append_augmentation(path: Path, content: str, *, run_version: str, new_sources: int) -> str:
+    """
+    Append research synthesized from net-new sources to an existing section file.
+
+    The unframed counterpart of the frame-extend path, per
+    context-v/specs/Reuse-and-Augment-Research-Across-Runs.md: when a section's
+    curated sources only grew, the new sources are synthesized on their own and
+    added beneath what is already recorded, stamped `frame=augment`, rather than
+    regenerating a file whose existing findings are still true.
+    """
+    prior = path.read_text() if path.exists() else ""
+    if not prior.strip():
+        path.write_text(content)
+        return "written"
+    version = run_version or "unversioned"
+    if has_block(prior, AUGMENT_SLUG, version):
+        return "skipped-duplicate"
+    body = re.sub(r"^#\s+", "### ", content.strip(), count=1, flags=re.MULTILINE)
+    noun = "source" if new_sources == 1 else "sources"
+    path.write_text(
+        prior.rstrip()
+        + "\n\n---\n\n"
+        + stamp_for(AUGMENT_SLUG, version)
+        + f"\n\n## Added from {new_sources} new {noun}\n\n"
+        + body
+        + "\n"
+    )
+    return "appended"

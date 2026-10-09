@@ -162,6 +162,14 @@ arrived. Sometimes not. So:
 4. **`--resume` already exists** (`src/main.py`) but resumes a version rather
    than selecting a stage. Reconcile the two rather than adding a third concept.
 
+## Update 2026-10-08
+
+The reuse-by-default half of this issue is now specified and implemented in
+[[Reuse-and-Augment-Research-Across-Runs]]: a deal-level search ledger, input
+fingerprints on the company, competitive and section research stages, augment-only
+research for net-new sources, and a per-run `0-reuse-report.md`. `--from <stage>`
+remains open here.
+
 ## Related
 
 - [[Thesis-Frames-And-The-Re-Angle-Run]] — `context-v/specs/`. The frame object,

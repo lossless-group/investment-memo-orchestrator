@@ -169,6 +169,7 @@ Across all of `src/`: **nothing constructs a client directly**. All 31 modules t
 | `--resume` | flag | Resume from last checkpoint if available (skips completed agents) |
 | `--version` | — | Force a specific version (e.g., v0.1.0). With --resume, resumes that version. Without --resume, creates a new run at that version. |
 | `--fresh` | flag | Start from a clean slate: ignore prior artifacts and research, generate everything from scratch. |
+| `--refresh-searches` | flag | Run every web search again instead of answering from the deal's search ledger (inputs/research-ledger.json). Research synthesis still reuses when its inputs come out the same. |
 | `--firm` | — | Firm name for firm-scoped IO (e.g., 'hypernova'). Uses io/{firm}/deals/{deal}/ structure. |
 | `--deal` | — | Deal name (alternative to positional company_name argument) |
 | `--frame` | — | Thesis frame slug under io/{firm}/deals/{deal}/frames/. Reframes both research and writing for the sections the frame declares. Research is additive: `extend` appends to the existing 1-research file and never rewrites it. Omit for today's behaviour. |

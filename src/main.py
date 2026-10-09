@@ -87,6 +87,14 @@ def main():
         help="Start from a clean slate: ignore prior artifacts and research, generate everything from scratch."
     )
     parser.add_argument(
+        "--refresh-searches",
+        action="store_true",
+        help=(
+            "Run every web search again instead of answering from the deal's search ledger "
+            "(inputs/research-ledger.json). Research synthesis still reuses when its inputs come out the same."
+        ),
+    )
+    parser.add_argument(
         "--firm",
         type=str,
         help="Firm name for firm-scoped IO (e.g., 'hypernova'). Uses io/{firm}/deals/{deal}/ structure."
@@ -114,6 +122,10 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # The search ledger reads this; --fresh implies it.
+    if args.refresh_searches or args.fresh:
+        os.environ["MEMOPOP_REFRESH_SEARCHES"] = "1"
 
     # Get company/deal name from args or prompt
     # Priority: --deal flag > positional argument > prompt

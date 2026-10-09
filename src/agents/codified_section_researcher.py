@@ -211,6 +211,11 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
 
     sections_written = 0
     sections_with_no_sources: List[str] = []
+    # Per-section input fingerprints, per
+    # context-v/specs/Reuse-and-Augment-Research-Across-Runs.md. Read from this
+    # version (seeded under a frame) or else the latest prior version.
+    prior_fps = _load_prior_fingerprints(research_dir, state)
+    fingerprints: Dict[str, Dict[str, str]] = dict(prior_fps)
     for idx, section in enumerate(outline.sections, start=1):
         section_name = getattr(section, "name", f"Section {idx}")
         matching = sources_for_section(sources_md, section_name, section_number=idx)
@@ -236,10 +241,20 @@ def codified_section_researcher_agent(state: MemoState) -> Optional[Dict[str, An
             )
             continue
 
+        decision = _reuse_or_augment(
+            research_dir, idx, section, usable, fetched, state, synthesize, prior_fps, fingerprints,
+        )
+        if decision in ("reused", "skipped"):
+            continue
+        if decision == "augmented":
+            sections_written += 1
+            continue
         synthesize(research_dir, idx, section, usable, fetched, state)
+        fingerprints[research_filename_for(idx, section)] = _section_fingerprint(usable, fetched)
         sections_written += 1
         print(f"    ✓ wrote {research_filename_for(idx, section)} ({len(usable)} sources)")
 
+    _save_fingerprints(research_dir, fingerprints)
     print(
         f"\n✓ Codified research complete: {sections_written}/{len(outline.sections)} "
         f"sections populated from {len(fetched)} fetched URLs"
@@ -677,3 +692,146 @@ def _slugify(s: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", s)
     s = re.sub(r"-+", "-", s).strip("-")
     return s or "section"
+
+
+# ─────────────────────────────────────────────────────────────────
+# Reuse and augment (context-v/specs/Reuse-and-Augment-Research-Across-Runs.md)
+# ─────────────────────────────────────────────────────────────────
+
+FINGERPRINTS_NAME = "_fingerprints.json"
+
+
+def _section_fingerprint(usable: List[SourceEntry], fetched: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
+    """URL → hash of the stored content each usable source contributed."""
+    from ..reuse_gate import content_hash
+    return {e.url: content_hash((fetched.get(e.url) or {}).get("markdown", "")) for e in usable}
+
+
+def _load_prior_fingerprints(research_dir: Path, state: MemoState) -> Dict[str, Dict[str, str]]:
+    import json
+    from ..reuse_gate import prior_version_dir
+    candidates = [research_dir / FINGERPRINTS_NAME]
+    prior = prior_version_dir(state.get("output_dir"))
+    if prior is not None:
+        candidates.append(prior / "1-research" / FINGERPRINTS_NAME)
+    for path in candidates:
+        if path.exists():
+            try:
+                data = json.loads(path.read_text())
+                if isinstance(data, dict):
+                    return data
+            except (OSError, ValueError):
+                continue
+    return {}
+
+
+def _save_fingerprints(research_dir: Path, fingerprints: Dict[str, Dict[str, str]]) -> None:
+    import json
+    try:
+        (research_dir / FINGERPRINTS_NAME).write_text(json.dumps(fingerprints, indent=2, sort_keys=True))
+    except OSError:
+        pass
+
+
+def _prior_research_file(research_dir: Path, filename: str, state: MemoState) -> Optional[Path]:
+    """This version's copy (seeded under a frame), else the latest prior version's."""
+    from ..reuse_gate import prior_version_dir
+    here = research_dir / filename
+    if here.exists() and here.read_text().strip():
+        return here
+    prior = prior_version_dir(state.get("output_dir"))
+    if prior is not None:
+        there = prior / "1-research" / filename
+        if there.exists() and there.read_text().strip():
+            return there
+    return None
+
+
+def _reuse_or_augment(
+    research_dir: Path,
+    idx: int,
+    section: Any,
+    usable: List[SourceEntry],
+    fetched: Dict[str, Dict[str, Any]],
+    state: MemoState,
+    synthesize,
+    prior_fps: Dict[str, Dict[str, str]],
+    fingerprints: Dict[str, Dict[str, str]],
+) -> str:
+    """
+    Decide whether this section's research must be synthesized at all.
+
+    Returns "reused" (prior file carried forward), "augmented" (net-new sources
+    synthesized and appended), "skipped" (frame reuse), or "synthesize" (the
+    caller regenerates, as before this gate existed).
+    """
+    import shutil
+    import tempfile
+    from ..reuse_gate import fresh_requested, note, reuse_disabled
+    from ..research_append import append_augmentation
+
+    filename = research_filename_for(idx, section)
+    stage = f"section research {filename.replace('-research.md', '')}"
+    output_dir = state.get("output_dir")
+    target = research_dir / filename
+    frame = state.get("frame")
+    directive = frame.directive_for(getattr(section, "filename", "") or "") if frame is not None else None
+
+    if fresh_requested(state) or reuse_disabled():
+        return "synthesize"
+
+    prior_file = _prior_research_file(research_dir, filename, state)
+
+    # A frame's `research: reuse` is a hard skip.
+    if directive is not None and directive.research == "reuse" and prior_file is not None:
+        if prior_file != target:
+            shutil.copy2(prior_file, target)
+        note(output_dir, stage, "reused", "the frame marks this section `research: reuse`")
+        return "skipped"
+
+    # extend/refresh under a frame keep their own path (frame evidence, frame stamp).
+    if directive is not None and directive.researches:
+        note(output_dir, stage, "ran", f"frame `research: {directive.research}`")
+        return "synthesize"
+
+    if prior_file is None:
+        note(output_dir, stage, "ran", "no prior research for this section")
+        return "synthesize"
+
+    current = _section_fingerprint(usable, fetched)
+    prior = prior_fps.get(filename)
+    if prior is None:
+        # Versions before this gate recorded no fingerprint. A source the prior
+        # file already cites is treated as covered; anything else is new.
+        text = prior_file.read_text()
+        prior = {url: h for url, h in current.items() if url in text}
+
+    removed_or_changed = [u for u, h in prior.items() if current.get(u) != h]
+    added = [u for u in current if u not in prior]
+
+    if removed_or_changed:
+        note(output_dir, stage, "regenerated",
+             f"{len(removed_or_changed)} source(s) removed or changed since the prior research")
+        return "synthesize"
+
+    if prior_file != target:
+        shutil.copy2(prior_file, target)
+
+    if not added:
+        fingerprints[filename] = current
+        note(output_dir, stage, "reused", f"{len(current)} source(s) unchanged")
+        return "reused"
+
+    new_entries = [e for e in usable if e.url in added]
+    with tempfile.TemporaryDirectory() as tmp:
+        synthesize(Path(tmp), idx, section, new_entries, fetched, state)
+        produced = Path(tmp) / filename
+        if not produced.exists():
+            note(output_dir, stage, "regenerated", "augment synthesis produced nothing; regenerating")
+            return "synthesize"
+        action = append_augmentation(
+            target, produced.read_text(), run_version=_run_version(state), new_sources=len(new_entries),
+        )
+    fingerprints[filename] = current
+    note(output_dir, stage, "augmented", f"{len(new_entries)} new source(s) synthesized and appended ({action})")
+    return "augmented"

@@ -274,6 +274,8 @@ def _save_evaluation_artifact(
     gap_additions: List[str],
     company_name: str,
     summary: str,
+    confidence: str = "",
+    inputs_fingerprint: str = "",
 ):
     """Save competitive evaluation artifact."""
     lines = [
@@ -363,6 +365,8 @@ def _save_evaluation_artifact(
         "removed": removed,
         "gap_additions": gap_additions,
         "summary": summary,
+        "confidence": confidence,
+        "inputs_fingerprint": inputs_fingerprint,
         "generated_at": datetime.now().isoformat(),
     }, indent=2, ensure_ascii=False, default=str))
 
@@ -425,6 +429,37 @@ def competitive_landscape_evaluator(state: MemoState) -> Dict[str, Any]:
         output_dir = get_output_dir_from_state(state)
     except FileNotFoundError:
         output_dir = None
+
+    # --- Reuse gate (context-v/specs/Reuse-and-Augment-Research-Across-Runs.md) ---
+    # The evaluation is a function of the candidate set and the company facts.
+    from ..reuse_gate import fingerprint as _fingerprint, fresh_requested, load_prior_json, note, reuse_disabled
+    inputs_fp = _fingerprint({
+        "company": company_name, "description": description, "stage": stage, "market": market_category,
+        "candidates": sorted((c.get("name", ""), c.get("description", "")) for c in candidates),
+    })
+    prior = None if (fresh_requested(state) or reuse_disabled()) else load_prior_json(output_dir, "1-competitive-evaluation.json")
+    if prior and prior.get("inputs_fingerprint") == inputs_fp and prior.get("evaluated_competitors"):
+        evaluated = prior["evaluated_competitors"]
+        note(output_dir, "competitive evaluation", "reused", f"{len(evaluated)} competitors; candidate set unchanged")
+        if output_dir:
+            _save_evaluation_artifact(
+                output_dir, evaluated, prior.get("removed", []), prior.get("gap_additions", []),
+                company_name, prior.get("summary", ""), prior.get("confidence", ""), inputs_fp,
+            )
+        return {
+            "competitive_landscape": {
+                "evaluated_competitors": evaluated,
+                "direct_competitors": [c["name"] for c in evaluated if c.get("classification") == "direct_competitor"],
+                "indirect_competitors": [c["name"] for c in evaluated if c.get("classification") == "indirect_competitor"],
+                "removed_as_non_competitors": prior.get("removed", []),
+                "added_via_gap_analysis": prior.get("gap_additions", []),
+                "evaluation_summary": prior.get("summary", ""),
+                "confidence": prior.get("confidence") or "medium",
+            },
+            "messages": [f"Competitive evaluation reused: {len(evaluated)} competitors (candidates unchanged)"],
+        }
+    note(output_dir, "competitive evaluation", "ran",
+         "no prior evaluation" if not prior else "candidate set or company facts changed")
 
     # --- Phase 1: Evaluate all candidates ---
 
@@ -534,7 +569,8 @@ def competitive_landscape_evaluator(state: MemoState) -> Dict[str, Any]:
     # Save artifacts
     if output_dir:
         _save_evaluation_artifact(
-            output_dir, evaluated_competitors, removed, gap_additions, company_name, summary
+            output_dir, evaluated_competitors, removed, gap_additions, company_name, summary,
+            confidence, inputs_fp,
         )
         print(f"  Artifacts saved to {output_dir}/")
 

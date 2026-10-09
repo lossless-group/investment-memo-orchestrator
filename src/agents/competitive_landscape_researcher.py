@@ -281,7 +281,8 @@ def _deduplicate_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[str, 
     return list(seen.values())
 
 
-def _save_research_artifact(output_dir: Path, candidates: List[Dict], queries: List[str], company_name: str):
+def _save_research_artifact(output_dir: Path, candidates: List[Dict], queries: List[str], company_name: str,
+                            inputs_fingerprint: str = ""):
     """Save competitive research artifact to 1-competitive-research.md."""
     lines = [
         f"# Competitive Landscape Research: {company_name}",
@@ -333,6 +334,7 @@ def _save_research_artifact(output_dir: Path, candidates: List[Dict], queries: L
         "queries": queries,
         "candidates": candidates,
         "generated_at": datetime.now().isoformat(),
+        "inputs_fingerprint": inputs_fingerprint,
     }, indent=2, ensure_ascii=False, default=str))
 
 
@@ -379,6 +381,35 @@ def competitive_landscape_researcher(state: MemoState) -> Dict[str, Any]:
     except FileNotFoundError:
         print("  Warning: No output directory found")
         output_dir = None
+
+    # --- Reuse gate (context-v/specs/Reuse-and-Augment-Research-Across-Runs.md) ---
+    # The candidate set is determined by the company facts, the operator's known
+    # competitors and search variants, and the dataroom's competitor list. When
+    # none of those moved, the prior version's candidates still stand.
+    from ..reuse_gate import fingerprint as _fingerprint, fresh_requested, load_prior_json, note, reuse_disabled
+    inputs_fp = _fingerprint({
+        "company": company_name, "description": description, "stage": stage,
+        "known": sorted(state.get("known_competitors", []) or []),
+        "variants": sorted(state.get("search_variants", []) or []),
+        "dataroom": sorted(c.get("name", "") for c in (_get_dataroom_competitors(state) or [])),
+    })
+    prior = None if (fresh_requested(state) or reuse_disabled()) else load_prior_json(output_dir, "1-competitive-research.json")
+    if prior and prior.get("inputs_fingerprint") == inputs_fp and prior.get("candidates"):
+        candidates, queries = prior["candidates"], prior.get("queries", [])
+        note(output_dir, "competitive research", "reused",
+             f"{len(candidates)} candidates; company facts, known competitors and variants unchanged")
+        if output_dir:
+            _save_research_artifact(output_dir, candidates, queries, company_name, inputs_fp)
+        return {
+            "competitive_candidates": {
+                "candidates": candidates, "queries_executed": queries,
+                "total_candidates_found": len(candidates), "sources_consulted": len(queries),
+                "search_variants_used": state.get("search_variants", []) or [],
+            },
+            "messages": [f"Competitive landscape research reused: {len(candidates)} candidates (inputs unchanged)"],
+        }
+    note(output_dir, "competitive research", "ran",
+         "no prior candidates" if not prior else "company facts, known competitors or variants changed")
 
     # --- Phase 1: Gather pre-existing competitor data ---
 
@@ -459,7 +490,7 @@ def competitive_landscape_researcher(state: MemoState) -> Dict[str, Any]:
     # --- Save artifacts ---
 
     if output_dir:
-        _save_research_artifact(output_dir, candidates, queries, company_name)
+        _save_research_artifact(output_dir, candidates, queries, company_name, inputs_fp)
         print(f"  Artifacts saved to {output_dir}/")
 
     # --- Build state update ---

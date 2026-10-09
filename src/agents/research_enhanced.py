@@ -438,6 +438,7 @@ MANDATORY RULES FOR DISAMBIGUATION:
 
     # Gather research from multiple sources
     research_context = []
+    search_result_urls: List[str] = []
 
     # NEW: Add company website as first source if URL provided
     if company_url:
@@ -483,20 +484,25 @@ MANDATORY RULES FOR DISAMBIGUATION:
             if research_notes:
                 search_queries.append(f"{company_name} {domain_hint} {research_notes[:80]}".strip())
 
-        # Execute searches
+        # Execute searches — through the deal's search ledger, so a query already
+        # answered within its TTL is not paid for again
+        # (context-v/specs/Reuse-and-Augment-Research-Across-Runs.md).
+        from ..research_ledger import ResearchLedger, cached_search, ledger_path_for_state
+        ledger = ResearchLedger(ledger_path_for_state(state))
         for idx, query in enumerate(search_queries, 1):
             print(f"Search {idx}/{len(search_queries)}: {query}...")
+            limit = 5 if idx > 1 else max_results
 
             # Pass sources and disambiguation to search provider (only Perplexity supports these currently)
             if isinstance(search_provider, PerplexityProvider):
-                results = search_provider.search(
-                    query,
-                    max_results=5 if idx > 1 else max_results,
-                    sources=research_sources,
-                    disambiguation_context=disambiguation_context
+                run_search = lambda q=query, n=limit: search_provider.search(  # noqa: E731
+                    q, max_results=n, sources=research_sources,
+                    disambiguation_context=disambiguation_context,
                 )
             else:
-                results = search_provider.search(query, max_results=5 if idx > 1 else max_results)
+                run_search = lambda q=query, n=limit: search_provider.search(q, max_results=n)  # noqa: E731
+            results = cached_search(state, "company_research", query, provider_name, run_search, ledger=ledger)
+            search_result_urls.extend(r.get("url", "") for r in results)
 
             for r in results:
                 research_context.append(f"Source: {r['title']} ({r['url']})\n{r['content']}\n")
@@ -614,6 +620,34 @@ Extract and organize this information into the JSON schema provided in your syst
 
 Return valid JSON only."""
 
+    # Reuse gate: if the synthesis would be fed exactly what the prior version's
+    # was (same result URLs, same notes, same company facts), its output still
+    # stands. Website text is excluded: it varies run to run without meaning.
+    from ..reuse_gate import fingerprint as _fingerprint, fresh_requested, load_prior_json, note, reuse_disabled
+    from ..utils import get_output_dir_from_state as _out_dir
+    try:
+        _output_dir = _out_dir(state)
+    except Exception:  # noqa: BLE001
+        _output_dir = state.get("output_dir")
+    inputs_fp = _fingerprint({
+        "company_url": company_url, "description": company_description, "stage": company_stage,
+        "notes": research_notes, "deck": bool(deck_analysis), "results": search_result_urls,
+    })
+    prior_research = None if (fresh_requested(state) or reuse_disabled()) else load_prior_json(_output_dir, "1-research.json")
+    if prior_research and prior_research.get("inputs_fingerprint") == inputs_fp:
+        note(_output_dir, "company research", "reused",
+             f"same {len(search_result_urls)} search results and deal inputs as the prior version; no synthesis")
+        try:
+            save_research_artifacts(_output_dir, prior_research)
+        except Exception as e:  # noqa: BLE001
+            print(f"Warning: Could not save research artifacts: {e}")
+        return {
+            "research": ResearchData(**prior_research),
+            "messages": [f"Research reused for {company_name} (inputs unchanged)"],
+        }
+    note(_output_dir, "company research", "ran",
+         "no prior research" if not prior_research else "search results or deal inputs changed")
+
     print("Synthesizing research with Claude...")
     # System prompt folded into the body. It carries the closed-corpus rule —
     # "use ONLY information found in the provided search results" — and the JSON
@@ -685,6 +719,8 @@ Return valid JSON only."""
             "queries_count": 4,  # We ran 4 searches
             "total_results": len(research_context)
         }
+
+    research_data["inputs_fingerprint"] = inputs_fp
 
     # Save research artifacts
     try:
