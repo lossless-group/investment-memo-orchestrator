@@ -53,7 +53,6 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     company_trademark_light = state.get("company_trademark_light")
     company_trademark_dark = state.get("company_trademark_dark")
     investment_type = state.get("investment_type", "direct")
-    memo_mode = state.get("memo_mode", "consider")
 
     # Get output directory (respects state["output_dir"] for resume, falls back to auto-detect)
     from ..utils import get_output_dir_from_state
@@ -75,14 +74,16 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
     # Company name as title
     type_label = "Fund Commitment Memo" if investment_type == "fund" else "Investment Memo"
-    mode_label = "Retrospective Justification" if memo_mode == "justify" else "Prospective Analysis"
+    # The memo mode (justify/consider) is a pipeline setting, not something a
+    # reader should see: "Retrospective Justification" printed under the title
+    # of an LP-facing memo reads as an admission, not a label.
     date_str = datetime.now().strftime("%B %d, %Y")
 
     parts.append(f"# {company_name}")
     parts.append("")
-    parts.append(f"**{type_label}** | {mode_label}")
+    parts.append(f"**{type_label}**")
     if firm:
-        parts.append(f"**Prepared by:** {firm}")
+        parts.append(f"**Prepared by:** {_firm_display_name(firm)}")
     parts.append(f"**Date:** {date_str}")
     parts.append("")
     parts.append("---")
@@ -102,3 +103,16 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "messages": [f"Memo header created for {company_name}{logo_note}"]
     }
+
+
+def _firm_display_name(firm: str) -> str:
+    """The firm's name from its brand config ("Humain Ventures"), not its io/ slug ("humain")."""
+    try:
+        import yaml
+        config = Path("io") / firm / "configs" / f"brand-{firm}-config.yaml"
+        name = ((yaml.safe_load(config.read_text()) or {}).get("company") or {}).get("name")
+        if name:
+            return name
+    except Exception:
+        pass
+    return firm

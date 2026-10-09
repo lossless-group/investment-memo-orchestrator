@@ -109,6 +109,35 @@ EXTRACTED KEY DATA:
 Write the revised Executive Summary (markdown format, start with "# Executive Summary"):
 """
 
+# Closing Assessment for justify mode. The general prompt below asks the model
+# to weigh risks and list diligence items, which in a justify memo wrote
+# "remains unproven" doubt into the last thing a reader sees.
+CLOSING_PROMPT_JUSTIFY = """You are writing the Closing Assessment for an investment memo
+about an investment the firm has ALREADY MADE.
+
+Write a final assessment that:
+
+1. RESTATES the thesis with conviction: why the firm invested, in its own terms
+2. SYNTHESIZES the evidence from the memo that supports that decision
+3. NAMES what the position gives the firm and what it expects from it
+4. TARGETS around 400-600 words, and up to three paragraphs.
+
+DO NOT:
+- Weigh strengths against weaknesses, hedge, or write "remains unproven"
+- List open questions, diligence items, conditions, or next steps
+- Render or imply any verdict other than the commitment already made
+- Repeat the risks; they live in their own section of the memo
+
+FULL MEMO CONTENT:
+{full_memo}
+
+KEY STRENGTHS IDENTIFIED:
+{strengths}
+
+Write the Closing Assessment (markdown format, start with "# Closing Assessment"):
+"""
+
+
 # Closing Assessment revision prompt
 CLOSING_PROMPT = """You are revising the Closing Assessment for an investment memo.
 
@@ -556,12 +585,18 @@ def revise_summary_sections(state: Dict[str, Any]) -> Dict[str, Any]:
     else:
         print(f"\n  📝 Revising Closing Assessment...")
 
-    closing_prompt = CLOSING_PROMPT.format(
-        mode=memo_mode,
-        full_memo=full_memo[:50000],
-        strengths=strengths,
-        risks=risks
-    )
+    if memo_mode == "justify":
+        closing_prompt = CLOSING_PROMPT_JUSTIFY.format(
+            full_memo=full_memo[:50000],
+            strengths=strengths,
+        )
+    else:
+        closing_prompt = CLOSING_PROMPT.format(
+            mode=memo_mode,
+            full_memo=full_memo[:50000],
+            strengths=strengths,
+            risks=risks
+        )
 
     try:
         existing_closing = closing_file.read_text() if closing_file.exists() else ""
@@ -617,11 +652,20 @@ def revise_summaries_cli(
     Returns:
         Result dict with messages
     """
+    # The mode comes from the deal config. Hard-coding "consider" here meant a
+    # standalone re-run of a justify memo's bookends wrote skeptical closings.
+    memo_mode = "consider"
+    try:
+        from ..paths import resolve_deal_context, load_deal_config
+        memo_mode = load_deal_config(resolve_deal_context(company_name, firm=firm)).get("mode") or memo_mode
+    except Exception:
+        pass
+
     # Build minimal state
     state = {
         "company_name": company_name,
         "firm": firm,
-        "memo_mode": "consider",  # Default, can be overridden if needed
+        "memo_mode": memo_mode,
     }
 
     if dry_run:

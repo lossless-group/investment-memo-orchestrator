@@ -357,6 +357,40 @@ def _prior_section_prose(frame, section_def, output_dir) -> str:
         return ""
 
 
+JUSTIFY_RULES = """
+JUSTIFY MODE: THE INVESTMENT IS ALREADY MADE. DO NOT WRITE SKEPTICAL ANALYSIS.
+The firm has committed. This memo documents why. The operator is not asking for
+a second opinion and will not edit doubt back out.
+- State the thesis with conviction. Lead with why the firm invested and what supports it.
+- Do NOT write caveats, hedges, "remains unproven", "has yet to be validated",
+  "however", "the key question is", open diligence questions, or next-step checklists.
+- Do NOT weigh strengths against weaknesses, and do NOT render or imply PASS/CONSIDER.
+- Where a fact is unconfirmed, attribute it ("the company reports ...") and move on.
+  Attribution is not skepticism; do not editorialize about it.
+- Risks have exactly ONE home: the risks section (named "Flags" or "Risks" in the
+  outline). Nowhere else.
+"""
+
+JUSTIFY_RISK_SECTION_RULES = """
+THIS IS THE RISKS CONTAINER. It is the only section in a justify-mode memo where
+risks appear. Write them as risks the firm identified and accepted when it
+invested: each one named, stated plainly in a sentence or two, and paired with
+the mitigation or the reason the firm accepted it. Keep it bounded (4-6 items).
+No verdicts, no "caution is warranted", no recommendation language.
+"""
+
+
+def is_risk_container(section_def) -> bool:
+    """The section that holds risk content (Flags in the Decile outline, Risks elsewhere)."""
+    name = (getattr(section_def, "name", "") or "").lower()
+    return any(word in name for word in ("risk", "flag"))
+
+
+def justify_guidance(section_def) -> str:
+    """Justify-mode rules for one section: the global ban, plus the container rules where they apply."""
+    return JUSTIFY_RULES + (JUSTIFY_RISK_SECTION_RULES if is_risk_container(section_def) else "")
+
+
 def polish_section_research(
     section_def: SectionDefinition,
     research_content: str,
@@ -410,7 +444,7 @@ def polish_section_research(
     # Build mode guidance
     mode_guidance = ""
     if memo_mode == "justify":
-        mode_guidance = "MEMO MODE: Retrospective justification (recommend COMMIT)"
+        mode_guidance = "MEMO MODE: Retrospective justification (recommend COMMIT)\n" + justify_guidance(section_def)
     else:
         mode_guidance = "MEMO MODE: Prospective analysis (recommend PASS/CONSIDER/COMMIT)"
 
@@ -670,7 +704,7 @@ IMPORTANT - MEMO MODE: JUSTIFY (Retrospective Justification)
 This memo is justifying an EXISTING investment we have already made. Your recommendation MUST be "COMMIT"
 since the investment has already occurred. Focus on explaining WHY we made this investment and what
 strengths/thesis justified the commitment.
-"""
+""" + justify_guidance(section_def)
     else:  # consider mode
         mode_guidance = """
 IMPORTANT - MEMO MODE: CONSIDER (Prospective Analysis)
@@ -833,6 +867,51 @@ SECTION CONTENT:
     return completion.text.strip()
 
 
+def operator_context_block(state) -> str:
+    """
+    The operator's own framing of the deal: the deal config's notes, the firm's
+    terms, and the named founders, stated as authoritative.
+
+    `notes` used to reach only the broad-search researchers. A codified run
+    skips them, so the firm's thesis and its own check size reached no agent at
+    all, and a justify-mode memo was written without once naming the investor
+    or its position.
+    """
+    company_name = state.get("company_name")
+    firm = state.get("firm")
+    notes = state.get("research_notes") or ""
+    config: Dict[str, Any] = {}
+    if company_name and firm:
+        try:
+            from ..paths import resolve_deal_context, load_deal_config
+            config = load_deal_config(resolve_deal_context(company_name, firm=firm)) or {}
+        except Exception:
+            config = {}
+    notes = notes or config.get("notes") or ""
+    terms = config.get("proposed_terms") or {}
+    founders = config.get("founders") or []
+    if not (notes or terms or founders):
+        return ""
+
+    lines = ["", "OPERATOR CONTEXT (from the investing firm's deal configuration; authoritative):"]
+    if terms:
+        lines.append("The firm's own position and terms — state these exactly where the section "
+                     "discusses the round, the investment, or the thesis; never contradict them:")
+        for key, value in terms.items():
+            lines.append(f"- {key}: {value}")
+    if founders:
+        lines.append("Founders as confirmed by the operator:")
+        for f in founders:
+            if isinstance(f, dict):
+                lines.append(f"- {f.get('name', '')} — {f.get('role', '')}. {f.get('background') or f.get('note') or ''}".rstrip())
+    if notes:
+        lines.append("Operator notes (the firm's thesis, research brief, and what to flag). Follow them; "
+                     "anything marked TO CONFIRM is attributed to its source, never speculated about:")
+        lines.append(notes)
+    lines.append("")
+    return "\n".join(lines)
+
+
 def writer_agent(state: MemoState) -> Dict[str, Any]:
     """
     Writer Agent implementation - ITERATIVE SECTION-BY-SECTION.
@@ -913,6 +992,9 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
     # unread: every section was written from web research alone, which is why a
     # memo could report terms as "not disclosed" beside seven executed SAFEs.
     dataroom_analysis = state.get("dataroom_analysis") or {}
+    operator_context = operator_context_block(state)
+    if operator_context:
+        print("   🧭 Operator context from the deal config goes into every section")
     if dataroom_analysis:
         print(f"   📄 Grounding sections in {dataroom_analysis.get('document_count', '?')} "
               f"dataroom documents")
@@ -954,7 +1036,7 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 company_name=company_name,
                 memo_mode=memo_mode,
                 style_guide=style_guide,
-                dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
+                dataroom_facts=operator_context + dataroom_facts_for_section(section_def, dataroom_analysis),
                 frame=frame,
                 output_dir=output_dir,
             )
@@ -970,11 +1052,16 @@ def writer_agent(state: MemoState) -> Dict[str, Any]:
                 memo_mode=memo_mode,
                 style_guide=style_guide,
                 current_date=current_date,
-                dataroom_facts=dataroom_facts_for_section(section_def, dataroom_analysis),
+                dataroom_facts=operator_context + dataroom_facts_for_section(section_def, dataroom_analysis),
                 frame=frame,
                 output_dir=output_dir,
             )
             sections_written += 1
+
+        # A model sometimes returns the whole section inside a ```markdown fence,
+        # which the assembled memo and every export then render as a code block.
+        section_content = re.sub(r"^\s*```(?:markdown|md)?\s*\n(.*?)\n```\s*$", r"\1",
+                                 section_content, flags=re.DOTALL)
 
         # Save individual section
         # Pass the outline's filename so the section lands where the frame
