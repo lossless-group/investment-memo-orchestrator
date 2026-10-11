@@ -35,7 +35,9 @@ async def lifespan(app: FastAPI):
     registry = JobRegistry(loop)
     app.state.registry = registry
     try:
-        yield
+        # The MemoPop connector's MCP session manager runs inside the app's lifespan.
+        async with app.state.connector.lifespan():
+            yield
     finally:
         registry.shutdown()
 
@@ -49,6 +51,10 @@ app = FastAPI(
         "a local sidecar from the orchestrator repo root."
     ),
     lifespan=lifespan,
+    # /docs belongs to the MemoPop connector's docs (src/connector/docs_build.py);
+    # FastAPI's Swagger UI for the sidecar routes moves aside.
+    docs_url="/sidecar/docs",
+    redoc_url=None,
 )
 
 # Permissive CORS for local sidecar use: Tauri webviews, dev frontends on localhost.
@@ -74,6 +80,13 @@ app.add_middleware(
 from .sources_api import router as sources_router  # noqa: E402
 
 app.include_router(sources_router)
+
+# The MemoPop connector: MCP at /mcp, REST under /v1/, its docs, and the OAuth
+# protected-resource documents. Settings come from the environment
+# (src/connector/config.py). It is independent of the sidecar routes above.
+from ..connector.app import mount_connector  # noqa: E402
+
+app.state.connector = mount_connector(app)
 
 
 def _registry(app: FastAPI) -> JobRegistry:
