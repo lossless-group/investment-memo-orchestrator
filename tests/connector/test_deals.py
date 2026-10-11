@@ -12,7 +12,14 @@ from .conftest import SECTIONS, TEMPLATE, call, deal_json, new_deal
 
 @pytest.mark.spec("CONN-DEAL-01")
 def test_create_new_deal_uses_the_templates_sections(ws, settings):
-    body = call(ws, "create_new_deal", company="Fixture Co", url="https://www.fixture.co/about", template=TEMPLATE, stage="Seed")
+    body = call(
+        ws,
+        "create_new_deal",
+        company="Fixture Co",
+        url="https://www.fixture.co/about",
+        template=TEMPLATE,
+        stage="Seed",
+    )
     assert body["created"] is True
     assert body["deal"] == "fixture-co"
     assert body["template"] == TEMPLATE
@@ -40,7 +47,9 @@ def test_create_new_deal_uses_the_templates_sections(ws, settings):
 
 @pytest.mark.spec("CONN-DEAL-02")
 def test_creating_the_same_company_twice_returns_the_existing_deal(ws):
-    first = call(ws, "create_new_deal", company="Fixture Co", url="https://fixture.co", template=TEMPLATE)
+    first = call(
+        ws, "create_new_deal", company="Fixture Co", url="https://fixture.co", template=TEMPLATE
+    )
     before = deal_json(ws, first["deal"]).read_bytes()
     for again in (
         {"company": "Fixture Co", "url": "https://fixture.co", "template": TEMPLATE},
@@ -130,5 +139,7 @@ def test_list_deals_shows_phase_pending_materials_and_skips(settings):
     assert row["phase"] == "research"
     assert row["materials_pending"] == 1
     assert row["next_step_hint"]
-    assert [(s["step_id"], s["code"]) for s in row["skips"]] == [("materials.brief", "step_disabled")]
+    assert [(s["step_id"], s["code"]) for s in row["skips"]] == [
+        ("materials.brief", "step_disabled")
+    ]
     assert row["updated_at"]

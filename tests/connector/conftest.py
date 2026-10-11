@@ -75,7 +75,14 @@ def _b64(data: bytes) -> str:
 
 def public_jwk(key: Ed25519PrivateKey, kid: str = KID) -> dict:
     raw = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-    return {"kty": "OKP", "crv": "Ed25519", "x": _b64(raw), "kid": kid, "alg": "EdDSA", "use": "sig"}
+    return {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": _b64(raw),
+        "kid": kid,
+        "alg": "EdDSA",
+        "use": "sig",
+    }
 
 
 def make_token(

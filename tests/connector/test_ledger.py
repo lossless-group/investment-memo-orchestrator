@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
-from src.ledger import GATED, GREEN, MISSING, RED, classify, join_outcomes, parse_plan, parse_spec_ids
+from src.ledger import (
+    GATED,
+    GREEN,
+    MISSING,
+    RED,
+    classify,
+    join_outcomes,
+    parse_plan,
+    parse_spec_ids,
+)
 
 from .conftest import REPO
 
@@ -17,8 +26,10 @@ def test_level_three_headings_do_not_end_the_tests_section(tmp_path):
         "### Group B\n\n| `B-TWO-02` | y |\n| ~~`B-OLD-03`~~ | z |\n\n## Done when\n\n`C-AFTER-04`\n"
     )
     active, retired = parse_spec_ids(spec)
-    assert active == ["A-ONE-01", "B-TWO-02"]
-    assert retired == []  # the strike sits outside the backticks, so it stays out
+    # A strike outside the backticks is not a retirement (corpora-builder's rule):
+    # only `~~ID~~` retires an ID.
+    assert active == ["A-ONE-01", "B-TWO-02", "B-OLD-03"]
+    assert retired == []
     spec.write_text("## Tests\n\n| `~~B-OLD-03~~` | z |\n")
     assert parse_spec_ids(spec) == ([], ["B-OLD-03"])
 
@@ -38,7 +49,10 @@ def test_the_connector_spec_and_plan_one_agree():
 
 
 def test_worst_outcome_wins_and_classify():
-    results = join_outcomes({"a": ["X-01"], "b": ["X-01", "Y-02"], "c": ["Z-03"]}, {"a": "passed", "b": "failed", "c": "skipped"})
+    results = join_outcomes(
+        {"a": ["X-01"], "b": ["X-01", "Y-02"], "c": ["Z-03"]},
+        {"a": "passed", "b": "failed", "c": "skipped"},
+    )
     assert classify("X-01", results) == RED
     assert classify("Y-02", results) == RED
     assert classify("Z-03", results) == GATED

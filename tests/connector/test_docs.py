@@ -44,7 +44,9 @@ def test_every_docs_example_runs_and_matches(registry, tmp_path_factory):
                 _run(setup_tool, setup_request, ws)
             got = _run(tool.name, example.request, ws)
             assert matches(example.response, got), (
-                f"{tool.name} example {example.title!r}\n" f"documented: {example.response}\n" f"got: {got}"
+                f"{tool.name} example {example.title!r}\n"
+                f"documented: {example.response}\n"
+                f"got: {got}"
             )
             ran += 1
     assert ran >= len(registry.tools)

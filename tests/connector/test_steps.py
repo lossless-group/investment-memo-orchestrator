@@ -18,8 +18,20 @@ from .fixtures import canned
 def submit(ws, deal: str, step: dict, content: str | None = None, **kw) -> dict:
     section = step.get("section")
     if content is None:
-        content = canned.research(section) if step["step_id"] == "research.section" else canned.draft(section)
-    return call(ws, "submit_artifact", deal=deal, step_id=step["step_id"], section=section, content=content, **kw)
+        content = (
+            canned.research(section)
+            if step["step_id"] == "research.section"
+            else canned.draft(section)
+        )
+    return call(
+        ws,
+        "submit_artifact",
+        deal=deal,
+        step_id=step["step_id"],
+        section=section,
+        content=content,
+        **kw,
+    )
 
 
 def approve_all_research(ws, deal: str) -> None:
@@ -120,7 +132,13 @@ def test_identical_resubmission_is_a_no_op(ws):
     assert deal_json(ws, deal).read_bytes() == state_before
     assert (artifact.read_bytes(), artifact.stat().st_mtime_ns) == file_before
 
-    changed = submit(ws, deal, step, content=canned.research(SECTIONS[0]) + "\nOne more line.\n", partner_approved=True)
+    changed = submit(
+        ws,
+        deal,
+        step,
+        content=canned.research(SECTIONS[0]) + "\nOne more line.\n",
+        partner_approved=True,
+    )
     assert changed["version"] == 2
 
 
@@ -137,8 +155,19 @@ def test_an_accepted_artifact_moves_next_step_on(ws):
 
     for _ in SECTIONS[1:]:
         submit(ws, deal, call(ws, "next_step", deal=deal), partner_approved=True)
+    # research.sources (optional, partner-approved) follows the last section's research.
+    sources = call(ws, "next_step", deal=deal)
+    assert (sources["step_id"], sources["phase"]) == ("research.sources", "research")
+    assert {i["artifact_id"] for i in sources["inputs"]} == {
+        f"research.section:{s}" for s in SECTIONS
+    }
+    submit(ws, deal, sources, content="Sources: Fixture Press (2).", partner_approved=True)
     draft = call(ws, "next_step", deal=deal)
-    assert (draft["step_id"], draft["section"], draft["phase"]) == ("draft.section", SECTIONS[0], "draft")
+    assert (draft["step_id"], draft["section"], draft["phase"]) == (
+        "draft.section",
+        SECTIONS[0],
+        "draft",
+    )
     research_input = f"research.section:{SECTIONS[0]}"
     assert research_input in [i["artifact_id"] for i in draft["inputs"]]
 
@@ -156,7 +185,9 @@ def test_a_new_session_resumes_at_the_same_step(settings, jwks_transport):
         return TestClient(build_app(settings, http_transport=jwks_transport), base_url=BASE_URL)
 
     with session() as first:
-        deal = rest(first, "create_new_deal", {"company": "Fixture Co", "template": TEMPLATE}).json()["deal"]
+        deal = rest(
+            first, "create_new_deal", {"company": "Fixture Co", "template": TEMPLATE}
+        ).json()["deal"]
         step = rest(first, "next_step", {"deal": deal}).json()
         rest(
             first,
@@ -210,7 +241,9 @@ def test_long_artifacts_page_and_no_result_exceeds_150k(ws):
         result = call(ws, tool, **args)
         assert len(json.dumps(result)) <= 150_000, tool
     draft = call(ws, "next_step", deal=deal)
-    (research,) = [i for i in draft["inputs"] if i["artifact_id"] == f"research.section:{SECTIONS[0]}"]
+    (research,) = [
+        i for i in draft["inputs"] if i["artifact_id"] == f"research.section:{SECTIONS[0]}"
+    ]
     assert research.get("truncated") is True
     assert research.get("next_offset")
 
@@ -219,7 +252,9 @@ def test_long_artifacts_page_and_no_result_exceeds_150k(ws):
 def test_mcp_and_rest_return_the_same_body(client, mcp):
     created = rest(client, "create_new_deal", {"company": "Fixture Co", "template": TEMPLATE})
     deal = created.json()["deal"]
-    assert mcp.call("create_new_deal", {"company": "Fixture Co", "template": TEMPLATE})["structuredContent"] == {
+    assert mcp.call("create_new_deal", {"company": "Fixture Co", "template": TEMPLATE})[
+        "structuredContent"
+    ] == {
         **created.json(),
         "created": False,
     }
@@ -262,7 +297,15 @@ def test_submitting_a_step_not_yet_handed_out_is_out_of_order(ws):
     before = deal_json(ws, deal).read_bytes()
     for step_id, section, content in cases:
         with pytest.raises(ConnectorError) as raised:
-            call(ws, "submit_artifact", deal=deal, step_id=step_id, section=section, content=content, partner_approved=True)
+            call(
+                ws,
+                "submit_artifact",
+                deal=deal,
+                step_id=step_id,
+                section=section,
+                content=content,
+                partner_approved=True,
+            )
         assert (raised.value.kind, raised.value.code) == ("invalid", "step_out_of_order"), step_id
         assert raised.value.next
     assert deal_json(ws, deal).read_bytes() == before
