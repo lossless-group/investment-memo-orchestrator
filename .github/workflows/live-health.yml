@@ -1,0 +1,85 @@
+name: Live health check
+
+# Spec layer 10 (CONN-LIVE-01's script against production, and CONN-LIVE-02):
+# every 30 minutes, and on demand, walk test-firm through a short memo on
+# https://memopop.didi.sh and time every call. A failed or slow step fails the
+# run, and GitHub emails the failure (spec §Defaults chosen for v1).
+#
+# Needs the repository secret MEMOPOP_HEALTH_KEY: test-firm's static key, the
+# value paired with test-firm in the service's MEMOPOP_STATIC_KEYS. Until the
+# secret exists, every run skips with a notice instead of failing.
+# See docs/operator/deploy.md, "Reading the health check".
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Origin to check"
+        required: false
+        default: "https://memopop.didi.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MEMOPOP_HEALTH_KEY: ${{ secrets.MEMOPOP_HEALTH_KEY }}
+      BASE_URL: ${{ inputs.base_url || 'https://memopop.didi.sh' }}
+    steps:
+      - name: Skip until the key is configured
+        id: gate
+        run: |
+          if [ -z "$MEMOPOP_HEALTH_KEY" ]; then
+            echo "::notice title=Live health check skipped::Repository secret MEMOPOP_HEALTH_KEY is not set. Add test-firm's static key to enable the check (docs/operator/deploy.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout (without submodules)
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          sparse-checkout: |
+            scripts/health_check.py
+            tests/connector/__init__.py
+            tests/connector/test_live_deployed.py
+          sparse-checkout-cone-mode: false
+
+      - name: Install uv
+        if: steps.gate.outputs.ready == 'true'
+        uses: astral-sh/setup-uv@v6
+
+      - name: Health check
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          uv run --no-project --python 3.13 --with httpx \
+            python scripts/health_check.py --base-url "$BASE_URL" --json health.json
+
+      - name: Endpoints over https (CONN-LIVE-02)
+        if: always() && steps.gate.outputs.ready == 'true'
+        env:
+          MEMOPOP_LIVE_URL: ${{ env.BASE_URL }}
+        run: |
+          uv run --no-project --python 3.13 --with httpx --with pytest \
+            pytest -q -p no:cacheprovider -o addopts="" --noconftest -rs \
+            tests/connector/test_live_deployed.py
+
+      - name: Keep the timings
+        if: always() && steps.gate.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-${{ github.run_id }}
+          path: health.json
+          if-no-files-found: ignore
+          retention-days: 7

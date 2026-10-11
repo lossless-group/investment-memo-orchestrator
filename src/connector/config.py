@@ -18,6 +18,8 @@
 | `MEMOPOP_S3_SECRET_ACCESS_KEY` | (falls back to `AWS_SECRET_ACCESS_KEY`) | none |
 | `MEMOPOP_S3_REGION` | (falls back to `AWS_REGION`) | `auto` |
 | `MEMOPOP_S3_BUCKET_TEMPLATE` | One bucket per firm; `{firm}` is replaced | `memopop-{firm}` |
+| `MEMOPOP_S3_FIRM_<FIRM>_<FIELD>` | One firm's own bucket: `<FIRM>` is the slug upper-cased with `_` for `-`; `<FIELD>` is `BUCKET`, `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `ENDPOINT`, or `REGION`. Unset fields fall back to the globals above | none |
+| `MEMOPOP_S3_ADDRESSING_STYLE` | `virtual` (Railway buckets), `path`, or `auto` | `virtual` |
 | `MEMOPOP_JJ_BIN` | The jj binary that keeps each firm's history (absent: no history kept) | `jj` |
 """
 
@@ -29,6 +31,28 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+S3_FIRM_PREFIX = "MEMOPOP_S3_FIRM_"
+S3_FIRM_FIELDS = ("BUCKET", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "ENDPOINT", "REGION")
+
+
+def _parse_s3_firms(env) -> dict[str, dict[str, str]]:
+    """``MEMOPOP_S3_FIRM_TEST_FIRM_BUCKET=x`` -> ``{"test-firm": {"bucket": "x"}}``."""
+    firms: dict[str, dict[str, str]] = {}
+    for name, value in env.items():
+        if not name.startswith(S3_FIRM_PREFIX) or not value:
+            continue
+        rest = name[len(S3_FIRM_PREFIX) :]
+        fld = next((f for f in S3_FIRM_FIELDS if rest.endswith("_" + f)), None)
+        firm = rest[: -len(fld) - 1] if fld else ""
+        if not fld or not firm:
+            raise ValueError(
+                f"{name}: per-firm bucket settings look like {S3_FIRM_PREFIX}<FIRM>_<FIELD>, "
+                f"FIELD one of {', '.join(S3_FIRM_FIELDS)}"
+            )
+        firms.setdefault(firm.lower().replace("_", "-"), {})[fld.lower()] = value
+    return firms
 
 
 def _parse_static_keys(raw: str) -> dict[str, str]:
@@ -61,6 +85,10 @@ class ConnectorSettings:
     s3_secret_access_key: str | None = None
     s3_region: str = "auto"
     s3_bucket_template: str = "memopop-{firm}"
+    #: firm -> {bucket, access_key_id, secret_access_key, endpoint, region}; each
+    #: Railway bucket has its own name and keys.
+    s3_firms: dict[str, dict[str, str]] = field(default_factory=dict)
+    s3_addressing_style: str = "virtual"
     #: The jj binary for per-firm history (phase 6).
     jj_bin: str = "jj"
     #: MemoPop's own outlines. A firm's own live in <firm>/templates/outlines/.
@@ -114,6 +142,8 @@ class ConnectorSettings:
             s3_secret_access_key=get("MEMOPOP_S3_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"),
             s3_region=get("MEMOPOP_S3_REGION", "AWS_REGION", default="auto"),
             s3_bucket_template=get("MEMOPOP_S3_BUCKET_TEMPLATE", default="memopop-{firm}"),
+            s3_firms=_parse_s3_firms(e),
+            s3_addressing_style=get("MEMOPOP_S3_ADDRESSING_STYLE", default="virtual"),
             jj_bin=get("MEMOPOP_JJ_BIN", default="jj"),
             compile_budget_seconds=float(get("MEMOPOP_COMPILE_BUDGET_SECONDS", default="200")),
             **({"link_secret": secret} if (secret := get("MEMOPOP_LINK_SECRET")) else {}),

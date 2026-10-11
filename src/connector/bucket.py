@@ -118,15 +118,19 @@ def bucket_for(settings: ConnectorSettings, firm: str) -> Bucket:
     """The firm's bucket. Firms never share one."""
     if settings.bucket_backend == "s3":
         import boto3
+        from botocore.config import Config
 
+        own = settings.s3_firms.get(firm, {})
         client = boto3.client(
             "s3",
-            endpoint_url=settings.s3_endpoint,
-            aws_access_key_id=settings.s3_access_key_id,
-            aws_secret_access_key=settings.s3_secret_access_key,
-            region_name=settings.s3_region,
+            endpoint_url=own.get("endpoint") or settings.s3_endpoint,
+            aws_access_key_id=own.get("access_key_id") or settings.s3_access_key_id,
+            aws_secret_access_key=own.get("secret_access_key") or settings.s3_secret_access_key,
+            region_name=own.get("region") or settings.s3_region,
+            config=Config(s3={"addressing_style": settings.s3_addressing_style}),
         )
-        return S3Bucket(client, settings.s3_bucket_template.format(firm=firm))
+        name = own.get("bucket") or settings.s3_bucket_template.format(firm=firm)
+        return S3Bucket(client, name)
     if settings.bucket_backend == "local":
         assert settings.bucket_local_root is not None
         return LocalBucket(settings.bucket_local_root / firm)

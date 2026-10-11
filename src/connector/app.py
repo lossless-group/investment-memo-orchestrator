@@ -91,6 +91,15 @@ class Connector:
 
     @asynccontextmanager
     async def lifespan(self):
+        from fastapi.concurrency import run_in_threadpool
+
+        from .materials.pipeline import sweep_all
+
+        # Background jobs die with the process: whatever was in flight is lost.
+        try:
+            await run_in_threadpool(sweep_all, self.settings, restarted=True)
+        except Exception:  # the sweep must never stop the server starting
+            log.exception("startup materials sweep failed")
         async with self.mcp.run():
             yield
 
