@@ -9,6 +9,21 @@ from __future__ import annotations
 API_CHANGELOG: list[dict] = [
     {
         "date": "2026-10-10",
+        "version": "1.1.0",
+        "changes": [
+            "add_materials works: inline text (up to 100,000 characters) is ready at once; "
+            "links are fetched in the background (Google Drive and Dropbox share links "
+            "rewritten, DocSend not yet); an item with only a filename returns a one-time "
+            "`upload_url` (single use, one hour) and `upload_expires_at`.",
+            "add_materials `accepted` entries now carry `kind` (additive).",
+            "A link or file that can't be read is recorded as a `material_unreadable` skip, "
+            "reported by next_step and list_deals; the deal continues.",
+            "New page outside the API: GET and POST /upload/{token}, the one-time upload form.",
+            "add_materials no longer returns `not_implemented`.",
+        ],
+    },
+    {
+        "date": "2026-10-10",
         "version": "1.0.0",
         "changes": [
             "v1 of the MemoPop connector: MCP at /mcp and REST under /v1/.",
