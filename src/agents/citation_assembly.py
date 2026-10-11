@@ -209,6 +209,65 @@ def format_citation_block(citations: Dict[str, str], ordered_nums: List[str]) ->
     return '\n'.join(lines)
 
 
+_DEFINITION_URL = re.compile(r'\]\((https?://[^)\s]+)\)')
+
+
+def _source_identity(definition: str) -> str:
+    """What makes two definitions the same source: the URL, else the text."""
+    match = _DEFINITION_URL.search(definition)
+    if match:
+        return match.group(1).rstrip('/').lower()
+    return ' '.join(definition.split()).lower()
+
+
+def consolidate_citations(texts: List[str]) -> Tuple[List[str], str, Dict[str, Any]]:
+    """
+    Consolidate citations across self-contained texts, with no files and no state.
+
+    Unlike renumber_citations(), which treats citation keys as global across
+    2-sections/, this treats each text's keys as LOCAL: section A's [^1] and
+    section B's [^1] may be different sources, because each text carries its own
+    definitions (the connector's section drafts do). A source is identified by
+    its URL (or, without one, its definition text), so a source cited by
+    several texts gets one number. Numbers run 1..N by first appearance.
+
+    Args:
+        texts: Section texts in memo order, each with its own [^key]: definitions
+
+    Returns:
+        (bodies, citation_block, stats): each text with its definitions removed
+        and its inline citations renumbered; one consolidated block made by
+        format_citation_block() ("" if nothing is cited); and stats with
+        "sources" (definitions in the block), "cited" (distinct numbers used),
+        and "missing" (["<text index>:<key>", ...] cited without a definition).
+    """
+    number_of: Dict[str, str] = {}
+    definition_of: Dict[str, str] = {}
+    missing: List[str] = []
+    bodies: List[str] = []
+    for index, text in enumerate(texts):
+        definitions = extract_citation_definitions(text)
+        body = remove_citation_definitions_from_content(text)
+        local: Dict[str, str] = {}
+        for key in extract_inline_citations(body):
+            definition = definitions.get(key)
+            if definition is None:
+                missing.append(f"{index}:{key}")
+                identity = f"missing:{index}:{key}"
+            else:
+                identity = _source_identity(definition)
+            if identity not in number_of:
+                number_of[identity] = str(len(number_of) + 1)
+                if definition is not None:
+                    definition_of[number_of[identity]] = definition
+            local[key] = number_of[identity]
+        bodies.append(renumber_inline_citations(body, local))
+    ordered = sorted(definition_of, key=int)
+    block = format_citation_block(definition_of, ordered) if ordered else ""
+    stats = {"sources": len(ordered), "cited": len(number_of), "missing": missing}
+    return bodies, block, stats
+
+
 def build_background_sources_block(state, cited_urls: set) -> str:
     """Render approved-but-uncited sources as a Background Sources block.
 

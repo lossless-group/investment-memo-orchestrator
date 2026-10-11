@@ -211,6 +211,23 @@ def render_instruction(inst: Instance, state: dict) -> str:
     return text
 
 
+def current_section_key(registry: Registry, state: dict, section: str) -> str | None:
+    """The artifact holding a section's text as it now stands.
+
+    Every section-scoped step whose artifact kind is ``section`` (the draft, and
+    the enhancements that revise it: tables, citations, fact check) produces a
+    whole new version of the section; the one latest in registry order wins.
+    Read as ``section.current:@section`` or ``section.current:*``; compile uses it too.
+    """
+    current = None
+    for step in registry.steps:
+        if step.scope == "section" and step.produces and step.produces.kind == "section":
+            key = step.artifact_id(section)
+            if key in state["artifacts"]:
+                current = key
+    return current
+
+
 def _artifact_text(ws: Workspace, state: dict, key: str) -> str | None:
     record = state["artifacts"].get(key)
     if record is None:
@@ -226,6 +243,14 @@ def gather_inputs(registry: Registry, ws: Workspace, state: dict, inst: Instance
         if name == "materials":
             for m in ready_materials(state):
                 wanted.append((f"material:{m['material_id']}", f"Material: {m.get('kind')}"))
+            continue
+        if name == "section.current":
+            keys = section_keys(state) if scope == "*" else [inst.section]
+            for key in keys:
+                current = current_section_key(registry, state, key)
+                if current is not None:
+                    info = section_info(state, key) or {}
+                    wanted.append((current, f"Current text: {info.get('name', key)}"))
             continue
         step = registry.step(name)
         if step is None:

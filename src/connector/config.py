@@ -9,6 +9,8 @@
 | `MEMOPOP_TOKEN_AUDIENCE` | The `aud` tokens must carry (`<aud>/mcp` is accepted too) | `https://memopop.didi.sh` |
 | `MEMOPOP_STATIC_KEYS` | Interim per-firm keys, `firm=key,firm=key` (Claude Code and the health check only) | none |
 | `MEMOPOP_DISABLED_STEPS` | Ops switch: comma-separated step ids to skip (optional steps only) | none |
+| `MEMOPOP_COMPILE_BUDGET_SECONDS` | How long compile works before it returns a job instead | `200` |
+| `MEMOPOP_LINK_SECRET` | Signs compiled-memo links served from a local bucket (S3 links are presigned) | random per process |
 | `MEMOPOP_BUCKET_BACKEND` | `local` or `s3` | `local` |
 | `MEMOPOP_BUCKET_LOCAL_ROOT` | Root of the local buckets (`<root>/<firm>/...`) | `<MEMO_IO_ROOT>/../buckets` |
 | `MEMOPOP_S3_ENDPOINT` | S3-compatible endpoint (falls back to `AWS_ENDPOINT_URL`) | none |
@@ -22,6 +24,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -64,6 +67,11 @@ class ConnectorSettings:
     templates_dir: Path = REPO_ROOT / "templates" / "outlines"
     default_template: str = "direct-early-stage-12Ps"
     jwks_cache_seconds: int = 300
+    #: compile returns a job past this (spec: never block past 240 s; plan 5: 200 s).
+    compile_budget_seconds: float = 200.0
+    #: Signs local-bucket download links. Random per process unless set, so a
+    #: restart invalidates them; production uses S3 presigned links instead.
+    link_secret: str = field(default_factory=lambda: secrets.token_hex(32))
 
     def __post_init__(self) -> None:
         self.io_root = Path(self.io_root)
@@ -107,4 +115,6 @@ class ConnectorSettings:
             s3_region=get("MEMOPOP_S3_REGION", "AWS_REGION", default="auto"),
             s3_bucket_template=get("MEMOPOP_S3_BUCKET_TEMPLATE", default="memopop-{firm}"),
             jj_bin=get("MEMOPOP_JJ_BIN", default="jj"),
+            compile_budget_seconds=float(get("MEMOPOP_COMPILE_BUDGET_SECONDS", default="200")),
+            **({"link_secret": secret} if (secret := get("MEMOPOP_LINK_SECRET")) else {}),
         )
