@@ -7,7 +7,7 @@
 
 Routes added: ``/mcp`` (MCP, Streamable HTTP), ``/v1/...`` (REST),
 ``/v1/openapi.json``, ``/llms.txt``, ``/llms-full.txt``, ``/docs``,
-``/docs/errors``, ``/docs/changelog``, and the protected-resource documents at
+``/docs/errors``, ``/docs/changelog``, ``/v1/files/...`` (signed compiled-memo links), and the protected-resource documents at
 ``/.well-known/oauth-protected-resource`` and ``.../mcp``.
 """
 
@@ -76,10 +76,12 @@ class Connector:
     # ------------------------------------------------------------ wiring
 
     def install(self, app: FastAPI) -> None:
+        from .compile.links import files_router
         from .docs_build import docs_router
         from .rest_app import rest_router
 
         app.include_router(rest_router(self))
+        app.include_router(files_router(self.settings))
         app.include_router(docs_router(self))
         self.mcp.install(app)
 

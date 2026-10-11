@@ -22,6 +22,13 @@ cd "$(dirname "$0")/.." || exit 1
 LINT_PATHS=(src/connector tests/connector src/ledger.py scripts/spec_status.py tests/conftest.py)
 IO_DEPENDENT=(tests/test_amend_on_polish_path.py)
 
+# WeasyPrint (compile's PDF export) loads pango and gobject by bare name. On macOS
+# those live in Homebrew's lib, and DYLD_* variables never survive into this
+# script (macOS strips them when it starts the protected /bin/bash), so set it here.
+if [ "$(uname)" = "Darwin" ] && [ -d /opt/homebrew/lib ]; then
+  export DYLD_FALLBACK_LIBRARY_PATH="${DYLD_FALLBACK_LIBRARY_PATH:-/opt/homebrew/lib}"
+fi
+
 FAILED=0
 hdr() { printf '\n\033[1m── %s\033[0m\n' "$1"; }
 
