@@ -47,6 +47,7 @@ from .real_claude import (
     anthropic_sender,
     check,
     server_view,
+    tells_of_skip,
 )
 
 REPO = Path(__file__).resolve().parents[2]
@@ -195,6 +196,47 @@ def test_the_checks_catch_each_broken_rule(fault_app, misbehave, caught):
     record, view, _ = _offline_run(fault_app, misbehave=frozenset({misbehave}))
     failures = check(record, view)
     assert any(caught in f for f in failures), failures
+
+
+def test_the_well_behaved_run_relays_tell_partner_word_for_word(fault_app):
+    record, _, _ = _offline_run(fault_app)
+    told = [
+        c.body["tell_partner"]
+        for c in record.calls()
+        if c.name == "next_step" and c.ok and c.body.get("tell_partner")
+    ]
+    assert told == [
+        "Skipped: Consolidate the research sources, because it is turned off on this server."
+    ]
+    assert any(e.kind == "claude" and e.text == told[0] for e in record.events)
+
+
+def test_telling_the_partner_in_its_own_words_also_passes(fault_app):
+    record, view, _ = _offline_run(fault_app, misbehave=frozenset({"paraphrase_skip"}))
+    assert not any(
+        e.kind == "claude" and e.text.startswith("Skipped: Consolidate") for e in record.events
+    )
+    assert check(record, view) == []
+
+
+def test_a_line_tells_of_the_skip_only_by_naming_it_and_saying_it_did_not_run():
+    tell = "Skipped: Consolidate the research sources, because it is turned off on this server."
+    assert tells_of_skip(tell, tell)
+    assert tells_of_skip(f"**{tell}**", tell)
+    assert tells_of_skip("`research.sources` was skipped.", None)
+    assert tells_of_skip("I skipped consolidating the sources.", tell)
+    assert not tells_of_skip("Here is the Market research, with its sources.", tell)
+    assert not tells_of_skip("One step was turned off on this server.", tell)
+    assert not tells_of_skip("Now drafting the Overview section.", tell)
+
+
+def test_the_report_keeps_every_message_in_full(fault_app):
+    record, _, _ = _offline_run(fault_app)
+    texts = [e.text for e in record.events if e.text]
+    assert max(len(t) for t in texts) > 400, "the run should include a long message"
+    reported = [e["text"] for e in record.summary()["events"] if "text" in e]
+    assert reported == texts
+    assert any("tell_partner" in e for e in record.summary()["events"])
 
 
 def test_without_the_fault_hook_the_checks_report_no_skip_and_no_down(tmp_path, jwks_transport):

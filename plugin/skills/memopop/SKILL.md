@@ -18,7 +18,9 @@ lives on the server, not here, and it hands you one step at a time.
 - Submit research with `partner_approved: true` only after the partner has
   approved it, and pass their comments in `partner_notes`.
 - When `next_step` reports a step as `skipped`, tell the partner in one line
-  which step and why, then continue.
+  which step and why, then continue. If it returns `tell_partner`, send that
+  line to the partner word for word, as its own short message, before you do
+  that step's work.
 - On a `down` error, stop and tell the partner MemoPop is unavailable. Don't
   retry in a loop or work around it; their work so far is saved.
 - An `invalid` error says what to do next in its `next` text. Do that.

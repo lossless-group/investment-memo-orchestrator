@@ -4,7 +4,7 @@ title: "MemoPop Connector API"
 lede: "Eight tools, one step registry, and the docs and tests that ship with each. What we build so a partner's Claude can write a MemoPop memo."
 publish: true
 date_created: 2026-10-10
-date_modified: 2026-10-10
+date_modified: 2026-10-11
 date_authored_initial_draft: 2026-10-10
 date_authored_current_draft: 2026-10-10
 date_authored_final_draft:
@@ -12,7 +12,7 @@ authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
-at_semantic_version: 0.0.0.7
+at_semantic_version: 0.0.0.8
 status: Draft
 category: Specification
 site_uuid: f32ada52-1cdb-4348-9170-42eebdbc9bd3
@@ -235,8 +235,18 @@ Returns immediately; extraction runs in the background and `list_deals` shows
 
 **`next_step`** `{ deal }` → `{ step_id, phase, section?, instruction,
 inputs: [{ artifact_id, title, text }], produces: { kind, checks },
-needs_partner, skipped_since_last_call: [...] , progress: { done, total } }`.
-When the deal is finished: `{ step_id: null, done: true, compile_ready: true }`.
+needs_partner, skipped_since_last_call: [...] , tell_partner, progress: { done,
+total } }`. When the deal is finished: `{ step_id: null, done: true,
+compile_ready: true }`, still with `skipped_since_last_call` and `tell_partner`.
+`tell_partner` is one plain sentence that Claude sends the partner word for
+word, as its own short message, before doing the step: `Skipped: <step title>
+(<sections>), because <why>.`, one clause per skipped step joined by
+semicolons, with `<why>` taken from the skip's code (`step_disabled`: "it is
+turned off on this server"; `step_failed`: "it failed on MemoPop's side"; a
+material: "a material could not be read" plus its error, quoted; Claude's own
+skip: its reason, quoted). It is `null` when nothing was skipped since the last
+call. On the call that reports a skip, `instruction` also opens with the same
+sentence, so a model that reads only the instruction still relays it.
 
 **`submit_artifact`** `{ deal, step_id, section?, content, partner_approved?,
 partner_notes? }` → `{ artifact_id, version, checks: [{ name, passed, detail }],
@@ -422,8 +432,10 @@ Structured fields on the tool definition:
 - **The plugin's skill.** A thin `SKILL.md` that tells Claude: this is a
   multi-step pipeline with an artifact trail; always call `next_step` and do
   only what it says; show the partner every research file and wait for their
-  approval; on `skipped`, say so in one line and continue; on `down`, stop and
-  tell the partner. Its text is reviewed like code, because it governs every
+  approval; on `skipped`, say so in one line and continue (when `next_step`
+  returns `tell_partner`, write it to the partner word for word, in its own
+  short message, before doing that step's work; the server writes the line so
+  the skill doesn't have to); on `down`, stop and tell the partner. Its text is reviewed like code, because it governs every
   run.
 - **Step instructions** (`src/connector/steps/*.md`), written for Claude: the
   goal, what good output looks like, the format, and how to submit.
@@ -576,6 +588,7 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-STEP-07` | Given an artifact longer than 100,000 characters, then `get_artifact` pages it, and no tool result exceeds 150,000 characters |
 | `CONN-STEP-08` | Given the same call over MCP and over REST, then both return the same body |
 | `CONN-STEP-09` | Given a step that hasn't been handed out, when an artifact is submitted for it, then it returns `invalid` / `step_out_of_order` |
+| `CONN-STEP-10` | Given a skip since the last call, then `next_step` returns `tell_partner`, one sentence naming each skipped step and why; otherwise `tell_partner` is null |
 
 ### Materials (Plan 4)
 

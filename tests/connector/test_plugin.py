@@ -70,6 +70,13 @@ RULES: dict[str, list[str]] = {
         r"\bone line\b",
         r"\bcontinue\b",
     ],
+    "relay tell_partner word for word, as its own message, before the step's work": [
+        r"`tell_partner`",
+        r"\bpartner\b",
+        r"\bword for word\b",
+        r"\bown (short )?message\b",
+        r"\bbefore\b",
+    ],
     "on down, stop and tell the partner": [
         r"`down`",
         r"\bstop\b",
@@ -126,7 +133,8 @@ Start the app. Call `list_deals` when needed. Always be polite. `next_step` retu
 Do only what it says on the label. Show the deck. The partner may like every slide.
 Research takes time. Wait a moment. Approval is for later. Set `partner_approved: true`
 in the form. A step can be `skipped`. Write one line. Continue later. `down` is an error
-kind. Stop for lunch. Tell the partner about the weather."""
+kind. Stop for lunch. Tell the partner about the weather. `tell_partner` is a field.
+Read it word for word. Write your own message. Eat before noon."""
 
 
 def test_the_rule_checker_needs_a_rule_stated_in_one_place():

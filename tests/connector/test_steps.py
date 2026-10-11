@@ -1,5 +1,5 @@
 """Steps: next_step, submit_artifact, get_artifact, and transport parity
-(CONN-STEP-01 to CONN-STEP-09)."""
+(CONN-STEP-01 to CONN-STEP-10)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from src.connector.app import build_app
 from src.connector.errors import ConnectorError
 
 from .conftest import BASE_URL, SECTIONS, TEMPLATE, call, deal_json, new_deal, rest
+from .fake_claude import Direct, FakeClaude
 from .fixtures import canned
 
 
@@ -309,3 +310,143 @@ def test_submitting_a_step_not_yet_handed_out_is_out_of_order(ws):
         assert (raised.value.kind, raised.value.code) == ("invalid", "step_out_of_order"), step_id
         assert raised.value.next
     assert deal_json(ws, deal).read_bytes() == before
+
+
+# ------------------------------------------------------------------ CONN-STEP-10
+
+TURNED_OFF = "it is turned off on this server"
+
+
+def _one_sentence(text: str) -> None:
+    assert text.startswith("Skipped: "), text
+    assert text.endswith("."), text
+    assert "\n" not in text and "  " not in text, text
+
+
+def _notice_leads(step: dict) -> None:
+    """The instruction opens with the notice, before any of the step's own text."""
+    tell = step["tell_partner"]
+    first = step["instruction"].split("\n\n", 1)[0]
+    assert tell in first, step["instruction"][:400]
+    assert step["instruction"].index(tell) < step["instruction"].index("submit_artifact")
+
+
+@pytest.mark.spec("CONN-STEP-10")
+def test_tell_partner_is_null_without_a_skip(ws):
+    deal = new_deal(ws)
+    step = call(ws, "next_step", deal=deal)
+    assert step["skipped_since_last_call"] == []
+    assert "tell_partner" in step and step["tell_partner"] is None
+    assert "Skipped:" not in step["instruction"]
+
+
+@pytest.mark.spec("CONN-STEP-10")
+def test_tell_partner_names_a_disabled_step_and_why_once(ws, settings):
+    settings.disabled_steps = {"research.sources"}
+    deal = new_deal(ws)
+    approve_all_research(ws, deal)
+
+    draft = call(ws, "next_step", deal=deal)
+    assert draft["step_id"] == "draft.section"
+    assert [s["step_id"] for s in draft["skipped_since_last_call"]] == ["research.sources"]
+    assert draft["tell_partner"] == (
+        "Skipped: Consolidate the research sources, because it is turned off on this server."
+    )
+    _one_sentence(draft["tell_partner"])
+    _notice_leads(draft)
+
+    # Reported once: the same step again carries no notice.
+    again = call(ws, "next_step", deal=deal)
+    assert (again["step_id"], again["section"]) == ("draft.section", SECTIONS[0])
+    assert again["skipped_since_last_call"] == []
+    assert again["tell_partner"] is None
+    assert "Skipped:" not in again["instruction"]
+
+
+@pytest.mark.spec("CONN-STEP-10")
+def test_tell_partner_carries_claudes_own_reason_on_one_line(ws):
+    deal = new_deal(ws)
+    approve_all_research(ws, deal)
+    sources = call(ws, "next_step", deal=deal)
+    assert sources["step_id"] == "research.sources"
+    call(
+        ws,
+        "submit_artifact",
+        deal=deal,
+        step_id="research.sources",
+        skip=True,
+        reason='  Too few sources\n to "consolidate".  ',
+    )
+    draft = call(ws, "next_step", deal=deal)
+    assert draft["tell_partner"] == (
+        "Skipped: Consolidate the research sources, because it was skipped with the "
+        "reason \"Too few sources to 'consolidate'\"."
+    )
+    _one_sentence(draft["tell_partner"])
+    _notice_leads(draft)
+
+
+@pytest.mark.spec("CONN-STEP-10")
+def test_tell_partner_names_every_section_of_a_section_step_in_one_sentence(ws, settings):
+    settings.disabled_steps = {"enhance.tables"}
+    fake = FakeClaude(Direct(ws))
+    deal = fake.create()
+    walk = fake.walk(deal, until=lambda s: s["phase"] == "enhance", compile=False)
+    step = walk.stopped_at
+    assert step["step_id"] == "enhance.diagrams"
+    assert [s["step_id"] for s in step["skipped_since_last_call"]] == ["enhance.tables"] * 3
+    assert step["tell_partner"] == (
+        "Skipped: Add tables to a section (Overview, Market, Team), because " + TURNED_OFF + "."
+    )
+    _one_sentence(step["tell_partner"])
+    _notice_leads(step)
+
+
+@pytest.mark.spec("CONN-STEP-10")
+def test_tell_partner_lists_two_different_skips_in_one_sentence(ws, settings):
+    settings.disabled_steps = {"enhance.scorecard", "enhance.summaries"}
+    fake = FakeClaude(Direct(ws))
+    deal = fake.create()
+    walk = fake.walk(deal, until=lambda s: s["step_id"] == "enhance.one_pager", compile=False)
+    tell = walk.stopped_at["tell_partner"]
+    assert tell == (
+        f"Skipped: Score the deal, because {TURNED_OFF}; "
+        f"Revise the summary sections, because {TURNED_OFF}."
+    )
+    _one_sentence(tell)
+
+
+@pytest.mark.spec("CONN-STEP-10")
+def test_tell_partner_comes_with_the_done_answer_too(ws, settings):
+    settings.disabled_steps = {"enhance.one_pager"}
+    fake = FakeClaude(Direct(ws))
+    deal = fake.create()
+    walk = fake.walk(deal, until=lambda s: s["step_id"] == "enhance.summaries", compile=False)
+    fake.do(deal, walk.stopped_at)
+    done = call(ws, "next_step", deal=deal)
+    assert done["done"] is True
+    assert done["tell_partner"] == f"Skipped: Write the one-pager, because {TURNED_OFF}."
+    assert call(ws, "next_step", deal=deal)["tell_partner"] is None
+
+
+@pytest.mark.spec("CONN-STEP-10")
+def test_tell_partner_says_a_material_could_not_be_read(ws):
+    """Material skips (from the background fetch) name the material, on one line."""
+    from src.connector.materials import pipeline
+
+    deal = new_deal(ws)
+    accepted = call(ws, "add_materials", deal=deal, items=[{"kind": "notes", "text": "Notes."}])
+    material_id = accepted["accepted"][0]["material_id"]
+
+    def as_a_link(state):  # recorded the way a fetched link is
+        record = next(m for m in state["materials"] if m["material_id"] == material_id)
+        record.update(status="queued", link="https://fixture.co/deck.pdf")
+
+    ws.update_deal(deal, as_a_link)
+    assert pipeline.mark_skipped(ws, deal, material_id, "HTTP 404")
+    step = call(ws, "next_step", deal=deal)
+    assert step["tell_partner"] == (
+        "Skipped: Extract text from materials, because a material could not be read "
+        '("https://fixture.co/deck.pdf: HTTP 404").'
+    )
+    _one_sentence(step["tell_partner"])
