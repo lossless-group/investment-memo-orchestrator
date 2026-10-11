@@ -116,3 +116,37 @@ audience.
 clients, and a pre-existing open redirect in `AccessController.safe_next/1`
 the engineer found and left out of scope. Session rolling on refresh was the
 engineer's call; flagged to the operator.
+
+### id.didi.sh redirect fix and deploy — 2026-10-10
+
+An open redirect the OAuth engineer found (`//evil.example` after sign-in, and
+an unauthenticated `POST /api/magic-links` that stored any `next`) was fixed on
+its own branch with 12 tests (125 → 137), verified, merged, and deployed to Fly
+with the OAuth server. Live discovery checked: every URL `https://`.
+
+### Phase 1, foundation — merged `840e5b9`
+
+Engineer: 33/33 GREEN, CI green. VP Eng re-ran: ladder green, 33 green, 597
+passed with `io/`. Post-red test edits added tests and one stricter ledger
+expectation; nothing loosened. Four spec questions settled in `ba46275`.
+
+### Phase 4, materials — merged `7a11801`
+
+40 green, 627 passed. Post-red change shrank a synthetic PDF so the asserted
+last page survives the 400k text cap; assertion unchanged. Spec records the
+`skipped` material status (§The tools, "Materials never block"). Follow-up handed to
+Phase 2: sweep materials left `queued`.
+
+### Phase 6, history and snapshots — merged `8f3c023`
+
+API-changelog conflict with Phase 4 resolved keeping both. 45 green, 638
+passed. jj adds ~120 ms per save; the connector suite now takes minutes.
+
+### Phase 5, enhancements, compile, flow — merged `e45ab21`
+
+Conflicts in `app.py`, `config.py`, and the API changelog, all resolved keeping
+both sides. 54 green, 665 passed. Post-red commit `2778b4c` fixed canned data
+and added an assertion. Spec gained `drafts_incomplete`, `link_expired`,
+`step_skipped`, and the ~200 s compile budget. Open: the Claude-side skip and
+earlier-version reads have tests but no spec IDs yet; deck-image placement
+contract unreconciled with materials extraction.
