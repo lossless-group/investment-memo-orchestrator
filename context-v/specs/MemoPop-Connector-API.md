@@ -12,7 +12,7 @@ authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
-at_semantic_version: 0.0.0.3
+at_semantic_version: 0.0.0.4
 status: Draft
 category: Specification
 site_uuid: f32ada52-1cdb-4348-9170-42eebdbc9bd3
@@ -175,7 +175,14 @@ then compile. Rules:
 - `compile` is always allowed once every section has a draft; it reports any
   enhancement that hasn't run or was skipped.
 - Submitting an artifact again replaces it as a new jj change. Earlier versions
-  stay in history.
+  stay in history. Resubmitting identical content changes nothing, except that
+  it may record the partner's approval (research is often saved first and
+  approved later, unchanged); that does not bump the version.
+- `research.sources` runs after every section's research and before the first
+  draft, since drafting cites the approved sources.
+- Claude can't decline an optional step on its own; an optional Claude step it
+  can't do is skipped through `submit_artifact` with `skip: true` and a reason
+  (added in plan 5).
 
 ## The tools
 
@@ -276,7 +283,7 @@ Starting codes (each must have a docs entry):
 | Kind | Codes |
 |---|---|
 | `down` | `service_unavailable`, `storage_unavailable`, `timeout`, `internal_error` |
-| `invalid` | `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version` |
+| `invalid` | `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version`, `not_implemented` |
 | `skipped` | `step_disabled`, `step_failed`, `material_unreadable` |
 
 ## Versioning
