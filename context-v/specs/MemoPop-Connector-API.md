@@ -12,7 +12,7 @@ authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
-at_semantic_version: 0.0.0.4
+at_semantic_version: 0.0.0.5
 status: Draft
 category: Specification
 site_uuid: f32ada52-1cdb-4348-9170-42eebdbc9bd3
@@ -218,6 +218,12 @@ company's domain when `url` is given, otherwise from the name. A second call
 for the same company returns the existing deal with `created: false`.
 `template` defaults to the firm's default outline; an unknown template is
 `invalid`.
+
+**Materials never block.** A material is `queued`, `ready`, or `skipped` (it
+couldn't be read; recorded as a `material_unreadable` skip). Research can start
+while links are still fetching, and `materials.brief` is offered as soon as a
+material is ready. `link_unreachable` is reserved for links that aren't
+http(s) at all and are refused before saving; a link that is down is a skip.
 
 **`add_materials`** `{ deal, items: [{ kind: deck | dataroom | financials |
 notes | other, link? , text?, filename? }] }` → `{ accepted: [{ material_id,
