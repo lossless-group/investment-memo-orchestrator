@@ -20,6 +20,12 @@ API_CHANGELOG: list[dict] = [
             "reported by next_step and list_deals; the deal continues.",
             "New page outside the API: GET and POST /upload/{token}, the one-time upload form.",
             "add_materials no longer returns `not_implemented`.",
+            "save_snapshot works: it archives the firm's whole workspace, history included, to "
+            "the firm's bucket under snapshots/ and returns change counts against the previous "
+            "snapshot. It no longer returns `not_implemented`.",
+            "save_snapshot returns a new field, `previous_snapshot_id` (additive).",
+            "Every saved artifact is now kept in the firm's history, so get_artifact with an "
+            "earlier `version` returns that version's text instead of `artifact_not_found`.",
         ],
     },
     {
