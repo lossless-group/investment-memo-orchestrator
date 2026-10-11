@@ -576,6 +576,7 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-STEP-07` | Given an artifact longer than 100,000 characters, then `get_artifact` pages it, and no tool result exceeds 150,000 characters |
 | `CONN-STEP-08` | Given the same call over MCP and over REST, then both return the same body |
 | `CONN-STEP-09` | Given a step that hasn't been handed out, when an artifact is submitted for it, then it returns `invalid` / `step_out_of_order` |
+| `CONN-STEP-10` | Given a skip since the last call, then `next_step` returns `tell_partner`, one sentence naming each skipped step and why; otherwise `tell_partner` is null |
 
 ### Materials (Plan 4)
 
