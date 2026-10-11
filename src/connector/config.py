@@ -1,9 +1,43 @@
-"""Connector settings (TDD floor stub)."""
+"""Connector settings, read from the environment once per app.
+
+| Env var | Meaning | Default |
+|---|---|---|
+| `MEMO_IO_ROOT` | Root of the firm workspaces (`<root>/<firm>/deals/...`) | `/data/firms` |
+| `MEMOPOP_PUBLIC_BASE_URL` | The public origin; every URL we publish is built from it | `https://memopop.didi.sh` |
+| `MEMOPOP_AUTH_ISSUER` | The authorization server, and the tokens' `iss` | `https://id.didi.sh` |
+| `MEMOPOP_JWKS_URL` | Where token signing keys are fetched | `https://id.didi.sh/.well-known/jwks.json` |
+| `MEMOPOP_TOKEN_AUDIENCE` | The `aud` tokens must carry (`<aud>/mcp` is accepted too) | `https://memopop.didi.sh` |
+| `MEMOPOP_STATIC_KEYS` | Interim per-firm keys, `firm=key,firm=key` (Claude Code and the health check only) | none |
+| `MEMOPOP_DISABLED_STEPS` | Ops switch: comma-separated step ids to skip (optional steps only) | none |
+| `MEMOPOP_BUCKET_BACKEND` | `local` or `s3` | `local` |
+| `MEMOPOP_BUCKET_LOCAL_ROOT` | Root of the local buckets (`<root>/<firm>/...`) | `<MEMO_IO_ROOT>/../buckets` |
+| `MEMOPOP_S3_ENDPOINT` | S3-compatible endpoint (falls back to `AWS_ENDPOINT_URL`) | none |
+| `MEMOPOP_S3_ACCESS_KEY_ID` | (falls back to `AWS_ACCESS_KEY_ID`) | none |
+| `MEMOPOP_S3_SECRET_ACCESS_KEY` | (falls back to `AWS_SECRET_ACCESS_KEY`) | none |
+| `MEMOPOP_S3_REGION` | (falls back to `AWS_REGION`) | `auto` |
+| `MEMOPOP_S3_BUCKET_TEMPLATE` | One bucket per firm; `{firm}` is replaced | `memopop-{firm}` |
+"""
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _parse_static_keys(raw: str) -> dict[str, str]:
+    keys: dict[str, str] = {}
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        firm, sep, key = pair.partition("=")
+        if not sep or not firm.strip() or not key.strip():
+            raise ValueError("MEMOPOP_STATIC_KEYS must look like firm=key,firm=key")
+        keys[firm.strip()] = key.strip()
+    return keys
 
 
 @dataclass
@@ -13,7 +47,60 @@ class ConnectorSettings:
     auth_issuer: str = "https://id.didi.sh"
     jwks_url: str = "https://id.didi.sh/.well-known/jwks.json"
     token_audience: str = "https://memopop.didi.sh"
+    #: firm -> key. Interim; removed the day didi.sh OAuth is live for every client.
     static_keys: dict[str, str] = field(default_factory=dict)
+    disabled_steps: set[str] = field(default_factory=set)
     bucket_backend: str = "local"
     bucket_local_root: Path | None = None
-    disabled_steps: set[str] = field(default_factory=set)
+    s3_endpoint: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_region: str = "auto"
+    s3_bucket_template: str = "memopop-{firm}"
+    #: MemoPop's own outlines. A firm's own live in <firm>/templates/outlines/.
+    templates_dir: Path = REPO_ROOT / "templates" / "outlines"
+    default_template: str = "direct-early-stage-12Ps"
+    jwks_cache_seconds: int = 300
+
+    def __post_init__(self) -> None:
+        self.io_root = Path(self.io_root)
+        self.public_base_url = self.public_base_url.rstrip("/")
+        if self.bucket_local_root is None:
+            self.bucket_local_root = self.io_root.parent / "buckets"
+        self.bucket_local_root = Path(self.bucket_local_root)
+
+    @property
+    def mcp_url(self) -> str:
+        """The connector URL partners enter, and the protected resource's id."""
+        return f"{self.public_base_url}/mcp"
+
+    @property
+    def resource_metadata_url(self) -> str:
+        return f"{self.public_base_url}/.well-known/oauth-protected-resource/mcp"
+
+    @classmethod
+    def from_env(cls, env: dict[str, str] | None = None) -> ConnectorSettings:
+        e = os.environ if env is None else env
+
+        def get(name: str, fallback: str | None = None, default: str | None = None):
+            return e.get(name) or (e.get(fallback) if fallback else None) or default
+
+        local_root = get("MEMOPOP_BUCKET_LOCAL_ROOT")
+        return cls(
+            io_root=Path(get("MEMO_IO_ROOT", default="/data/firms")),
+            public_base_url=get("MEMOPOP_PUBLIC_BASE_URL", default="https://memopop.didi.sh"),
+            auth_issuer=get("MEMOPOP_AUTH_ISSUER", default="https://id.didi.sh"),
+            jwks_url=get("MEMOPOP_JWKS_URL", default="https://id.didi.sh/.well-known/jwks.json"),
+            token_audience=get("MEMOPOP_TOKEN_AUDIENCE", default="https://memopop.didi.sh"),
+            static_keys=_parse_static_keys(get("MEMOPOP_STATIC_KEYS", default="")),
+            disabled_steps={
+                s.strip() for s in get("MEMOPOP_DISABLED_STEPS", default="").split(",") if s.strip()
+            },
+            bucket_backend=get("MEMOPOP_BUCKET_BACKEND", default="local"),
+            bucket_local_root=Path(local_root) if local_root else None,
+            s3_endpoint=get("MEMOPOP_S3_ENDPOINT", "AWS_ENDPOINT_URL"),
+            s3_access_key_id=get("MEMOPOP_S3_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID"),
+            s3_secret_access_key=get("MEMOPOP_S3_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"),
+            s3_region=get("MEMOPOP_S3_REGION", "AWS_REGION", default="auto"),
+            s3_bucket_template=get("MEMOPOP_S3_BUCKET_TEMPLATE", default="memopop-{firm}"),
+        )
