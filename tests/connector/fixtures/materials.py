@@ -40,7 +40,11 @@ def two_page_pdf() -> bytes:
 
 
 def large_pdf(pages: int = 400) -> bytes:
-    """A deck big enough that extracting it inline would be noticeably slow."""
+    """A deck big enough that extracting it inline would be noticeably slow.
+
+    About 1 MB and 300,000 characters: large, but under the 400,000-character
+    cap on extracted text, so the last page's text must come through.
+    """
     import pymupdf
 
     doc = pymupdf.open()
@@ -48,7 +52,7 @@ def large_pdf(pages: int = 400) -> bytes:
     for number in range(1, pages + 1):
         page = doc.new_page()
         page.insert_text((72, 72), f"Large synthetic deck, page {number}", fontsize=11)
-        for row in range(30):
+        for row in range(10):
             page.insert_text((72, 100 + row * 20), filler, fontsize=9)
     data = doc.tobytes()
     doc.close()
