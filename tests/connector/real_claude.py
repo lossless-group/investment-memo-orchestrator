@@ -442,9 +442,10 @@ def check(record: Record, view: ServerView) -> list[str]:
         fail("Claude called no tools")
         return failures
 
-    # Tools in order: list_deals first, then the deal is created before any step.
-    if calls[0][1].name != "list_deals":
-        fail(f"the first tool called was {calls[0][1].name}, not list_deals")
+    # Tools in order: the session opens on the deal (list_deals, or create_new_deal,
+    # which is repeat-safe), and the deal is created before any step.
+    if calls[0][1].name not in ("list_deals", "create_new_deal"):
+        fail(f"the first tool called was {calls[0][1].name}, not list_deals or create_new_deal")
     creates = [(i, c) for i, c in calls if c.name == "create_new_deal" and c.ok]
     first_step = next((i for i, c in calls if c.name == "next_step"), None)
     if not creates:
@@ -457,12 +458,24 @@ def check(record: Record, view: ServerView) -> list[str]:
             fail(f"the deal used template {created.body.get('template')}, not {TEMPLATE}")
 
     # The server handed out exactly research for each section, then each draft.
+    # materials.brief may appear anywhere before the drafts when Claude saved the
+    # partner's materials: spec §The tools, "Materials never block".
     handed: list[tuple[str, str | None]] = []
     for _, c in calls:
         if c.name == "next_step" and c.ok and c.body.get("step_id"):
             step = (c.body["step_id"], c.body.get("section"))
             if not handed or handed[-1] != step:
                 handed.append(step)
+    added_materials = any(c.name == "add_materials" and c.ok for _, c in calls)
+    briefs = [i for i, s in enumerate(handed) if s == ("materials.brief", None)]
+    if briefs and not added_materials:
+        fail("materials.brief was handed out but no materials were added")
+    if len(briefs) > 1:
+        fail("materials.brief was handed out more than once")
+    first_draft = next((i for i, s in enumerate(handed) if s[0] == "draft.section"), len(handed))
+    if briefs and briefs[0] > first_draft:
+        fail("materials.brief came after drafting began")
+    handed = [s for s in handed if s != ("materials.brief", None)]
     expected = [("research.section", k) for k in SECTIONS] + [
         ("draft.section", k) for k in SECTIONS
     ]

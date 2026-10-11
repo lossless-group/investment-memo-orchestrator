@@ -12,7 +12,7 @@ authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
-at_semantic_version: 0.0.0.6
+at_semantic_version: 0.0.0.7
 status: Draft
 category: Specification
 site_uuid: f32ada52-1cdb-4348-9170-42eebdbc9bd3
@@ -625,7 +625,7 @@ renumber; retire one by striking it through. Status is derived by
 | ID | Given / When / Then |
 |---|---|
 | `CONN-PLUG-01` | Given the plugin's skill, then it states each rule in §Docs that aren't generated: always call `next_step`, show research and wait for approval, one line on `skipped`, stop on `down` |
-| `CONN-PLUG-02` | Given an API key, when Claude runs the fixture deal through the connector, then it calls tools in order, shows research before drafting, and handles a forced skip and a forced `down` correctly |
+| `CONN-PLUG-02` | Given an API key, when Claude runs the fixture deal through the connector, then it opens on the deal (`list_deals` or `create_new_deal`), takes steps only as `next_step` hands them out (research for every section before any draft, with `materials.brief` allowed before drafting when the partner gave materials), shows each research file and saves it approved only after the partner approves, mentions a forced skip in a line and carries on, and stops cleanly on a forced `down` |
 
 ## Done when
 
