@@ -13,7 +13,7 @@ authors:
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
 at_semantic_version: 0.0.0.1
-status: Blocked-On-Phases-1-4-5-6
+status: Built-Awaiting-Deploy
 spec_reference: context-v/specs/MemoPop-Connector-API.md
 loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
 branch: connector/plan-2-deploy
