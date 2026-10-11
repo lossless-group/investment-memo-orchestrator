@@ -16,6 +16,7 @@
 | `MEMOPOP_S3_SECRET_ACCESS_KEY` | (falls back to `AWS_SECRET_ACCESS_KEY`) | none |
 | `MEMOPOP_S3_REGION` | (falls back to `AWS_REGION`) | `auto` |
 | `MEMOPOP_S3_BUCKET_TEMPLATE` | One bucket per firm; `{firm}` is replaced | `memopop-{firm}` |
+| `MEMOPOP_JJ_BIN` | The jj binary that keeps each firm's history (absent: no history kept) | `jj` |
 """
 
 from __future__ import annotations
@@ -57,6 +58,8 @@ class ConnectorSettings:
     s3_secret_access_key: str | None = None
     s3_region: str = "auto"
     s3_bucket_template: str = "memopop-{firm}"
+    #: The jj binary for per-firm history (phase 6).
+    jj_bin: str = "jj"
     #: MemoPop's own outlines. A firm's own live in <firm>/templates/outlines/.
     templates_dir: Path = REPO_ROOT / "templates" / "outlines"
     default_template: str = "direct-early-stage-12Ps"
@@ -103,4 +106,5 @@ class ConnectorSettings:
             s3_secret_access_key=get("MEMOPOP_S3_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"),
             s3_region=get("MEMOPOP_S3_REGION", "AWS_REGION", default="auto"),
             s3_bucket_template=get("MEMOPOP_S3_BUCKET_TEMPLATE", default="memopop-{firm}"),
+            jj_bin=get("MEMOPOP_JJ_BIN", default="jj"),
         )

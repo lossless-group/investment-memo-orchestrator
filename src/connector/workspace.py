@@ -269,4 +269,5 @@ def open_workspace(settings: ConnectorSettings, firm: str) -> Workspace:
     root = Path(settings.io_root) / firm
     if not is_slug(firm) or not root.is_dir():
         raise ConnectorError("forbidden_firm")
-    return Workspace(settings, firm, root, bucket_for(settings, firm), history_for(root))
+    history = history_for(root, settings.jj_bin)
+    return Workspace(settings, firm, root, bucket_for(settings, firm), history)

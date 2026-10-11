@@ -315,3 +315,43 @@ def test_binary_materials_never_enter_the_jj_working_copy(ws, jj):
     for rel in binaries:
         if not rel.endswith("upload"):
             assert rel not in tracked_by_hand, f"{rel} is not ignored by .gitignore"
+
+
+# ---------------------------------------------------------------- degraded paths
+
+
+def test_without_jj_artifacts_still_save_and_old_versions_are_not_found(settings):
+    """Not a spec ID: a machine without jj keeps working, without history."""
+    from src.connector.history import NullHistory
+
+    settings.jj_bin = "memopop-no-such-jj-binary"
+    ws = open_workspace(settings, "test-firm")
+    assert isinstance(ws.history, NullHistory)
+    deal = new_deal(ws)
+    step = call(ws, "next_step", deal=deal)
+    first = canned.research(SECTIONS[0])
+    submit(ws, deal, step, content=first)
+    assert submit(ws, deal, step, content=first.replace("modestly", "steadily"))["version"] == 2
+    assert not (ws.root / ".jj").exists()
+    with pytest.raises(ConnectorError) as err:
+        call(
+            ws, "get_artifact", deal=deal, artifact_id=f"research.section:{SECTIONS[0]}", version=1
+        )
+    assert err.value.code == "artifact_not_found"
+
+
+def test_a_failing_jj_is_logged_and_the_save_still_stands(settings, caplog):
+    """Not a spec ID: recording runs after the durable write, so a jj failure
+    must not turn a saved artifact into a `down` the client would retry."""
+    false = shutil.which("false")
+    if false is None:
+        pytest.skip("no `false` binary")
+    settings.jj_bin = false
+    ws = open_workspace(settings, "test-firm")
+    deal = new_deal(ws)
+    step = call(ws, "next_step", deal=deal)
+    saved = submit(ws, deal, step, partner_approved=True)
+    assert saved["version"] == 1
+    path = ws.root / "deals" / deal / "research" / f"{SECTIONS[0]}.md"
+    assert path.read_text() == canned.research(SECTIONS[0])
+    assert any("could not record" in r.getMessage() for r in caplog.records)
