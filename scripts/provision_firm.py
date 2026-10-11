@@ -3,8 +3,8 @@
 
 Run it where the volume is mounted. On Railway:
 
-    railway ssh -- python scripts/provision_firm.py test-firm --health-check --new-key
-    railway ssh -- python scripts/provision_firm.py acme-capital \\
+    railway ssh -- /opt/venv/bin/python /app/scripts/provision_firm.py test-firm --health-check --new-key
+    railway ssh -- /opt/venv/bin/python /app/scripts/provision_firm.py acme-capital \\
         --entity-id ent_123 --default-template direct-early-stage-12Ps
 
 Re-running is safe: deals are kept and firm.json is merged. ``--new-key`` prints
