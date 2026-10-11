@@ -1,0 +1,9 @@
+{
+  "name": "memopop",
+  "displayName": "MemoPop",
+  "version": "0.1.0",
+  "description": "Write investment memos with MemoPop: Claude follows MemoPop's method one step at a time, shows you each section's research for approval, and compiles a branded memo, with every artifact kept in your firm's workspace.",
+  "author": { "name": "The Lossless Group", "url": "https://memopop.didi.sh" },
+  "homepage": "https://memopop.didi.sh/docs",
+  "license": "UNLICENSED"
+}
