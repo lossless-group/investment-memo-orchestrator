@@ -12,7 +12,7 @@ authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
-at_semantic_version: 0.0.0.2
+at_semantic_version: 0.0.0.3
 status: Draft
 category: Specification
 site_uuid: f32ada52-1cdb-4348-9170-42eebdbc9bd3
@@ -296,13 +296,24 @@ Starting codes (each must have a docs entry):
 
 Per [[Sign-In-Through-didi-sh-OAuth]]:
 
-- MemoPop serves `https://memopop.didi.sh/.well-known/oauth-protected-resource`
-  naming `https://id.didi.sh` as the authorization server.
-- A request without a valid token gets 401 with `WWW-Authenticate` pointing at
-  that document.
-- Tokens are verified against `https://id.didi.sh/.well-known/jwks.json`; the
-  audience must be `https://memopop.didi.sh`; the firm comes from the token's
-  entity claim. A person with more than one firm passes `firm` explicitly.
+- **The connector URL partners enter is `https://memopop.didi.sh/mcp`.**
+  Claude requires the protected-resource document's `resource` to equal that
+  URL exactly, path included (Claude's *Authentication for connectors*,
+  checked 2026-10-10). So MemoPop serves the document at
+  `https://memopop.didi.sh/.well-known/oauth-protected-resource/mcp` (and the
+  same document at `/.well-known/oauth-protected-resource`), with `resource`
+  `https://memopop.didi.sh/mcp` and `authorization_servers`
+  `["https://id.didi.sh"]`.
+- A request without a valid token gets **401** (Claude ignores
+  `WWW-Authenticate` on a 200) with `WWW-Authenticate: Bearer
+  resource_metadata="https://memopop.didi.sh/.well-known/oauth-protected-resource/mcp"`.
+- Tokens are verified against `https://id.didi.sh/.well-known/jwks.json`
+  (EdDSA, header `typ: at+jwt`). id.didi.sh resolves any resource at or below
+  a registered one to the registered URI, so the audience is
+  `https://memopop.didi.sh` whichever form Claude sends; MemoPop accepts that
+  audience and also `https://memopop.didi.sh/mcp`. The firm comes from the
+  `entity` claim, `{ "id": …, "slug": … }`. A person with more than one firm
+  passes `firm` explicitly.
 - **Until didi.sh OAuth ships,** a per-firm static key in a header works for
   Claude Code and the health check only. It is never given to a client and is
   removed from the code path the day OAuth works.
@@ -529,7 +540,7 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-ERR-03` | Given the storage layer failing mid-call, then the caller gets `down` / `storage_unavailable` and nothing was saved |
 | `CONN-ERR-04` | Given any response, success or failure, then it carries `api_version: "1"` |
 | `CONN-AUTH-01` | Given a request with no credential, then it gets 401 with `WWW-Authenticate` pointing at the protected-resource document |
-| `CONN-AUTH-02` | When `/.well-known/oauth-protected-resource` is fetched, even through a proxy that forwards plain http, then it names `https://id.didi.sh` and resource `https://memopop.didi.sh`, and every URL in it is `https://` |
+| `CONN-AUTH-02` | When `/.well-known/oauth-protected-resource/mcp` or `/.well-known/oauth-protected-resource` is fetched, even through a proxy that forwards plain http, then it names `https://id.didi.sh` first in `authorization_servers`, its `resource` is exactly `https://memopop.didi.sh/mcp`, and every URL in it is `https://` |
 | `CONN-AUTH-03` | Given a credential for firm A, when it asks for firm B's deal, then it gets `invalid` with nothing revealed about firm B |
 | `CONN-AUTH-04` | Given a token signed by a key in the configured JWKS, with audience `https://memopop.didi.sh` and an entity claim, then the request is served in that entity's workspace |
 | `CONN-AUTH-05` | Given a token for another audience, an expired token, or one signed by an unknown key, then it gets 401 |
