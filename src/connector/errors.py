@@ -194,8 +194,8 @@ _SPECS = [
         400,
         "This tool is not available on this server yet.",
         "Tell the partner this part of MemoPop is not live yet, and continue with next_step.",
-        "Plan 1 registers all eight tools with full docs; add_materials, save_snapshot, and "
-        "compile return this until their phases land. Additive to the spec's starting codes.",
+        "Reserved for a tool that is declared but not yet live on a server. No tool currently "
+        "returns it: all eight are implemented. Additive to the spec's starting codes.",
     ),
     ErrorSpec(
         "drafts_incomplete",

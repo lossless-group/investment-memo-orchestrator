@@ -9,7 +9,7 @@ from __future__ import annotations
 API_CHANGELOG: list[dict] = [
     {
         "date": "2026-10-10",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "changes": [
             "compile works: it assembles the sections in outline order, consolidates and "
             "renumbers citations, adds the table of contents and the market-sizing diagram, "
