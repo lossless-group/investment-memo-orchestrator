@@ -194,8 +194,26 @@ _SPECS = [
         400,
         "This tool is not available on this server yet.",
         "Tell the partner this part of MemoPop is not live yet, and continue with next_step.",
-        "Plan 1 registers all eight tools with full docs; add_materials, save_snapshot, and "
-        "compile return this until their phases land. Additive to the spec's starting codes.",
+        "Reserved for a tool that is declared but not yet live on a server. No tool currently "
+        "returns it: all eight are implemented. Additive to the spec's starting codes.",
+    ),
+    ErrorSpec(
+        "drafts_incomplete",
+        INVALID,
+        409,
+        "Not every section has a draft yet, so the memo can't be compiled.",
+        "Call next_step and finish the drafts it hands out, then call compile again.",
+        "compile needs a draft of every section in the deal's template. `details.missing` "
+        "lists the sections without one. Added in plan 5 (additive).",
+    ),
+    ErrorSpec(
+        "link_expired",
+        INVALID,
+        410,
+        "That download link has expired or is not valid.",
+        "Call compile again for the deal to get fresh links; they last seven days.",
+        "A compiled memo's signed link was past its expiry, or its signature did not match. "
+        "Added in plan 5 (additive).",
     ),
     # ---------------------------------------------------------------- skipped
     ErrorSpec(
@@ -214,6 +232,17 @@ _SPECS = [
         "An optional step failed and was skipped.",
         "Tell the partner in one line which step was skipped, then continue with next_step.",
         "An optional server step raised. Optional steps never block the memo.",
+    ),
+    ErrorSpec(
+        "step_skipped",
+        SKIPPED,
+        200,
+        "An optional step was skipped by Claude, with a reason.",
+        "Tell the partner in one line which step was skipped and why, then continue with "
+        "next_step.",
+        "Claude could not do an optional step well with what it had and skipped it through "
+        "submit_artifact with skip: true and a reason. The memo still completes. Added in "
+        "plan 5 (additive).",
     ),
     ErrorSpec(
         "material_unreadable",

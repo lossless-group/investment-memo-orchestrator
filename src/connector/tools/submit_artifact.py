@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .. import flow
 from ..errors import ConnectorError
@@ -12,6 +12,7 @@ from ..registry import load_registry
 from ..registry.checks import run_checks
 from ..registry.types import ANY, Example, InputDoc, ReturnDoc, ToolDef, ToolInput
 from ..workspace import Workspace
+from ._examples import research_walk
 
 MAX_CONTENT = 500_000
 
@@ -36,9 +37,22 @@ class Input(ToolInput):
     deal: str = Field(min_length=1, max_length=100)
     step_id: str = Field(min_length=1, max_length=100)
     section: str | None = Field(default=None, max_length=200)
-    content: str = Field(max_length=MAX_CONTENT)
+    content: str | None = Field(default=None, max_length=MAX_CONTENT)
     partner_approved: bool = False
     partner_notes: str | None = Field(default=None, max_length=20_000)
+    skip: bool = False
+    reason: str | None = Field(default=None, max_length=1_000)
+
+    @model_validator(mode="after")
+    def content_or_skip(self):
+        if self.skip:
+            if self.content is not None:
+                raise ValueError("a skip carries no content: send skip and reason only")
+            if not (self.reason or "").strip():
+                raise ValueError("a skip needs a reason, one sentence the partner can read")
+        elif self.content is None:
+            raise ValueError("content is required unless skip is true")
+        return self
 
 
 def _resolve_required(token: str, section: str | None, state: dict) -> str:
@@ -63,6 +77,14 @@ def handle(ws: Workspace, params: Input) -> dict:
                     }
                 ]
             },
+        )
+
+    if params.skip and step.required:
+        raise ConnectorError(
+            "validation_failed",
+            f"'{step.id}' is required and can't be skipped.",
+            next="Do the step and submit its content; only optional steps can be skipped.",
+            details={"errors": [{"field": "skip", "problem": "required step"}]},
         )
 
     with ws.lock(deal):
@@ -90,6 +112,9 @@ def handle(ws: Workspace, params: Input) -> dict:
                 f"'{inst.key}' has not been handed out by next_step.",
                 next=f"Call next_step for deal '{deal}' and do the step it returns.",
             )
+
+        if params.skip:
+            return _skip(ws, registry, state, inst, params.reason.strip())
 
         checks = run_checks(params.content, step.produces.checks)
         failures = [{"name": c["name"], "detail": c["detail"]} for c in checks if not c["passed"]]
@@ -153,7 +178,53 @@ def handle(ws: Workspace, params: Input) -> dict:
         "version": version,
         "checks": checks,
         "advanced": advanced,
+        "skipped": False,
         "next_hint": next_hint,
+    }
+
+
+def _skip(ws: Workspace, registry, state: dict, inst: flow.Instance, reason: str) -> dict:
+    """Record Claude's skip of an optional, handed-out step (called under the deal's lock)."""
+    deal = state["deal"]
+    if flow.is_skipped(inst, state):
+        raise ConnectorError(
+            "step_out_of_order",
+            f"'{inst.key}' was already skipped.",
+            next=f"Call next_step for deal '{deal}' and do the step it returns.",
+        )
+    if inst.key in state["artifacts"]:
+        raise ConnectorError(
+            "validation_failed",
+            f"'{inst.key}' already has an artifact, so there is nothing to skip.",
+            next=f"Call next_step for deal '{deal}'.",
+            details={"errors": [{"field": "skip", "problem": "step already done"}]},
+        )
+    state["skips"].append(
+        {
+            "step_id": inst.step.id,
+            "section": inst.section,
+            "code": "step_skipped",
+            "reason": reason,
+            "at": flow.now_iso(),
+        }
+    )
+    flow.mark(state, "skipped", step=inst.step.id, section=inst.section, by="claude")
+    state["updated_at"] = flow.now_iso()
+    with ws.transaction() as tx:
+        path = tx.write_json(ws.deal_rel(deal) / "deal.json", state)
+    ws.history.record(
+        f"{inst.step.id}: deal {deal}, section {inst.section or '-'}, skipped", [path]
+    )
+    return {
+        "deal": deal,
+        "artifact_id": None,
+        "step_id": inst.step.id,
+        "section": inst.section,
+        "version": None,
+        "checks": [],
+        "advanced": True,
+        "skipped": True,
+        "next_hint": flow.hint(registry, state, ws),
     }
 
 
@@ -186,9 +257,8 @@ TOOL = ToolDef(
         InputDoc(
             "content",
             "string",
-            "The artifact itself, in markdown, complete (not a diff).",
+            "The artifact itself, in markdown, complete (not a diff). Required unless skip is true.",
             "## Executive Summary: research\n\n...",
-            required=True,
         ),
         InputDoc(
             "partner_approved",
@@ -202,6 +272,19 @@ TOOL = ToolDef(
             "The partner's comments on the artifact, in their words.",
             "Add the 2024 revenue figure.",
         ),
+        InputDoc(
+            "skip",
+            "boolean",
+            "true to skip an optional step you can't do well with what you have, instead of "
+            "submitting filler. Send it with reason and no content. Required steps can't be skipped.",
+            True,
+        ),
+        InputDoc(
+            "reason",
+            "string",
+            "With skip: why, in one sentence the partner can read.",
+            "The section has no figures worth putting in a table.",
+        ),
     ],
     returns=[
         ReturnDoc("artifact_id", "The artifact's id, for get_artifact."),
@@ -210,11 +293,17 @@ TOOL = ToolDef(
         ),
         ReturnDoc("checks", "Each check the artifact passed, with name, passed, and detail."),
         ReturnDoc("advanced", "true if the step is now done and next_step will move on."),
+        ReturnDoc(
+            "skipped",
+            "true when the step was skipped (artifact_id and version are then null); the skip "
+            "is listed by next_step, list_deals, and compile's report.",
+        ),
         ReturnDoc("next_hint", "One line on what to do next."),
     ],
     changes=(
         "saves the artifact as a new version and records it in the deal; earlier versions stay "
-        "in history. Identical content changes nothing. Failed checks save nothing."
+        "in history. Identical content changes nothing. Failed checks save nothing. A skip "
+        "records the skip on the deal and saves no artifact."
     ),
     duration="under a second.",
     errors=[
@@ -225,7 +314,8 @@ TOOL = ToolDef(
         "research_not_approved",
     ],
     error_next_overrides={
-        "validation_failed": "Use the step_id and section exactly as next_step returned them.",
+        "validation_failed": "Use the step_id and section exactly as next_step returned them; "
+        "send content, or skip with a reason for an optional step.",
     },
     next="call next_step.",
     examples=[
@@ -267,6 +357,47 @@ TOOL = ToolDef(
             response={
                 "ok": False,
                 "error": {"kind": "invalid", "code": "research_not_approved"},
+                "api_version": "1",
+            },
+        ),
+        Example(
+            title="Skipping an optional step Claude can't do well",
+            setup=[
+                ("create_new_deal", {"company": "Acme Robotics", "url": "https://acme.ai"}),
+                *research_walk("acme-ai", EXAMPLE_RESEARCH),
+            ],
+            request={
+                "deal": "acme-ai",
+                "step_id": "research.sources",
+                "skip": True,
+                "reason": "The research cites too few sources to be worth consolidating.",
+            },
+            response={
+                "ok": True,
+                "artifact_id": None,
+                "version": None,
+                "advanced": True,
+                "skipped": True,
+                "next_hint": "Call next_step: draft.section for Executive Summary is next.",
+                "api_version": "1",
+            },
+        ),
+        Example(
+            title="Skipping a required step",
+            setup=[
+                ("create_new_deal", {"company": "Acme Robotics", "url": "https://acme.ai"}),
+                ("next_step", {"deal": "acme-ai"}),
+            ],
+            request={
+                "deal": "acme-ai",
+                "step_id": "research.section",
+                "section": "01-executive-summary",
+                "skip": True,
+                "reason": "No sources found.",
+            },
+            response={
+                "ok": False,
+                "error": {"kind": "invalid", "code": "validation_failed"},
                 "api_version": "1",
             },
         ),

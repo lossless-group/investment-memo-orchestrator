@@ -283,27 +283,13 @@ def render_tam_sam_som(
 # ---------------------------------------------------------------------------
 
 
-def insert_diagram_reference(
-    section_path: Path,
-    diagram_filename: str,
-    alt_text: str = "TAM/SAM/SOM Market Sizing",
-) -> bool:
+def insert_after_first_paragraph(content: str, image_md: str) -> str:
+    """Insert ``image_md`` after the first paragraph that follows a header.
+
+    The pure core of insert_diagram_reference(): no files. Inserts after the
+    section header and its opening text, so the narrative isn't broken up;
+    appends at the end when there is no such paragraph.
     """
-    Insert an image reference into a section file.
-
-    Inserts after the first paragraph (after the section header and opening text)
-    to avoid disrupting the narrative flow.
-
-    Returns True if inserted, False if already present.
-    """
-    content = section_path.read_text()
-
-    # Check if diagram is already referenced
-    if diagram_filename in content:
-        return False
-
-    image_md = f"\n![{alt_text}](diagrams/{diagram_filename})\n"
-
     # Find insertion point: after the first paragraph break following a header
     lines = content.split("\n")
     insert_idx = None
@@ -327,7 +313,30 @@ def insert_diagram_reference(
         insert_idx = len(lines)
 
     lines.insert(insert_idx, image_md)
-    section_path.write_text("\n".join(lines))
+    return "\n".join(lines)
+
+
+def insert_diagram_reference(
+    section_path: Path,
+    diagram_filename: str,
+    alt_text: str = "TAM/SAM/SOM Market Sizing",
+) -> bool:
+    """
+    Insert an image reference into a section file.
+
+    Inserts after the first paragraph (after the section header and opening text)
+    to avoid disrupting the narrative flow.
+
+    Returns True if inserted, False if already present.
+    """
+    content = section_path.read_text()
+
+    # Check if diagram is already referenced
+    if diagram_filename in content:
+        return False
+
+    image_md = f"\n![{alt_text}](diagrams/{diagram_filename})\n"
+    section_path.write_text(insert_after_first_paragraph(content, image_md))
     return True
 
 

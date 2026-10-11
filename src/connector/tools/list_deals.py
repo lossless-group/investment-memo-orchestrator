@@ -43,6 +43,8 @@ def decode_cursor(cursor: str) -> str:
 
 
 def summarise(ws: Workspace, state: dict) -> dict:
+    from .compile import job_summary
+
     registry = load_registry()
     return {
         "deal": state["deal"],
@@ -61,6 +63,7 @@ def summarise(ws: Workspace, state: dict) -> dict:
             }
             for s in state.get("skips", [])
         ],
+        "compile": job_summary(ws, state),
         "updated_at": state["updated_at"],
     }
 
@@ -114,6 +117,11 @@ TOOL = ToolDef(
         ReturnDoc("deals[].next_step_hint", "One line saying what next_step will hand out."),
         ReturnDoc("deals[].materials_pending", "How many materials are still being extracted."),
         ReturnDoc("deals[].skips", "Optional steps that were skipped, with the code and reason."),
+        ReturnDoc(
+            "deals[].compile",
+            "The last compile: job_id, status (running, done, or failed), version, and, once "
+            "done, fresh html_url and pdf_url links; null if the deal was never compiled.",
+        ),
         ReturnDoc("deals[].updated_at", "When the deal last changed (UTC, ISO 8601)."),
         ReturnDoc("next_cursor", "Pass as cursor to get the next page; null on the last page."),
     ],
