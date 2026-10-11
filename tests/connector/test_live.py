@@ -60,15 +60,16 @@ def live_server(tmp_path) -> LiveServer:
 
     io_root = tmp_path / "firms"
     provision.provision_firm(io_root, "test-firm", health_check=True)
+    port = _free_port()
     settings = ConnectorSettings(
         io_root=io_root,
-        public_base_url="https://memopop.didi.sh",
+        # Compiled links from a local bucket are served by this server.
+        public_base_url=f"http://127.0.0.1:{port}",
         static_keys={"test-firm": HEALTH_KEY},
         bucket_backend="local",
         bucket_local_root=tmp_path / "buckets",
     )
     app = serve.create_app(settings)
-    port = _free_port()
     server = uvicorn.Server(
         uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", lifespan="on")
     )
@@ -127,8 +128,11 @@ def test_health_check_passes_against_a_healthy_server(live_server):
         "research.section",
         "draft.section",
         "compile",
+        "compiled html",
+        "compiled pdf",
     ):
         assert step in out, f"{step} not reported:\n{out}"
+    assert "not_implemented" not in out, out
     assert out.rstrip().splitlines()[-1].startswith("PASS"), out
     # The deal it made is in test-firm, uniquely named and marked as a health check.
     deals = sorted(p.name for p in (live_server.io_root / "test-firm" / "deals").iterdir())
@@ -179,18 +183,30 @@ def test_a_slow_step_exits_non_zero_naming_it(live_server, monkeypatch):
 
 
 @pytest.mark.spec("CONN-LIVE-01")
-def test_compile_not_implemented_fails_unless_the_changelog_declares_it(live_server, monkeypatch):
-    # Whatever compile does on this branch, force not_implemented, and take away
-    # the changelog line that would excuse it: the check must fail on compile.
+def test_a_compile_that_is_not_live_fails_naming_compile(live_server, monkeypatch):
+    # compile is real since plan 5; a server that answers not_implemented is broken.
     def not_implemented(ws, params):
         raise ConnectorError("not_implemented", "compile is not live on this server yet.")
 
     monkeypatch.setattr(_tool("compile"), "handler", not_implemented)
-    monkeypatch.setattr(importlib.import_module("src.connector.docs_build"), "API_CHANGELOG", [])
     result = run_check(live_server.url)
     assert result.returncode == 1, result.stdout + result.stderr
     line = failure_line(result)
     assert "compile" in line and "not_implemented" in line, line
+
+
+@pytest.mark.spec("CONN-LIVE-01")
+def test_a_compiled_link_that_does_not_serve_fails_naming_it(live_server, monkeypatch):
+    links = importlib.import_module("src.connector.compile.links")
+    real = links.signed_url
+
+    def broken(ws, key, *args, **kwargs):
+        return real(ws, key, *args, **kwargs).replace("signature=", "signature=0")
+
+    monkeypatch.setattr(links, "signed_url", broken)
+    result = run_check(live_server.url)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "compiled" in failure_line(result)
 
 
 @pytest.mark.spec("CONN-LIVE-01")
