@@ -30,8 +30,9 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 
@@ -47,6 +48,10 @@ log = logging.getLogger("memopop.connector.materials")
 STEP_ID = "materials.extract"
 
 _POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="memopop-materials")
+#: Jobs submitted and not yet finished, so a caller (the test suite, a clean
+#: shutdown) can wait for the pool to go idle without shutting it down.
+_IN_FLIGHT: set[Future] = set()
+_IN_FLIGHT_LOCK = threading.Lock()
 
 #: An upload page is refused after its hour; a POST that began just before then
 #: may still be recording its files, so the sweep waits this much longer.
@@ -57,7 +62,30 @@ PROCESSING_DEADLINE_SECONDS = 1800
 
 
 def run_in_background(fn: Callable[..., None], *args) -> Future:
-    return _POOL.submit(fn, *args)
+    future = _POOL.submit(fn, *args)
+    with _IN_FLIGHT_LOCK:
+        _IN_FLIGHT.add(future)
+    future.add_done_callback(_forget)
+    return future
+
+
+def _forget(future: Future) -> None:
+    with _IN_FLIGHT_LOCK:
+        _IN_FLIGHT.discard(future)
+
+
+def wait_idle(timeout: float) -> int:
+    """Wait up to ``timeout`` seconds for every background job to finish.
+
+    Returns how many are still running (0 when the pool is idle). The pool
+    itself stays up; its idle workers cost nothing.
+    """
+    with _IN_FLIGHT_LOCK:
+        pending = list(_IN_FLIGHT)
+    if pending:
+        wait(pending, timeout=timeout)
+    with _IN_FLIGHT_LOCK:
+        return len(_IN_FLIGHT)
 
 
 # ------------------------------------------------------------------ records

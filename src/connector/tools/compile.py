@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import threading
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Literal
@@ -37,6 +38,25 @@ log = logging.getLogger("memopop.connector.compile")
 
 #: A job still "running" after this long died with its process; start afresh.
 STALE_JOB_SECONDS = 3600
+
+#: Compile workers still running, including ones detached past the budget.
+_WORKERS: set[threading.Thread] = set()
+_WORKERS_LOCK = threading.Lock()
+
+
+def wait_for_workers(timeout: float) -> int:
+    """Wait up to ``timeout`` seconds for every compile worker to finish.
+
+    Returns how many are still running. A worker detached past the time budget
+    keeps going after its call returns; this is how a caller waits for it.
+    """
+    deadline = time.monotonic() + timeout
+    with _WORKERS_LOCK:
+        workers = list(_WORKERS)
+    for worker in workers:
+        worker.join(max(0.0, deadline - time.monotonic()))
+    with _WORKERS_LOCK:
+        return sum(1 for w in _WORKERS if w.is_alive())
 
 
 class Input(ToolInput):
@@ -189,8 +209,13 @@ def handle(ws: Workspace, params: Input) -> dict:
                 _fail_job(ws, deal, job_id, exc)
         finally:
             finished.set()
+            with _WORKERS_LOCK:
+                _WORKERS.discard(threading.current_thread())
 
-    threading.Thread(target=work, name=f"compile-{job_id}", daemon=True).start()
+    worker = threading.Thread(target=work, name=f"compile-{job_id}", daemon=True)
+    with _WORKERS_LOCK:
+        _WORKERS.add(worker)
+    worker.start()
     if finished.wait(ws.settings.compile_budget_seconds):
         if "error" in outcome:
             raise outcome["error"]

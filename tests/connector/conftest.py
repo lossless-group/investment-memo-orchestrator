@@ -30,6 +30,11 @@ from src.connector.tools import invoke
 from src.connector.workspace import open_workspace, provision_firm
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+#: How long a test's background work (materials jobs, compile workers) may run
+#: past the test before the test errors. Generous: a compile with its PDF takes
+#: a few seconds, and the suite's own polls wait up to 30 s.
+DRAIN_SECONDS = 30.0
 REPO = Path(__file__).resolve().parents[2]
 
 BASE_URL = "https://memopop.didi.sh"
@@ -64,6 +69,32 @@ MCP_HEADERS = {
     "Content-Type": "application/json",
     "MCP-Protocol-Version": "2025-06-18",
 }
+
+
+# ------------------------------------------------------------------ background work
+
+
+@pytest.fixture(autouse=True)
+def no_background_work_outlives_its_test(monkeypatch):
+    """Wait for every materials job and compile worker a test started, then check.
+
+    Depends on ``monkeypatch`` so it tears down *before* the test's patches are
+    undone: a job still running would otherwise carry on against the real
+    transport or a stage the test had replaced. A job that does not finish in
+    ``DRAIN_SECONDS`` errors the test that left it, naming what is still running,
+    instead of running on into later tests.
+    """
+    from src.connector.materials import pipeline
+    from src.connector.tools import compile as compile_tool
+
+    yield
+    materials = pipeline.wait_idle(DRAIN_SECONDS)
+    compiles = compile_tool.wait_for_workers(DRAIN_SECONDS)
+    if materials or compiles:
+        pytest.fail(
+            f"background work outlived this test by {DRAIN_SECONDS:g}s: "
+            f"{materials} materials job(s), {compiles} compile worker(s) still running"
+        )
 
 
 # ------------------------------------------------------------------ keys
