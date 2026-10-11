@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from .. import flow
+from ..materials import pipeline
 from ..registry import load_registry
 from ..registry.types import ANY, Example, InputDoc, ReturnDoc, ToolDef, ToolInput
 from ..workspace import Workspace
@@ -17,6 +18,8 @@ class Input(ToolInput):
 def handle(ws: Workspace, params: Input) -> dict:
     registry = load_registry()
     deal = params.deal
+    if ws.deal_exists(deal):
+        pipeline.sweep_deal(ws, deal)  # before the lock: it takes the lock itself
     with ws.lock(deal) if ws.deal_exists(deal) else _no_lock():
         state = ws.read_deal(deal)
         inst, new_skips = flow.walk(registry, state, ws)

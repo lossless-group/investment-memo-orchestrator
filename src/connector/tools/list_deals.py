@@ -10,6 +10,7 @@ from pydantic import Field
 
 from .. import flow
 from ..errors import ConnectorError
+from ..materials import pipeline
 from ..registry import load_registry
 from ..registry.types import ANY, Example, InputDoc, ReturnDoc, ToolDef, ToolInput
 from ..workspace import Workspace, is_slug
@@ -75,7 +76,12 @@ def handle(ws: Workspace, params: Input) -> dict:
         after = decode_cursor(params.cursor)
         slugs = [s for s in slugs if s > after]
     page = slugs[:limit]
-    deals = [summarise(ws, ws.read_deal(slug)) for slug in page]
+    deals = []
+    for slug in page:
+        state = ws.read_deal(slug)
+        if pipeline.sweep_deal(ws, slug, state):  # materials that can never finish
+            state = ws.read_deal(slug)
+        deals.append(summarise(ws, state))
     body: dict = {"deals": deals, "next_cursor": None}
     if len(slugs) > limit:
         body["next_cursor"] = encode_cursor(page[-1])

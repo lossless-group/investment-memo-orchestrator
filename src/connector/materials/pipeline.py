@@ -17,8 +17,13 @@ upload), ``title``, ``filename``, ``link``, ``bucket_key``, ``bytes``,
 ``chars``, ``added_at``, ``ready_at``, and ``error``. ``status`` is ``queued``,
 ``ready``, or ``skipped``.
 
-Jobs run in this process; a restart while a job is queued leaves that material
-``queued`` (see the changelog's "not tested").
+Jobs run in this process, so a restart drops any job in flight, and an upload
+link can expire unused. Either would leave a material ``queued`` forever, so
+:func:`sweep_deal` marks such a material ``skipped`` (``material_unreadable``,
+with a reason): lazily when ``list_deals`` or ``next_step`` reads the deal and a
+queued item is past its deadline, and :func:`sweep_all` on startup, when every
+job in flight is known to be lost. A job that finishes after its material was
+swept leaves the skip alone. One server process per volume is assumed.
 """
 
 from __future__ import annotations
@@ -27,12 +32,14 @@ import logging
 import re
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
-from pathlib import PurePosixPath
+from datetime import datetime
+from pathlib import Path, PurePosixPath
 
 from .. import flow
 from ..errors import ConnectorError
 from ..workspace import Workspace, now_iso
 from . import fetch as fetching
+from . import uploads
 from .extract import Unextractable, extract
 
 log = logging.getLogger("memopop.connector.materials")
@@ -40,6 +47,13 @@ log = logging.getLogger("memopop.connector.materials")
 STEP_ID = "materials.extract"
 
 _POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="memopop-materials")
+
+#: An upload page is refused after its hour; a POST that began just before then
+#: may still be recording its files, so the sweep waits this much longer.
+UPLOAD_GRACE_SECONDS = 300
+#: The longest a fetch plus extraction may run before its material is presumed
+#: lost (a link read can take minutes at the size cap; OCR on a large PDF, more).
+PROCESSING_DEADLINE_SECONDS = 1800
 
 
 def run_in_background(fn: Callable[..., None], *args) -> Future:
@@ -76,8 +90,8 @@ def mark_ready(ws: Workspace, deal: str, material_id: str, text: str, **fields) 
     with ws.lock(deal):
         state = ws.read_deal(deal)
         record = find(state, material_id)
-        if record is None:
-            return
+        if record is None or record.get("status") not in ("queued", "pending"):
+            return  # swept as lost while this job ran; the skip stands
         record.update(fields)
         record.update(status="ready", chars=len(text), ready_at=now_iso(), error=None)
         flow.mark(state, "material_ready", material_id=material_id)
@@ -89,14 +103,26 @@ def mark_ready(ws: Workspace, deal: str, material_id: str, text: str, **fields) 
 
 
 def mark_skipped(
-    ws: Workspace, deal: str, material_id: str, reason: str, code: str = "material_unreadable"
-) -> None:
-    """Record a material that can't be read as a skip; the deal continues."""
+    ws: Workspace,
+    deal: str,
+    material_id: str,
+    reason: str,
+    code: str = "material_unreadable",
+    *,
+    still: Callable[[dict], bool] | None = None,
+) -> bool:
+    """Record a material that can't be read as a skip; the deal continues.
+
+    ``still``, if given, is checked against the record under the deal's lock,
+    and nothing is recorded unless it holds. Returns whether a skip was recorded.
+    """
     with ws.lock(deal):
         state = ws.read_deal(deal)
         record = find(state, material_id)
-        if record is None:
-            return
+        if record is None or record.get("status") == "skipped":
+            return False
+        if still is not None and not still(record):
+            return False
         record.update(status="skipped", error=reason)
         state["skips"].append(
             {
@@ -112,6 +138,7 @@ def mark_skipped(
         state["updated_at"] = now_iso()
         with ws.transaction() as tx:
             tx.write_json(ws.deal_rel(deal) / "deal.json", state)
+        return True
 
 
 def _guarded(ws: Workspace, deal: str, material_id: str, work: Callable[[], None]) -> None:
@@ -177,3 +204,89 @@ def fetch_link(ws: Workspace, deal: str, material_id: str, link: str) -> None:
         )
 
     _guarded(ws, deal, material_id, work)
+
+
+# ------------------------------------------------------------------ the sweep
+
+
+def _epoch(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def stale_reason(record: dict, now: float, *, restarted: bool = False) -> str | None:
+    """Why a queued material will never finish, or None if it still might."""
+    if record.get("status") not in ("queued", "pending"):
+        return None
+    if record.get("awaiting_upload"):
+        expires = _epoch(record.get("upload_expires_at"))
+        if expires is not None and now >= expires + UPLOAD_GRACE_SECONDS:
+            return "The upload link expired before a file was uploaded; add it again."
+        return None
+    if restarted:
+        return "MemoPop restarted while this was being read; add it again."
+    started = max(
+        (
+            t
+            for t in (_epoch(record.get(k)) for k in ("added_at", "retried_at", "uploaded_at"))
+            if t is not None
+        ),
+        default=None,
+    )
+    if started is not None and now >= started + PROCESSING_DEADLINE_SECONDS:
+        return "Reading this took too long and was abandoned; add it again."
+    return None
+
+
+def sweep_deal(
+    ws: Workspace, deal: str, state: dict | None = None, *, restarted: bool = False
+) -> int:
+    """Skip the deal's queued materials that can never finish; return how many.
+
+    Cheap when nothing is stale: it only reads ``state`` (or ``deal.json``).
+    Never call it while holding the deal's lock.
+    """
+    state = state if state is not None else ws.read_deal(deal)
+    now = uploads.now()
+    stale = [
+        (m["material_id"], reason)
+        for m in state.get("materials", [])
+        if (reason := stale_reason(m, now, restarted=restarted))
+    ]
+    swept = 0
+    for material_id, reason in stale:
+        if mark_skipped(
+            ws,
+            deal,
+            material_id,
+            reason,
+            still=lambda rec: stale_reason(rec, uploads.now(), restarted=restarted) is not None,
+        ):
+            swept += 1
+    return swept
+
+
+def sweep_all(settings, *, restarted: bool = True) -> int:
+    """The startup sweep, over every firm and deal under ``MEMO_IO_ROOT``."""
+    from ..workspace import is_slug, open_workspace
+
+    root = Path(settings.io_root)
+    if not root.is_dir():
+        return 0
+    swept = 0
+    for firm_dir in sorted(root.iterdir()):
+        if not (firm_dir.is_dir() and is_slug(firm_dir.name)):
+            continue
+        try:
+            ws = open_workspace(settings, firm_dir.name)
+            for deal in ws.deal_slugs():
+                swept += sweep_deal(ws, deal, restarted=restarted)
+        except Exception:  # one bad firm must not stop startup or the others
+            log.exception("materials sweep failed for firm %s", firm_dir.name)
+    if swept:
+        log.warning("materials sweep: %d stale material(s) marked skipped", swept)
+    return swept
