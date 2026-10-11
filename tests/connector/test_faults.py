@@ -132,8 +132,11 @@ def test_a_required_step_is_never_skipped_and_other_deals_run(tmp_path, root, fa
     ws = open_workspace(_settings(tmp_path, root, fault_firms={"test-firm"}), "test-firm")
     fake = FakeClaude(Direct(ws))
     deal = fake.create(template="greedy")
-    walk = fake.walk(deal, until=lambda step: step["phase"] == "enhance", compile=False)
-    assert ("draft.section", "01-overview") in walk.handed_out
+    # This outline keeps down_at, so stop at the first draft rather than at enhance.
+    walk = fake.walk(deal, until=lambda step: step["phase"] == "draft", compile=False)
+    assert walk.stopped_at["step_id"] == "draft.section"
+    assert walk.stopped_at["section"] == "01-overview"
+    assert walk.stopped_at["skipped_since_last_call"][0]["step_id"] == "research.sources"
     # The same firm's deal on an ordinary outline is untouched.
     other = fake.create(company="Plain Co", url="https://plain.example", template=TEMPLATE)
     plain = fake.walk(other, until=lambda step: step["phase"] == "enhance", compile=False)

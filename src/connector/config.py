@@ -19,6 +19,7 @@
 | `MEMOPOP_S3_REGION` | (falls back to `AWS_REGION`) | `auto` |
 | `MEMOPOP_S3_BUCKET_TEMPLATE` | One bucket per firm; `{firm}` is replaced | `memopop-{firm}` |
 | `MEMOPOP_JJ_BIN` | The jj binary that keeps each firm's history (absent: no history kept) | `jj` |
+| `MEMOPOP_FAULT_FIRMS` | Test only: firms whose own outlines may force a skip and a `down` (`src/connector/faults.py`). Only ever `test-firm` | none |
 """
 
 from __future__ import annotations
@@ -54,6 +55,8 @@ class ConnectorSettings:
     #: firm -> key. Interim; removed the day didi.sh OAuth is live for every client.
     static_keys: dict[str, str] = field(default_factory=dict)
     disabled_steps: set[str] = field(default_factory=set)
+    #: Test only (src/connector/faults.py): firms whose own outlines may inject faults.
+    fault_firms: set[str] = field(default_factory=set)
     bucket_backend: str = "local"
     bucket_local_root: Path | None = None
     s3_endpoint: str | None = None
@@ -106,6 +109,9 @@ class ConnectorSettings:
             static_keys=_parse_static_keys(get("MEMOPOP_STATIC_KEYS", default="")),
             disabled_steps={
                 s.strip() for s in get("MEMOPOP_DISABLED_STEPS", default="").split(",") if s.strip()
+            },
+            fault_firms={
+                s.strip() for s in get("MEMOPOP_FAULT_FIRMS", default="").split(",") if s.strip()
             },
             bucket_backend=get("MEMOPOP_BUCKET_BACKEND", default="local"),
             bucket_local_root=Path(local_root) if local_root else None,

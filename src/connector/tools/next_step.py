@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from .. import flow
+from .. import faults, flow
 from ..registry import load_registry
 from ..registry.types import ANY, Example, InputDoc, ReturnDoc, ToolDef, ToolInput
 from ..workspace import Workspace
@@ -20,6 +20,8 @@ def handle(ws: Workspace, params: Input) -> dict:
     with ws.lock(deal) if ws.deal_exists(deal) else _no_lock():
         state = ws.read_deal(deal)
         inst, new_skips = flow.walk(registry, state, ws)
+        # Test-only (src/connector/faults.py): inert unless the firm opted in.
+        faults.raise_if_down(faults.for_deal(ws, state), inst.step.id if inst else None)
         changed = False
         for skip in new_skips:
             state["skips"].append({**skip, "at": flow.now_iso()})
