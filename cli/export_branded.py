@@ -489,6 +489,75 @@ def create_html_template(
     return template
 
 
+def normalize_table_col_widths(html: str) -> str:
+    """Normalize <colgroup> widths so each column shares the width equally.
+
+    This avoids odd, uneven scorecard tables unless a future template
+    explicitly overrides them. For each <colgroup>, we count the <col>
+    elements and assign width = 100 / n % to each.
+    """
+    def repl(match: re.Match) -> str:
+        colgroup = match.group(0)
+        cols = re.findall(r"<col\b[^>]*>", colgroup)
+        n = len(cols)
+        if n == 0:
+            return colgroup
+        width = 100.0 / n
+        new_cols = []
+        for col in cols:
+            # Remove any existing style="width: ..." fragments
+            col_clean = re.sub(r"style=\"[^\"]*\"", "", col)
+            # Ensure a single style attribute with width percentage
+            if col_clean.endswith("/>"):
+                col_clean = col_clean[:-2].rstrip()
+                col_clean += f" style=\"width: {width:.6f}%\" />"
+            elif col_clean.endswith(">"):
+                col_clean = col_clean[:-1].rstrip()
+                col_clean += f" style=\"width: {width:.6f}%\">"
+            new_cols.append(col_clean)
+
+        inner = "".join(new_cols)
+        return f"<colgroup>{inner}</colgroup>"
+
+    return re.sub(r"<colgroup>.*?</colgroup>", repl, html, flags=re.DOTALL | re.IGNORECASE)
+
+
+def render_branded_html(
+    markdown_content: str,
+    *,
+    title: str,
+    company: str,
+    brand: BrandConfig,
+    css_path: Path,
+    dark_mode: bool = False,
+    memo_date: Optional[str] = None,
+) -> str:
+    """Markdown to the branded HTML page, with no files read or written by the caller.
+
+    The pure core of convert_to_branded_html(), for callers (the connector's
+    compile) that hold the memo in memory and must not resolve anything against
+    io/ or the working directory. Same template, same pandoc conversion, same
+    column-width normalisation. It strips the first H1 (the template carries the
+    title) and does not embed remote resources, so it makes no network calls.
+    """
+    import tempfile
+
+    markdown_content = re.sub(
+        r'^#\s+(?:Investment Memo[:\s]*)?[^\n]+\n+', '', markdown_content, count=1
+    )
+    template = create_html_template(title, company, brand, css_path, dark_mode, memo_date)
+    with tempfile.TemporaryDirectory(prefix="memopop-export-") as tmp:
+        template_path = Path(tmp) / "template.html"
+        template_path.write_text(template, encoding="utf-8")
+        html = pypandoc.convert_text(
+            markdown_content,
+            'html',
+            format='markdown',
+            extra_args=['--standalone', f'--template={template_path}'],
+        )
+    return normalize_table_col_widths(html)
+
+
 def convert_to_branded_html(
     input_path: Path,
     output_path: Path,
@@ -622,40 +691,6 @@ def convert_to_branded_html(
     with open(template_path, 'w', encoding='utf-8') as f:
         f.write(template)
 
-    def _normalize_table_col_widths(html: str) -> str:
-        """Normalize <colgroup> widths so each column shares the width equally.
-
-        This avoids odd, uneven scorecard tables unless a future template
-        explicitly overrides them. For each <colgroup>, we count the <col>
-        elements and assign width = 100 / n % to each.
-        """
-        import re
-
-        def repl(match: re.Match) -> str:
-            colgroup = match.group(0)
-            cols = re.findall(r"<col\b[^>]*>", colgroup)
-            n = len(cols)
-            if n == 0:
-                return colgroup
-            width = 100.0 / n
-            new_cols = []
-            for col in cols:
-                # Remove any existing style="width: ..." fragments
-                col_clean = re.sub(r"style=\"[^\"]*\"", "", col)
-                # Ensure a single style attribute with width percentage
-                if col_clean.endswith("/>"):
-                    col_clean = col_clean[:-2].rstrip()
-                    col_clean += f" style=\"width: {width:.6f}%\" />"
-                elif col_clean.endswith(">"):
-                    col_clean = col_clean[:-1].rstrip()
-                    col_clean += f" style=\"width: {width:.6f}%\">"
-                new_cols.append(col_clean)
-
-            inner = "".join(new_cols)
-            return f"<colgroup>{inner}</colgroup>"
-
-        return re.sub(r"<colgroup>.*?</colgroup>", repl, html, flags=re.DOTALL | re.IGNORECASE)
-
     try:
         # Convert using pypandoc with custom template
         pypandoc.convert_file(
@@ -684,7 +719,7 @@ def convert_to_branded_html(
         # Post-process: normalize table column widths so columns are even by default
         try:
             html_text = output_path.read_text(encoding='utf-8')
-            normalized_html = _normalize_table_col_widths(html_text)
+            normalized_html = normalize_table_col_widths(html_text)
             output_path.write_text(normalized_html, encoding='utf-8')
         except Exception as e:
             print(f"  Warning: Could not normalize table column widths: {e}")
