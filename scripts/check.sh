@@ -17,6 +17,17 @@
 # ignored when io/ is empty; CI reports them in a separate non-blocking step.
 
 set -uo pipefail
+
+# Keep a Mac awake for the whole ladder. On battery this laptop idle-sleeps after
+# a minute with no sleep assertion held, and a sleeping machine freezes pytest:
+# overnight runs "hung" for 30-80 minutes with under a minute of awake time in
+# them (pmset -g log; see changelog/2026-10-11_01.md). -i stops idle sleep; -s
+# also stops system sleep on AC power. A closed lid on battery still sleeps.
+if [ "$(uname)" = "Darwin" ] && [ -z "${CHECK_SH_CAFFEINATED:-}" ] && command -v caffeinate >/dev/null; then
+  export CHECK_SH_CAFFEINATED=1
+  exec caffeinate -i -s /bin/bash "$0" "$@"
+fi
+
 cd "$(dirname "$0")/.." || exit 1
 
 LINT_PATHS=(src/connector tests/connector src/ledger.py scripts/spec_status.py tests/conftest.py
