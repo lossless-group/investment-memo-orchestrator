@@ -249,7 +249,8 @@ class Record:
                 {
                     "kind": e.kind,
                     "request": e.request,
-                    **({"text": e.text[:400]} if e.text else {}),
+                    # Every message in full: a cut message hides whether a rule was kept.
+                    **({"text": e.text} if e.text else {}),
                     **({"approves": e.approves} if e.approves else {}),
                     **(
                         {
@@ -257,6 +258,11 @@ class Record:
                             "input": {k: v for k, v in e.call.input.items() if k != "content"},
                             "is_error": e.call.is_error,
                             "result": e.call.text[:300],
+                            **(
+                                {"tell_partner": e.call.body["tell_partner"]}
+                                if e.call.body and e.call.body.get("tell_partner")
+                                else {}
+                            ),
                         }
                         if e.call
                         else {}
@@ -426,12 +432,34 @@ def server_view(get: Get, deal: str | None) -> ServerView:
 # ------------------------------------------------------------------ the checks
 
 
+#: A line about the skip names the step (its id, or a word of its title) ...
+SKIP_MENTION = re.compile(r"research\.sources|\bsources?\b", re.I)
+#: ... and says it didn't run.
+SKIP_WORD = re.compile(r"skip|turned off|switched off|disabled|not run|isn't run|off on", re.I)
+
+
+def _squash(text: str) -> str:
+    return " ".join(re.sub(r"[*_`\"“”]", "", text).split()).lower()
+
+
+def tells_of_skip(line: str, tell_partner: str | None) -> bool:
+    """Whether one line of Claude's tells the partner about the forced skip.
+
+    Either it relays the server's ``tell_partner`` sentence (markdown and
+    quotes aside), or it names the skipped step, by id or title, with a skip word.
+    """
+    if tell_partner and _squash(tell_partner) in _squash(line):
+        return True
+    return bool(SKIP_MENTION.search(line) and SKIP_WORD.search(line))
+
+
 def check(record: Record, view: ServerView) -> list[str]:
     """Every way the run broke the method, as sentences. Empty means it passed."""
     failures: list[str] = []
     fail = failures.append
     events = record.events
     calls = [(i, e.call) for i, e in enumerate(events) if e.call is not None]
+    calls_by_index = dict(calls)
 
     if record.stop != "down":
         fail(
@@ -533,12 +561,9 @@ def check(record: Record, view: ServerView) -> list[str]:
         next_submit = next((c for i, c in calls if i > after and c.name == "submit_artifact"), None)
         if next_submit is None or next_submit.input.get("step_id") != "draft.section":
             fail("Claude did not continue to the drafts after the skip")
-        mention = re.compile(r"\bsources?\b", re.I)
-        why = re.compile(r"skip|turned off|switched off|disabled|not run|isn't run|off on", re.I)
         texts = [e.text for e in events[after:] if e.kind == "claude"]
-        lines = [
-            [ln for ln in t.splitlines() if mention.search(ln) and why.search(ln)] for t in texts
-        ]
+        told = calls_by_index[after].body.get("tell_partner")
+        lines = [[ln for ln in t.splitlines() if tells_of_skip(ln, told)] for t in texts]
         if not any(lines):
             fail(f"Claude never told the partner that {SKIPPED_STEP} was skipped")
         elif max(len(per_text) for per_text in lines) > 3:
@@ -592,7 +617,8 @@ class ScriptedModel:
     with ``pause_turn`` after a run of tool calls the way the API pauses long
     server-side loops. ``misbehave`` makes it break one rule, so the checks can be
     shown to catch it: ``approve_without_showing``, ``ignore_skip``,
-    ``continue_after_down``.
+    ``continue_after_down``. ``paraphrase_skip`` breaks no rule: it tells the
+    partner about the skip in its own words instead of relaying ``tell_partner``.
     """
 
     def __init__(
@@ -687,8 +713,11 @@ class ScriptedModel:
                 reply = yield "end_turn"
                 continue
             if step["skipped_since_last_call"] and "ignore_skip" not in self.misbehave:
-                names = ", ".join(s["step_id"] for s in step["skipped_since_last_call"])
-                self._say(f"Skipped: {names} (research sources) is turned off on this server.")
+                if "paraphrase_skip" in self.misbehave:
+                    names = ", ".join(s["step_id"] for s in step["skipped_since_last_call"])
+                    self._say(f"Note: {names} was skipped; it is off on this server.")
+                else:  # the skill: relay tell_partner word for word, in its own message
+                    self._say(step["tell_partner"])
             step_id, section = step["step_id"], step["section"]
             content = self.content_for(step_id, section)
             args = {"deal": deal, "step_id": step_id, "content": content}
