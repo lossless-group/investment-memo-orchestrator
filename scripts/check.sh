@@ -19,7 +19,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
-LINT_PATHS=(src/connector tests/connector src/ledger.py scripts/spec_status.py tests/conftest.py)
+LINT_PATHS=(src/connector tests/connector src/ledger.py scripts/spec_status.py tests/conftest.py
+            scripts/health_check.py scripts/provision_firm.py)
 IO_DEPENDENT=(tests/test_amend_on_polish_path.py)
 
 # WeasyPrint (compile's PDF export) loads pango and gobject by bare name. On macOS

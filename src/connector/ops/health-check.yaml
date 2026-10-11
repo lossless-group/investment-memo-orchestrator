@@ -1,0 +1,22 @@
+# The health-check outline: one section, so scripts/health_check.py can walk
+# research, approval, draft, and compile in a handful of calls.
+# Installed into test-firm's own templates/outlines/ by src/connector/provision.py
+# (scripts/provision_firm.py --health-check); no other firm sees it.
+
+metadata:
+  outline_type: "health_check"
+  version: "1.0.0"
+  description: "One-section outline for the scheduled live health check. Synthetic."
+
+sections:
+  - number: 1
+    name: "Health Check"
+    filename: "01-health-check.md"
+    target_length:
+      min_words: 80
+      max_words: 200
+      ideal_words: 120
+    description: |
+      A synthetic section written by the health check. It describes no company.
+    guiding_questions:
+      - "Does every step of the MemoPop flow answer in time?"
