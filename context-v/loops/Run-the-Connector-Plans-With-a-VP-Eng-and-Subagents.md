@@ -100,3 +100,19 @@ walked the connector in Claude Desktop.
 
 One entry per plan as it lands: the ledger result, what the VP Eng's own run
 found, and anything decided that the plan didn't cover.
+
+### Phase 3, didi.sh OAuth — merged to id-didi-sh `main` 2026-10-10, not deployed
+
+**Engineer reported:** OAUTH-01..10 green, `mix test` 106 → 125.
+**VP Eng re-ran:** 125 passed, 18 tagged OAUTH cases passed, format and
+`--warnings-as-errors` clean. Reviewed the one test edit after the red commit
+(`c6b3b2b`): it made two hash-storage checks able to fail and fixed a header
+read; nothing was loosened. Accepted.
+**Found:** Claude requires the protected-resource `resource` to equal the
+connector URL including `/mcp`. Spec amended (`99ce648`, CONN-AUTH-02), Phase 1
+told. id.didi.sh resolves `/mcp` to the registered `https://memopop.didi.sh`
+audience.
+**Open:** Fly deploy (operator), a real Claude sign-in, `id_token` for OIDC
+clients, and a pre-existing open redirect in `AccessController.safe_next/1`
+the engineer found and left out of scope. Session rolling on refresh was the
+engineer's call; flagged to the operator.
