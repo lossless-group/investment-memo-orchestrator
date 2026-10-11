@@ -12,7 +12,7 @@ authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
-at_semantic_version: 0.0.0.5
+at_semantic_version: 0.0.0.6
 status: Draft
 category: Specification
 site_uuid: f32ada52-1cdb-4348-9170-42eebdbc9bd3
@@ -254,7 +254,7 @@ workspace; the change counts are against the previous snapshot.
 
 **`compile`** `{ deal, formats?: [html, pdf] }` → `{ html_url, pdf_url,
 version, report: { sections, enhancements_run, skipped: [...] } }`. The links
-are signed and expire after seven days. If compiling would exceed 240 seconds,
+are signed and expire after seven days. If compiling would exceed about 200 seconds (inside Claude's 240-second limit),
 it returns `{ job_id, status: running }` and `list_deals` reports completion.
 
 ## Errors
@@ -289,8 +289,8 @@ Starting codes (each must have a docs entry):
 | Kind | Codes |
 |---|---|
 | `down` | `service_unavailable`, `storage_unavailable`, `timeout`, `internal_error` |
-| `invalid` | `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version`, `not_implemented` |
-| `skipped` | `step_disabled`, `step_failed`, `material_unreadable` |
+| `invalid` | `drafts_incomplete`, `link_expired`, `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version`, `not_implemented` |
+| `skipped` | `step_disabled`, `step_failed`, `step_skipped`, `material_unreadable` |
 
 ## Versioning
 
