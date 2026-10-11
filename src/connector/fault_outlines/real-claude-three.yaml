@@ -1,0 +1,56 @@
+# The outline the real-Claude run (CONN-PLUG-02) uses: three short sections and
+# a test_faults block. Synthetic; no client data.
+#
+# Install it in a firm with `python -m src.connector.faults install-outline <firm>`.
+# The test_faults block does nothing unless that firm is also listed in
+# MEMOPOP_FAULT_FIRMS on the server (src/connector/faults.py), so copying this file
+# anywhere else is harmless.
+
+metadata:
+  outline_type: "real_claude_three"
+  version: "1.0.0"
+  description: "Three short sections for the real-Claude test run. Synthetic."
+
+sections:
+  - number: 1
+    name: "Overview"
+    filename: "01-overview.md"
+    target_length:
+      min_words: 80
+      max_words: 160
+      ideal_words: 120
+    description: |
+      What the company does, for whom, and why now.
+    guiding_questions:
+      - "What does the company sell, and to whom?"
+
+  - number: 2
+    name: "Market"
+    filename: "02-market.md"
+    target_length:
+      min_words: 80
+      max_words: 160
+      ideal_words: 120
+    description: |
+      How large the market is, with a dated figure.
+    guiding_questions:
+      - "How large is the market today?"
+
+  - number: 3
+    name: "Team"
+    filename: "03-team.md"
+    target_length:
+      min_words: 80
+      max_words: 160
+      ideal_words: 120
+    description: |
+      The founders and what they have done before.
+    guiding_questions:
+      - "Who are the founders, and what have they built before?"
+
+# Turn off research.sources (an optional step, so the server skips it with
+# step_disabled), and fail next_step with service_unavailable when it would hand
+# out enhance.tables, the first enhancement. A run therefore ends after the drafts.
+test_faults:
+  disable: [research.sources]
+  down_at: enhance.tables

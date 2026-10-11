@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "memopop": {
+      "type": "http",
+      "url": "https://memopop.didi.sh/mcp"
+    }
+  }
+}

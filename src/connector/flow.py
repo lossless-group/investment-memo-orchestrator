@@ -142,11 +142,14 @@ def walk(registry: Registry, state: dict, ws: Workspace) -> tuple[Instance | Non
     Pure: it changes nothing. ``next_step`` persists the skips; ``list_deals``
     only reads the answer.
     """
+    from .faults import for_deal
+
+    injected = for_deal(ws, state).disable
     new_skips: list[dict] = []
     for inst in instances(registry, state):
         if is_done(inst, state) or is_skipped(inst, state) or not applicable(inst, state):
             continue
-        if is_disabled(inst.step, ws):
+        if is_disabled(inst.step, ws) or (not inst.step.required and inst.step.id in injected):
             new_skips.append(
                 {
                     "step_id": inst.step.id,
