@@ -8,6 +8,20 @@ from __future__ import annotations
 
 API_CHANGELOG: list[dict] = [
     {
+        "date": "2026-10-11",
+        "version": "1.3.0",
+        "changes": [
+            "next_step returns a new field, `tell_partner` (additive): one plain sentence "
+            "naming each step in `skipped_since_last_call` and why, for Claude to send the "
+            "partner word for word before doing the step; null when nothing was skipped. "
+            'It reads "Skipped: <step title> (<sections>), because <why>.", one clause per '
+            "skipped step, joined by semicolons.",
+            "On the call that reports a skip, the step's `instruction` opens with the same "
+            "sentence and asks Claude to send it first. Later calls for the same step don't "
+            "repeat it.",
+        ],
+    },
+    {
         "date": "2026-10-10",
         "version": "1.2.0",
         "changes": [

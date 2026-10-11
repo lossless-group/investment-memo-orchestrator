@@ -188,6 +188,74 @@ def hint(registry: Registry, state: dict, ws: Workspace) -> str:
     return f"Call next_step: {inst.step.id}{where} is next."
 
 
+# ------------------------------------------------------------------ telling the partner
+
+#: How long a free-text skip reason may run inside tell_partner.
+REASON_CHARS = 200
+
+
+def _plain(reason: str | None) -> str:
+    """A skip reason on one line: whitespace collapsed, no trailing stop, no double quotes."""
+    text = " ".join(str(reason or "").split()).rstrip(" .!?;:").replace('"', "'")
+    if len(text) > REASON_CHARS:
+        text = text[: REASON_CHARS - 1].rstrip() + "…"
+    return text
+
+
+def _why(skip: dict) -> str:
+    reason = _plain(skip.get("reason"))
+    code = skip.get("code")
+    if skip.get("material_id") or code == "material_unreadable":
+        return "a material could not be read" + (f' ("{reason}")' if reason else "")
+    if code == "step_disabled":
+        return "it is turned off on this server"
+    if code == "step_failed":
+        return "it failed on MemoPop's side"
+    if code == "step_skipped" and reason:
+        return f'it was skipped with the reason "{reason}"'
+    return f'it was skipped ("{reason}")' if reason else "it was skipped"
+
+
+def tell_partner(registry: Registry, state: dict, skips: list[dict]) -> str | None:
+    """The one sentence Claude relays word for word about ``skips``; None when there are none.
+
+    ``Skipped: <step title>[ (<sections>)], because <why>[; <next clause>].`` Skips
+    of the same step for the same reason, one after another, share a clause that
+    lists their sections. The why comes from the skip's code, so a server-written
+    reason (which already names the step) isn't repeated; free text (Claude's own
+    reason, a material's error) is quoted on one line.
+    """
+    clauses: list[tuple[str, list[str], str]] = []  # (title, section names, why)
+    for skip in skips:
+        step = registry.step(skip["step_id"])
+        title = step.title if step else skip["step_id"]
+        why = _why(skip)
+        section = skip.get("section")
+        name = (section_info(state, section) or {}).get("name", section) if section else None
+        if clauses and clauses[-1][0] == title and clauses[-1][2] == why:
+            if name:
+                clauses[-1][1].append(name)
+            continue
+        clauses.append((title, [name] if name else [], why))
+    if not clauses:
+        return None
+    parts = []
+    for title, names, why in clauses:
+        where = " (" + ", ".join(names) + ")" if names else ""
+        parts.append(f"{title}{where}, because {why}")
+    return "Skipped: " + "; ".join(parts) + "."
+
+
+def with_notice(instruction: str, tell: str | None) -> str:
+    """Lead the step's instruction with the notice, so a model that skims still sees it."""
+    if not tell:
+        return instruction
+    return (
+        "Before you start this step, send the partner this line, word for word, as its "
+        f"own short message: {tell}\n\n{instruction}"
+    )
+
+
 # ------------------------------------------------------------------ rendering
 
 

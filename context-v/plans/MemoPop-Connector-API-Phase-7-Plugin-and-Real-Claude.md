@@ -4,7 +4,7 @@ title: "MemoPop Connector API, Phase 7: The Plugin and Real Claude"
 lede: "A thin skill that keeps Claude on the method, packaged with the connector, and a test where real Claude writes the fixture memo."
 publish: true
 date_created: 2026-10-10
-date_modified: 2026-10-10
+date_modified: 2026-10-11
 date_authored_initial_draft: 2026-10-10
 date_authored_current_draft: 2026-10-10
 date_authored_final_draft:
@@ -18,7 +18,7 @@ spec_reference: context-v/specs/MemoPop-Connector-API.md
 loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
 branch: connector/plan-7-plugin
 depends_on: [Phase-5-Enhancements-Compile-and-Flow]
-owns_test_ids: [CONN-PLUG-01, CONN-PLUG-02]
+owns_test_ids: [CONN-PLUG-01, CONN-PLUG-02, CONN-STEP-10]
 site_uuid: 4c820f47-5848-40ee-87d8-5c4dd42abe57
 hex_code: xdvrun
 tags:
@@ -59,3 +59,9 @@ Read the spec (§Docs that aren't generated, §The test suite, layer 11) and
 5. **`docs/operator/connect-claude.md`**: adding the connector in Claude
    Desktop and installing the plugin.
 6. Changelog, commit, push. Report the cost and duration of one real run.
+7. **Follow-up from the first live runs (2026-10-11): the skip line.** Real
+   Claude saw `research.sources` in `skipped_since_last_call` and went on to
+   drafting without telling the partner. `next_step` now writes the sentence
+   itself (`tell_partner`, `CONN-STEP-10`, owned here because the finding came
+   from this plan's run), the instruction opens with it on that call, and the
+   skill says to relay it word for word before the step's work.

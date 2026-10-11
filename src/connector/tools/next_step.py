@@ -9,6 +9,8 @@ from ..materials import pipeline
 from ..registry import load_registry
 from ..registry.types import ANY, Example, InputDoc, ReturnDoc, ToolDef, ToolInput
 from ..workspace import Workspace
+from ._examples import research_walk
+from .submit_artifact import EXAMPLE_RESEARCH
 
 
 class Input(ToolInput):
@@ -52,6 +54,7 @@ def handle(ws: Workspace, params: Input) -> dict:
         }
         for s in reported
     ]
+    tell = flow.tell_partner(registry, state, reported)
     progress = flow.progress(registry, state)
     if inst is None:
         return {
@@ -60,6 +63,7 @@ def handle(ws: Workspace, params: Input) -> dict:
             "done": True,
             "compile_ready": True,
             "skipped_since_last_call": skipped,
+            "tell_partner": tell,
             "progress": progress,
         }
     info = flow.section_info(state, inst.section) or {}
@@ -70,12 +74,13 @@ def handle(ws: Workspace, params: Input) -> dict:
         "phase": inst.step.phase,
         "section": inst.section,
         "section_name": info.get("name"),
-        "instruction": flow.render_instruction(inst, state),
+        "instruction": flow.with_notice(flow.render_instruction(inst, state), tell),
         "instruction_version": inst.step.version,
         "inputs": flow.gather_inputs(registry, ws, state, inst),
         "produces": {"kind": produces.kind, "checks": produces.checks} if produces else None,
         "needs_partner": inst.step.needs_partner,
         "skipped_since_last_call": skipped,
+        "tell_partner": tell,
         "progress": progress,
         "done": False,
     }
@@ -131,7 +136,16 @@ TOOL = ToolDef(
         ),
         ReturnDoc(
             "skipped_since_last_call",
-            "Optional steps skipped since the last call, with code and reason. Tell the partner in one line each.",
+            "Optional steps skipped since the last call, with code and reason. Each is "
+            "reported once; tell_partner says them to the partner.",
+        ),
+        ReturnDoc(
+            "tell_partner",
+            "One plain sentence about the skips in skipped_since_last_call, or null when there "
+            "are none. When it isn't null, send it to the partner word for word, as its own "
+            "short message, before you do the step; the instruction opens with it too. "
+            'It reads "Skipped: <step title> (<sections>), because <why>." with one clause per '
+            "skipped step, joined by semicolons.",
         ),
         ReturnDoc("progress", "done and total step counts for the deal."),
         ReturnDoc(
@@ -145,7 +159,8 @@ TOOL = ToolDef(
     duration="under a second.",
     errors=["deal_not_found", "validation_failed"],
     next=(
-        "do what the instruction says, show the partner what it asks you to show, then call "
+        "if tell_partner isn't null, send it to the partner word for word first. Then do what "
+        "the instruction says, show the partner what it asks you to show, and call "
         "submit_artifact. When done is true, call compile."
     ),
     examples=[
@@ -165,7 +180,46 @@ TOOL = ToolDef(
                 "produces": {"kind": "research", "checks": ANY},
                 "needs_partner": True,
                 "skipped_since_last_call": [],
+                "tell_partner": None,
                 "progress": {"done": 0, "total": ANY},
+                "done": False,
+                "api_version": "1",
+            },
+        ),
+        Example(
+            title="The step after a skip: tell the partner first",
+            setup=[
+                ("create_new_deal", {"company": "Acme Robotics", "url": "https://acme.ai"}),
+                *research_walk("acme-ai", EXAMPLE_RESEARCH),
+                (
+                    "submit_artifact",
+                    {
+                        "deal": "acme-ai",
+                        "step_id": "research.sources",
+                        "skip": True,
+                        "reason": "The research cites too few sources to be worth consolidating.",
+                    },
+                ),
+            ],
+            request={"deal": "acme-ai"},
+            response={
+                "ok": True,
+                "deal": "acme-ai",
+                "step_id": "draft.section",
+                "section": "01-executive-summary",
+                "instruction": ANY,
+                "skipped_since_last_call": [
+                    {
+                        "step_id": "research.sources",
+                        "section": None,
+                        "code": "step_skipped",
+                        "reason": "The research cites too few sources to be worth consolidating.",
+                    }
+                ],
+                "tell_partner": (
+                    "Skipped: Consolidate the research sources, because it was skipped with "
+                    'the reason "The research cites too few sources to be worth consolidating".'
+                ),
                 "done": False,
                 "api_version": "1",
             },
