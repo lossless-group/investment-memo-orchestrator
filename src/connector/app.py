@@ -7,7 +7,8 @@
 
 Routes added: ``/mcp`` (MCP, Streamable HTTP), ``/v1/...`` (REST),
 ``/v1/openapi.json``, ``/llms.txt``, ``/llms-full.txt``, ``/docs``,
-``/docs/errors``, ``/docs/changelog``, and the protected-resource documents at
+``/docs/errors``, ``/docs/changelog``, the one-time upload page at
+``/upload/{token}``, and the protected-resource documents at
 ``/.well-known/oauth-protected-resource`` and ``.../mcp``.
 """
 
@@ -77,10 +78,12 @@ class Connector:
 
     def install(self, app: FastAPI) -> None:
         from .docs_build import docs_router
+        from .materials.upload_page import upload_router
         from .rest_app import rest_router
 
         app.include_router(rest_router(self))
         app.include_router(docs_router(self))
+        app.include_router(upload_router(self))
         self.mcp.install(app)
 
     @asynccontextmanager
