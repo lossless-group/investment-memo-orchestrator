@@ -1,0 +1,70 @@
+name: Connector tests
+
+# The check ladder (scripts/check.sh) on every push and pull request to the
+# integration branches and the connector plan branches.
+#
+# Checks out WITHOUT submodules: io/<firm> repos are private client data, so no
+# test may read them. The blocking job runs ruff, black, the whole suite except
+# the tests that need io/ (listed in scripts/check.sh), and the ledger for every
+# plan In Progress or Shipped. The io-dependent tests run in a second,
+# non-blocking step so their state is reported rather than hidden.
+
+on:
+  push:
+    branches: [development, main, "connector/**"]
+  pull_request:
+    branches: [development, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connector-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JJ_VERSION: "0.46.0"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout (without submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Install pandoc and the WeasyPrint libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq pandoc libpango-1.0-0 libpangoft2-1.0-0 poppler-utils
+
+      - name: Install jj
+        run: |
+          curl -fsSL "https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin ./jj
+          jj --version
+
+      - name: Sync dependencies
+        run: uv sync --extra dev
+
+      - name: Check ladder (blocking)
+        run: scripts/check.sh
+
+      - name: io-dependent tests (non-blocking, reported only)
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "These tests read private io/<firm> data that CI never checks out."
+          echo "They are expected to error here; they pass in a checkout with io/."
+          uv run pytest -q -p no:cacheprovider --no-cov tests/test_amend_on_polish_path.py

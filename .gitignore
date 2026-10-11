@@ -82,3 +82,6 @@ searxng/uwsgi.ini
 
 # Ad-hoc run logs (e.g. `python run_x.py > run.log`)
 *.log
+
+# Spec ledger results (written by tests/conftest.py, read by scripts/spec_status.py)
+.spec-results.json

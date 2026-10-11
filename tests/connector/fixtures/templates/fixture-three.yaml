@@ -1,0 +1,47 @@
+# A synthetic three-section outline for the connector tests (fixture-co).
+# Same shape as templates/outlines/*.yaml, cut to what the connector reads.
+
+metadata:
+  outline_type: "fixture_three"
+  version: "1.0.0"
+  description: "Three-section test outline. Synthetic; no client data."
+
+sections:
+  - number: 1
+    name: "Overview"
+    filename: "01-overview.md"
+    target_length:
+      min_words: 150
+      max_words: 300
+      ideal_words: 200
+    description: |
+      What the company does, for whom, and why now.
+    guiding_questions:
+      - "What does the company sell, and to whom?"
+      - "Why is now the moment for it?"
+
+  - number: 2
+    name: "Market"
+    filename: "02-market.md"
+    target_length:
+      min_words: 150
+      max_words: 300
+      ideal_words: 200
+    description: |
+      The size of the market and how it is changing.
+    guiding_questions:
+      - "How large is the market today, with a dated source?"
+      - "Who else serves it?"
+
+  - number: 3
+    name: "Team"
+    filename: "03-team.md"
+    target_length:
+      min_words: 150
+      max_words: 300
+      ideal_words: 200
+    description: |
+      The founders and what they have done before.
+    guiding_questions:
+      - "Who are the founders?"
+      - "What have they built before?"
