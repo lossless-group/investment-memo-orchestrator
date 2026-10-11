@@ -1,0 +1,20 @@
+# An allowlist: nothing enters the build context unless named here. The repo
+# root holds private firm data (io/), .env, run logs, and outputs that must
+# never reach an image.
+*
+!pyproject.toml
+!uv.lock
+!src/
+!cli/
+!templates/
+!scripts/health_check.py
+!scripts/provision_firm.py
+!scripts/docker-entrypoint.sh
+
+# Even inside the allowed directories:
+**/__pycache__
+**/*.py[cod]
+**/*.log
+**/.DS_Store
+**/.env*
+**/*.db

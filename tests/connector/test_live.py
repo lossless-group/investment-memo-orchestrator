@@ -8,9 +8,7 @@ a ``test-firm`` provisioned the way an operator provisions one
 (``src.connector.provision``). Nothing reads ``io/`` and nothing leaves the
 machine.
 
-CONN-LIVE-02 needs the deployed service, so it runs only when
-``MEMOPOP_LIVE_URL`` is set (for example ``https://memopop.didi.sh``) and is
-reported GATED otherwise.
+CONN-LIVE-02 is in ``test_live_deployed.py``.
 
 Server modules are imported inside the fixtures, so a missing implementation
 fails these tests (RED) instead of stopping collection.
@@ -28,7 +26,6 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
 import pytest
 
 from src.connector.config import ConnectorSettings
@@ -229,46 +226,3 @@ def test_no_key_is_a_usage_error_not_a_pass():
     )
     assert result.returncode == 2, result.stdout + result.stderr
     assert "MEMOPOP_HEALTH_KEY" in result.stderr, result.stderr
-
-
-# ------------------------------------------------------------------ CONN-LIVE-02
-
-LIVE_URL = os.environ.get("MEMOPOP_LIVE_URL", "").rstrip("/")
-
-
-@pytest.mark.spec("CONN-LIVE-02")
-@pytest.mark.skipif(
-    not LIVE_URL,
-    reason="MEMOPOP_LIVE_URL is not set; set it to the deployed origin "
-    "(e.g. https://memopop.didi.sh) to check the live service",
-)
-def test_the_deployed_service_answers_over_https():
-    assert LIVE_URL.startswith("https://"), f"MEMOPOP_LIVE_URL must be https: {LIVE_URL}"
-    with httpx.Client(timeout=20, follow_redirects=False) as http:
-        health = http.get(f"{LIVE_URL}/healthz")
-        assert health.status_code == 200, health.text
-        assert health.json().get("ok") is True
-
-        llms = http.get(f"{LIVE_URL}/llms.txt")
-        assert llms.status_code == 200
-        assert llms.text.startswith("# MemoPop")
-        for tool in ("list_deals", "create_new_deal", "next_step", "compile"):
-            assert tool in llms.text
-
-        for path in (
-            "/.well-known/oauth-protected-resource/mcp",
-            "/.well-known/oauth-protected-resource",
-        ):
-            doc = http.get(f"{LIVE_URL}{path}")
-            assert doc.status_code == 200, (path, doc.text)
-            body = doc.json()
-            assert body["resource"] == f"{LIVE_URL}/mcp"
-            assert body["authorization_servers"][0] == "https://id.didi.sh"
-            urls = [body["resource"], *body["authorization_servers"]]
-            urls.append(body.get("resource_documentation", "https://"))
-            assert all(u.startswith("https://") for u in urls), urls
-
-        # A request with no credential is a 401 pointing at the document above.
-        mcp = http.post(f"{LIVE_URL}/mcp", json={})
-        assert mcp.status_code == 401
-        assert "oauth-protected-resource/mcp" in mcp.headers.get("www-authenticate", "")

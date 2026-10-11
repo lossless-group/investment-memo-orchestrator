@@ -25,6 +25,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.connector.provision import HEALTH_CHECK_TEMPLATE, provision_firm  # noqa: E402
 
 
+def _match_owner(root: Path, io_root: Path) -> None:
+    """Run as root (``railway ssh``), hand what was made to the server's user."""
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        return
+    owner = io_root.stat()
+    if owner.st_uid == 0:
+        return
+    for path in [root, *root.rglob("*")]:
+        os.chown(path, owner.st_uid, owner.st_gid, follow_symlinks=False)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("firm", help="the firm's slug, which must equal its didi.sh entity slug")
@@ -50,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 2
+    _match_owner(root, Path(args.io_root))
     print(f"provisioned {root}")
     print(f"firm.json: {(root / 'firm.json').read_text().strip()}")
     if args.health_check:
