@@ -60,6 +60,28 @@ def required_headings(content: str, headings: list[str]) -> tuple[bool, str]:
     return True, "All required headings present."
 
 
+_FENCED_YAML = re.compile(r"^```ya?ml[ \t]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
+
+
+def fenced_yaml(content: str, keys: list[str]) -> tuple[bool, str]:
+    """A fenced ```yaml block that parses to a mapping with every key in ``keys``."""
+    import yaml
+
+    match = _FENCED_YAML.search(content)
+    if not match:
+        return False, "No ```yaml block found."
+    try:
+        data = yaml.safe_load(match.group(1))
+    except yaml.YAMLError as exc:
+        return False, f"The yaml block does not parse: {exc.__class__.__name__}."
+    if not isinstance(data, dict):
+        return False, "The yaml block is not a mapping of keys to values."
+    missing = [k for k in keys if data.get(k) in (None, "")]
+    if missing:
+        return False, "The yaml block is missing: " + ", ".join(missing)
+    return True, "The yaml block has every required key."
+
+
 CHECKS: dict[str, Callable[[str, Any], tuple[bool, str]]] = {
     "not_empty": not_empty,
     "min_words": min_words,
@@ -67,6 +89,7 @@ CHECKS: dict[str, Callable[[str, Any], tuple[bool, str]]] = {
     "has_citations": has_citations,
     "citations_resolve": citations_resolve,
     "required_headings": required_headings,
+    "fenced_yaml": fenced_yaml,
 }
 
 
