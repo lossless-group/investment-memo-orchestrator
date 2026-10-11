@@ -268,7 +268,11 @@ def test_a_skip_needs_an_optional_handed_out_step_and_a_reason(ws):
             call(ws, "submit_artifact", deal=deal, **args)
         assert raised.value.code == code, args
         assert raised.value.next
+    assert deal_json(ws, deal).read_bytes() == before
+
+    # The same deal, walked on to an optional step: a skip with content is refused.
     deal2, step = _walk_to(ws, "enhance.one_pager")
+    before = deal_json(ws, deal2).read_bytes()
     with pytest.raises(ConnectorError) as raised:
         call(
             ws,
@@ -280,4 +284,4 @@ def test_a_skip_needs_an_optional_handed_out_step_and_a_reason(ws):
             content=canned.one_pager(),
         )
     assert raised.value.code == "validation_failed"
-    assert deal_json(ws, deal).read_bytes() == before
+    assert deal_json(ws, deal2).read_bytes() == before

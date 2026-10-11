@@ -144,7 +144,9 @@ def one_pager() -> str:
         "thousand stores in the United States, most without inventory software.\n\n**Team.** "
         "Founders from operations at a regional distributor.\n\n**Risks.** Paying customers and "
         "count accuracy are unproven.\n\n**Recommendation.** Take a first meeting and test "
-        "the claims with the founders against a manual count.\n"
+        "the claims with the founders against a manual count.\n\n**Why now.** Phone cameras are "
+        "good enough to count shelves, and independent stores are losing ground to chains that "
+        "already track stock by the hour.\n"
     )
 
 
@@ -163,8 +165,9 @@ def for_step(step_id: str, section: str | None) -> str:
         "research.section": research,
         "draft.section": draft,
         "enhance.tables": tables,
-        "enhance.citations": draft,
-        "enhance.fact_check": draft,
+        # Revisions start from the section as it stands, so they keep the table.
+        "enhance.citations": tables,
+        "enhance.fact_check": tables,
     }
     per_deal = {
         "materials.brief": brief,
