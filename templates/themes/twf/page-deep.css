@@ -1,0 +1,17 @@
+/* Deep ground: the site's own. Literal values: WeasyPrint does not resolve var() in @page. */
+@page {
+  size: A4;
+  margin: 20mm 20mm 18mm 22mm;
+  background: #041a26;
+  @top-left { content: string(section); font-family: "DM Sans", sans-serif; font-size: 7pt; color: #ffffffb3; }
+  @top-right { content: "The Water Foundation"; font-family: "DM Sans", sans-serif; font-size: 7pt; font-weight: 600; color: #ffffff; }
+  @bottom-left { content: string(doc) "  |  Confidential"; font-family: "DM Sans", sans-serif; font-size: 7pt; color: #ffffffb3; }
+  @bottom-right { content: counter(page); font-family: "DM Sans", sans-serif; font-size: 7pt; color: #ffffff; }
+}
+@page :first {
+  margin: 0;
+  background: #011c2c;
+  @top-left { content: none; } @top-right { content: none; }
+  @bottom-left { content: none; } @bottom-right { content: none; }
+}
+.cover h1.title { string-set: doc content(text); }

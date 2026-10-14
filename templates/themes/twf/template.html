@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!-- The Water Foundation memo theme: pandoc HTML template.
+     Read by cli/themed_export.py. Images are referenced by bare filename and
+     resolved through --resource-path (this theme's marks/ directory), then
+     inlined by --embed-resources so the HTML is one self-contained file. -->
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>$title$$if(subtitle)$: $subtitle$$endif$</title>
+$for(css)$
+  <link rel="stylesheet" href="$css$" />
+$endfor$
+</head>
+<body class="$mode$">
+
+<section class="cover">
+  <img class="cover-mark" src="twf-lockup--on-deep.svg" alt="The Water Foundation" />
+  <div class="cover-title">
+    <h1 class="title">$title$</h1>
+$if(subtitle)$
+    <p class="subtitle">$subtitle$</p>
+$endif$
+  </div>
+  <dl class="cover-meta">
+$if(prepared-by)$
+    <div><dt>Prepared by</dt><dd>$prepared-by$</dd></div>
+$endif$
+$if(date)$
+    <div><dt>Date</dt><dd>$date$</dd></div>
+$endif$
+$if(version)$
+    <div><dt>Version</dt><dd>$version$</dd></div>
+$endif$
+  </dl>
+$if(confidential)$
+  <p class="cover-confidential">$confidential$</p>
+$endif$
+</section>
+
+$if(toc)$
+<nav id="TOC" role="doc-toc">
+$table-of-contents$
+</nav>
+$endif$
+
+<main class="memo">
+$body$
+</main>
+
+<footer class="colophon">
+  <img class="colophon-mark on-paper" src="twf-brandmark--on-paper.svg" alt="" />
+  <img class="colophon-mark on-deep" src="twf-brandmark--on-deep.svg" alt="" />
+$if(confidential)$
+  <p>$confidential$</p>
+$endif$
+</footer>
+
+</body>
+</html>

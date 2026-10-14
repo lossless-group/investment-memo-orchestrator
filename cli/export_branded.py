@@ -522,6 +522,19 @@ def normalize_table_col_widths(html: str) -> str:
     return re.sub(r"<colgroup>.*?</colgroup>", repl, html, flags=re.DOTALL | re.IGNORECASE)
 
 
+# The memo mode (justify/consider) is a pipeline setting, never something a
+# reader should see. src/agents/trademark_enrichment.py stopped printing it on
+# 2026-10-09, but drafts assembled before then still carry
+# "**Investment Memo** | Prospective Analysis" (or "| Retrospective
+# Justification"), so every export strips it here as well.
+MODE_LABEL = re.compile(r'\s*\|\s*(?:Prospective Analysis|Retrospective Justification)\b', re.I)
+
+
+def strip_memo_mode_label(markdown_content: str) -> str:
+    """Remove the analysis-mode suffix from the header line of an assembled memo."""
+    return MODE_LABEL.sub('', markdown_content)
+
+
 def render_branded_html(
     markdown_content: str,
     *,
@@ -542,6 +555,7 @@ def render_branded_html(
     """
     import tempfile
 
+    markdown_content = strip_memo_mode_label(markdown_content)
     markdown_content = re.sub(
         r'^#\s+(?:Investment Memo[:\s]*)?[^\n]+\n+', '', markdown_content, count=1
     )
@@ -672,6 +686,7 @@ def convert_to_branded_html(
 
     # Now strip redundant H1 title from markdown (HTML template already provides header)
     # Pattern: "# Investment Memo: CompanyName" or "# CompanyName" at start of file
+    markdown_content = strip_memo_mode_label(markdown_content)
     markdown_content = re.sub(
         r'^#\s+(?:Investment Memo[:\s]*)?[^\n]+\n+',
         '',
@@ -875,6 +890,10 @@ Multiple Brands:
     )
 
     parser.add_argument(
+        '--theme',
+        help="Theme folder under templates/themes/ (default: the brand config's `theme`; 'none' forces the legacy base-style.css export)"
+    )
+    parser.add_argument(
         '--mode',
         choices=['light', 'dark'],
         default='dark',
@@ -988,6 +1007,19 @@ Multiple Brands:
         print(f"Error: CSS file not found: {css_path}")
         sys.exit(1)
 
+    # Theme: a self-contained design system (cli/themed_export.py) replaces the
+    # base-style.css colour splice when the brand config or --theme names one.
+    theme_dir = None
+    theme_name = args.theme if args.theme is not None else getattr(brand, 'theme', None)
+    if theme_name and theme_name.lower() != 'none':
+        from cli.themed_export import find_theme
+        try:
+            theme_dir = find_theme(theme_name, firm=args.firm)
+            print(f"✓ Theme: {theme_name} ({theme_dir})")
+        except FileNotFoundError as e:
+            print(f"✗ {e}")
+            sys.exit(1)
+
     # Create output directory
     args.output.mkdir(parents=True, exist_ok=True)
 
@@ -1038,7 +1070,13 @@ Multiple Brands:
                 print(f"  → File exists, using versioned name: {html_path.name}")
 
             # Convert to branded HTML
-            convert_to_branded_html(md_file, html_path, brand, css_path, dark_mode)
+            if theme_dir:
+                from cli.themed_export import convert_with_theme
+                company, ver = (md_file.parent.name.rsplit('-v', 1) + [None])[:2]
+                convert_with_theme(md_file, html_path, brand, theme_dir, dark_mode,
+                                   company_name=company, version=f"v{ver}" if ver else None)
+            else:
+                convert_to_branded_html(md_file, html_path, brand, css_path, dark_mode)
             size = html_path.stat().st_size / 1024
             mode_label = "dark" if dark_mode else "light"
             print(f"✓ HTML ({mode_label}): {html_path.name} ({size:.1f} KB)")

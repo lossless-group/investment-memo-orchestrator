@@ -120,6 +120,10 @@ class BrandConfig:
     colors: BrandColors
     fonts: BrandFonts
     logo: Optional[BrandLogo] = None
+    # Name of a theme folder under templates/themes/ (or io/<firm>/templates/themes/).
+    # When set, cli/export_branded.py renders through cli/themed_export.py instead
+    # of splicing colours into templates/base-style.css.
+    theme: Optional[str] = None
 
     @classmethod
     def load(
@@ -240,7 +244,8 @@ class BrandConfig:
                 company=BrandCompany(**data['company']),
                 colors=BrandColors.from_config(data['colors']),
                 fonts=BrandFonts(**data['fonts']),
-                logo=logo
+                logo=logo,
+                theme=data.get('theme')
             )
         except TypeError as e:
             raise ValueError(

@@ -1,0 +1,373 @@
+/* THE WATER FOUNDATION: INVESTMENT MEMO THEME
+   ===========================================
+   Ported from astro-knots/sites/twf-next, which is the source of truth:
+   - the paper restatement in docs/delta/print.css (pandoc into WeasyPrint),
+   - the current faces and tune in src/styles/tokens.css and type.css
+     (Aspekta display at 800, DM Sans body; decided 2026-09-24),
+   - the paper palette in src/styles/text-view.css,
+   - the rules in docs/design/direction.md: square corners, no eyebrows,
+     strong is weight 600 in the full ink, the accent means a link and nothing
+     else, every figure carries a source line.
+
+   Two grounds, chosen by the exporter:
+   - paper (body.light-mode): white page, the site's deep (#041A26) as the ink.
+   - deep  (body.dark-mode):  the site's own ground, white ink, cyan links.
+   The cover is deep in both, because every TWF mark is white and is meant to
+   sit on a deep ground.
+
+   Page backgrounds and margin-box colours are literal values in page-paper.css
+   and page-deep.css, because WeasyPrint does not resolve var() inside @page.
+
+   Font URLs are relative to THIS FILE: WeasyPrint and pandoc's
+   --embed-resources both resolve url() against the stylesheet that declares
+   it. Variable faces are declared once per weight used, because WeasyPrint's
+   parser rejects a `100 900` range. */
+
+@font-face { font-family: "Aspekta"; src: url("fonts/aspekta/aspekta-wght-normal.woff2") format("woff2"); font-weight: 600; }
+@font-face { font-family: "Aspekta"; src: url("fonts/aspekta/aspekta-wght-normal.woff2") format("woff2"); font-weight: 800; }
+@font-face { font-family: "DM Sans"; src: url("fonts/dm-sans/dm-sans-latin-opsz-wght.woff2") format("woff2"); font-weight: 400; }
+@font-face { font-family: "DM Sans"; src: url("fonts/dm-sans/dm-sans-latin-opsz-wght.woff2") format("woff2"); font-weight: 600; }
+@font-face { font-family: "Newsreader"; src: url("fonts/newsreader/newsreader-italic-subset.woff2") format("woff2"); font-weight: 400; font-style: italic; }
+
+/* Named tokens (twf-next tokens.css / text-view.css, brand reading.md). */
+:root {
+  --color__deep: #041a26;          /* the ground; the ink on paper */
+  --color__abyss-deep: #000f17;
+  --color__abyss: #011c2c;
+  --color__ocean: #0c3a52;
+  --color__paper: #ffffff;
+  --color__paper-ink-dim: #4a4f52; /* text-view --ink-dim */
+  --color__paper-link: #114f66;    /* text-view --accent */
+  --color__paper-rule: #c9cdd0;    /* text-view --edge-rule */
+  --color__paper-track: #e6e9ea;   /* text-view --surface-track */
+  --color__cyan: #22d3ee;          /* site --accent */
+  --color__ice: #d8e8ff;
+  --color__coral: #ffa28d;         /* --signal: the shortfall, and nothing else */
+
+  /* Semantic tokens: paper is the default ground. */
+  --ink: var(--color__deep);
+  --ink-dim: var(--color__paper-ink-dim);
+  --link: var(--color__paper-link);
+  --rule: var(--color__paper-rule);
+  --rule-soft: var(--color__paper-track);
+  --ground: var(--color__paper);
+
+  --font-display: "Aspekta", "DM Sans", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-note: "Newsreader", Georgia, serif;
+  --weight-display: 800;
+  --track-display: -0.005em;
+  --track-body: -0.015em;
+}
+
+body.dark-mode {
+  --ink: #ffffff;
+  --ink-dim: #ffffffdb;            /* site --ink-dim */
+  --link: var(--color__cyan);
+  --rule: rgb(255 255 255 / 0.14); /* site --edge-rule */
+  --rule-soft: rgb(255 255 255 / 0.08);
+  --ground: var(--color__deep);
+}
+
+html { background: var(--ground); }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink-dim);
+  font-family: var(--font-body);
+  font-size: 9.5pt;
+  line-height: 1.5;
+  letter-spacing: var(--track-body);
+  hyphens: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Cover ---------- */
+
+.cover {
+  break-after: page;
+  height: 297mm;
+  box-sizing: border-box;
+  padding: 26mm 22mm 22mm;
+  color: #ffffff;
+  background: linear-gradient(160deg, var(--color__abyss-deep) 0%, var(--color__abyss) 55%, var(--color__ocean) 100%);
+  position: relative;
+}
+
+.cover-mark { width: 62mm; height: auto; display: block; }
+
+.cover-title { margin-top: 78mm; }
+
+.cover h1.title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: 40pt;
+  line-height: 1.04;
+  letter-spacing: calc(-0.028em + var(--track-display));
+  color: #ffffff;
+  margin: 0 0 5mm;
+  border: 0;
+  padding: 0;
+  string-set: none;
+}
+
+.cover p.subtitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15pt;
+  line-height: 1.16;
+  color: #ffffffdb;
+  margin: 0;
+  max-width: 120mm;
+}
+
+.cover-meta {
+  position: absolute;
+  left: 22mm;
+  right: 22mm;
+  bottom: 34mm;
+  margin: 0;
+  display: flex;
+  gap: 12mm;
+  border-top: 1px solid rgb(255 255 255 / 0.24);
+  padding-top: 4mm;
+}
+.cover-meta div { min-width: 30mm; }
+.cover-meta dd { white-space: nowrap; }
+.cover-meta dt { font-size: 7.5pt; color: rgb(255 255 255 / 0.62); margin: 0 0 1mm; }
+.cover-meta dd { font-size: 9.5pt; font-weight: 600; color: #ffffff; margin: 0; }
+
+.cover-confidential {
+  position: absolute;
+  left: 22mm;
+  right: 22mm;
+  bottom: 20mm;
+  margin: 0;
+  font-size: 7.5pt;
+  color: rgb(255 255 255 / 0.62);
+}
+
+/* ---------- Contents ---------- */
+
+nav#TOC { break-after: page; }
+
+nav#TOC::before {
+  content: "Contents";
+  display: block;
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: 20pt;
+  letter-spacing: calc(-0.018em + var(--track-display));
+  color: var(--ink);
+  margin-bottom: 8mm;
+}
+
+nav#TOC ul { list-style: none; padding-left: 0; margin: 0; max-width: 150mm; }
+nav#TOC > ul > li { margin: 0; padding: 2.2mm 0; border-top: 0.5pt solid var(--rule); }
+nav#TOC > ul > li > a { font-weight: 600; color: var(--ink); }
+nav#TOC ul ul { padding: 1mm 0 0 6mm; }
+nav#TOC ul ul li { margin: 0.6mm 0; font-size: 8.5pt; }
+nav#TOC ul ul a { color: var(--ink-dim); }
+nav#TOC a { text-decoration: none; }
+nav#TOC a::after {
+  content: leader(" ") target-counter(attr(href), page);
+  color: var(--ink-dim);
+  font-weight: 400;
+}
+
+/* ---------- Running text ---------- */
+
+/* Each part of the memo (H1 in the Executive Summary and Closing Assessment,
+   H2 for the numbered sections) opens a page and names the running head. */
+.memo h1,
+.memo h2 {
+  string-set: section content(text);
+  break-before: page;
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: 21pt;
+  line-height: 1.04;
+  letter-spacing: calc(-0.028em + var(--track-display));
+  color: var(--ink);
+  margin: 0 0 7mm;
+  max-width: 150mm;
+}
+
+/* A heading straight after a part heading is not a new part. */
+.memo h1 + h2 { break-before: auto; margin-top: 8mm; font-size: 15pt; }
+
+.memo h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 12pt;
+  line-height: 1.16;
+  letter-spacing: calc(-0.008em + var(--track-display));
+  color: var(--ink);
+  margin: 7mm 0 2.5mm;
+  max-width: 130mm;
+  break-after: avoid;
+}
+
+.memo h4,
+.memo h5 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 9.5pt;
+  color: var(--ink);
+  margin: 5mm 0 1.5mm;
+  break-after: avoid;
+}
+
+p { margin: 0 0 3mm; max-width: 150mm; orphans: 3; widows: 3; }
+
+strong, b { font-weight: 600; color: var(--ink); }
+em, i { font-style: italic; }
+
+a { color: var(--link); text-decoration: none; }
+
+ul, ol { margin: 0 0 3.5mm; padding-left: 5mm; max-width: 148mm; }
+li { margin-bottom: 1.4mm; }
+li > p { margin-bottom: 1mm; }
+ul li::marker { color: var(--link); }
+ol li::marker { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+hr { border: 0; border-top: 0.5pt solid var(--rule); margin: 6mm 0; max-width: 150mm; }
+
+/* Notes the memo addresses to its reader (deal status, caveats): a hairline at
+   the left, the full ink, no box and no fill. */
+blockquote {
+  margin: 0 0 5mm;
+  padding: 0.5mm 0 0.5mm 5mm;
+  border-left: 1.25pt solid var(--ink);
+  color: var(--ink);
+  max-width: 145mm;
+  break-inside: avoid;
+}
+blockquote p:last-child { margin-bottom: 0; }
+
+/* Third-party words, set the way the site sets them: the one italic face. */
+blockquote.note, .note {
+  font-family: var(--font-note);
+  font-style: italic;
+  font-size: 11pt;
+  border-left-color: var(--rule);
+}
+
+code {
+  font-family: "Menlo", monospace;
+  font-size: 0.86em;
+  color: var(--ink);
+}
+pre { white-space: pre-wrap; font-size: 8pt; border-left: 0.5pt solid var(--rule); padding-left: 4mm; }
+
+/* ---------- Figures ---------- */
+
+img { max-width: 100%; height: auto; border-radius: 0; }
+figure { margin: 4mm 0 6mm; break-inside: avoid; }
+figure img { display: block; max-height: 120mm; margin: 0 auto 0 0; border: 0.5pt solid var(--rule-soft); }
+figcaption { margin-top: 1.5mm; font-size: 7pt; color: var(--ink-dim); max-width: 150mm; }
+
+/* ---------- Tables ---------- */
+
+/* Matrix style from the site: no zebra, no tinted header; the head rule is the
+   heavier one, everything else a hairline. */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+  line-height: 1.35;
+  margin: 3mm 0 6mm;
+}
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th {
+  text-align: left;
+  vertical-align: bottom;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 0.9pt solid var(--ink);
+  padding: 1.5mm 3mm 1.5mm 0;
+}
+td {
+  vertical-align: top;
+  border-bottom: 0.4pt solid var(--rule);
+  padding: 1.6mm 3mm 1.6mm 0;
+}
+th:last-child, td:last-child { padding-right: 0; }
+td:first-child { color: var(--ink); }
+
+/* ---------- Citations ---------- */
+
+.footnote-ref, a.footnote-ref {
+  color: var(--link);
+  font-size: 0.7em;
+  font-weight: 600;
+  vertical-align: super;
+  line-height: 0;
+  padding-left: 0.3mm;
+}
+
+section.footnotes, section#footnotes {
+  break-before: page;
+  font-size: 7.4pt;
+  line-height: 1.4;
+  color: var(--ink-dim);
+}
+section.footnotes::before {
+  content: "Sources";
+  string-set: section "Sources";
+  display: block;
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: 21pt;
+  letter-spacing: calc(-0.028em + var(--track-display));
+  color: var(--ink);
+  margin-bottom: 7mm;
+}
+section.footnotes hr { display: none; }
+section.footnotes ol { padding-left: 7mm; max-width: none; }
+section.footnotes li { margin-bottom: 1.2mm; break-inside: avoid; }
+section.footnotes li p { max-width: none; margin: 0; }
+section.footnotes a { word-break: break-all; }
+a.footnote-back { color: var(--ink-dim); padding-left: 1mm; }
+
+/* ---------- Colophon ---------- */
+
+.colophon {
+  margin-top: 14mm;
+  padding-top: 4mm;
+  border-top: 0.5pt solid var(--rule);
+  font-size: 7.5pt;
+  color: var(--ink-dim);
+  break-inside: avoid;
+}
+.colophon-mark { width: 9mm; height: 9mm; display: block; margin-bottom: 2mm; }
+.colophon .on-deep { display: none; }
+body.dark-mode .colophon .on-paper { display: none; }
+body.dark-mode .colophon .on-deep { display: block; }
+
+/* ---------- Print ---------- */
+
+@media print {
+  /* The @page rule paints the ground; a painted html/body box leaves a seam at
+     the right margin on the deep ground. */
+  html, body { background: transparent; }
+  /* Back-links are for the screen, and the hook arrow is not in DM Sans (nor
+     allowed in TWF copy). */
+  a.footnote-back { display: none; }
+}
+
+/* ---------- Screen (the HTML read in a browser) ---------- */
+
+@media screen {
+  body { font-size: 16px; padding: 0 0 6rem; }
+  .cover { height: auto; min-height: 92vh; padding: 8vh 8vw; }
+  .cover-title { margin-top: 22vh; }
+  .cover-meta, .cover-confidential { position: static; margin-top: 3rem; }
+  nav#TOC, .memo, .colophon { max-width: 46rem; margin-left: auto; margin-right: auto; padding: 0 1.5rem; }
+  nav#TOC { margin-top: 4rem; }
+  nav#TOC a::after { content: none; }
+  .memo h1, .memo h2 { margin-top: 4.5rem; font-size: 2rem; }
+  section.footnotes { margin-top: 4rem; }
+}
