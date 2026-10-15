@@ -10,7 +10,7 @@ from src.connector.errors import CATALOGUE
 
 from .conftest import REPO
 
-EIGHT_TOOLS = {
+TOOLS = {
     "list_deals",
     "create_new_deal",
     "add_materials",
@@ -19,6 +19,8 @@ EIGHT_TOOLS = {
     "get_artifact",
     "save_snapshot",
     "compile",
+    "start_revision",
+    "cancel_revision",
 }
 
 #: (readOnlyHint, destructiveHint) per tool, from the spec's tools table.
@@ -31,6 +33,8 @@ HINTS = {
     "get_artifact": (True, False),
     "save_snapshot": (False, False),
     "compile": (False, False),
+    "start_revision": (False, False),
+    "cancel_revision": (False, True),
 }
 
 #: The starting codes from the spec's Errors section, with their kinds.
@@ -72,8 +76,8 @@ SPEC_STEPS = {
 
 
 @pytest.mark.spec("CONN-REG-01")
-def test_exactly_the_eight_tools_are_registered(registry):
-    assert set(registry.tools) == EIGHT_TOOLS
+def test_exactly_the_spec_tools_are_registered(registry):
+    assert set(registry.tools) == TOOLS
     for name, tool in registry.tools.items():
         assert tool.name == name
 
