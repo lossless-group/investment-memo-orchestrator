@@ -11,7 +11,7 @@ server for Claude* (https://claude.com/docs/connectors/building).
 
 | | Connector only | Plugin (connector + skill) |
 |---|---|---|
-| What Claude gets | MemoPop's eight tools and the server's short instructions | The same tools, plus the `memopop` skill that keeps Claude on the method |
+| What Claude gets | MemoPop's ten tools and the server's short instructions | The same tools, plus the `memopop` skill that keeps Claude on the method |
 | Recommended | For a quick try | **Yes**, for real memos |
 
 The connector URL is always **`https://memopop.didi.sh/mcp`**, path included.
@@ -25,7 +25,7 @@ The connector URL is always **`https://memopop.didi.sh/mcp`**, path included.
    - **Sign in** with your didi.sh account.
    - The **consent screen** names Claude as the app asking for access, and asks
      which **firm** to connect. Pick your firm (most people have one) and allow.
-4. Back in Claude, the connector shows as connected with its eight tools.
+4. Back in Claude, the connector shows as connected with its ten tools.
 
 On Team and Enterprise plans an Owner adds the connector for the organization
 once; each member then connects and signs in with their own account.
