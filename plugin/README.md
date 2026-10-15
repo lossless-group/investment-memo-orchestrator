@@ -13,6 +13,12 @@ sign in with your didi.sh account, choosing your firm on the consent screen.
 Then ask Claude to "start a memo on Acme" or "carry on with the Acme memo".
 Claude shows you each section's research and waits for your approval.
 
+To change a finished memo, tell Claude what you want: "we have new market
+research for the Acme memo" or "take the Opportunity section from this angle".
+Claude reopens just those sections, redoes them with you, and compiles the next
+version (v0.2.3 becomes v0.2.4). If you change your mind, ask Claude to cancel
+the revision and the memo goes back as it was.
+
 ## Data
 
 The plugin sends the company names, materials, research, and drafts you work
