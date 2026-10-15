@@ -85,3 +85,6 @@ searxng/uwsgi.ini
 
 # Spec ledger results (written by tests/conftest.py, read by scripts/spec_status.py)
 .spec-results.json
+
+# Plugin zips built for upload (cd plugin && zip -r ../memopop-plugin.zip .)
+*.zip
