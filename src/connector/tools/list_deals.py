@@ -65,6 +65,8 @@ def summarise(ws: Workspace, state: dict) -> dict:
             for s in state.get("skips", [])
         ],
         "compile": job_summary(ws, state),
+        "memo_version": flow.last_label(state),
+        "revision": flow.revision_view(state.get("revision")),
         "updated_at": state["updated_at"],
     }
 
@@ -127,6 +129,16 @@ TOOL = ToolDef(
             "deals[].compile",
             "The last compile: job_id, status (running, done, or failed), version, and, once "
             "done, fresh html_url and pdf_url links; null if the deal was never compiled.",
+        ),
+        ReturnDoc(
+            "deals[].memo_version",
+            "The latest memo's version as the partner says it (v0.2.3): the last compile, or "
+            "the local run the deal was imported from; null before the first compile.",
+        ),
+        ReturnDoc(
+            "deals[].revision",
+            "The open revision, if any: revision_id, sections, angle, start, material_ids, "
+            "opened_at, base_label. Null when none is open.",
         ),
         ReturnDoc("deals[].updated_at", "When the deal last changed (UTC, ISO 8601)."),
         ReturnDoc("next_cursor", "Pass as cursor to get the next page; null on the last page."),

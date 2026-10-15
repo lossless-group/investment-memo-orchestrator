@@ -195,7 +195,7 @@ _SPECS = [
         "This tool is not available on this server yet.",
         "Tell the partner this part of MemoPop is not live yet, and continue with next_step.",
         "Reserved for a tool that is declared but not yet live on a server. No tool currently "
-        "returns it: all eight are implemented. Additive to the spec's starting codes.",
+        "returns it: all ten are implemented. Additive to the spec's starting codes.",
     ),
     ErrorSpec(
         "drafts_incomplete",
@@ -205,6 +205,44 @@ _SPECS = [
         "Call next_step and finish the drafts it hands out, then call compile again.",
         "compile needs a draft of every section in the deal's template. `details.missing` "
         "lists the sections without one. Added in plan 5 (additive).",
+    ),
+    ErrorSpec(
+        "revision_open",
+        INVALID,
+        409,
+        "This memo already has a revision in progress.",
+        "Tell the partner which sections are being revised (details.sections) and call "
+        "next_step to carry on with it, or cancel_revision if they want to drop it first.",
+        "start_revision was called while the deal had an open revision. A deal has one open "
+        "revision at a time; it may cover several sections. `details` carries the open "
+        "revision's sections, angle, and opened_at. Added in plan 8 (additive).",
+    ),
+    ErrorSpec(
+        "revision_incomplete",
+        INVALID,
+        409,
+        "The revision isn't finished, so the memo can't be compiled yet.",
+        "Call next_step and finish the revision's steps, then call compile again; or call "
+        "cancel_revision to go back to the memo as it was.",
+        "compile was called while the deal had an open revision with steps still to do. "
+        "`details.next_step` names the next one. Added in plan 8 (additive).",
+    ),
+    ErrorSpec(
+        "no_open_revision",
+        INVALID,
+        409,
+        "This memo has no revision in progress.",
+        "Nothing to cancel. Call start_revision to begin one, or next_step to carry on.",
+        "cancel_revision was called on a deal with no open revision. Added in plan 8 (additive).",
+    ),
+    ErrorSpec(
+        "section_not_drafted",
+        INVALID,
+        409,
+        "That section hasn't been drafted yet, so there's nothing to revise.",
+        "Call next_step and finish the memo first; revise it once the section has a draft.",
+        "start_revision named a section with no draft. `details.sections` lists them. "
+        "Added in plan 8 (additive).",
     ),
     ErrorSpec(
         "link_expired",
@@ -249,8 +287,7 @@ _SPECS = [
         SKIPPED,
         200,
         "A material could not be read and was skipped.",
-        "Tell the partner which material was skipped and ask for another copy; continue "
-        "meanwhile.",
+        "Tell the partner which material was skipped and ask for another copy; continue meanwhile.",
         "A material's text could not be extracted, or its link could not be fetched.",
     ),
 ]

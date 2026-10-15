@@ -20,6 +20,8 @@ TOOL_MODULES = [
     "get_artifact",
     "save_snapshot",
     "compile",
+    "start_revision",
+    "cancel_revision",
 ]
 
 

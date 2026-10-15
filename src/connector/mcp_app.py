@@ -41,7 +41,9 @@ INSTRUCTIONS = (
     "MemoPop writes investment memos with you, one step at a time. Always call next_step "
     "and do only what it says. Show the partner every research file and wait for their "
     "approval before submitting it as approved. On a skipped step, tell the partner in one "
-    "line and continue. On a `down` error, stop and tell the partner."
+    "line and continue. On a `down` error, stop and tell the partner. To change a memo "
+    "that is drafted or compiled, agree the change with the partner, call start_revision, "
+    "then follow next_step again and compile."
 )
 
 

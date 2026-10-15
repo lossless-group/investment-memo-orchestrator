@@ -8,6 +8,26 @@ from __future__ import annotations
 
 API_CHANGELOG: list[dict] = [
     {
+        "date": "2026-10-15",
+        "version": "1.4.0",
+        "changes": [
+            "New tool `start_revision` (additive): reopen one or more sections of a drafted or "
+            "compiled memo, with the partner's `angle`, optional `material_ids`, and `start` "
+            "(research or draft). next_step then hands the reopened steps out again.",
+            "New tool `cancel_revision` (additive): drop the open revision and restore each "
+            "reopened artifact's earlier text as a new version.",
+            "next_step returns a new field, `revision` (additive): null, or the open revision "
+            "when the step was reopened by it. The step's `instruction` opens with the request.",
+            "compile returns a new field, `label` (additive): the memo's version as the "
+            "partner says it, the next patch after the last compile or the imported local run.",
+            "list_deals returns `memo_version` and `revision` per deal (additive).",
+            "New error codes (additive): `revision_open`, `revision_incomplete`, "
+            "`no_open_revision`, `section_not_drafted`.",
+            "An unchanged recompile of a memo with diagrams keeps its version: diagrams now "
+            "render to the same bytes every time.",
+        ],
+    },
+    {
         "date": "2026-10-11",
         "version": "1.3.0",
         "changes": [

@@ -159,7 +159,7 @@ def openapi(connector: Connector) -> dict:
         "info": {
             "title": "MemoPop connector API",
             "version": SERVER_VERSION,
-            "summary": "Eight tools that let a partner's Claude write a MemoPop memo.",
+            "summary": "Ten tools that let a partner's Claude write and revise a MemoPop memo.",
             "description": TAGLINE
             + f" The same tools are served over MCP at {s.mcp_url}. Errors: {s.public_base_url}/docs/errors.",
         },

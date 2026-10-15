@@ -74,11 +74,16 @@ def handle(ws: Workspace, params: Input) -> dict:
         "phase": inst.step.phase,
         "section": inst.section,
         "section_name": info.get("name"),
-        "instruction": flow.with_notice(flow.render_instruction(inst, state), tell),
+        "instruction": flow.with_notice(
+            flow.with_revision(flow.render_instruction(inst, state), state, inst), tell
+        ),
         "instruction_version": inst.step.version,
         "inputs": flow.gather_inputs(registry, ws, state, inst),
         "produces": {"kind": produces.kind, "checks": produces.checks} if produces else None,
         "needs_partner": inst.step.needs_partner,
+        "revision": flow.revision_view(state.get("revision"))
+        if flow.reopened(state, inst.key)
+        else None,
         "skipped_since_last_call": skipped,
         "tell_partner": tell,
         "progress": progress,
@@ -133,6 +138,13 @@ TOOL = ToolDef(
         ReturnDoc(
             "needs_partner",
             "true if the partner must approve the artifact before the step is done.",
+        ),
+        ReturnDoc(
+            "revision",
+            "Null, unless this step was reopened by start_revision: then the revision's "
+            "revision_id, sections, angle (the partner's words), start, material_ids, opened_at, "
+            "and base_label. Revise your previous submission (among the inputs) rather than "
+            "starting over.",
         ),
         ReturnDoc(
             "skipped_since_last_call",

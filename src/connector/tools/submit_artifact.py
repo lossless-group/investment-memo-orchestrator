@@ -125,18 +125,37 @@ def handle(ws: Workspace, params: Input) -> dict:
         approved = bool(params.partner_approved) if step.needs_partner else False
         existing = state["artifacts"].get(inst.key)
         rel = step.artifact_rel(section)
+        # During a revision, a reopened step is done only once submitted again in it.
+        revision_id = state["revision"]["id"] if flow.reopened(state, inst.key) else None
         if existing and existing["sha256"] == digest:
-            if step.needs_partner and approved and not existing.get("partner_approved"):
-                existing["partner_approved"] = True
-                if params.partner_notes:
-                    existing["partner_notes"] = params.partner_notes
+            newly_approved = (
+                step.needs_partner and approved and not existing.get("partner_approved")
+            )
+            # Unchanged content still finishes a reopened step, once approved if it needs it.
+            confirmed = (
+                revision_id is not None
+                and existing.get("revision_id") != revision_id
+                and (approved or not step.needs_partner)
+            )
+            if newly_approved or confirmed:
+                if approved:
+                    existing["partner_approved"] = True
+                    if params.partner_notes:
+                        existing["partner_notes"] = params.partner_notes
+                if confirmed:
+                    existing["revision_id"] = revision_id
                 flow.mark(
-                    state, "approved", step=step.id, section=section, version=existing["version"]
+                    state,
+                    "confirmed" if confirmed else "approved",
+                    step=step.id,
+                    section=section,
+                    version=existing["version"],
                 )
                 state["updated_at"] = flow.now_iso()
                 with ws.transaction() as tx:
                     path = tx.write_json(ws.deal_rel(deal) / "deal.json", state)
-                ws.history.record(f"{step.id}: {deal}/{section or '-'} approved", [path])
+                what = "confirmed in revision" if confirmed else "approved"
+                ws.history.record(f"{step.id}: {deal}/{section or '-'} {what}", [path])
             version = existing["version"]
         else:
             version = (existing["version"] + 1) if existing else 1
@@ -153,6 +172,9 @@ def handle(ws: Workspace, params: Input) -> dict:
                 "instruction_version": step.version,
                 "saved_at": flow.now_iso(),
             }
+            state["artifacts"][inst.key]["seq"] = flow.next_seq(state)
+            if revision_id is not None:
+                state["artifacts"][inst.key]["revision_id"] = revision_id
             flow.mark(state, "saved", step=step.id, section=section, version=version)
             state["updated_at"] = flow.now_iso()
             with ws.transaction() as tx:
@@ -192,7 +214,7 @@ def _skip(ws: Workspace, registry, state: dict, inst: flow.Instance, reason: str
             f"'{inst.key}' was already skipped.",
             next=f"Call next_step for deal '{deal}' and do the step it returns.",
         )
-    if inst.key in state["artifacts"]:
+    if inst.key in state["artifacts"] and not flow.reopened(state, inst.key):
         raise ConnectorError(
             "validation_failed",
             f"'{inst.key}' already has an artifact, so there is nothing to skip.",

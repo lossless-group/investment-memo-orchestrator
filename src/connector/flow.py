@@ -15,6 +15,7 @@ every section has a draft.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -66,6 +67,8 @@ def new_deal_state(
         "skips": [],
         "skips_reported": 0,
         "compiled": None,
+        "revision": None,
+        "revisions": [],
         "log": [{"at": now, "event": "created"}],
     }
 
@@ -120,13 +123,97 @@ def is_done(inst: Instance, state: dict) -> bool:
     record = state["artifacts"].get(inst.key)
     if record is None:
         return False
+    if reopened(state, inst.key) and record.get("revision_id") != state["revision"]["id"]:
+        return False  # done before the revision; it has to be done again
     return bool(record.get("partner_approved")) if inst.step.needs_partner else True
 
 
 def is_skipped(inst: Instance, state: dict) -> bool:
-    return any(
-        s["step_id"] == inst.step.id and s.get("section") == inst.section for s in state["skips"]
+    skips = state["skips"]
+    if reopened(state, inst.key):
+        skips = skips[state["revision"]["skips_before"] :]  # only skips made during it
+    return any(s["step_id"] == inst.step.id and s.get("section") == inst.section for s in skips)
+
+
+# ------------------------------------------------------------------ revisions
+
+#: What a revision reopens for each named section, in walk order. Research only
+#: when the revision starts from research.
+REOPEN_SECTION_STEPS = (
+    "research.section",
+    "draft.section",
+    "enhance.tables",
+    "enhance.citations",
+    "enhance.fact_check",
+)
+#: Deal-level steps that summarize every section, so any revision reopens them.
+REOPEN_DEAL_STEPS = ("enhance.summaries", "enhance.one_pager")
+
+
+def open_revision(state: dict) -> dict | None:
+    return state.get("revision")
+
+
+def reopened(state: dict, key: str) -> bool:
+    revision = state.get("revision")
+    return bool(revision) and key in revision["baseline"]
+
+
+def revision_view(revision: dict | None) -> dict | None:
+    """What a client sees of a revision."""
+    if not revision:
+        return None
+    return {
+        "revision_id": revision["id"],
+        "sections": list(revision["sections"]),
+        "angle": revision["angle"],
+        "start": revision["start"],
+        "material_ids": list(revision["material_ids"]),
+        "opened_at": revision["opened_at"],
+        "base_label": revision.get("base_label"),
+    }
+
+
+def with_revision(instruction: str, state: dict, inst: Instance) -> str:
+    """Lead a reopened step's instruction with what the revision asks for."""
+    revision = state.get("revision")
+    if not revision or not reopened(state, inst.key):
+        return instruction
+    names = ", ".join(
+        (section_info(state, key) or {}).get("name", key) for key in revision["sections"]
     )
+    materials = (
+        " The new materials for this revision are among the inputs; use them."
+        if revision["material_ids"]
+        else ""
+    )
+    angle = "\n".join(f"> {line}" for line in revision["angle"].splitlines())
+    return (
+        f"This is a revision of {names}, asked for by the partner in their words:\n\n"
+        f"{angle}\n\n"
+        "Your previous submission for this step is among the inputs. Revise it in light of "
+        "that request rather than starting over: keep what still holds, change what the "
+        f"request changes, and tell the partner in one line what changed.{materials}"
+        f"\n\n{instruction}"
+    )
+
+
+def bump_label(label: str | None) -> str:
+    """The next patch version: v0.2.2 -> v0.2.3; nothing yet -> v0.0.1."""
+    match = re.search(r"v?(\d+)\.(\d+)\.(\d+)$", label or "")
+    if not match:
+        return "v0.0.1"
+    major, minor, patch = (int(x) for x in match.groups())
+    return f"v{major}.{minor}.{patch + 1}"
+
+
+def last_label(state: dict) -> str | None:
+    """The label of the latest compiled memo, or of the local run a deal was imported from."""
+    compiled = state.get("compiled") or {}
+    if compiled.get("label"):
+        return compiled["label"]
+    imported = (state.get("imported_from") or {}).get("version")
+    return imported.rsplit("-", 1)[-1] if imported else None
 
 
 def is_disabled(step: StepDef, ws: Workspace) -> bool:
@@ -146,7 +233,10 @@ def walk(registry: Registry, state: dict, ws: Workspace) -> tuple[Instance | Non
 
     injected = for_deal(ws, state).disable
     new_skips: list[dict] = []
+    revising = bool(state.get("revision"))
     for inst in instances(registry, state):
+        if revising and not reopened(state, inst.key):
+            continue  # a revision walks only what it reopened
         if is_done(inst, state) or is_skipped(inst, state) or not applicable(inst, state):
             continue
         if is_disabled(inst.step, ws) or (not inst.step.required and inst.step.id in injected):
@@ -289,14 +379,27 @@ def current_section_key(registry: Registry, state: dict, section: str) -> str | 
     the enhancements that revise it: tables, citations, fact check) produces a
     whole new version of the section; the one latest in registry order wins.
     Read as ``section.current:@section`` or ``section.current:*``; compile uses it too.
+    The most recently saved one wins (``seq``), so a revised draft is current until
+    an enhancement of it is saved.
     """
-    current = None
-    for step in registry.steps:
+    current, best = None, None
+    for index, step in enumerate(registry.steps):
         if step.scope == "section" and step.produces and step.produces.kind == "section":
             key = step.artifact_id(section)
-            if key in state["artifacts"]:
-                current = key
+            record = state["artifacts"].get(key)
+            if record is not None:
+                # The latest save wins (so a revised draft beats an older enhancement of
+                # it); records from before saves were numbered fall back to registry order.
+                rank = (record.get("seq", 0), index)
+                if best is None or rank > best:
+                    current, best = key, rank
     return current
+
+
+def next_seq(state: dict) -> int:
+    """A number that grows with every artifact save in this deal."""
+    state["seq"] = state.get("seq", 0) + 1
+    return state["seq"]
 
 
 def _artifact_text(ws: Workspace, state: dict, key: str) -> str | None:
@@ -336,6 +439,12 @@ def gather_inputs(registry: Registry, ws: Workspace, state: dict, inst: Instance
     own = inst.key
     if own in state["artifacts"] and own not in [w[0] for w in wanted]:
         wanted.append((own, "Your previous submission for this step"))
+    revision = state.get("revision")
+    if revision and reopened(state, own):
+        ready = {m["material_id"] for m in ready_materials(state)}
+        for mid in revision["material_ids"]:
+            if mid in ready and f"material:{mid}" not in [w[0] for w in wanted]:
+                wanted.append((f"material:{mid}", "Material for this revision"))
 
     found: list[dict] = []
     for artifact_id, title in wanted:

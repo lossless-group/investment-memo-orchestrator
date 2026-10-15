@@ -95,6 +95,8 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
     previous = state.get("compiled") or {}
     same = previous.get("sha256") == digest
     version = previous["version"] if same else previous.get("version", 0) + 1
+    label = previous.get("label") if same and previous.get("label") else None
+    label = label or flow.bump_label(flow.last_label(state))
     keys = dict(previous.get("keys") or {}) if same else {}
     html = None
     for fmt in ("html", "pdf"):  # the PDF is printed from the HTML
@@ -117,6 +119,7 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
         now = flow.now_iso()
         current["compiled"] = {
             "version": version,
+            "label": label,
             "sha256": digest,
             "keys": keys,
             "at": now,
@@ -142,7 +145,20 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
             "started_at": started if started else now,
             "finished_at": now,
         }
-        flow.mark(current, "compiled", version=version, job_id=job_id)
+        flow.mark(current, "compiled", version=version, label=label, job_id=job_id)
+        revision = current.get("revision")
+        if revision and flow.walk(registry, current, ws)[0] is None:
+            current.setdefault("revisions", []).append(
+                {
+                    **revision,
+                    "status": "compiled",
+                    "closed_at": now,
+                    "compiled_version": version,
+                    "compiled_label": label,
+                }
+            )
+            current["revision"] = None
+            flow.mark(current, "revision_closed", revision_id=revision["id"], label=label)
         current["updated_at"] = now
         folder = ws.deal_rel(deal) / "compiled" / str(version)
         with ws.transaction() as tx:
@@ -157,6 +173,7 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
         "html_url": links.signed_url(ws, keys["html"]) if "html" in formats else None,
         "pdf_url": links.signed_url(ws, keys["pdf"]) if "pdf" in formats else None,
         "version": version,
+        "label": label,
         "report": report,
     }
 
@@ -187,6 +204,17 @@ def handle(ws: Workspace, params: Input) -> dict:
                 f"{len(missing)} of {len(state['sections'])} sections have no draft yet.",
                 details={"missing": missing},
             )
+        revision = state.get("revision")
+        if revision:
+            inst, _ = flow.walk(load_registry(), state, ws)
+            if inst is not None:
+                raise ConnectorError(
+                    "revision_incomplete",
+                    details={
+                        "sections": revision["sections"],
+                        "next_step": {"step_id": inst.step.id, "section": inst.section},
+                    },
+                )
         job = _running(state)
         if job is not None:
             return {"deal": deal, "job_id": job["job_id"], "status": "running"}
@@ -240,6 +268,9 @@ def job_summary(ws: Workspace, state: dict) -> dict | None:
     if not job:
         return None
     summary = {k: job.get(k) for k in ("job_id", "status", "version", "started_at", "finished_at")}
+    compiled_now = state.get("compiled") or {}
+    if compiled_now and compiled_now.get("version") == job.get("version"):
+        summary["label"] = compiled_now.get("label")
     if job.get("error"):
         summary["error"] = job["error"]
     compiled = state.get("compiled") or {}
@@ -291,6 +322,12 @@ TOOL = ToolDef(
             "The compiled memo's version; unchanged when nothing changed since the last compile.",
         ),
         ReturnDoc(
+            "label",
+            "The memo's version as the partner says it: the next patch after the last compile, "
+            "or after the local run a deal was imported from (v0.2.2 compiles as v0.2.3); "
+            "v0.0.1 for a deal's first memo. Unchanged when nothing changed.",
+        ),
+        ReturnDoc(
             "report",
             "sections (key and name, in order), enhancements_run, skipped (step_id, section, "
             "code, reason), not_run (enhancements neither run nor skipped), and citations "
@@ -308,7 +345,7 @@ TOOL = ToolDef(
         "step that was skipped."
     ),
     duration="typically under a minute; past about 200 seconds it returns a job instead.",
-    errors=["deal_not_found", "drafts_incomplete", "service_unavailable"],
+    errors=["deal_not_found", "drafts_incomplete", "revision_incomplete", "service_unavailable"],
     error_next_overrides={
         "service_unavailable": 'The PDF export is down: call again with formats ["html"] for '
         "the HTML memo, and tell the partner the PDF will follow.",
@@ -332,6 +369,7 @@ TOOL = ToolDef(
                 "html_url": ANY,
                 "pdf_url": None,
                 "version": 1,
+                "label": "v0.0.1",
                 "report": {
                     "sections": ANY,
                     "enhancements_run": [],

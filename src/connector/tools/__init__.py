@@ -1,4 +1,4 @@
-"""The eight tools, as transport-free functions over a :class:`Workspace`.
+"""The ten tools, as transport-free functions over a :class:`Workspace`.
 
 Each tool lives in its own module and exports ``TOOL``. :func:`invoke` is the
 one entry point: it validates input against the tool's model, runs the handler,
