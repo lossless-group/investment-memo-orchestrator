@@ -268,8 +268,11 @@ def render_tam_sam_som(
     svg_path = output_path / "03-tam-sam-som.svg"
     png_path = output_path / "03-tam-sam-som.png"
 
-    fig.savefig(str(svg_path), format="svg", bbox_inches="tight", dpi=150,
-                facecolor="white", edgecolor="none")
+    # Same figure, same bytes: a fixed id salt and no date, so recompiling an
+    # unchanged memo doesn't look like a change (compile versions by content).
+    with plt.rc_context({"svg.hashsalt": "memopop"}):
+        fig.savefig(str(svg_path), format="svg", bbox_inches="tight", dpi=150,
+                    facecolor="white", edgecolor="none", metadata={"Date": None})
     fig.savefig(str(png_path), format="png", bbox_inches="tight", dpi=200,
                 facecolor="white", edgecolor="none")
 
