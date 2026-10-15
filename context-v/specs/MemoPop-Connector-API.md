@@ -1,7 +1,7 @@
 ---
 type: Specs
 title: "MemoPop Connector API"
-lede: "Eight tools, one step registry, and the docs and tests that ship with each. What we build so a partner's Claude can write a MemoPop memo."
+lede: "Ten tools, one step registry, and the docs and tests that ship with each. What we build so a partner's Claude can write a MemoPop memo."
 publish: true
 date_created: 2026-10-10
 date_modified: 2026-10-11
@@ -69,7 +69,7 @@ The reasoning behind each lives in those records and in
 
 ## Scope
 
-**In v1:** the eight tools over MCP and REST, the step registry, per-firm
+**In v1:** the eight tools over MCP and REST (ten with plan 8's revisions), the step registry, per-firm
 workspaces on a Railway volume, jj history, snapshots to a per-firm bucket,
 compile to HTML and PDF, didi.sh sign-in, the docs set, and the test suite
 including the live health check.
@@ -516,6 +516,64 @@ runs under [[Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents]].
 Plans 4, 5, and 6 run in parallel once plan 1 lands. Migrating the eleven
 existing firms is out of scope for this loop.
 
+## Revisions (Plan 8)
+
+A finished memo is not the end of a deal. A colleague reads the latest compiled
+version and says *"we have new market research; can it go in?"* or *"take the
+Opportunity section from this angle."* A revision reopens the sections that
+change, walks them through the same steps again, and recompiles as the next
+version. Nothing is overwritten: every save is a new version in the firm's jj
+history, and a cancelled revision restores what was there.
+
+**Tools.** Two, both over MCP and REST:
+
+| Tool | REST | RO | D | Blocks? |
+|---|---|---|---|---|
+| `start_revision` | `POST /v1/deals/{deal}/revisions` | no | no | no |
+| `cancel_revision` | `DELETE /v1/deals/{deal}/revisions/current` | no | yes | no |
+
+`start_revision` takes the deal, the `sections` to reopen (keys, names, or
+numbers; one or several), the colleague's `angle` in their own words, optional
+`material_ids` (materials added with `add_materials` for this revision), and
+`start`: `research` (new evidence: research is redone, then the draft) or
+`draft` (same evidence, new framing: only the draft is redone).
+
+**What reopens.** For each named section: its research (when `start` is
+`research`), its draft, and its section-scoped enhancements (tables,
+citations, fact check). For the deal: the summaries and the one-pager, which
+summarize every section. Nothing else changes.
+
+**How the walk treats it.** While a revision is open, a reopened step counts as
+done only once it has been submitted (or skipped) *during this revision*.
+`next_step` therefore hands the reopened steps out again in the usual order,
+each with a `revision` object (`angle`, `sections`, `start`, `material_ids`)
+and an instruction that leads with the revision: revise the previous
+submission, which is among the inputs, in light of the angle and the new
+materials, rather than starting over. The revision's materials are added to
+the inputs of every reopened step.
+
+**Approval.** Revised research is shown to the person asking for the revision
+and saved approved on their say-so (decided 2026-10-15: the colleague's own
+approval is enough).
+
+**One at a time.** A deal has at most one open revision, which may cover
+several sections. A second `start_revision` returns `revision_open`, naming
+the sections and when it was opened. A section with no draft yet can't be
+revised (`section_not_drafted`): it is still being written.
+
+**Closing.** `compile` refuses while a revision is open and unfinished
+(`revision_incomplete`). When every reopened step is done, `compile` closes the
+revision and records it, with the compiled version, in the deal's
+`revisions` history. `cancel_revision` closes it without compiling: each
+reopened artifact that changed is restored to its pre-revision text as a new
+version, and steps first done during the revision are dropped.
+
+**Version labels.** Every compiled memo carries a `label`, the next patch
+after the last one: a deal imported from local run `v0.2.2` compiles as
+`v0.2.3`, then `v0.2.4`; a deal born on the server starts at `v0.0.1`. An
+unchanged recompile keeps its label. `list_deals` shows each deal's
+`memo_version` and any open `revision`.
+
 ## Defaults chosen for v1
 
 These were open in the exploration. Each is a judgment call made so the first
@@ -545,7 +603,7 @@ renumber; retire one by striking it through. Status is derived by
 
 | ID | Given / When / Then |
 |---|---|
-| `CONN-REG-01` | Given the registry, when it loads, then exactly the eight tools in §The tools are registered under those names |
+| `CONN-REG-01` | Given the registry, when it loads, then exactly the tools in §The tools and §Revisions are registered under those names |
 | `CONN-REG-02` | Given any tool, then every docs field in §Each tool's docs entry is filled, and its summary is at most 200 characters |
 | `CONN-REG-03` | Given any tool, then every error code it lists exists in the error catalogue and has a docs entry |
 | `CONN-REG-04` | Given any tool, then it declares both `readOnlyHint` and `destructiveHint`, matching §The tools |
@@ -639,6 +697,21 @@ renumber; retire one by striking it through. Status is derived by
 |---|---|
 | `CONN-PLUG-01` | Given the plugin's skill, then it states each rule in §Docs that aren't generated: always call `next_step`, show research and wait for approval, one line on `skipped`, stop on `down` |
 | `CONN-PLUG-02` | Given an API key, when Claude runs the fixture deal through the connector, then it opens on the deal (`list_deals` or `create_new_deal`), takes steps only as `next_step` hands them out (research for every section before any draft, with `materials.brief` allowed before drafting when the partner gave materials), shows each research file and saves it approved only after the partner approves, mentions a forced skip in a line and carries on, and stops cleanly on a forced `down` |
+
+### Revisions (Plan 8)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-REV-01` | Given a compiled deal, when `start_revision` reopens one section from `research`, then `next_step` hands out that section's research, its draft, its section enhancements, then the summaries and one-pager, and nothing else; each carries the `revision` object and its previous submission among the inputs |
+| `CONN-REV-02` | Given a revision with `material_ids`, then those materials are among the inputs of every reopened step |
+| `CONN-REV-03` | Given `start: draft`, then the section's research is not handed out again |
+| `CONN-REV-04` | Given a revision, when the walk finishes and `compile` runs, then the revision closes into `revisions` with the compiled version, and the label is the next patch |
+| `CONN-REV-05` | Given an open revision, then a second `start_revision` returns `revision_open`, and `compile` returns `revision_incomplete` until the reopened steps are done |
+| `CONN-REV-06` | Given a revised section, when `cancel_revision` runs, then the section's draft reads as it did before the revision, at a new version, and `next_step` reports the deal done |
+| `CONN-REV-07` | Given a section with no draft, then `start_revision` on it returns `section_not_drafted`; given an unknown section, `validation_failed` |
+| `CONN-REV-08` | Given research resubmitted unchanged during a revision, then it still counts as done (no endless re-handout) |
+| `CONN-REV-09` | Given a deal imported from local run `v0.2.2`, then its first compile is labelled `v0.2.3`; given a new deal, `v0.0.1`; an unchanged recompile keeps its label |
+| `CONN-REV-10` | Given an open revision, then `list_deals` shows it, and every deal shows its `memo_version` |
 
 ## Done when
 
