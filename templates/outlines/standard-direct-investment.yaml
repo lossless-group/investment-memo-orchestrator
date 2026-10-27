@@ -247,6 +247,8 @@ sections:
           - "pitchbook.com"
           - "bloomberg.com"
           - "techcrunch.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.saas-metrics.com"
           - "*.benchmark.com"
@@ -336,6 +338,8 @@ sections:
           - "crunchbase.com"
           - "techcrunch.com"
           - "forbes.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.business-model-guide.com"
           - "*.startup-tips.com"
@@ -430,6 +434,8 @@ sections:
           - "pitchbook.com"
           - "gartner.com"
           - "crunchbase.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.top10.com"
           - "*.saas-metrics.com"
@@ -519,6 +525,8 @@ sections:
           - "crunchbase.com"
           - "[company-domain]/about"
           - "[company-domain]/team"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.hiring-tips.com"
           - "*.team-building.com"
@@ -617,6 +625,8 @@ sections:
           - "techcrunch.com"
           - "wired.com"
           - "producthunt.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.product-review.com"
           - "*.tech-tips.com"
@@ -708,6 +718,8 @@ sections:
           - "crunchbase.com"
           - "techcrunch.com"
           - "bloomberg.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.growth-hacking.com"
           - "*.startup-metrics.com"
@@ -805,6 +817,8 @@ sections:
           - "sec.gov"
           - "bloomberg.com"
           - "techcrunch.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.fundraising-guide.com"
           - "*.cap-table.com"
@@ -898,6 +912,8 @@ sections:
           - "reuters.com"
           - "wsj.com"
           - "techcrunch.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.risk-assessment.com"
           - "*.compliance-guide.com"
@@ -991,6 +1007,8 @@ sections:
           - "statista.com"
           - "cbinsights.com"
           - "crunchbase.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.investment-advice.com"
           - "*.vc-guide.com"
@@ -1078,6 +1096,8 @@ sections:
         include:
           - "crunchbase.com"
           - "pitchbook.com"
+          - "tracxn.com"
+          - "startuply.vc"
         # Note: Recommendation synthesizes from all previous sections
         # Most content comes from analysis, not new research
 

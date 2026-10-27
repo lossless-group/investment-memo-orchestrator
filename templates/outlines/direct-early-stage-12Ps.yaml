@@ -4,7 +4,7 @@
 
 metadata:
   outline_type: "direct_early_stage_12Ps"
-  version: "1.0.0"
+  version: "1.1.0"
   description: "5-group narrative structure for evaluating early-stage direct investments using the 12Ps framework"
   date_created: "2025-11-28"
   compatible_modes: ["consider", "justify"]
@@ -48,11 +48,11 @@ vocabulary:
         usage: "Use for differentiation and defensibility discussion"
 
       - term: "people"
-        definition: "Founders and team with founder-market fit assessment"
+        definition: "Founders and team, assessed for founder-market fit, Founder Opus, and market empathy"
         usage: "Use for team evaluation"
 
       - term: "process"
-        definition: "Best practices, growth engine, and operational excellence"
+        definition: "Best practices, Go-To-Market model, growth engine, unit economics, and operational excellence"
         usage: "Use for operational capability assessment"
 
       - term: "product"
@@ -88,6 +88,67 @@ vocabulary:
       - term: "lifetime value (LTV)"
         first_use: "lifetime value (LTV)"
         subsequent: "LTV"
+
+      - term: "money printer"
+        definition: "A business whose LTV over CAC is well beyond the 3x benchmark, as high as 15-20x"
+        usage: "Use only when LTV and CAC are both sourced; state the ratio alongside the phrase"
+
+  team:
+    preferred:
+      - term: "founder-market fit"
+        definition: "The founders' background gives them an earned insight into this market"
+        usage: "Use for why these founders, in this market"
+
+      - term: "Founder Opus"
+        definition: "This company is the founder's life's work; they are one of the few people who both could and would build it"
+        usage: "Use alongside founder-market fit, not in place of it. Fit is about capability; Opus is about commitment and singularity"
+
+      - term: "market empathy"
+        definition: "Beyond market expertise, an intuitive sense of how customers behave and what motivates their decision to buy"
+        usage: "Name the team member who has it and the evidence for it"
+
+      - term: "enabling network"
+        definition: "The advisors and investors around the team who open doors, lend credibility, and fill gaps"
+        usage: "Say what each named advisor or investor concretely enables"
+
+      - term: "cap table halo effect"
+        definition: "Reputable investors on the cap table raise the company's standing with customers, recruits, and future investors"
+
+      - term: "cap table conviction"
+        definition: "Whether reputable existing investors keep backing the company: pro-rata, follow-on, leading or joining the next round"
+        usage: "Discuss in Funding & Terms"
+
+  growth:
+    preferred:
+      - term: "Go-To-Market (GTM) model"
+        first_use: "Go-To-Market (GTM) model"
+        subsequent: "GTM"
+        definition: "How the company finds, wins, and expands customers: the motion, channels, pricing, and sales cycle, plus the assumptions behind them"
+
+      - term: "growth engine"
+        definition: "A repeatable mechanism that turns spend or usage into new customers"
+
+      - term: "product-led growth"
+        definition: "The product itself drives acquisition, conversion, and expansion, with sales assisting rather than leading"
+
+      - term: "optimized funnel"
+        definition: "A measured acquisition funnel with known stage-by-stage conversion rates that the team actively improves"
+
+      - term: "growth flywheel"
+        definition: "A loop in which each customer makes the next one cheaper or easier to acquire"
+
+      - term: "K-Factor"
+        definition: "Viral coefficient: new users generated per existing user. Above 1 means viral growth"
+
+      - term: "viral growth"
+        definition: "Growth driven by users bringing in other users (K-Factor above 1)"
+
+      - term: "organic growth"
+        definition: "Customers acquired without paid acquisition: word of mouth, inbound, referrals, search"
+
+      - term: "pipeline value"
+        definition: "The dollar value of qualified opportunities in the sales pipeline, ideally stage-weighted"
+        usage: "Always distinguish pipeline value from closed revenue"
 
   market:
     preferred:
@@ -262,6 +323,8 @@ sections:
           - "[company-domain]/about"
           - "crunchbase.com"
           - "linkedin.com"
+          - "tracxn.com"
+          - "startuply.vc"
 
     section_vocabulary:
       required_elements:
@@ -358,6 +421,8 @@ sections:
           - "pitchbook.com"
           - "gartner.com"
           - "crunchbase.com"
+          - "tracxn.com"
+          - "startuply.vc"
 
     section_vocabulary:
       required_elements:
@@ -405,14 +470,31 @@ sections:
     group_question: "Who is this company, and how are they achieving something remarkable?"
     dimensions: ["people", "process", "product"]
     target_length:
-      min_words: 600
-      max_words: 900
-      ideal_words: 750
+      min_words: 800
+      max_words: 1200
+      ideal_words: 1000
 
     description: |
       The third group answers: "Who is this company and how are they building
       something remarkable?" This section assesses the team, operational
       processes, and product capabilities. Ends with Organization scorecard.
+
+      People goes beyond founder-market fit to two further tests. "Founder Opus":
+      is this the founder's life's work, and are they one of the few people who
+      both could and would build it? "Market empathy": does someone on the team
+      have not only market expertise but an intuitive sense of how customers
+      behave and what motivates their decision to buy? It also covers the
+      "enabling network" around the team: the advisors and investors who open
+      doors, lend credibility, and fill gaps. Note any "cap table halo effect",
+      where reputable investors on the cap table raise the company's standing
+      with customers, recruits, and future investors.
+
+      Process includes a discussion of the Go-To-Market (GTM) model and the
+      assumptions behind it, and whether the company has a growth engine:
+      product-led growth, an optimized funnel, a growth flywheel, viral growth
+      (K-Factor), or organic growth. Assess unit economics: LTV over CAC of 3 is
+      the healthy benchmark; a "money printer" runs well beyond 3, as high as
+      15-20. Use these terms only where the evidence supports them.
 
     questions_by_dimension:
       people:
@@ -420,6 +502,10 @@ sections:
         questions:
           - "Who are the founders? (names, backgrounds)"
           - "Why do they have founder-market fit?"
+          - "Founder Opus: is this the founder's life's work? Are they likely one of the few people who could and would build this?"
+          - "Market empathy: does someone on the team have not only market expertise but an intuitive sense of how customers behave and what motivates their decision to buy? Who, and what is the evidence?"
+          - "Enabling network: which advisors and investors surround the team, and what do they concretely enable (introductions, customers, hires, credibility, expertise that fills a team gap)?"
+          - "Cap table halo effect: do reputable investors on the cap table raise the company's standing with customers, recruits, and future investors?"
           - "What is their unfair advantage?"
           - "What is their track record?"
           - "What critical gaps exist on the team?"
@@ -428,7 +514,10 @@ sections:
         label: "Process (P8)"
         questions:
           - "What best practices are they applying?"
-          - "What growth engine are they building?"
+          - "What is the Go-To-Market model? (sales-led, product-led growth, channel or partner, community-led, or hybrid; who buys, through what motion, at what price point and sales cycle)"
+          - "What assumptions does the GTM model rest on (conversion rates, sales cycle length, contract value, ramp time, channel costs, payback period), and which are proven versus still assumed?"
+          - "What growth engine are they building? Is there an optimized funnel or growth flywheel, and evidence of organic growth, product-led growth, or viral growth (K-Factor)?"
+          - "What are the unit economics? Is LTV over CAC above 3, or is this a 'money printer' (well beyond 3, as high as 15-20)?"
           - "How do they measure and improve?"
           - "What is their culture and hiring approach?"
 
@@ -453,22 +542,38 @@ sections:
           - "[company-domain]/team"
           - "[company-domain]/about"
           - "techcrunch.com"
+          - "tracxn.com"
+          - "startuply.vc"
 
     section_vocabulary:
+      preferred_terms:
+        - "Founder Opus"
+        - "market empathy"
+        - "Go-To-Market (GTM) model"
+        - "growth engine"
+        - "money printer (LTV over CAC well beyond 3, as high as 15-20)"
+
+      # The writer prompt reads only the first five required elements; keep the
+      # new People/GTM items at the top.
       required_elements:
         - Founder names with titles and backgrounds
-        - Founder-market fit assessment
+        - Founder-market fit and Founder Opus assessment
+        - Market empathy assessment (who on the team has it, with evidence)
+        - Go-To-Market model and its assumptions, proven vs. assumed
+        - Growth engine and unit economics (LTV over CAC)
+        - Enabling network (advisors, investors) and any cap table halo effect
         - Team gaps identified
-        - Growth engine description
         - Product description and stage
         - Product-proposition alignment assessment
         - Organization scorecard table at end
 
       structure_template:
         - "### People"
-        - "[3-4 paragraphs on team and founder-market fit]"
+        - "[3-4 paragraphs on team: founder-market fit, Founder Opus, market empathy, enabling network]"
         - "### Process"
-        - "[2-3 paragraphs on operational practices]"
+        - "[1-2 paragraphs on operational practices and how they measure and improve]"
+        - "#### Go-To-Market Model"
+        - "[2-3 paragraphs on the GTM model and its assumptions, the growth engine, and unit economics]"
         - "### Product"
         - "[2-3 paragraphs on product and fit with proposition]"
         - "### Organization Scorecard"
@@ -488,8 +593,13 @@ sections:
     validation_criteria:
       - "All founders named with backgrounds"
       - "Founder-market fit explicitly assessed"
+      - "Founder Opus explicitly assessed"
+      - "Market empathy assessed, naming who on the team has it"
+      - "Enabling network of advisors and investors described"
       - "Team gaps identified"
+      - "Go-To-Market model and its assumptions discussed"
       - "Growth engine described"
+      - "LTV over CAC stated (or explicit 'not disclosed')"
       - "Product stage stated"
       - "Product-proposition alignment discussed"
       - "All 3 dimensions scored"
@@ -590,6 +700,7 @@ sections:
           - "What hard traction is indisputable?"
           - "How far along are they toward something remarkable?"
           - "What are their KPIs and North Stars?"
+          - "What is the pipeline value (qualified, ideally stage-weighted), and how much of it has converted to closed revenue?"
           - "How does progress compare to stage benchmarks?"
 
       plan:
@@ -612,6 +723,8 @@ sections:
           - "pitchbook.com"
           - "techcrunch.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
 
     section_vocabulary:
       required_elements:
@@ -793,21 +906,26 @@ sections:
       - "At what valuation? (pre or post)"
       - "What are the proposed terms?"
       - "What is the funding history?"
+      - "Cap table conviction: will the reputable investors already on the cap table keep their conviction? Are they taking pro-rata, following on, or leading or joining this or the next round?"
       - "How will funds be used?"
       - "What is the runway?"
 
     section_vocabulary:
+      # The writer prompt reads only the first five required elements. Use of
+      # funds sits sixth because Plan (P12) in Opportunity already requires it.
       required_elements:
         - Round size (or 'not disclosed')
         - Valuation (specify pre/post, or 'not disclosed')
         - Key terms (or 'not available')
         - Previous rounds summary
+        - Cap table conviction (existing investors' follow-on and pro-rata participation, or 'not disclosed')
         - Use of funds (or 'not disclosed')
 
     validation_criteria:
       - "Round size stated or explicitly noted as unavailable"
       - "Valuation stated with pre/post specification"
       - "Previous funding summarized"
+      - "Existing investors' follow-on participation stated or noted as not disclosed"
       - "Missing info explicitly noted"
 
   - number: 10

@@ -212,6 +212,8 @@ sections:
           - "crunchbase.com"
           - "pitchbook.com"
           - "techcrunch.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.vc-guide.com"
           - "*.investment-advice.com"
@@ -309,6 +311,8 @@ sections:
           - "techcrunch.com"
           - "forrester.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.top10.com"
           - "*.best-of.com"
@@ -405,6 +409,8 @@ sections:
           - "sacra.com"
           - "techcrunch.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.growth-hacking.com"
           - "*.saas-metrics.com"
@@ -512,6 +518,8 @@ sections:
           - "crunchbase.com"
           - "sacra.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.startup-tips.com"
           - "*.finance-guide.com"
@@ -627,6 +635,8 @@ sections:
           - "grandviewresearch.com"
           - "marketsandmarkets.com"
           - "fortunebusinessinsights.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.top10.com"
           - "*.market-guide.com"
@@ -740,6 +750,8 @@ sections:
           - "mckinsey.com"
           - "bain.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.recession-proof.com"
           - "*.economic-forecast.com"
@@ -842,6 +854,8 @@ sections:
           - "cbinsights.com"
           - "techcrunch.com"
           - "sec.gov"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.investment-advice.com"
           - "*.stock-picks.com"

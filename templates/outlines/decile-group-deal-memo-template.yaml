@@ -212,6 +212,8 @@ sections:
           - "pitchbook.com"
           - "techcrunch.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.startup-tips.com"
           - "*.top10.com"
@@ -285,6 +287,8 @@ sections:
           - "cbinsights.com"
           - "crunchbase.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.vc-guide.com"
           - "*.investment-advice.com"
@@ -385,6 +389,8 @@ sections:
           - "gartner.com"
           - "bloomberg.com"
           - "crunchbase.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.top10.com"
           - "*.market-guide.com"
@@ -475,6 +481,8 @@ sections:
           - "crunchbase.com"
           - "[company-domain]/about"
           - "[company-domain]/team"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.hiring-tips.com"
           - "*.team-building.com"
@@ -573,6 +581,8 @@ sections:
           - "techcrunch.com"
           - "pitchbook.com"
           - "statista.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.business-model-guide.com"
           - "*.startup-tips.com"
@@ -669,6 +679,8 @@ sections:
           - "pitchbook.com"
           - "sec.gov"
           - "techcrunch.com"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.fundraising-guide.com"
           - "*.cap-table.com"
@@ -752,6 +764,8 @@ sections:
           - "sec.gov"
           - "pitchbook.com"
           - "[company-domain]"
+          - "tracxn.com"
+          - "startuply.vc"
         exclude:
           - "*.legal-guide.com"
 
