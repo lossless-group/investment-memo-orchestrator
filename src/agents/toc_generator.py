@@ -155,7 +155,7 @@ def generate_toc_markdown(headers: List[Tuple[int, str, str]]) -> str:
 
     # Add horizontal rule after TOC to separate from content
     toc_lines.append("")
-    toc_lines.append("---")
+    toc_lines.append("***")
     toc_lines.append("")
 
     return "\n".join(toc_lines)
@@ -200,7 +200,7 @@ def insert_toc_after_executive_summary(content: str, toc: str) -> str:
 
     # Phase 2 fallback: insert after first --- (logo/header separator)
     if insert_index is None:
-        hr_pattern = r'^---\s*$'
+        hr_pattern = r'^(?:---|\*\*\*)\s*$'
         for i, line in enumerate(lines):
             if re.match(hr_pattern, line):
                 insert_index = i + 1
@@ -231,7 +231,7 @@ def remove_existing_toc(content: str) -> str:
     # Pattern: ## Table of Contents heading, followed by list items (bulleted or numbered,
     # possibly indented), blank lines, and optional trailing --- separator.
     # Remove ALL occurrences to prevent duplicates from multi-pass assembly.
-    toc_pattern = r'## Table of Contents\n(?:[ \t]*(?:-|\d+\.)[^\n]*\n)*\n*(?:---\n*)?'
+    toc_pattern = r'## Table of Contents\n(?:[ \t]*(?:-|\d+\.)[^\n]*\n)*\n*(?:(?:---|\*\*\*)\n*)?'
     result = content
     while re.search(toc_pattern, result):
         result = re.sub(toc_pattern, '', result, count=1)
@@ -248,7 +248,7 @@ def extract_existing_toc(content: str) -> str:
     Returns:
         The existing TOC block as a string, or empty string if none found
     """
-    match = re.search(r'(## Table of Contents\n(?:[ \t]*(?:-|\d+\.)[^\n]*\n)*\n*(?:---\n*)?)', content)
+    match = re.search(r'(## Table of Contents\n(?:[ \t]*(?:-|\d+\.)[^\n]*\n)*\n*(?:(?:---|\*\*\*)\n*)?)', content)
     return match.group(1) if match else ""
 
 

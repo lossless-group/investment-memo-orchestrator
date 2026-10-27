@@ -149,8 +149,9 @@ def write_final_draft(output_dir: Path, content: str) -> Path:
     Returns:
         Path to the written file
     """
+    from .md_breaks import normalize_section_breaks
     draft_path = get_final_draft_path(output_dir)
-    draft_path.write_text(content, encoding="utf-8")
+    draft_path.write_text(normalize_section_breaks(content), encoding="utf-8")
     return draft_path
 
 

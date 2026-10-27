@@ -196,7 +196,7 @@ def format_deck_analysis_summary(deck_analysis: Dict[str, Any]) -> str:
     md += f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
     md += f"**Company**: {deck_analysis.get('company_name', 'N/A')}\n\n"
     md += f"**Pages**: {deck_analysis.get('deck_page_count', 'N/A')}\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     md += "## Key Information Extracted\n\n"
 
@@ -299,7 +299,7 @@ def format_research_summary(research_data: Dict[str, Any]) -> str:
     """
     md = "# Research Summary\n\n"
     md += f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Company overview
     if "company_overview" in research_data:
@@ -403,7 +403,7 @@ def format_research_summary(research_data: Dict[str, Any]) -> str:
 
     # Web search metadata
     if "web_search_metadata" in research_data:
-        md += "---\n\n"
+        md += "***\n\n"
         md += "## Search Metadata\n\n"
         metadata = research_data["web_search_metadata"]
         md += f"**Provider**: {metadata.get('provider', 'Unknown')}\n\n"
@@ -474,6 +474,9 @@ def save_section_artifact(output_dir: Path, section_number: int,
 
     content = re.sub(r'^(#{1,6})\s+(.+)$', demote_heading, content, flags=re.MULTILINE)
 
+    from .md_breaks import normalize_section_breaks
+    content = normalize_section_breaks(content)
+
     with open(sections_dir / filename, "w") as f:
         f.write(f"## {section_number}. {section_name}\n\n")
         f.write(content)
@@ -526,7 +529,7 @@ def format_validation_report(validation_data: Dict[str, Any]) -> str:
         color = "red"
 
     md += f"{status}\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Section-by-section feedback
     if "section_scores" in validation_data:
@@ -616,7 +619,7 @@ def format_fact_check_report(fact_check_data: Dict[str, Any]) -> str:
         status = f"⚠️ **REVIEW REQUIRED** - {sections_flagged} sections need attention"
 
     md += f"{status}\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Section-by-section results
     if "fact_check_results" in fact_check_data:

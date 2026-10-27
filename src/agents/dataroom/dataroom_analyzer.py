@@ -881,7 +881,7 @@ def format_inventory_report(inventory_data: dict, company_name: str) -> str:
     md += f"**Generated**: {inventory_data['analysis_date']}\n\n"
     md += f"**Source**: `{inventory_data['dataroom_path']}`\n\n"
     md += f"**Processing Time**: {inventory_data['processing_duration_seconds']:.1f}s\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Document Inventory Summary
     md += "## Document Summary\n\n"
@@ -938,7 +938,7 @@ def format_inventory_report(inventory_data: dict, company_name: str) -> str:
 def format_competitive_report(competitive_data: dict, company_name: str) -> str:
     """Format competitive analysis as human-readable markdown report."""
     md = f"# Competitive Analysis: {company_name}\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Competitor Overview Table
     competitors = competitive_data.get('competitors', [])
@@ -997,7 +997,7 @@ def format_competitive_report(competitive_data: dict, company_name: str) -> str:
                     md += f"- {icon} {feature}\n"
                 md += "\n"
 
-            md += "---\n\n"
+            md += "***\n\n"
 
     # Key Differentiators
     differentiators = competitive_data.get('key_differentiators', [])
@@ -1079,7 +1079,7 @@ def format_cap_table_report(cap_table_data: dict, company_name: str) -> str:
     if cap_table_data.get("as_of_date"):
         md += f"**As of**: {cap_table_data['as_of_date']}\n\n"
 
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Ownership Summary
     md += "## Ownership Summary\n\n"
@@ -1183,7 +1183,7 @@ def format_financial_report(financial_data: dict, company_name: str) -> str:
         md += f"**Extracted**: {financial_data['extraction_date']}\n\n"
 
     md += f"**Currency**: {financial_data.get('currency', 'USD')}\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Key Metrics Summary
     md += "## Key Metrics\n\n"
@@ -1301,7 +1301,7 @@ def format_traction_report(traction_data: dict, company_name: str) -> str:
     if traction_data.get("extraction_date"):
         md += f"**Extracted**: {traction_data['extraction_date']}\n\n"
 
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Key Metrics Summary
     md += "## Key Metrics\n\n"
@@ -1429,7 +1429,7 @@ def format_team_report(team_data: dict, company_name: str) -> str:
     if team_data.get("document_source"):
         md += f"**Sources**: {team_data['document_source']}\n\n"
 
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Founders Section
     founders = team_data.get("founders", [])
@@ -1485,7 +1485,7 @@ def format_team_report(team_data: dict, company_name: str) -> str:
             if founder.get("years_experience"):
                 md += f"**Years of Experience:** {founder['years_experience']}\n\n"
 
-            md += "---\n\n"
+            md += "***\n\n"
 
     # Leadership Section
     leadership = team_data.get("leadership", [])

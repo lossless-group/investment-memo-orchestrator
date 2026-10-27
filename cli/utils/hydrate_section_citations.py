@@ -79,7 +79,7 @@ def hydrate_section(section_path: Path, research_path: Path | None) -> Tuple[boo
         # in the section-file convention). Add a separating blank line.
         section_text = section_text.rstrip() + '\n\n' + new_block + '\n'
     else:
-        section_text = section_text.rstrip() + '\n\n---\n\n### Citations\n\n' + new_block + '\n'
+        section_text = section_text.rstrip() + '\n\n***\n\n### Citations\n\n' + new_block + '\n'
 
     section_path.write_text(section_text)
     return (True, orphans)

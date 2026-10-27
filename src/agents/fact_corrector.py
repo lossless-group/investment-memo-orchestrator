@@ -366,6 +366,6 @@ def _save_corrections_report(path: Path, log_data: Dict[str, Any]) -> None:
         else:
             md += f"**Reason**: {correction.get('reason', 'N/A')}\n\n"
 
-        md += "---\n\n"
+        md += "***\n\n"
 
     path.write_text(md, encoding="utf-8")

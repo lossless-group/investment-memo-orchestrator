@@ -160,7 +160,7 @@ def write_transcript(result: TranscriptResult, destination: Path) -> Path:
         f"_Machine transcript of `{result.source.name}` "
         f"({mins}m{secs:02d}s), generated {date.today().isoformat()}. "
         f"The source media is kept in `_zip-originals/` and is not committed._\n\n"
-        f"---\n\n"
+        f"***\n\n"
         f"{result.text}\n"
     )
     return destination

@@ -86,7 +86,7 @@ def trademark_enrichment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         parts.append(f"**Prepared by:** {_firm_display_name(firm)}")
     parts.append(f"**Date:** {date_str}")
     parts.append("")
-    parts.append("---")
+    parts.append("***")
     parts.append("")
 
     header_content = "\n".join(parts)

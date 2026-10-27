@@ -54,6 +54,8 @@ except ImportError:
     print("Make sure src/paths.py exists.")
     sys.exit(1)
 
+from src.md_breaks import normalize_section_breaks
+
 
 def ensure_pandoc_installed():
     """Check if pandoc is installed."""
@@ -555,7 +557,7 @@ def render_branded_html(
     """
     import tempfile
 
-    markdown_content = strip_memo_mode_label(markdown_content)
+    markdown_content = normalize_section_breaks(strip_memo_mode_label(markdown_content))
     markdown_content = re.sub(
         r'^#\s+(?:Investment Memo[:\s]*)?[^\n]+\n+', '', markdown_content, count=1
     )
@@ -686,7 +688,7 @@ def convert_to_branded_html(
 
     # Now strip redundant H1 title from markdown (HTML template already provides header)
     # Pattern: "# Investment Memo: CompanyName" or "# CompanyName" at start of file
-    markdown_content = strip_memo_mode_label(markdown_content)
+    markdown_content = normalize_section_breaks(strip_memo_mode_label(markdown_content))
     markdown_content = re.sub(
         r'^#\s+(?:Investment Memo[:\s]*)?[^\n]+\n+',
         '',

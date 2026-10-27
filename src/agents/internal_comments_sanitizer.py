@@ -73,7 +73,7 @@ LEAKED_COMMENTARY_PATTERNS = [
     (r"\[placeholder\]|\[to be added\]|\[TBD\]|\[TODO\]", "placeholder"),
 
     # Full paragraph blocks that are clearly internal
-    (r"---\s*\n\*\*Note:?\*\*:?[\s\S]*?(?=\n---|\n##|\Z)", "note_block"),
+    (r"(?:---|\*\*\*)\s*\n\*\*Note:?\*\*:?[\s\S]*?(?=\n(?:---|\*\*\*)|\n##|\Z)", "note_block"),
 ]
 
 # Patterns that indicate an entire paragraph should be extracted
@@ -253,7 +253,7 @@ def sanitize_section_file(section_file: Path, internal_dir: Path) -> Dict[str, A
         notes_content += f"*Extracted: {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n\n"
         notes_content += "These notes contain process commentary and meta-content that was\n"
         notes_content += "extracted from the main section to keep the external output clean.\n\n"
-        notes_content += "---\n\n"
+        notes_content += "***\n\n"
         notes_content += extracted_notes
 
         notes_file.write_text(notes_content)
@@ -339,8 +339,9 @@ def internal_comments_sanitizer_agent(state: MemoState) -> dict:
             if notes_file.exists():
                 notes_content = notes_file.read_text()
                 # Extract just the notes part (after the header)
-                if "---\n\n" in notes_content:
-                    notes_part = notes_content.split("---\n\n", 1)[1]
+                sep = "***\n\n" if "***\n\n" in notes_content else "---\n\n"
+                if sep in notes_content:
+                    notes_part = notes_content.split(sep, 1)[1]
                     all_internal_notes.append(f"## {section_name}\n\n{notes_part}")
         else:
             print(f"    ✓ Clean (no commentary detected)")
@@ -355,8 +356,8 @@ def internal_comments_sanitizer_agent(state: MemoState) -> dict:
         consolidated += "These notes were extracted from the memo during sanitization.\n"
         consolidated += "They contain process commentary, data gaps, and recommendations\n"
         consolidated += "that are useful internally but inappropriate for external documents.\n\n"
-        consolidated += "---\n\n"
-        consolidated += "\n---\n\n".join(all_internal_notes)
+        consolidated += "***\n\n"
+        consolidated += "\n***\n\n".join(all_internal_notes)
 
         consolidated_path.write_text(consolidated)
         print(f"\n✓ Consolidated notes: {consolidated_path}")
@@ -441,8 +442,9 @@ def sanitize_memo(company_name: str, firm: str = None, version: str = None) -> D
             notes_file = internal_dir / f"{section_name}-internal-notes.md"
             if notes_file.exists():
                 notes_content = notes_file.read_text()
-                if "---\n\n" in notes_content:
-                    notes_part = notes_content.split("---\n\n", 1)[1]
+                sep = "***\n\n" if "***\n\n" in notes_content else "---\n\n"
+                if sep in notes_content:
+                    notes_part = notes_content.split(sep, 1)[1]
                     all_internal_notes.append(f"## {section_name}\n\n{notes_part}")
 
     # Generate consolidated notes
@@ -456,8 +458,8 @@ def sanitize_memo(company_name: str, firm: str = None, version: str = None) -> D
         consolidated += "These notes were extracted from the memo during sanitization.\n"
         consolidated += "They contain process commentary, data gaps, and recommendations\n"
         consolidated += "that are useful internally but inappropriate for external documents.\n\n"
-        consolidated += "---\n\n"
-        consolidated += "\n---\n\n".join(all_internal_notes)
+        consolidated += "***\n\n"
+        consolidated += "\n***\n\n".join(all_internal_notes)
 
         consolidated_path.write_text(consolidated)
 

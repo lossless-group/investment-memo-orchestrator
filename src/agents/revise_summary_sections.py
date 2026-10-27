@@ -404,26 +404,27 @@ def reassemble_final_draft(output_dir: Path) -> None:
     header_path = output_dir / "header.md"
     if header_path.exists():
         parts.append(header_path.read_text().strip())
-        parts.append("\n---\n")
+        parts.append("\n***\n")
 
     # 2. TOC
     if toc_block:
         parts.append(toc_block.strip())
-        parts.append("\n---\n")
+        parts.append("\n***\n")
 
     # 3. All sections in order
     section_files = sorted(sections_dir.glob("*.md"))
     for section_file in section_files:
         section_content = section_file.read_text().strip()
         parts.append(section_content)
-        parts.append("\n\n---\n")
+        parts.append("\n\n***\n")
 
     # 4. Citations
     if citations_block:
         parts.append(citations_block.strip())
 
     # Write reassembled content
-    final_content = "\n".join(parts)
+    from ..md_breaks import normalize_section_breaks
+    final_content = normalize_section_breaks("\n".join(parts))
     final_draft_path.write_text(final_content)
 
     print(f"  ✓ Reassembled final draft: {final_draft_path.name}")

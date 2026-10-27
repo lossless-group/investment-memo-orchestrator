@@ -547,7 +547,7 @@ class ResearchPDFScraper:
 
         # Citations block at end
         if citations:
-            parts.append("\n\n---\n")
+            parts.append("\n\n***\n")
             parts.append("## References\n")
             for citation in citations:
                 parts.append(citation.get("our_format", ""))

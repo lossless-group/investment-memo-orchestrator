@@ -254,7 +254,7 @@ def generate_scorecard_markdown(
     lines.append(f"**Scorecard**: {scorecard.metadata.name}")
     lines.append(f"**Date**: {datetime.now().strftime('%B %d, %Y')}")
     lines.append("")
-    lines.append("---")
+    lines.append("***")
     lines.append("")
 
     # Calculate group averages
@@ -284,7 +284,7 @@ def generate_scorecard_markdown(
     lines.append("")
     lines.append(f"**Overall Score: {overall_score:.1f}/5**")
     lines.append("")
-    lines.append("---")
+    lines.append("***")
     lines.append("")
 
     # Detailed sections by group
@@ -331,7 +331,7 @@ def generate_scorecard_markdown(
             for improvement in result.get("improvements", []):
                 lines.append(f"- {improvement}")
             lines.append("")
-            lines.append("---")
+            lines.append("***")
             lines.append("")
 
     # Summary sections

@@ -122,8 +122,8 @@ def remove_citation_definitions_from_content(content: str) -> str:
 
     result = '\n'.join(filtered)
 
-    # Remove empty "### Citations" header (with optional preceding ---)
-    result = re.sub(r'\n*---\n*### Citations\s*$', '', result, flags=re.MULTILINE)
+    # Remove empty "### Citations" header (with optional preceding break)
+    result = re.sub(r'\n*(?:---|\*\*\*)\n*### Citations\s*$', '', result, flags=re.MULTILINE)
     result = re.sub(r'\n*### Citations\s*$', '', result, flags=re.MULTILINE)
 
     return result.rstrip()
@@ -200,7 +200,7 @@ def format_citation_block(citations: Dict[str, str], ordered_nums: List[str]) ->
     Returns:
         Formatted citation block
     """
-    lines = ['\n---\n', '\n### Citations\n']
+    lines = ['\n***\n', '\n### Citations\n']
 
     for num in ordered_nums:
         if num in citations:
@@ -622,8 +622,9 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
 
     # Use canonical final draft path from final_draft module
     from ..final_draft import get_final_draft_path
+    from ..md_breaks import normalize_section_breaks
     final_draft_path = get_final_draft_path(output_dir)
-    final_draft_path.write_text(final_content)
+    final_draft_path.write_text(normalize_section_breaks(final_content))
     print(f"  ✓ Final draft: {final_draft_path.name}")
 
     stats = renumber_result.get("stats", {})

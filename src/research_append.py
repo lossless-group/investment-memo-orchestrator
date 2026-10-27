@@ -28,6 +28,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
+from .md_breaks import normalize_section_breaks
+
 STAMP_RE = re.compile(
     r"<!--\s*research-block:\s*frame=(?P<frame>[^\s]+)\s+run=(?P<run>[^\s]+)\s+appended=(?P<date>[^\s]+)\s*-->"
 )
@@ -84,6 +86,7 @@ def write_or_append_research(
         and path.read_text().strip()
     )
 
+    content = normalize_section_breaks(content)
     if not should_append:
         path.write_text(content)
         return "written"
@@ -110,7 +113,7 @@ def write_or_append_research(
 
     merged = (
         prior.rstrip()
-        + "\n\n---\n\n"
+        + "\n\n***\n\n"
         + stamp_for(slug, version)
         + f"\n\n{heading}\n\n"
         + body
@@ -133,6 +136,7 @@ def append_augmentation(path: Path, content: str, *, run_version: str, new_sourc
     added beneath what is already recorded, stamped `frame=augment`, rather than
     regenerating a file whose existing findings are still true.
     """
+    content = normalize_section_breaks(content)
     prior = path.read_text() if path.exists() else ""
     if not prior.strip():
         path.write_text(content)
@@ -144,7 +148,7 @@ def append_augmentation(path: Path, content: str, *, run_version: str, new_sourc
     noun = "source" if new_sources == 1 else "sources"
     path.write_text(
         prior.rstrip()
-        + "\n\n---\n\n"
+        + "\n\n***\n\n"
         + stamp_for(AUGMENT_SLUG, version)
         + f"\n\n## Added from {new_sources} new {noun}\n\n"
         + body

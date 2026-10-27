@@ -370,7 +370,7 @@ def _save_verification_report(
             if claim.get('source_url'):
                 title = claim.get('source_title', claim['source_url'])
                 md += f"**Source**: [{title}]({claim['source_url']})\n\n"
-            md += "---\n\n"
+            md += "***\n\n"
 
     md += "\n## Per-Section Details\n\n"
     for section in data.get("fact_check_results", []):

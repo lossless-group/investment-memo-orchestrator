@@ -268,7 +268,7 @@ def save_scorecard_artifacts(
     lines.append(f"**Scorecard**: {scorecard.metadata.name}")
     lines.append(f"**Date**: {datetime.now().strftime('%B %d, %Y')}")
     lines.append("")
-    lines.append("---")
+    lines.append("***")
     lines.append("")
 
     # Summary table
@@ -287,7 +287,7 @@ def save_scorecard_artifacts(
     lines.append("")
     lines.append(f"**Overall Score: {overall_score:.1f}/5**")
     lines.append("")
-    lines.append("---")
+    lines.append("***")
     lines.append("")
 
     # Detailed sections
@@ -329,7 +329,7 @@ def save_scorecard_artifacts(
             for improvement in result.get("improvements", []):
                 lines.append(f"- {improvement}")
             lines.append("")
-            lines.append("---")
+            lines.append("***")
             lines.append("")
 
     # Key findings

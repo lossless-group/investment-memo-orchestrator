@@ -32,6 +32,7 @@ import re
 from typing import Dict, Any
 from pathlib import Path
 
+from ..md_breaks import normalize_section_breaks
 from ..state import MemoState
 
 
@@ -125,7 +126,7 @@ def citation_spacing_agent(state: MemoState) -> Dict[str, Any]:
     if sections_dir.exists():
         for section_file in sorted(sections_dir.glob("*.md")):
             original = section_file.read_text(encoding="utf-8")
-            fixed = fix_citation_spacing(original)
+            fixed = normalize_section_breaks(fix_citation_spacing(original))
             if fixed != original:
                 section_file.write_text(fixed, encoding="utf-8")
                 fixes_total += 1
@@ -136,7 +137,7 @@ def citation_spacing_agent(state: MemoState) -> Dict[str, Any]:
     final_draft_path = find_final_draft(output_dir)
     if final_draft_path:
         original = final_draft_path.read_text(encoding="utf-8")
-        fixed = fix_citation_spacing(original)
+        fixed = normalize_section_breaks(fix_citation_spacing(original))
         if fixed != original:
             final_draft_path.write_text(fixed, encoding="utf-8")
             fixes_total += 1
@@ -146,7 +147,7 @@ def citation_spacing_agent(state: MemoState) -> Dict[str, Any]:
     header_file = output_dir / "header.md"
     if header_file.exists():
         original = header_file.read_text(encoding="utf-8")
-        fixed = fix_citation_spacing(original)
+        fixed = normalize_section_breaks(fix_citation_spacing(original))
         if fixed != original:
             header_file.write_text(fixed, encoding="utf-8")
             fixes_total += 1

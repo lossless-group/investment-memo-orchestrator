@@ -296,8 +296,8 @@ def enrich_research_with_citations(
         while "### Citations" in final_content:
             parts = final_content.split("### Citations", 1)
             final_content = parts[0].rstrip()
-            # Also remove any preceding "---" separator
-            if final_content.endswith("---"):
+            # Also remove any preceding section break
+            if final_content.endswith(("---", "***")):
                 final_content = final_content[:-3].rstrip()
 
         # Add citations section with existing + new
@@ -309,7 +309,7 @@ def enrich_research_with_citations(
                 all_citations = new_citation_defs.strip()
 
         if all_citations:
-            final_content += "\n\n---\n\n### Citations\n\n" + all_citations
+            final_content += "\n\n***\n\n### Citations\n\n" + all_citations
 
         return final_content
 

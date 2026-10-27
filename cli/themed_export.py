@@ -72,7 +72,7 @@ def clean_memo(markdown: str) -> tuple[str, MemoHeader]:
     # 1. Header block: everything before the first `---` rule, provided it
     #    contains the `# Title` line and no section heading.
     try:
-        rule = next(i for i, l in enumerate(lines) if l.strip() == "---")
+        rule = next(i for i, l in enumerate(lines) if l.strip() in ("---", "***"))
     except StopIteration:
         rule = None
     if rule is not None and rule < 25:
@@ -98,7 +98,7 @@ def clean_memo(markdown: str) -> tuple[str, MemoHeader]:
             skipping = True
             continue
         if skipping:
-            if l.strip() == "---":
+            if l.strip() in ("---", "***"):
                 skipping = False
                 continue
             if re.match(r"^#{1,6}\s", l):

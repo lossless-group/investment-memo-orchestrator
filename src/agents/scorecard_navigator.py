@@ -153,7 +153,8 @@ def insert_nav_into_executive_summary(draft_content: str, nav_table: str) -> str
         return draft_content[:insert_pos] + "\n\n" + nav_table + "\n" + draft_content[insert_pos:]
 
     # Strategy 3: After first --- separator
-    first_hr = draft_content.find('\n---\n')
+    hits = [i for i in (draft_content.find('\n---\n'), draft_content.find('\n***\n')) if i != -1]
+    first_hr = min(hits) if hits else -1
     if first_hr != -1:
         insert_pos = first_hr + 5
         return draft_content[:insert_pos] + "\n" + nav_table + "\n" + draft_content[insert_pos:]
@@ -214,7 +215,7 @@ def scorecard_navigator_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     if "### Scorecard Overview" in draft_content:
         # Remove existing navigator before re-inserting
         draft_content = re.sub(
-            r'### Scorecard Overview\n.*?(?=\n##|\n---\n|\Z)',
+            r'### Scorecard Overview\n.*?(?=\n##|\n(?:---|\*\*\*)\n|\Z)',
             '',
             draft_content,
             count=1,

@@ -500,7 +500,7 @@ def generate_synthesis_report(
     """
     md = "# Dataroom Synthesis Report\n\n"
     md += f"**Generated**: {datetime.now().isoformat()}\n\n"
-    md += "---\n\n"
+    md += "***\n\n"
 
     # Executive Summary
     md += "## Executive Summary\n\n"
@@ -567,7 +567,7 @@ def generate_synthesis_report(
 
             md += f"\n**Recommended Value**: {conflict['recommended_value']}\n\n"
             md += f"**Resolution**: {conflict['resolution_reasoning']}\n\n"
-            md += "---\n\n"
+            md += "***\n\n"
 
     # Data Gaps Section
     if gaps:
