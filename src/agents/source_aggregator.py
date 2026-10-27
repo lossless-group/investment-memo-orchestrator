@@ -125,7 +125,18 @@ def source_aggregator_agent(state: MemoState) -> Dict[str, Any]:
             entry["sections"].add(section_label)
             entry["occurrence_count"] += 1
 
-    if not by_url:
+    # The company's own dataroom outranks anything broad search surfaced. Every
+    # inventoried document except corporate housekeeping goes at the top of the
+    # draft, pre-approved, with a local_path so the codified researcher reads the
+    # file itself. Without this
+    # the analyst has to hand-type file:// entries or the memo never cites the
+    # deck, the SAFE or the cap table the run already extracted.
+    section_labels = [_section_label_from_filename(f.name) for f in section_files]
+    dataroom_entries = _dataroom_entries(output_dir, inputs_dir, section_labels)
+    if dataroom_entries:
+        print(f"  📁 {len(dataroom_entries)} dataroom document(s) listed first, pre-approved")
+
+    if not by_url and not dataroom_entries:
         print("  ⚠️  No URLs found in research files. Continuing.")
         return {"messages": ["Source aggregator: no URLs in research"]}
 
@@ -190,6 +201,7 @@ def source_aggregator_agent(state: MemoState) -> Dict[str, Any]:
             company_name=company_name,
             firm=firm,
             survivors=surviving,
+            dataroom=dataroom_entries,
             dropped_count=dropped,
             section_files=[f.name for f in section_files],
         )
@@ -197,6 +209,7 @@ def source_aggregator_agent(state: MemoState) -> Dict[str, Any]:
 
     print(
         f"  ✓ Kept {len(surviving)} URL(s); dropped {dropped} (hard-fail or hallucination)."
+        + (f" Plus {len(dataroom_entries)} dataroom document(s) on top." if dataroom_entries else "")
     )
     print(f"  📝 Aggregated draft written: {aggregated_path}")
     print()
@@ -242,6 +255,112 @@ def _section_label_from_filename(filename: str) -> str:
     return name
 
 
+# Dataroom document types (from the dataroom classifier) → words that appear in
+# the section slugs of the outlines in use. A document lands in every section
+# whose slug contains one of its words; types with no entry, or with no match in
+# this outline, land in every section. The deck is the company's whole case, so
+# it is deliberately everywhere.
+_DATAROOM_TYPE_SECTIONS: Dict[str, Tuple[str, ...]] = {
+    "pitch_deck": (),
+    "marketing_collateral": (),
+    "team_bios": ("team", "founder", "people"),
+    "cap_table": ("fund", "round", "term", "capital", "syndicate", "deal"),
+    "safe_note": ("fund", "round", "term", "capital", "syndicate", "deal"),
+    "term_sheet": ("fund", "round", "term", "capital", "syndicate", "deal"),
+    "legal_document": ("fund", "round", "term", "flag", "risk", "deal"),
+    "board_consent": ("fund", "round", "term", "deal"),
+    "financial_projections": ("econom", "financ", "business", "traction", "model"),
+    "financial_statements": ("econom", "financ", "business", "traction"),
+    "traction_metrics": ("traction", "econom", "business", "why"),
+    "competitive_analysis": ("market", "competit", "situation", "landscape"),
+    "market_research": ("market", "situation", "opportunit", "why"),
+    "ip_strategy": ("overview", "technolog", "product", "why", "flag", "risk"),
+    "product_documentation": ("overview", "technolog", "product", "why", "business"),
+}
+
+# Corporate housekeeping a draft memo never cites: incorporation papers,
+# shareholder and financing agreements, consents, certificates, wire details.
+# The dataroom agent still extracts them for the legal-terms and cap-table
+# analyses; they just stay off the source list.
+_DATAROOM_EXCLUDED_TYPES = frozenset({
+    "charter_document",
+    "stockholder_consent",
+    "board_consent",
+    "legal_document",
+    "executed_financing_doc",
+    "purchase_agreement",
+    "subscription_agreement",
+    "side_letter",
+    "spv_document",
+    "warrant",
+    "disclosure_schedule",
+    "schedule_of_purchasers",
+    "investor_questionnaire",
+    "wire_instructions",
+})
+
+
+def _dataroom_entries(
+    output_dir: Path, inputs_dir: Path, section_labels: List[str]
+) -> List[Dict[str, Any]]:
+    """
+    Turn the run's dataroom inventory into pre-approved Sources.md entries.
+
+    Reads `0-dataroom-inventory.json` (written by the dataroom agent earlier in
+    this run). Returns [] when the deal has no dataroom.
+    """
+    import json
+    import re
+
+    inventory_path = output_dir / "0-dataroom-inventory.json"
+    if not inventory_path.exists():
+        return []
+    try:
+        inventory = json.loads(inventory_path.read_text()).get("inventory") or []
+    except (OSError, ValueError):
+        return []
+
+    deal_dir = inputs_dir.parent.resolve()
+    entries: List[Dict[str, Any]] = []
+    for doc in inventory:
+        file_path = Path(doc.get("file_path") or "")
+        if not file_path.name or not file_path.exists():
+            continue
+        doc_type = doc.get("document_type") or ""
+        if doc_type in _DATAROOM_EXCLUDED_TYPES:
+            continue
+        words = _DATAROOM_TYPE_SECTIONS.get(doc_type, ())
+        sections = [s for s in section_labels if any(w in s for w in words)] if words else []
+        if not sections:
+            sections = list(section_labels)
+
+        resolved = file_path.resolve()
+        try:
+            local_path = str(resolved.relative_to(deal_dir))
+        except ValueError:
+            local_path = str(resolved)
+
+        stamp = re.match(r"(\d{4})(\d{2})(\d{2})_", file_path.name)
+        published = (
+            f"{stamp.group(1)}-{stamp.group(2)}-{stamp.group(3)}"
+            if stamp and stamp.group(1) != "0000"
+            else ""
+        )
+        entries.append({
+            "url": resolved.as_uri(),
+            "title": file_path.stem,
+            "published_date": published,
+            "sections": sections,
+            "local_path": local_path,
+            "document_type": doc_type,
+        })
+
+    # Deck and legal paper first, then the rest in filename (date) order.
+    first = {"pitch_deck": 0, "safe_note": 1, "term_sheet": 1, "cap_table": 2}
+    entries.sort(key=lambda e: (first.get(e["document_type"], 3), e["title"]))
+    return entries
+
+
 def _build_aggregated_sources_md(
     *,
     company_name: str,
@@ -249,6 +368,7 @@ def _build_aggregated_sources_md(
     survivors: List[Dict[str, Any]],
     dropped_count: int,
     section_files: List[str],
+    dataroom: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Render the aggregated Sources.md content with YAML frontmatter + analyst-notes scaffold."""
     today = datetime.now().date().isoformat()
@@ -282,6 +402,25 @@ def _build_aggregated_sources_md(
     lines.append("# how many sections the URL was cited in. The analyst's reorder is")
     lines.append("# what actually matters — this is just a starting point.")
     lines.append("sources:")
+
+    if dataroom:
+        lines.append("  # ── Dataroom: the company's own documents, pre-approved and ranked")
+        lines.append("  # ── above every web source. Delete one only if it is irrelevant.")
+        for entry in dataroom:
+            lines.append(f"  - url: {entry['url']}")
+            lines.append(f"    title: \"{entry['title']}\"")
+            lines.append(f"    publisher: \"{company_name} (dataroom)\"")
+            if entry["published_date"]:
+                lines.append(f"    published_date: {entry['published_date']}")
+            lines.append("    sections: [" + ", ".join(entry["sections"]) + "]")
+            lines.append("    rank: 0")
+            lines.append("    sensitivity: internal_only")
+            lines.append("    verdict: approved")
+            lines.append(f"    local_path: {entry['local_path']}")
+            if entry["document_type"]:
+                lines.append(f"    # dataroom type: {entry['document_type']}")
+            lines.append("")
+        lines.append("  # ── Web sources from broad search")
 
     for entry in survivors:
         url = entry["url"]
