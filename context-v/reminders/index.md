@@ -3,7 +3,6 @@
 * [Citation Spacing Improvements](Citation-Reminders.md) - Documentation of CSS and formatting fixes to improve citation readability in exported memos.
 * [Every Step Writes Its Output To File](Every-Step-Writes-Its-Output-To-File.md) - A run's destination folder is decided before the first step, and every step writes its result there as it finishes. Nothing lives only in memory.
 * [Extended Markdown Citation System Syntax](Extended-Markdown-Citation-System-Syntax.md) - Reminder of the preferred GitHub/Obsidian-flavored markdown syntax for citations, footnotes, and reference sections.
-* [Extended Markdown Citation System Syntax](Extended-Markdown-Flavor-Remix.md) - Reminder of the preferred GitHub/Obsidian-flavored markdown syntax for citations, footnotes, and reference sections.
 * [Format Memo According to Outline Input](Format-Memo-According-to-Template-Input.md) - Refactor the investment memo system to use YAML-based content outlines that agents can reference for structure, guiding questions, and vocabulary.
 * [Frontmatter Standards for Context Files](Frontmatter-Standards-for-Context-Files.md) - Maintaining a consistent frontmatter format for context files to assure SSG build success and metadata use across the site.
 * [Generate Investment Memo for Portfolio Company](Generate-Investment-Memo-for-Portfolio-Company.md) - Create investment opportunity briefs that match Hypernova's analytical voice, format, and depth using AI-assisted generation with structured inputs and validation.
