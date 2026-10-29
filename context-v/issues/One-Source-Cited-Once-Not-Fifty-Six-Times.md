@@ -15,7 +15,8 @@ date_modified: 2026-09-11
 tags: [Citations, Export, Footnotes, Deduplication, Dates, Analyst-Grade, Pandoc]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: ccfae7a8-68bf-4f88-b193-73248ab3c694
 hex_code: zjyqnl
 status: Open

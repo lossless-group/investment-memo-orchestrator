@@ -15,7 +15,8 @@ date_modified: 2025-12-05
 tags: [LLM-Output, Meta-Commentary, Memo-Quality, Content-Filtering, Agent-Pipeline]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 556f9426-7023-4db7-8bce-1359a311581b
 hex_code: vnvf5b
 type: Specs

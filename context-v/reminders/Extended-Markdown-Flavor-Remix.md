@@ -15,7 +15,8 @@ date_modified: 2026-03-24
 tags: [Markdown, Citations, Footnotes, Obsidian, Syntax]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 1a74b5b7-156e-41c7-a1e8-a179bd5fd766
 hex_code: mfa4oj
 type: Reminders

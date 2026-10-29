@@ -15,7 +15,8 @@ date_modified: 2026-03-17
 tags: [Context-V, Documentation, System-Design, Knowledge-Management, AI-Development]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 217dfa69-99f1-45a7-8a9a-b4ee0bb7fae1
 hex_code: l3e20b
 type: Blueprints

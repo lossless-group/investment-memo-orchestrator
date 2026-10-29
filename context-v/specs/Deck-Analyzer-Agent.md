@@ -8,7 +8,8 @@ date_first_published:
 date_last_updated: 2025-12-09
 at_semantic_version: 0.1.0
 status: Implemented
-augmented_with: Claude Code (Opus 4.5)
+augmented_with:
+  - Claude Code (Opus 4.5)
 category: Agent Documentation
 tags: [Deck-Analysis, PDF-Processing, Vision-API, Screenshot-Extraction, Investment-Analysis]
 authors:

@@ -15,7 +15,8 @@ date_modified: 2026-03-23
 tags: [Hallucination, Anti-Hallucination, Perplexity, Seed-Stage, Issue-Resolution]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 9d9365da-937d-4a98-9d1d-405bcfb1ead5
 hex_code: gl9cju
 type: Issue-Resolution

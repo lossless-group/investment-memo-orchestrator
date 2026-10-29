@@ -8,7 +8,8 @@ date_first_published:
 date_last_updated:
 at_semantic_version: 0.1.0
 status: Draft
-augmented_with: Claude Code (Sonnet 4.5)
+augmented_with:
+  - Claude Code (Sonnet 4.5)
 category: Prompts
 tags: [Workflow, Investment-Analysis, Content-Generation, Venture-Capital, AI-Assisted-Writing]
 authors:

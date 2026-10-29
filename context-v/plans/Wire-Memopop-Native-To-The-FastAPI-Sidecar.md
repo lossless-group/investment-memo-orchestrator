@@ -8,7 +8,8 @@ date_first_published:
 date_last_updated: 2026-05-01
 at_semantic_version: 0.0.0.1
 status: Draft
-augmented_with: Claude Code (Opus 4.7)
+augmented_with:
+  - Claude Code (Opus 4.7)
 category: Plan
 tags: [Tauri-Framework, FastAPI, Sidecar-Process, Rust, SSE, Server-Sent-Events, Integration, Memopop-Native]
 authors:

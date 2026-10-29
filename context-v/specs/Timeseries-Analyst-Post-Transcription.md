@@ -15,8 +15,11 @@ date_modified: 2026-08-24
 tags: [Time-Series, Data-Analyst, Roll-Up, Fiscal-Periods, Provenance, Derivation, MemoPop]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 status: In-Review
+site_uuid: 8d158cec-443d-40d3-bc4f-b3755838510a
+hex_code: vq46ke
 type: Specs
 ---
 

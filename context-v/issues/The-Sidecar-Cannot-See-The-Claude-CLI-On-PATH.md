@@ -15,7 +15,8 @@ date_modified: 2026-09-10
 tags: [LLM-Provider, Claude-Code-CLI, PATH, Tauri, Sidecar, Cost, Dev-Prod-Divergence]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: 07b556d4-b99d-4eaa-9277-763e1ff1a253
 hex_code: 3uo0o6
 status: Resolved

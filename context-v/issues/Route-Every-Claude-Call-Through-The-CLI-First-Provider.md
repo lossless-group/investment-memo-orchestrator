@@ -15,7 +15,8 @@ date_modified: 2026-09-10
 tags: [LLM-Provider, Claude-Code-CLI, Anthropic-API, Cost, Refactor, Billing]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: a322e4c6-d869-428f-9a0a-3b8d45344803
 hex_code: m1xtyl
 status: Resolved

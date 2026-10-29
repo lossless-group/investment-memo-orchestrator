@@ -7,6 +7,8 @@ site_uuid: 424f61cb-f23b-47bb-ac77-6cfbfe73dc4d
 hex_code: rwr0qz
 date_authored_initial_draft: 2026-03-24
 date_authored_current_draft: 2026-03-24
+authors:
+  - Michael Staton
 type: Blueprints
 ---
 

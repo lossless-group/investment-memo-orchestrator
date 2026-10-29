@@ -15,7 +15,8 @@ date_modified: 2025-12-26
 tags: [Architecture, Monorepo, Astro, Svelte, Python, Bun, Vercel, Railway, SuperTokens, Baserow]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.5"
+augmented_with:
+  - "Claude Code with Claude Opus 4.5"
 site_uuid: 485e4841-2426-4410-bf67-3861b6d75648
 hex_code: in3z4q
 type: Specs

@@ -15,7 +15,8 @@ date_modified: 2025-12-05
 tags: [Table-Generator, Agent, Markdown-Tables, Data-Presentation, Enrichment]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: ce58d805-b2f2-4025-84b5-ecf507c08b20
 hex_code: atxd2f
 type: Specs

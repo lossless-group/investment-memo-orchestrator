@@ -15,7 +15,8 @@ date_modified: 2026-09-12
 tags: [Sources, Provenance, Independence, Citations, Codified-Mode, Research-Agent, Trust]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: 3f04e39c-f82f-4643-945d-35c5b5b5d6c4
 hex_code: 3fk0d3
 status: Exploration

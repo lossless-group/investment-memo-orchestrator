@@ -15,7 +15,8 @@ date_modified: 2025-11-16
 tags: [Examples, Investment-Memos, Reference]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 0cb124f1-c57b-4cad-9dec-7ed0a28baa8a
 hex_code: h1dgz6
 type: Blueprints

@@ -15,7 +15,8 @@ date_modified: 2025-12-26
 tags: [Content-Management, SSGs, Frontmatter, Metadata]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.5"
+augmented_with:
+  - "Claude Code with Claude Opus 4.5"
 site_uuid: 33841fb2-e10d-42fc-a3f5-462f39160258
 hex_code: c23cls
 type: Reminders

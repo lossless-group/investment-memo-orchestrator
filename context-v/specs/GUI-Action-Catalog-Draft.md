@@ -15,7 +15,8 @@ date_modified: 2026-04-26
 tags: [GUI, Tauri, CLI, Audit, Action-Catalog]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.7"
+augmented_with:
+  - "Claude Code with Claude Opus 4.7"
 related:
   - context-v/Introducing-a-GUI-Native-Desktop-with-Tauri.md
   - context-v/Transport-Contract-and-API-Conventions.md

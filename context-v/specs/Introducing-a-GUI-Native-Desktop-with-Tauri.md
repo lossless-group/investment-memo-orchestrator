@@ -15,7 +15,8 @@ date_modified: 2026-04-26
 tags: [GUI, Tauri, Svelte, macOS, Desktop-App, Control-Panel]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.7"
+augmented_with:
+  - "Claude Code with Claude Opus 4.7"
 site_uuid: 71808a57-d293-4bd2-8ed9-0ad76f47daf9
 hex_code: 48ifke
 type: Specs

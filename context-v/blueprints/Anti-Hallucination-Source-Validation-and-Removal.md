@@ -15,7 +15,8 @@ date_modified: 2025-12-15
 tags: [Anti-Hallucination, Citation-Validation, Source-Removal, Perplexity, URL-Checking]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: d07399d2-32da-412c-b1f8-49363c77b279
 hex_code: q4zkah
 type: Blueprints

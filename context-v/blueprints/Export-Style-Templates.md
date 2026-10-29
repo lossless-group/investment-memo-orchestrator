@@ -15,7 +15,8 @@ date_modified: 2025-11-17
 tags: [Export, Dark-Mode, Light-Mode, HTML, Branding, CSS]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: cf644904-871f-4a11-9533-b42474ea461c
 hex_code: dzcsxv
 type: Blueprints

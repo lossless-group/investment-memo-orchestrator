@@ -15,7 +15,8 @@ date_modified: 2025-11-21
 tags: [Perplexity, Sonar-Pro, Research-Agent, Citations, Issue-Resolution]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: d228de4a-1eb8-4ddf-b7a6-35628c07b3e9
 hex_code: a56ehz
 type: Issue-Resolution

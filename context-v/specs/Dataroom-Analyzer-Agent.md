@@ -8,7 +8,8 @@ date_first_published:
 date_last_updated: 2025-11-26
 at_semantic_version: 0.0.1
 status: Planning
-augmented_with: Claude Code (Opus 4.5)
+augmented_with:
+  - Claude Code (Opus 4.5)
 category: Architecture
 tags: [Dataroom, Document-Analysis, Multi-Agent, PDF, OCR, Investment-Analysis]
 authors:

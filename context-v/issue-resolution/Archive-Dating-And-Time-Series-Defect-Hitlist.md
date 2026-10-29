@@ -15,9 +15,12 @@ date_modified: 2026-08-24
 tags: [Time-Series, Archive-Rename, Date-Resolution, Company-Timeline, Dataroom-Extraction, Provenance, Issue-Resolution]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 status: Partially-Resolved
 severity: High
+site_uuid: 2d2e8092-b69f-4d29-a6cf-1bf2dc59c5e0
+hex_code: kycoct
 type: Issue-Resolution
 ---
 

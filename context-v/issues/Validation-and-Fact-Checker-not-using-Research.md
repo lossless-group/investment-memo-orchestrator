@@ -15,7 +15,8 @@ date_modified: 2026-09-04
 tags: [Fact-Checker, Validator, Codified-Sources, Research-Grounding, Quality-Gates, Anti-Hallucination, Issue-Resolution]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: a2d586df-2793-4ea1-a7a8-2182913719e7
 hex_code: oyvk7a
 status: Open

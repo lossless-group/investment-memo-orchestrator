@@ -7,8 +7,9 @@ date_authored_final_draft:
 date_first_published:
 date_last_updated: 2025-11-21
 at_semantic_version: 0.2.0
-status: In Progress
-augmented_with: Claude Code (Sonnet 4.5)
+status: In-Progress
+augmented_with:
+  - Claude Code (Sonnet 4.5)
 category: Architecture
 tags: [Refactoring, Outlines, YAML, Agent-Design, Workflow]
 authors:

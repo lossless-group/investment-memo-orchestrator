@@ -15,7 +15,8 @@ date_modified: 2026-09-10
 tags: [Dead-Code, LLM-Provider, Socials-Enrichment, Inventory-Hygiene, Quick-Fix]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: 4f86c19b-6daa-484b-8495-def2dccc9cb8
 hex_code: l1xh2n
 status: Open

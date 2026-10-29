@@ -1,6 +1,6 @@
 ---
 title: Migrate `studies/open-specs-and-standards/` into its own pseudo-monorepo
-status: proposed
+status: Proposed
 date: 2026-05-02
 authors:
   - Michael Staton

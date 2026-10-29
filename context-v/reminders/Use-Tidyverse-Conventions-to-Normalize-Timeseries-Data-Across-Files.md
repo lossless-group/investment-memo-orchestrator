@@ -15,8 +15,11 @@ date_modified: 2026-08-23
 tags: [Tidy-Data, Timeseries, KPI-Extraction, Financials, Cap-Table, Data-Normalization, Reminder]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 status: Active
+site_uuid: 1579c6fa-6189-4517-8ee3-868358296d64
+hex_code: m1edbg
 type: Reminders
 ---
 

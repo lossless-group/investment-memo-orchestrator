@@ -15,7 +15,8 @@ date_modified: 2025-11-28
 tags: [Risk-Assessment, Diligence, LLM-Output, Memo-Quality, Audience-Management]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: a3b62978-14ba-46f4-816f-ae6802ab5a66
 hex_code: tw51ag
 type: Issue-Resolution

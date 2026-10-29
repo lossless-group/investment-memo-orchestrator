@@ -15,7 +15,8 @@ date_modified: 2025-12-25
 tags: [Landing-Page, Marketing, MemoPop, Product, Web-Design]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 5e8e1942-a30a-4b83-87ca-99cbba1c438c
 hex_code: tpa9zj
 type: Plans

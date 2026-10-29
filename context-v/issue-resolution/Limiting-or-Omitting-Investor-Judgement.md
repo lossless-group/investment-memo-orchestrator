@@ -11,7 +11,8 @@ at_semantic_version: 0.0.0.1
 usage_index: 1
 publish: false
 status: Draft
-augmented_with: Claude Code (Opus 4.7)
+augmented_with:
+  - Claude Code (Opus 4.7)
 category: Issue Resolution
 tags:
   - Investor-Judgement

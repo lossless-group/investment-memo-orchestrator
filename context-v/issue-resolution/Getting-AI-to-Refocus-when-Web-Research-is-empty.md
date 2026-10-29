@@ -15,7 +15,8 @@ date_modified: 2025-11-27
 tags: [Justify-Mode, Web-Research, Fallback, Internal-Context, Issue-Resolution]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: cccb2086-4ab7-4b8d-b229-94822b6b6507
 hex_code: cajk6u
 type: Issue-Resolution

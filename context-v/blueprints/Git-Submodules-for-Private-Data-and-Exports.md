@@ -8,7 +8,8 @@ date_first_published:
 date_last_updated: 2025-11-27
 at_semantic_version: 0.1.0
 status: Planning
-augmented_with: Claude Code (Opus 4.5)
+augmented_with:
+  - Claude Code (Opus 4.5)
 category: Infrastructure
 tags: [Git, Submodules, Security, Configuration, Private-Data]
 authors:

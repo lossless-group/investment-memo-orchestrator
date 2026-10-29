@@ -15,8 +15,11 @@ category: Specification
 tags: [Dataroom, Legal-Extraction, Term-Sheet, Cost-Control, Diligence-Checklist, MemoPop]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5 (1M context)"
+augmented_with:
+  - "Claude Code on Claude Opus 5 (1M context)"
 status: Draft
+site_uuid: 2acef77e-5135-498e-a9eb-8ee37e3af8c2
+hex_code: u8cmxf
 type: Specs
 ---
 

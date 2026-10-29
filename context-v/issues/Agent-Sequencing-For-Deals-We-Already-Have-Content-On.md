@@ -15,7 +15,8 @@ date_modified: 2026-09-10
 tags: [Agent-Sequencing, Resume, Caching, Thesis-Frames, Additive-Research, Deck-Analyst, Dataroom]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: 1fe5a7a3-3ed1-44c8-b8cd-c3b6ac6d3a34
 hex_code: nugass
 status: Open

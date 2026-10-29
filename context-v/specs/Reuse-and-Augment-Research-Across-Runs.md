@@ -15,7 +15,8 @@ category: Specification
 tags: [Research-Reuse, Search-Ledger, Change-Detection, Codified-Sources, Thesis-Frame, Pipeline-Cost]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5.5"
+augmented_with:
+  - "Claude Code on Claude Opus 5.5"
 site_uuid: 76e17504-f1b4-42eb-86e5-be08b34cb2e4
 hex_code: 41a8r8
 status: Implementing

@@ -10,7 +10,8 @@ date_last_updated: 2026-06-15
 at_semantic_version: 0.0.0.1
 usage_index: 0
 publish: true
-augmented_with: Claude Code (Opus 4.7)
+augmented_with:
+  - Claude Code (Opus 4.7)
 category: Issue-Resolution
 tags: [Citation-Assembly, Section-Citations, 1-Research, MemoPop, Orchestrator, Pandoc, Export]
 authors:

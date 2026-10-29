@@ -15,8 +15,11 @@ date_modified: 2026-08-24
 tags: [Time-Series, Transcription, KPI-Extraction, Financials, Cap-Table, Company-Timeline, Month-Index, MemoPop]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 status: Partially-Shipped
+site_uuid: c2ea9218-5091-4dc7-9350-e33101e12989
+hex_code: agna1j
 type: Blueprints
 ---
 

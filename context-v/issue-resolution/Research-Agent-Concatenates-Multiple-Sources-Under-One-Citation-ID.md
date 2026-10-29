@@ -10,7 +10,8 @@ date_last_updated: 2026-06-15
 at_semantic_version: 0.0.0.1
 usage_index: 0
 publish: true
-augmented_with: Claude Code (Opus 4.7)
+augmented_with:
+  - Claude Code (Opus 4.7)
 category: Issue-Resolution
 tags: [Research-Agent, Citation-Validation, Source-Harvester, Multi-Agent, Validation-Gap, MemoPop, Orchestrator]
 authors:

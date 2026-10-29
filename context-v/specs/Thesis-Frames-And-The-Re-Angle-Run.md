@@ -15,7 +15,8 @@ date_modified: 2026-09-08
 tags: [Thesis-Frame, Re-Angle, Writer-Agent, Grill-Me, Outline-Contract, Memo-Revision]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: 132ba434-030f-4acf-831b-9ecb6c91bb73
 hex_code: biqllo
 status: Proposed

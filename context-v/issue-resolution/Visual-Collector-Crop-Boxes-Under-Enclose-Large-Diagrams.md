@@ -15,9 +15,12 @@ date_modified: 2026-08-23
 tags: [Slide-Stenographer, Visual-Collectors, Claude-Vision, Bounding-Boxes, Deferred, Issue-Resolution]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 status: Deferred
 severity: Low
+site_uuid: 9c4fe0c7-ee59-4fed-ab20-50bad4408d32
+hex_code: rlf96b
 type: Issue-Resolution
 ---
 

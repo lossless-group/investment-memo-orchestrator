@@ -15,7 +15,8 @@ date_modified: 2026-03-17
 tags: [Context-V, Reorganization, Categories, Frontmatter, Migration]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: bd6a0e0f-0127-41fe-9777-e9b8ff4c97af
 hex_code: irn2rp
 type: Plans

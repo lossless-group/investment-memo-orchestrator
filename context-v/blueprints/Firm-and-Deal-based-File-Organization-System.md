@@ -15,7 +15,8 @@ date_modified: 2025-12-02
 tags: [File-Organization, Firm-Scoping, Git-Submodules, Migration, Path-Resolution]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 5e11f024-07c7-43bc-88f2-aff9605f20cc
 hex_code: gtfu3c
 type: Blueprints

@@ -15,7 +15,8 @@ date_modified: 2025-12-14
 tags: [Perplexity, Hallucination, Citations, URL-Validation, Anti-Hallucination]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: fc077473-0426-4adf-9c47-ae148ef27164
 hex_code: 3cqel9
 type: Issue-Resolution

@@ -15,7 +15,8 @@ date_modified: 2025-12-14
 tags: [Citations, Assembly, Renumbering, Consolidation, Final-Draft]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: ed7fbd73-346e-4180-8206-ed5ec45aba51
 hex_code: sb6l8v
 type: Issue-Resolution

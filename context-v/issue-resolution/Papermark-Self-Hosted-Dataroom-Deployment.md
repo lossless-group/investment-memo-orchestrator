@@ -15,7 +15,8 @@ date_modified: 2025-12-08
 tags: [Papermark, Dataroom, Self-Hosted, Deployment, Document-Sharing, Railway]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 08a9c768-0fbc-4bb3-93ac-400bfbd7d39d
 hex_code: o07wqx
 type: Issue-Resolution

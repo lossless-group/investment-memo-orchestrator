@@ -7,7 +7,8 @@ slug: portfolio-listing-agent-current-portfolio
 at_semantic_version: 0.0.1.0
 authors:
   - Michael Staton
-augmented_with: "Claude Code (Cascade)"
+augmented_with:
+  - "Claude Code (Cascade)"
 site_uuid: aaaa9bcc-0148-4ba8-b68b-8795228e68a2
 lede: "Design notes for the portfolio_listing_agent that builds a Current Portfolio subsection and structured JSON for LP-commit emerging manager fund memos."
 hex_code: tcnb9p

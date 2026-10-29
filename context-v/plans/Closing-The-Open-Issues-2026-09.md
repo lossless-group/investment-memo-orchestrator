@@ -15,7 +15,8 @@ date_modified: 2026-09-08
 tags: [Thesis-Frames, Citations, Fact-Checker, Validator, Sanitizer, Test-Coverage]
 authors:
   - Michael Staton
-augmented_with: "Claude Code on Claude Opus 5"
+augmented_with:
+  - "Claude Code on Claude Opus 5"
 site_uuid: b1d3bc8f-ed03-4cd2-abeb-6b1eeef51987
 hex_code: 1l948w
 status: In-Progress

@@ -15,7 +15,8 @@ date_modified: 2026-03-23
 tags: [Orchestration, Workflow, Pipeline, Citations, TOC, Assembly, Architecture]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: fe4cedc3-8831-4eb1-b3f0-fb4910a99873
 hex_code: pxmxac
 type: Reminders

@@ -15,7 +15,8 @@ date_modified: 2026-03-23
 tags: [Table-of-Contents, Export-Pipeline, Bug-Fix, TOC-Generator, Memo-Assembly]
 authors:
   - Michael Staton
-augmented_with: "Claude Code with Claude Opus 4.6"
+augmented_with:
+  - "Claude Code with Claude Opus 4.6"
 site_uuid: 9d72043f-ea06-4ee3-b9cf-f55ce8d7226d
 hex_code: mdx9nb
 type: Issue-Resolution
