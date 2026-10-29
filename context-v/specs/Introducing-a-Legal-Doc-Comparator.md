@@ -20,6 +20,7 @@ date_modified: 2026-03-10
 publish: false
 site_uuid: 6fe14440-2201-41b0-b08c-efe5e3256cad
 hex_code: gmrov7
+type: Specs
 ---
 
 # Introducing a Legal Doc Comparator

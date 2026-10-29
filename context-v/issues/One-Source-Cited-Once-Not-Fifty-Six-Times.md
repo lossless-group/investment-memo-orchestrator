@@ -20,6 +20,7 @@ site_uuid: ccfae7a8-68bf-4f88-b193-73248ab3c694
 hex_code: zjyqnl
 status: Open
 severity: High
+type: Issues
 ---
 
 # One Source, Cited Once — Not Fifty-Six Times

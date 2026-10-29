@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: 08a9c768-0fbc-4bb3-93ac-400bfbd7d39d
 hex_code: o07wqx
+type: Issue-Resolution
 ---
 
 # Papermark Self-Hosted Dataroom Deployment

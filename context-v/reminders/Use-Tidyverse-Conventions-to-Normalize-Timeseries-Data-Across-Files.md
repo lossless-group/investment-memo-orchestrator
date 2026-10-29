@@ -17,6 +17,7 @@ authors:
   - Michael Staton
 augmented_with: "Claude Code on Claude Opus 5"
 status: Active
+type: Reminders
 ---
 
 # Use Tidyverse Conventions to Normalize Timeseries Data Across Files

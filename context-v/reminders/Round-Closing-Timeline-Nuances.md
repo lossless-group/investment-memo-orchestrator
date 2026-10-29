@@ -26,6 +26,7 @@ summary: >-
   early-stage series that have an outside referent, and gives instinctive risk
   observations a destination that is not the deliverable.
 tags: [Dataroom, Round-Closing, Time-Series, Dates, Provenance, Anomalies, Agent-Discipline, Reminders]
+type: Reminders
 ---
 
 # Round-Closing Timeline Nuances

@@ -20,6 +20,7 @@ site_uuid: 4f86c19b-6daa-484b-8495-def2dccc9cb8
 hex_code: l1xh2n
 status: Open
 severity: Low
+type: Issues
 ---
 
 # Dead ChatAnthropic Import in Socials Enrichment

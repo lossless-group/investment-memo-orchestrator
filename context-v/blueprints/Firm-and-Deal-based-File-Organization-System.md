@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: 5e11f024-07c7-43bc-88f2-aff9605f20cc
 hex_code: gtfu3c
+type: Blueprints
 ---
 
 # Firm and Deal-Based File Organization System

@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.5"
 site_uuid: 485e4841-2426-4410-bf67-3861b6d75648
 hex_code: in3z4q
+type: Specs
 ---
 
 # Vision for Production-Grade MemoPop Monorepo

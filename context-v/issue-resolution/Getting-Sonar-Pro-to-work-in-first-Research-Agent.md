@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: d228de4a-1eb8-4ddf-b7a6-35628c07b3e9
 hex_code: a56ehz
+type: Issue-Resolution
 ---
 
 # Issue Resolution: Getting Sonar Pro to Work in Research Agent with Citations in Original Section Development

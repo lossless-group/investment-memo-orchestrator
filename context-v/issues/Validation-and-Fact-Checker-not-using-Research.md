@@ -20,6 +20,7 @@ site_uuid: a2d586df-2793-4ea1-a7a8-2182913719e7
 hex_code: oyvk7a
 status: Open
 severity: High
+type: Issues
 ---
 
 # Validation and Fact-Checker Not Using Research

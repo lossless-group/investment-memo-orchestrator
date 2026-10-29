@@ -20,6 +20,7 @@ date_modified: 2026-03-10
 publish: false
 site_uuid: 42017cdd-10aa-4f94-8160-056b03a63ecf
 hex_code: qnnr3k
+type: Specs
 ---
 
 # Introducing an Enrich Visualizations Agent

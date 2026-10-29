@@ -20,6 +20,7 @@ site_uuid: 07b556d4-b99d-4eaa-9277-763e1ff1a253
 hex_code: 3uo0o6
 status: Resolved
 severity: High
+type: Issues
 ---
 
 # The Sidecar Cannot See the Claude CLI on PATH

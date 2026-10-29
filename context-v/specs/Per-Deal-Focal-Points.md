@@ -25,6 +25,7 @@ date_modified: 2026-06-08
 publish: false
 site_uuid: 0398605f-c1e8-46d1-9aca-b2e389604c7a
 hex_code: 3olv1o
+type: Specs
 ---
 
 # Per-Deal Focal Points

@@ -20,6 +20,7 @@ date_modified: 2026-03-23
 publish: false
 site_uuid: 79c342b4-32af-444b-a5a4-1f63fd191941
 hex_code: 0otyr5
+type: Specs
 ---
 
 # Introducing a One-Pager Cover Sheet and Export

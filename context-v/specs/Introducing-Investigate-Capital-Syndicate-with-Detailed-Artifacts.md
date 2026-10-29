@@ -20,6 +20,7 @@ date_modified: 2026-03-24
 publish: false
 site_uuid: 4844ace9-ba48-472d-b15e-0107903aa7a2
 hex_code: 1ozdid
+type: Specs
 ---
 
 # Introducing Investigate Capital Syndicate with Detailed Artifacts

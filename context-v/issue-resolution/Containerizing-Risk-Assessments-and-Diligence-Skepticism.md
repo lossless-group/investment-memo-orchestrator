@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: a3b62978-14ba-46f4-816f-ae6802ab5a66
 hex_code: tw51ag
+type: Issue-Resolution
 ---
 
 # Containerizing Risk Assessments and Diligence Skepticism

@@ -18,6 +18,7 @@ date_modified: 2026-05-03
 publish: false
 site_uuid: e4a8281a-2d31-49f7-bbe8-525743c6e801
 hex_code: ippx5y
+type: Plans
 ---
 
 # Plan — Generic competitor analysis enhancement

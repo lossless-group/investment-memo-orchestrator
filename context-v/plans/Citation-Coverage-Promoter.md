@@ -26,6 +26,7 @@ date_created: 2026-05-22
 date_modified: 2026-05-22
 site_uuid: f8855767-6669-4c31-8060-2337c8cd5ea5
 hex_code: 0uwzkf
+type: Plans
 ---
 
 # Plan — Citation Coverage Promoter

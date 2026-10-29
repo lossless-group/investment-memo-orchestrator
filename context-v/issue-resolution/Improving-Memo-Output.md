@@ -20,6 +20,7 @@ date_modified: 2025-11-19
 publish: false
 site_uuid: bedc249f-7faf-4721-872d-8f6d2dda98fe
 hex_code: jm4mko
+type: Issue-Resolution
 ---
 # Improving Memo Output: Section Improvement & Key Information Rewrite
 

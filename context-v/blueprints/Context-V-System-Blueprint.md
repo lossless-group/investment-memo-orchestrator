@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: 217dfa69-99f1-45a7-8a9a-b4ee0bb7fae1
 hex_code: l3e20b
+type: Blueprints
 ---
 
 # Context-V System Blueprint

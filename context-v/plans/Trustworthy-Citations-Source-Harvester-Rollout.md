@@ -30,6 +30,7 @@ date_modified: 2026-05-15
 publish: false
 site_uuid: 8ad3f8ae-9fba-4fec-8208-d22bf6bb7706
 hex_code: b57i3u
+type: Plans
 ---
 
 # Plan — Trustworthy Citations: Source Harvester Rollout

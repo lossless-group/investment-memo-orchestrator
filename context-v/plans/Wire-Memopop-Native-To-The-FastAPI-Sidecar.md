@@ -19,6 +19,7 @@ date_modified: 2026-05-01
 publish: false
 site_uuid: 6334d175-2676-424b-b064-3cc701627fde
 hex_code: qw6utc
+type: Plans
 ---
 
 # Plan — Wire memopop-native to the FastAPI sidecar

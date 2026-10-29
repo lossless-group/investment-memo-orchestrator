@@ -29,6 +29,7 @@ tags:
   - Delegation
   - Operator-Preference
 publish: true
+type: Reminders
 ---
 
 # Long-Running Is Not a Reason to Fan Out

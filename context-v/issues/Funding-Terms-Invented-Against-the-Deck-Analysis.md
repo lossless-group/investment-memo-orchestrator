@@ -28,6 +28,7 @@ tags:
   - Hallucination
   - Fact-Checking
   - Funding-Terms
+type: Issues
 ---
 
 # Funding Terms Invented Against the Deck Analysis

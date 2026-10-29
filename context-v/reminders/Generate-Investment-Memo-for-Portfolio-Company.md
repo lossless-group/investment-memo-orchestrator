@@ -20,6 +20,7 @@ date_modified: 2025-11-16
 publish: false
 site_uuid: a4392ac1-07d4-4c68-ae61-603f804f826f
 hex_code: q2q4ia
+type: Reminders
 ---
 
 # Goal

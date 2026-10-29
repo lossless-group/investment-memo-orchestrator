@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code on Claude Opus 5"
 status: Deferred
 severity: Low
+type: Issue-Resolution
 ---
 
 # Visual Collector Crop Boxes Under-Enclose Large Diagrams

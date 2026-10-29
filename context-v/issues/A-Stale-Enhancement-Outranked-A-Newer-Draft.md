@@ -26,6 +26,7 @@ tags:
   - MemoPop
   - Claude-Connector
   - Compile
+type: Issues
 ---
 
 # A Stale Enhancement Outranked a Newer Draft

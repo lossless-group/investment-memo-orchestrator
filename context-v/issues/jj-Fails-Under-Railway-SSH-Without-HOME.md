@@ -26,6 +26,7 @@ tags:
   - Railway
   - Jujutsu
   - Operator
+type: Issues
 ---
 
 # jj Fails Under railway ssh Without HOME

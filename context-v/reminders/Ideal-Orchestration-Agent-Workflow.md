@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: fe4cedc3-8831-4eb1-b3f0-fb4910a99873
 hex_code: pxmxac
+type: Reminders
 ---
 
 # Ideal Orchestration Agent Workflow

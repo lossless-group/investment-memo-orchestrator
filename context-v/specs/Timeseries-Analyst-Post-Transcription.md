@@ -17,6 +17,7 @@ authors:
   - Michael Staton
 augmented_with: "Claude Code on Claude Opus 5"
 status: In-Review
+type: Specs
 ---
 
 # Time-Series Analyst — Post-Transcription

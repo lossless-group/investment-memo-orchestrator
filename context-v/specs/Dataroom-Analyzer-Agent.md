@@ -20,6 +20,7 @@ date_modified: 2025-11-26
 publish: false
 site_uuid: d81bef7f-e37d-4160-8859-59a9521acac8
 hex_code: dbcr8r
+type: Specs
 ---
 
 # Dataroom Analyzer Agent System Plan

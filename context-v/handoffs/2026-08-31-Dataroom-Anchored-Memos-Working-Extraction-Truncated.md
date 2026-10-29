@@ -23,6 +23,7 @@ tags:
   - Extraction
 site_uuid: d8106209-f3c3-45d5-af92-77679f01a101
 hex_code: t2ww5j
+type: Handoffs
 ---
 
 ## Where things stand

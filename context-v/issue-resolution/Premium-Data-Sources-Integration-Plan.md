@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: eb2c46e0-a4f7-49d7-b009-ee2f697a57da
 hex_code: 6o8a5h
+type: Issue-Resolution
 ---
 
 # Issue Resolution: Premium Data Sources Integration Plan

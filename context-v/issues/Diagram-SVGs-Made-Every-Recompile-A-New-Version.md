@@ -27,6 +27,7 @@ tags:
   - Compile
   - Diagrams
   - Matplotlib
+type: Issues
 ---
 
 # Diagram SVGs Made Every Recompile a New Version

@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.7"
 site_uuid: 71808a57-d293-4bd2-8ed9-0ad76f47daf9
 hex_code: 48ifke
+type: Specs
 ---
 
 # Introducing a GUI Native Desktop with Tauri

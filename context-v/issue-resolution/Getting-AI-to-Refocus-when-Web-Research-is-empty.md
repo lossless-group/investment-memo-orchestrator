@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: cccb2086-4ab7-4b8d-b229-94822b6b6507
 hex_code: cajk6u
+type: Issue-Resolution
 ---
 
 You’re describing exactly the right behavior for mode: "justify": when the web is thin or noisy, do not block, just acknowledge it once and then lean fully on internal context.

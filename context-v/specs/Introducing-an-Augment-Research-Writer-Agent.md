@@ -21,6 +21,7 @@ date_modified: 2026-03-10
 publish: false
 site_uuid: 051d7062-64e2-441c-91f0-67a285fb9604
 hex_code: 08q2k5
+type: Specs
 ---
 
 # Introducing an Augment Research Writer Agent

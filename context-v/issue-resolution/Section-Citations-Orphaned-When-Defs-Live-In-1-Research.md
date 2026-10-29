@@ -22,6 +22,7 @@ date_created: 2026-06-15
 date_modified: 2026-06-15
 site_uuid: 4ad8a5e1-979f-4ae9-a7a8-0dac1d78df95
 hex_code: iev7s2
+type: Issue-Resolution
 ---
 
 # Section Citations Orphaned When Definitions Live in 1-research/

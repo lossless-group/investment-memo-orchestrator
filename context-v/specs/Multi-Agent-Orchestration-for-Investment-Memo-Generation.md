@@ -13,6 +13,7 @@ lede: "An exploration into using AI supervisors and specialized agents to genera
 hex_code: jqdts0
 date_authored_initial_draft: 2025-11-16
 date_authored_current_draft: 2025-11-16
+type: Specs
 ---
 # Multi-Agent Orchestration for Investment Memo Generation
 

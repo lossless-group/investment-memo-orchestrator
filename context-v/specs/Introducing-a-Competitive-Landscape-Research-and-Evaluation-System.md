@@ -20,6 +20,7 @@ date_modified: 2026-03-10
 publish: false
 site_uuid: 399f6859-d51f-42a8-aa80-2f0357de7e16
 hex_code: 3y1z1n
+type: Specs
 ---
 
 # Introducing a Competitive Landscape Research and Evaluation System

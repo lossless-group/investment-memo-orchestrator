@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: 9d9365da-937d-4a98-9d1d-405bcfb1ead5
 hex_code: gl9cju
+type: Issue-Resolution
 ---
 
 # Issue Resolution: Preventing Hallucinations in Memo Generation

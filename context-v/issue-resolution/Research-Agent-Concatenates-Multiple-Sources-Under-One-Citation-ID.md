@@ -20,6 +20,7 @@ date_created: 2026-06-15
 date_modified: 2026-06-15
 site_uuid: 411db066-bece-4da4-b5bf-69db955448e0
 hex_code: arv3uo
+type: Issue-Resolution
 ---
 
 # Research Agent Concatenates Multiple Sources Under One Citation ID — And No Validator Catches It

@@ -20,6 +20,7 @@ date_modified: 2026-03-09
 publish: true
 site_uuid: a7113642-41e8-47c2-845d-90ce9ef74299
 hex_code: 53fkeq
+type: Specs
 ---
 
 # Introducing a Diagram Generator Agent

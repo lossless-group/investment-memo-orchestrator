@@ -27,6 +27,7 @@ date_created: 2026-06-08
 date_modified: 2026-06-08
 site_uuid: 169f9fb1-39cd-40d4-8ec6-2ab39e6c68b5
 hex_code: jk5kvp
+type: Issue-Resolution
 ---
 
 # Limiting or Omitting Investor Judgement

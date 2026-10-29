@@ -23,6 +23,7 @@ tags:
   - MemoPop
   - Providers
   - LLM-Integration
+type: Prompts
 ---
 
 # Integrate an AI Provider

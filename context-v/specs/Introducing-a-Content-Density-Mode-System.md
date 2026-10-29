@@ -20,6 +20,7 @@ date_modified: 2026-03-10
 publish: true
 site_uuid: c5394691-11a7-451f-9c32-bcb0f6d0daff
 hex_code: orx2l1
+type: Specs
 ---
 
 # Introducing a Content Density Mode System

@@ -17,6 +17,7 @@ authors:
   - Michael Staton
 augmented_with: "Claude Code on Claude Opus 5"
 status: Partially-Shipped
+type: Blueprints
 ---
 
 # Company Timeline and Month-Indexed Time Series

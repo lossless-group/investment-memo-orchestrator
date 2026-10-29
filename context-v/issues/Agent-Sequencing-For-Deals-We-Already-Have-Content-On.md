@@ -20,6 +20,7 @@ site_uuid: 1fe5a7a3-3ed1-44c8-b8cd-c3b6ac6d3a34
 hex_code: nugass
 status: Open
 severity: High
+type: Issues
 ---
 
 # Agent Sequencing for Deals We Already Have Content On

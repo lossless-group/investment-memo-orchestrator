@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: cd365d88-61e4-4e2d-b029-6651cb01fcc5
 hex_code: hx2mih
+type: Issue-Resolution
 ---
 
 # Resume Workflow After Interruption

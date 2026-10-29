@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: cf644904-871f-4a11-9533-b42474ea461c
 hex_code: dzcsxv
+type: Blueprints
 ---
 
 # Dark Mode Export Guide

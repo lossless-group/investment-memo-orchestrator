@@ -26,6 +26,7 @@ tags:
   - MemoPop
   - Claude-Connector
   - Revisions
+type: Issues
 ---
 
 # A Finished Memo Could Not Be Revised

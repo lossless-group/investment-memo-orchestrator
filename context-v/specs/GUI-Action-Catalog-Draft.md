@@ -21,6 +21,7 @@ related:
   - context-v/Transport-Contract-and-API-Conventions.md
 site_uuid: 98427bc1-ab1d-4d32-889a-fbb66557fd83
 hex_code: 4nhenj
+type: Specs
 ---
 
 # GUI Action Catalog — Draft v1

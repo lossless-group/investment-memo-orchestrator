@@ -13,6 +13,7 @@ lede: "Design notes for the portfolio_listing_agent that builds a Current Portfo
 hex_code: tcnb9p
 date_authored_initial_draft: 2025-11-27
 date_authored_current_draft: 2025-11-27
+type: Specs
 ---
 
 # Portfolio Listing Agent and Current Portfolio Section

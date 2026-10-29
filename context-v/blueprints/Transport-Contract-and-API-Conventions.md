@@ -21,6 +21,7 @@ related:
   - context-v/GUI-Action-Catalog-Draft.md
 site_uuid: 1f04c6ff-dd45-42e1-a92b-a5cf12890fe5
 hex_code: tqgrvk
+type: Blueprints
 ---
 
 # Transport Contract and API Conventions

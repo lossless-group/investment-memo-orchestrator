@@ -28,6 +28,7 @@ date_created: 2026-06-08
 date_modified: 2026-06-08
 site_uuid: bb661e4d-ad8b-4123-8d4c-85807a666007
 hex_code: zuudu4
+type: Issue-Resolution
 ---
 
 # Including Comparable Exits, Valuations, and IPOs

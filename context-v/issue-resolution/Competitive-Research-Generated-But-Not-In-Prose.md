@@ -27,6 +27,7 @@ date_created: 2026-06-08
 date_modified: 2026-06-08
 site_uuid: a8b13e12-3246-42b9-8aff-d0a5e1af4de4
 hex_code: y6cirb
+type: Issue-Resolution
 ---
 
 # Competitive Research Generated But Not In Prose

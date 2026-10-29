@@ -20,6 +20,7 @@ site_uuid: a322e4c6-d869-428f-9a0a-3b8d45344803
 hex_code: m1xtyl
 status: Resolved
 severity: High
+type: Issues
 ---
 
 # Route Every Claude Call Through the CLI-First Provider

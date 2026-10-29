@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code on Claude Opus 5"
 status: Partially-Resolved
 severity: High
+type: Issue-Resolution
 ---
 
 # Archive Dating and Time-Series Defect Hitlist

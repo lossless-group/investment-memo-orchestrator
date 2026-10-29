@@ -27,6 +27,7 @@ summary: >
   net-new sources, the per-run reuse report, and the operator overrides. Builds on
   the open issue Agent-Sequencing-For-Deals-We-Already-Have-Content-On; `--from
   <stage>` remains that issue's job and is deferred here.
+type: Specs
 ---
 
 # Reuse and Augment Research Across Runs

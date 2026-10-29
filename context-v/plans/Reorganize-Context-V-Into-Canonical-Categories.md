@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: bd6a0e0f-0127-41fe-9777-e9b8ff4c97af
 hex_code: irn2rp
+type: Plans
 ---
 
 # Reorganize Context-V Into Canonical Categories

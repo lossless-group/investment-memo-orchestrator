@@ -20,6 +20,7 @@ date_modified: 2026-03-24
 publish: false
 site_uuid: b54331ed-79e5-4a0a-894f-38a34703e431
 hex_code: oj3vw7
+type: Specs
 ---
 
 # Interactive Terminal Application — Easy Interface for Casual Users

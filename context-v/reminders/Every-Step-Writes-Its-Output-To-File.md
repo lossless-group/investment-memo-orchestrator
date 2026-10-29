@@ -24,6 +24,7 @@ summary: >-
   why the versioning system exists and why no run output ever belongs in a
   scratch or temp directory.
 tags: [Orchestrator, Artifacts, Versioning, Resumability, Run-Discipline, Reminders]
+type: Reminders
 ---
 
 # Every Step Writes Its Output To File

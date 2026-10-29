@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: fc077473-0426-4adf-9c47-ae148ef27164
 hex_code: 3cqel9
+type: Issue-Resolution
 ---
 
 # Faked Sources from Perplexity

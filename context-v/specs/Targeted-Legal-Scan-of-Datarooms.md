@@ -17,6 +17,7 @@ authors:
   - Michael Staton
 augmented_with: "Claude Code on Claude Opus 5 (1M context)"
 status: Draft
+type: Specs
 ---
 
 # Targeted Legal Scan of Datarooms

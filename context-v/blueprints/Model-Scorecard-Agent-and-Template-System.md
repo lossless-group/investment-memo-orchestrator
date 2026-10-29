@@ -20,6 +20,7 @@ date_modified: 2025-11-27
 publish: false
 site_uuid: c83c4cf3-70ca-445c-98c7-bc6103d8f2b2
 hex_code: zk02fp
+type: Blueprints
 ---
 
 # Model Scorecard Agent and Template System

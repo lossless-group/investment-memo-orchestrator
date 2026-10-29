@@ -18,6 +18,7 @@ date_modified: 2026-05-03
 publish: false
 site_uuid: 866014a3-84f7-4c46-b071-44afb015048c
 hex_code: ucntf5
+type: Plans
 ---
 
 # Plan — Generic scorecard generation

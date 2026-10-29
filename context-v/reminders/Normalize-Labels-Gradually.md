@@ -27,6 +27,7 @@ summary: >-
   side effect of a run: a model is equally confident that Top Line means Revenue
   and that Bookings does, and only one of those is true.
 tags: [Time-Series, Metrics, Labels, Normalization, Taxonomy, Collection-Layer, Agent-Discipline, Reminders]
+type: Reminders
 ---
 
 # Normalize Labels Gradually

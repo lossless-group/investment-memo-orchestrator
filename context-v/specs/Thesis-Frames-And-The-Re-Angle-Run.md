@@ -20,6 +20,7 @@ site_uuid: 132ba434-030f-4acf-831b-9ecb6c91bb73
 hex_code: biqllo
 status: Proposed
 severity: Medium
+type: Specs
 ---
 
 # Thesis Frames and the Re-Angle Run

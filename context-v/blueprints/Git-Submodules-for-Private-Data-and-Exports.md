@@ -20,6 +20,7 @@ date_modified: 2025-11-27
 publish: false
 site_uuid: 8fb0e1eb-b3f1-4aec-b7a9-03f758c4e73f
 hex_code: 8uz4w8
+type: Blueprints
 ---
 
 # Git Submodules for Private Data and Exports

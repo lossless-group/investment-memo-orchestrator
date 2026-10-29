@@ -18,6 +18,7 @@ authors:
 augmented_with: "Claude Code with Claude Opus 4.6"
 site_uuid: 9d72043f-ea06-4ee3-b9cf-f55ce8d7226d
 hex_code: mdx9nb
+type: Issue-Resolution
 ---
 
 # Duplicate Table of Contents Generation

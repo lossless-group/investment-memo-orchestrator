@@ -20,6 +20,7 @@ date_modified: 2025-11-21
 publish: false
 site_uuid: eee66139-7518-4db8-9515-cc3ff05cf0d4
 hex_code: b4iocm
+type: Reminders
 ---
 
 # Format Memo According to Outline Input
