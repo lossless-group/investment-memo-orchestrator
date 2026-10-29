@@ -127,7 +127,7 @@ none MISSING, before any implementation.
    `/docs`, `/docs/errors`, `/docs/changelog`, all from the registry. Plain
    server-rendered HTML for `/docs`; no frontend build.
 
-Re-read `context-v/Transport-Contract-and-API-Conventions.md` before naming
+Re-read `context-v/blueprints/Transport-Contract-and-API-Conventions.md` before naming
 anything; follow it where it doesn't conflict with the spec.
 
 ## Rules

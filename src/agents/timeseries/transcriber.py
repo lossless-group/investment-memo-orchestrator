@@ -18,7 +18,7 @@ and doing any of them here would make an inference indistinguishable from a
 source's own claim.
 
 The rules it enforces live in
-``context-v/Use-Tidyverse-Conventions-to-Normalize-Timeseries-Data-Across-Files.md``.
+``context-v/reminders/Use-Tidyverse-Conventions-to-Normalize-Timeseries-Data-Across-Files.md``.
 """
 
 from __future__ import annotations

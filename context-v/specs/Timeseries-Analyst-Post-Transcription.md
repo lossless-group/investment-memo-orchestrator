@@ -60,7 +60,7 @@ Everything under `_source-transcriptions/<Company>/`:
   metric labels that appear in some files and not others.
 
 The column contract is specified in
-`context-v/specs/Company-Timeline-And-Month-Indexed-Time-Series.md` v0.0.0.2.
+`context-v/blueprints/Company-Timeline-And-Month-Indexed-Time-Series.md` v0.0.0.2.
 Two properties matter here:
 
 1. **Counts and date parts are zero-padded strings.** `month_count` is `"01"`,
@@ -269,7 +269,7 @@ compute, which is the behaviour this spec is mostly about. A run with a long
 
 ## Related
 
-- `context-v/specs/Company-Timeline-And-Month-Indexed-Time-Series.md` — the transcription contract this reads
+- `context-v/blueprints/Company-Timeline-And-Month-Indexed-Time-Series.md` — the transcription contract this reads
 - `context-v/reminders/Normalize-Labels-Gradually.md` — the label registry, and who is allowed to author it
 - `context-v/reminders/Round-Closing-Timeline-Nuances.md` — why the choice of stated date is a judgment, and the `anomalies.json` pressure valve
 - `context-v/issue-resolution/Archive-Dating-And-Time-Series-Defect-Hitlist.md` — T3, withdrawn from the transcriber and landing here

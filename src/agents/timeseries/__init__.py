@@ -14,7 +14,7 @@ and reconciliation belong to the data-analyst agent, which reads these files and
 writes elsewhere.
 
 The conventions are stated in
-``context-v/Use-Tidyverse-Conventions-to-Normalize-Timeseries-Data-Across-Files.md``.
+``context-v/reminders/Use-Tidyverse-Conventions-to-Normalize-Timeseries-Data-Across-Files.md``.
 """
 
 from .periods import Period, parse_period, parse_period_series, infer_day_first
