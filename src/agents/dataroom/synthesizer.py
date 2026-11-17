@@ -470,7 +470,7 @@ def _calculate_founder_ownership(cap_table: CapTableData) -> Optional[float]:
     founder_pct = sum(
         s.get("ownership_percentage", 0)
         for s in shareholders
-        if s.get("investor_type", "").lower() == "founder"
+        if (s.get("investor_type") or "").lower() == "founder"
     )
 
     return founder_pct if founder_pct > 0 else None

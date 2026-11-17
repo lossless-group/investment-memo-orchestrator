@@ -194,9 +194,10 @@ Every executable under `cli/`, `cli/utils/`, and `src/cli/`. Purpose is each fil
 | `cli/evaluate_memo.py` | `company_or_path` · `--version`, `--output`, `--brief` | Standalone memo evaluation tool. |
 | `cli/export-all-html.sh` | — | Export all highest-version memos to HTML with citations |
 | `cli/export-all-modes.sh` | — | Export all investment memos in both light and dark modes |
-| `cli/export_branded.py` | `input` · `--firm`, `--deal`, `--version`, `-o`, `--brand`, `--pdf`, `--all`, `--mode` | Branded Memo Exporter - Multi-Brand Support |
+| `cli/export_branded.py` | `input` · `--firm`, `--deal`, `--version`, `-o`, `--brand`, `--pdf`, `--all`, `--theme`, `--mode` | Branded Memo Exporter - Multi-Brand Support |
 | `cli/export_formats.py` | `input` · `-o`, `--format` | Multi-format memo exporter that preserves citations. |
 | `cli/export_web.py` | `input` · `--brand`, `--firm`, `--mode`, `--output` | Export a memo as a WEBPAGE — distinct from the document/PDF export. |
+| `cli/extract_financials.py` | `target` · `--firm`, `--deal`, `--version`, `--no-backup` | Re-run only the financial extractor against a finished dataroom analysis. |
 | `cli/extract_team_roster.py` | `--url`, `--name`, `--description`, `--from-memo`, `--output-dir`, `--refresh`, `--no-enrich`, `--allow-linkedin-photo`, `--dry-run` | Extract a structured TeamRoster from any organization URL. |
 | `cli/generate_diagrams.py` | `target` · `--version`, `--firm`, `--tam`, `--sam`, `--som`, `--dry-run` | Diagram Generator CLI Tool. |
 | `cli/generate_one_pager.py` | `company_or_path` · `--version`, `--firm`, `--brand`, `--mode`, `--dry-run` | One-Pager Generator CLI Tool. |
@@ -217,6 +218,7 @@ Every executable under `cli/`, `cli/utils/`, and `src/cli/`. Purpose is each fil
 | `cli/rewrite_key_info.py` | `--corrections`, `--preview`, `--output-mode`, `--source-version`, `--source-path` | Correct crucial information in investment memos using YAML correction files. |
 | `cli/sanitize_commentary.py` | `company_or_path` · `--firm`, `--deal`, `--version`, `--preview`, `--reassemble`, `--no-reassemble` | Sanitize Commentary CLI |
 | `cli/score_memo.py` | `company` · `--firm`, `--deal`, `--version`, `--scorecard`, `--output`, `--model` | CLI tool for scoring an existing memo against a scorecard. |
+| `cli/themed_export.py` | — | Themed memo export: a firm's design system as a self-contained theme folder. |
 | `cli/triage_sources.py` | `--firm`, `--deal`, `--version`, `--apply`, `--sources-file`, `--workers` | Triage a deal's curated source set before an analyst reviews it. |
 
 ### `cli/utils/`

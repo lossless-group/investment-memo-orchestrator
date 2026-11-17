@@ -154,22 +154,24 @@ def extract_from_pdf(file_path: Path, use_llm: bool = True) -> Optional[Dict[str
 
     try:
         with pdfplumber.open(file_path) as pdf:
-            all_tables = []
-            all_text = []
-
+            pages = []
             for page in pdf.pages:
-                tables = page.extract_tables()
-                all_tables.extend(tables)
-
-                text = page.extract_text()
-                if text:
-                    all_text.append(text)
-
-            full_text = "\n".join(all_text)
+                pages.append({
+                    "number": page.page_number,
+                    "text": page.extract_text() or "",
+                    "tables": page.extract_tables(),
+                })
 
             if use_llm:
-                return _extract_financials_with_llm(file_path.name, full_text, all_tables)
+                # An audited statement front-loads prose (directors' statement,
+                # auditor's report) and back-loads the numbers, so a prefix of
+                # the text is the worst slice to send. Pick pages by signal.
+                # See context-v/issues/Financial-Extractor-Reads-Only-The-Cover-Pages.md
+                content, tables = _select_financial_pages(pages)
+                return _extract_financials_with_llm(file_path.name, content, tables)
             else:
+                all_tables = [t for p in pages for t in p["tables"]]
+                full_text = "\n".join(p["text"] for p in pages if p["text"])
                 return _extract_financials_rules(all_tables, full_text)
 
     except Exception as e:
@@ -318,6 +320,94 @@ def _extract_row_values(row: "pd.Series", periods: List[str]) -> Dict[str, float
     return values
 
 
+# Characters of page text sent to the model per document. Sized to hold the
+# primary statements plus the notes that matter (borrowings, going concern,
+# subsequent events) for a 30-60 page audited statement.
+FINANCIAL_CONTENT_BUDGET = 40000
+
+# Phrases that mark a page as carrying figures the extraction schema asks for.
+# Headings of the primary statements weigh most; notes that change the reading
+# of the balance sheet weigh next.
+_PAGE_SIGNALS = {
+    "statement of financial position": 12,
+    "balance sheet": 12,
+    "statement of profit or loss": 12,
+    "statement of comprehensive income": 12,
+    "income statement": 12,
+    "statement of cash flows": 12,
+    "cash flow statement": 12,
+    "statement of changes in equity": 8,
+    "profit and loss": 8,
+    "total assets": 6,
+    "total liabilities": 6,
+    "net cash": 6,
+    "cash and cash equivalents": 6,
+    "loss for the year": 6,
+    "revenue": 4,
+    "borrowings": 5,
+    "convertible": 5,
+    "loan": 3,
+    "going concern": 5,
+    "subsequent event": 5,
+    "events after the reporting": 5,
+    "employee benefits": 2,
+    "headcount": 3,
+    "burn": 4,
+    "runway": 4,
+    "forecast": 3,
+    "projection": 3,
+}
+
+_FIGURE = re.compile(r"\(?\d{1,3}(?:,\d{3})+\)?")
+
+
+def _score_financial_page(text: str) -> float:
+    """How much of the extraction schema a page is likely to answer."""
+    lower = text.lower()
+    score = sum(weight for phrase, weight in _PAGE_SIGNALS.items() if phrase in lower)
+    # Statements are tables of comma-grouped figures; prose pages are not.
+    figures = len(_FIGURE.findall(text))
+    return score + min(figures, 60) / 4
+
+
+def _select_financial_pages(
+    pages: List[Dict[str, Any]],
+    budget: int = FINANCIAL_CONTENT_BUDGET,
+) -> "tuple[str, List[List[List[str]]]]":
+    """
+    Choose which pages of a PDF to send for financial extraction.
+
+    Keeps the first page (entity and period), then the highest-scoring pages
+    until the character budget is spent, and returns them in document order,
+    each labelled with its page number. Tables come from the chosen pages only.
+    A document that fits the budget is sent whole.
+    """
+    with_text = [p for p in pages if p["text"].strip()]
+    if sum(len(p["text"]) for p in with_text) <= budget:
+        chosen = with_text
+    else:
+        chosen_numbers = set()
+        used = 0
+        if with_text:
+            first = with_text[0]
+            chosen_numbers.add(first["number"])
+            used += len(first["text"])
+        ranked = sorted(with_text[1:], key=lambda p: _score_financial_page(p["text"]),
+                        reverse=True)
+        for page in ranked:
+            if _score_financial_page(page["text"]) <= 0:
+                break
+            if used + len(page["text"]) > budget:
+                continue
+            chosen_numbers.add(page["number"])
+            used += len(page["text"])
+        chosen = [p for p in with_text if p["number"] in chosen_numbers]
+
+    content = "\n\n".join(f"--- Page {p['number']} ---\n{p['text']}" for p in chosen)
+    tables = [t for p in chosen for t in p["tables"]]
+    return content, tables
+
+
 def _extract_financials_rules(
     tables: List[List[List[str]]],
     text: str
@@ -366,21 +456,23 @@ def _extract_financials_with_llm(
         Dict with extracted financial data
     """
 
-    # Format tables if present
+    # Format tables if present. PDF callers have already narrowed these to the
+    # pages that carry figures, so the cap is a payload guard, not a selector.
     tables_text = ""
-    for i, table in enumerate(tables[:3]):
+    for i, table in enumerate(tables[:12]):
         if table:
             tables_text += f"\n--- Table {i+1} ---\n"
-            for row in table[:30]:
+            for row in table[:40]:
                 tables_text += " | ".join(str(cell or "") for cell in row) + "\n"
 
-    # Truncate content if too long
-    content_truncated = content[:8000] if len(content) > 8000 else content
+    # PDF content arrives pre-selected within FINANCIAL_CONTENT_BUDGET; this only
+    # bounds other callers (CSV/Excel renderings).
+    content_truncated = content[:FINANCIAL_CONTENT_BUDGET]
 
     prompt = f"""Extract financial data from this document. Return a JSON object with the following structure:
 
 {{
-    "currency": "USD",
+    "currency": "the ISO code the document reports in, e.g. USD or SGD",
     "time_unit": "annual" or "monthly" or "quarterly",
     "is_projection": true/false,
 
@@ -417,7 +509,10 @@ def _extract_financials_with_llm(
 }}
 
 IMPORTANT:
-- All monetary values should be in dollars (not thousands or millions)
+- Report values in the document's own currency and say which in "currency"; do not convert
+- All monetary values should be in whole units (not thousands or millions)
+- The content may be selected pages of a longer document, each marked "--- Page N ---"; a gap in page numbers is not missing data
+- In audited statements, also capture shareholder loans, convertible notes, SAFEs, going-concern doubts and events after the reporting period in "notes"
 - Convert K to *1000, M to *1000000
 - Use negative numbers for losses/expenses
 - If a metric is not present, omit it entirely (don't use null)
@@ -438,7 +533,7 @@ Return ONLY the JSON object, no other text."""
 
             prompt,
 
-            max_tokens=3000,
+            max_tokens=4000,
 
             model="claude-sonnet-4-5-20250929",
 
@@ -466,6 +561,26 @@ Return ONLY the JSON object, no other text."""
         return None
 
 
+_SERIES_KEYS = ("revenue", "arr", "mrr", "gross_margin_pct", "operating_expenses",
+                "net_income", "ebitda", "headcount")
+
+
+def _latest_period(extraction: Dict[str, Any]) -> int:
+    """The latest year an extraction reports, for ordering documents by recency."""
+    years = []
+    for key in _SERIES_KEYS:
+        if isinstance(extraction.get(key), dict):
+            for period in extraction[key]:
+                match = re.search(r"(?:19|20)\d{2}", str(period))
+                if match:
+                    years.append(int(match.group()))
+    if not years:
+        match = re.search(r"(?:19|20)\d{2}", extraction.get("source_file", ""))
+        if match:
+            years.append(int(match.group()))
+    return max(years, default=0)
+
+
 def _merge_financial_extractions(extractions: List[Dict[str, Any]]) -> FinancialData:
     """
     Merge multiple financial extractions into a single FinancialData.
@@ -482,8 +597,19 @@ def _merge_financial_extractions(extractions: List[Dict[str, Any]]) -> Financial
                    "model" in e.get("source_file", "").lower()]
     actuals = [e for e in extractions if e not in projections]
 
-    # Use actuals as base, add projections
-    base = actuals[0] if actuals else projections[0] if projections else {}
+    # Oldest first, so the latest document is the base for point-in-time
+    # figures (cash, burn, balance sheet) and wins any period two documents
+    # share. Taking actuals[0] kept whichever file sorted first in the folder.
+    actuals.sort(key=_latest_period)
+    base = actuals[-1] if actuals else projections[0] if projections else {}
+
+    series = {}
+    for key in _SERIES_KEYS:
+        merged = {}
+        for ext in actuals or projections:
+            if isinstance(ext.get(key), dict):
+                merged.update(ext[key])
+        series[key] = merged or None
 
     notes = []
 
@@ -491,6 +617,11 @@ def _merge_financial_extractions(extractions: List[Dict[str, Any]]) -> Financial
     for ext in extractions:
         source = ext.get("source_file", "unknown")
         notes.append(f"Source: {source}")
+    for ext in actuals + projections:
+        if ext is base:
+            continue
+        source = ext.get("source_file", "unknown")
+        notes.extend(f"[{source}] {n}" for n in ext.get("notes", []))
 
     # Build projection data separately
     projection_data = {}
@@ -507,13 +638,13 @@ def _merge_financial_extractions(extractions: List[Dict[str, Any]]) -> Financial
         "extraction_date": datetime.now().isoformat(),
 
         # Income Statement
-        "revenue": base.get("revenue"),
-        "arr": base.get("arr"),
-        "mrr": base.get("mrr"),
-        "gross_margin": base.get("gross_margin_pct"),
-        "operating_expenses": base.get("operating_expenses"),
-        "net_income": base.get("net_income"),
-        "ebitda": base.get("ebitda"),
+        "revenue": series["revenue"],
+        "arr": series["arr"],
+        "mrr": series["mrr"],
+        "gross_margin": series["gross_margin_pct"],
+        "operating_expenses": series["operating_expenses"],
+        "net_income": series["net_income"],
+        "ebitda": series["ebitda"],
 
         # Balance Sheet
         "cash": base.get("cash_position"),
@@ -532,7 +663,7 @@ def _merge_financial_extractions(extractions: List[Dict[str, Any]]) -> Financial
         "projection_assumptions": base.get("assumptions", []),
 
         # Headcount
-        "headcount": base.get("headcount"),
+        "headcount": series["headcount"],
         "headcount_by_department": base.get("headcount_by_dept"),
 
         # Metadata

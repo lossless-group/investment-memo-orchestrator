@@ -1644,6 +1644,11 @@ def _analysis_from_artifacts(cand, dataroom_path: str):
             analysis[key] = _json.loads(path.read_text())
         except (OSError, ValueError):
             continue
+    # 5b-legal-terms.json is written as {documents, reconciled}; consumers want the list.
+    legal = analysis.get("legal_docs")
+    if isinstance(legal, dict):
+        analysis["legal_docs"] = legal.get("documents") or []
+        analysis.setdefault("legal_summary", legal.get("reconciled"))
     return analysis
 
 

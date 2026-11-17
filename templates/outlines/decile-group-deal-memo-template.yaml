@@ -821,7 +821,7 @@ sections:
           rationale_focus: "Flags are manageable but warrant deeper diligence"
           required_elements:
             - "What is compelling despite flags"
-            - "Specific diligence items to resolve flags"
+            - "The flags still open, stated as facts (never as questions; questions for management go to the deal's due diligence questionnaire, not the memo)"
             - "Timeline for decision"
 
         commit:

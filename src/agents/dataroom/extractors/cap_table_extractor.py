@@ -541,8 +541,8 @@ def _classify_table_type(extraction: Dict[str, Any]) -> tuple[str, str]:
 
     # Check if any shareholders have preferred/series shares (priced round completed)
     has_priced_round = any(
-        sh.get("share_class", "").lower() not in ("common", "common (cs)", "")
-        and "series" in sh.get("share_class", "").lower()
+        (sh.get("share_class") or "").lower() not in ("common", "common (cs)", "")
+        and "series" in (sh.get("share_class") or "").lower()
         for sh in shareholders
     )
 
@@ -560,7 +560,7 @@ def _classify_table_type(extraction: Dict[str, Any]) -> tuple[str, str]:
     # Only common stock, no convertibles
     if shareholders:
         founder_only = all(
-            sh.get("investor_type", "").lower() in ("founder", "employee", "option pool")
+            (sh.get("investor_type") or "").lower() in ("founder", "employee", "option pool")
             for sh in shareholders
         )
         if founder_only:

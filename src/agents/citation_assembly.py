@@ -23,6 +23,7 @@ import sys
 from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 from collections import OrderedDict
+from urllib.parse import unquote
 
 from ..state import MemoState
 from ..utils import get_latest_output_dir
@@ -209,14 +210,20 @@ def format_citation_block(citations: Dict[str, str], ordered_nums: List[str]) ->
     return '\n'.join(lines)
 
 
-_DEFINITION_URL = re.compile(r'\]\((https?://[^)\s]+)\)')
+_DEFINITION_URL = re.compile(r'\]\(((?:https?|file)://[^)\s]+)\)')
 
 
 def _source_identity(definition: str) -> str:
-    """What makes two definitions the same source: the URL, else the text."""
+    """What makes two definitions the same source: the link, else the text.
+
+    Dataroom sources are file:// links, and the same document is often described
+    with different publisher text from one section to the next, so the link (not
+    the text) has to be the identity. Percent-encoding is decoded so an encoded
+    and an unencoded link to one document match.
+    """
     match = _DEFINITION_URL.search(definition)
     if match:
-        return match.group(1).rstrip('/').lower()
+        return unquote(match.group(1)).rstrip('/').lower()
     return ' '.join(definition.split()).lower()
 
 
@@ -266,6 +273,55 @@ def consolidate_citations(texts: List[str]) -> Tuple[List[str], str, Dict[str, A
     block = format_citation_block(definition_of, ordered) if ordered else ""
     stats = {"sources": len(ordered), "cited": len(number_of), "missing": missing}
     return bodies, block, stats
+
+
+_DEFINITION_LINE = re.compile(r'^\[\^([a-zA-Z0-9_-]+)\]: (.*)$', re.MULTILINE)
+
+
+def merge_duplicate_definitions(markdown: str) -> Tuple[str, int]:
+    """Give each source exactly one definition in an assembled memo.
+
+    The last pass before a final draft is written, whatever path assembled it.
+    Definitions with the same _source_identity() are merged into the first;
+    inline citations are pointed at it, and all citations are renumbered 1..N
+    by first inline appearance, with the definitions rewritten in that order
+    where the first definition stood.
+
+    Returns:
+        (markdown, merged): merged is the number of duplicate definitions removed.
+    """
+    lines = _DEFINITION_LINE.findall(markdown)
+    if not lines:
+        return markdown, 0
+    definitions = dict(lines)
+    keeper_of: Dict[str, str] = {}
+    first_key: Dict[str, str] = {}
+    for key, definition in lines:
+        identity = _source_identity(definition)
+        first_key.setdefault(identity, key)
+        keeper_of[key] = first_key[identity]
+    merged = sum(1 for key, keeper in keeper_of.items() if key != keeper)
+
+    first_definition = _DEFINITION_LINE.search(markdown).start()
+    body = re.sub(r'^\[\^[a-zA-Z0-9_-]+\]: .*\n?(?:[ \t]*\n)*', '', markdown, flags=re.MULTILINE)
+    body = renumber_inline_citations(body, {k: v for k, v in keeper_of.items() if k != v})
+
+    order: List[str] = []
+    for key in extract_inline_citations(body):
+        if key not in order and key in definitions:
+            order.append(key)
+    new_number = {key: str(i) for i, key in enumerate(order, 1)}
+    body = renumber_inline_citations(body, new_number)
+
+    block = '\n'.join(f'[^{new_number[key]}]: {definitions[key]}\n' for key in order)
+    # The definitions were removed from the body, so map the original offset
+    # of the first one to the same point in the rewritten text.
+    prefix = renumber_inline_citations(
+        renumber_inline_citations(markdown[:first_definition], {k: v for k, v in keeper_of.items() if k != v}),
+        new_number,
+    )
+    insert_at = len(prefix) if body.startswith(prefix) else len(body)
+    return body[:insert_at] + block + '\n' + body[insert_at:], merged
 
 
 def build_background_sources_block(state, cited_urls: set) -> str:
@@ -617,8 +673,10 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
     except Exception as exc:  # noqa: BLE001 - never break assembly over this
         print(f"  \u26a0\ufe0f  Background Sources block skipped: {exc}")
 
-    # Write final draft
-    final_content = '\n\n'.join(final_parts)
+    # Write final draft, with one definition per source
+    final_content, merged = merge_duplicate_definitions('\n\n'.join(final_parts))
+    if merged:
+        print(f"  ✓ Merged {merged} duplicate citation definition(s)")
 
     # Use canonical final draft path from final_draft module
     from ..final_draft import get_final_draft_path
