@@ -36,6 +36,17 @@ On 2026-11-20 a partner of the first firm on the hosted connector added `https:/
 4. **No way to see who you're signed in as.** No tool reports the firm and account in use. With a firm parameter on every call, people on more than one firm will need one, e.g. a `whoami` tool.
 5. **A step gets no inputs.** A research step on an imported deal had an empty inputs list, even though the deal came from the local pipeline with earlier research and a materials brief. Imported material isn't reaching the steps.
 
+## How the method reaches Claude without the plugin
+
+Asked directly, Claude in the app reported:
+
+- **No MemoPop skill is loaded.** The plugin's `memopop` skill isn't installed for partners who add the connector by URL.
+- **The method arrives as the server's own instructions** after the first MemoPop call: always call `next_step` and do only what it says; show every research file and wait for approval; mention a skipped step in one line and continue; stop on a `down` error; to change a drafted or compiled memo, agree the change, call `start_revision`, follow `next_step`, then compile.
+- **The tools start out deferred.** Claude has to find them through tool search before calling them, and only goes looking when the request clearly points at MemoPop. A partner who says "fix the citation in the market section of the X memo" without naming MemoPop may never reach the tools.
+- **`next_step` works as designed:** a full instruction, an output contract with checks, `needs_partner`, and progress. The empty `inputs` is item 5 above.
+
+So the gap is the start of a conversation. The fix is a short skill partners install, with a description that triggers on editing a memo (a memo, a deal memo, an IC memo, a section, a citation, the firm's outline, the investor area), not only on writing one, plus server instructions that lead with the revision path, since iterating finished memos is the current scope.
+
 ## The bigger problem: the server's deals are an incomplete copy
 
 Checked the same day against the firm's local folder:
