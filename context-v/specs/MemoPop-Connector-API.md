@@ -576,6 +576,10 @@ unchanged recompile keeps its label. `list_deals` shows each deal's
 
 ## Where an edit goes (Plan 9)
 
+**Scope for now (decided 2026-11-20):** the connector is for iterating memos
+that are already done, shared, and likely live on the firm's site or published
+into Decile Hub. Generating new memos through it comes later.
+
 The everyday use of the connector, once memos exist, is partners chatting with
 Claude to change them. A partner says what's wrong in their own words. Claude
 puts the change in the right place without being asked, because the pipeline
