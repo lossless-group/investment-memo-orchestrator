@@ -645,6 +645,27 @@ applies there only. If the partner asks for it in other memos too, Claude works
 through them one at a time, never all at once. This needs an `edit_outline`
 tool beside `edit_section` (see `Upload-Deal-Folders-With-a-Binaries-Manifest`).
 
+## How partners get the method (decided 2026-11-20)
+
+No skill uploads. Everything lives on the server, the way event-hog does it
+(`self-host-stack/hubs/event-hog-mcp/src/skills.ts`):
+
+- **Many small skills on the server**, in git, served by two tools:
+  `list_skills` (names and one-line descriptions) and `get_skill` (one
+  playbook). An edit reaches every partner on their next call. First set,
+  following Plan 9: fix a source or citation, rewrite a section from its
+  research, edit wording, just edit the memo, change the outline for this memo,
+  compile and check the site.
+- **MCP prompts as the entry points** (`prompts/list`): "Edit a memo", "Fix a
+  citation", "Change the outline for this memo", "Check the memo on the site".
+  A partner picks one from the connector's menu in Claude. Each names MemoPop,
+  so Claude loads the tools, which start out deferred.
+- **One getting-started prompt**, sent to each partner with the connector link
+  and pasted once. It tells Claude to load MemoPop, call `list_skills`, and say
+  what it can do.
+- **The server's instructions** name the skills and when to load each,
+  leading with revisions, not with writing a new memo.
+
 ## Defaults chosen for v1
 
 These were open in the exploration. Each is a judgment call made so the first
