@@ -595,6 +595,26 @@ recompiles.
 | Narrative or clerical: wording, tone, order, emphasis, typos, formatting | The **section** | `edit_section`, then compile once all changes are worked through |
 | "Just edit the memo I'm looking at" (the partner overrides the process) | The **final draft**, immediately | Carried back to its section (and research, if a fact or source changed), so the next compile reproduces it |
 
+**Who does the rewrite, for now.** The orchestrator isn't running on the
+server with what it needs to do the work itself (its API keys and so on). Until
+it is, Claude in the partner's chat, or subagents Claude delegates to, does
+every step in sequence. "Research is redone, the section is rewritten from it"
+means Claude does two separate tasks:
+
+1. **Edit the research file.** Research notes have to be verifiable. They
+   don't have to read well or tell a story.
+2. **Rewrite the section draft from exactly two inputs:** the research file
+   and the current section draft. No knowledge of its own, and no web
+   research on the side. The writing task is only to make a good narrative
+   out of the research that's there.
+
+Keeping the two tasks apart is deliberate. It prevents hallucination, lets
+research be checked on its own, and keeps the writing focused. When the two
+were done as one task, iterations swung more widely, the output was less
+tight, and iterating was slower. The step instructions the connector hands out
+must say this, so a subagent given only the writing step can't drift into
+research.
+
 Claude doesn't ask the partner which layer to use. It names where the change
 went in one line ("Fixed the citation in the market research and rewrote the
 Market section from it"). If the partner objects to the process, Claude edits
