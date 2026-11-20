@@ -95,7 +95,9 @@ Text goes to the same paths in the firm's workspace, and binaries (fonts, logos)
 
 - a tool to read a firm's outline and one to change it (an `edit_outline` beside Plan 9's `edit_section`), recorded in the firm's history like any other save
 - the change reaching the local folder, which makes outlines the first thing the two-way sync must cover
-- a decision on whether an outline change applies to deals already under way or only to new ones
+- the rule for where an outline change applies (decided 2026-11-20, below)
+
+**Where an outline change applies.** A partner who changes an outline while working on a deal memo expects the change in *that* memo. It isn't applied to the firm's other memos. A partner may ask for it to be, and then Claude should work through those memos one at a time, not all at once. The connector's job today is iterating memos that are already done, shared, and likely live on the site or published into Decile Hub. Generating new memos is a later goal.
 
 ## The 901 keys already imported
 

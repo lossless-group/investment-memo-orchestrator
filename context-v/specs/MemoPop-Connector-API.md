@@ -615,6 +615,12 @@ can tell Claude to discard them; that's the only way they're dropped.
 `compile` carry the routing table above, so any client (Claude, ChatGPT, Claude
 Code) applies the same rule. The `memopop` skill in the plugin repeats it.
 
+**Outline changes (decided 2026-11-20).** A partner who changes the firm's
+outline while working on a deal memo expects the change in *that* memo, and it
+applies there only. If the partner asks for it in other memos too, Claude works
+through them one at a time, never all at once. This needs an `edit_outline`
+tool beside `edit_section` (see `Upload-Deal-Folders-With-a-Binaries-Manifest`).
+
 ## Defaults chosen for v1
 
 These were open in the exploration. Each is a judgment call made so the first
