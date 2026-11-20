@@ -4,15 +4,15 @@ title: "MemoPop Connector API"
 lede: "Ten tools, one step registry, and the docs and tests that ship with each. What we build so a partner's Claude can write a MemoPop memo."
 publish: true
 date_created: 2026-10-10
-date_modified: 2026-10-11
+date_modified: 2026-11-19
 date_authored_initial_draft: 2026-10-10
-date_authored_current_draft: 2026-10-10
+date_authored_current_draft: 2026-11-19
 date_authored_final_draft:
 authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5 (1M context)
-at_semantic_version: 0.0.0.8
+at_semantic_version: 0.0.0.9
 status: Draft
 category: Specification
 site_uuid: f32ada52-1cdb-4348-9170-42eebdbc9bd3
@@ -573,6 +573,47 @@ after the last one: a deal imported from local run `v0.2.2` compiles as
 `v0.2.3`, then `v0.2.4`; a deal born on the server starts at `v0.0.1`. An
 unchanged recompile keeps its label. `list_deals` shows each deal's
 `memo_version` and any open `revision`.
+
+## Where an edit goes (Plan 9)
+
+The everyday use of the connector, once memos exist, is partners chatting with
+Claude to change them. A partner says what's wrong in their own words. Claude
+puts the change in the right place without being asked, because the pipeline
+writes research into sections and compiles sections into the final draft. A
+change made only in the final draft is overwritten the next time anything
+recompiles.
+
+**Routing (Claude decides, from what the partner says):**
+
+| The partner's complaint | Edit goes to | Then |
+|---|---|---|
+| About the source information: a bad or broken citation, incomplete information, weak research, a missed insight | The section's **research** | `start_revision` with `start: research`: research is redone, the section is rewritten from it, compile |
+| Narrative or clerical: wording, tone, order, emphasis, typos, formatting | The **section** | `edit_section`, then compile once all changes are worked through |
+| "Just edit the memo I'm looking at" (the partner overrides the process) | The **final draft**, immediately | Carried back to its section (and research, if a fact or source changed), so the next compile reproduces it |
+
+Claude doesn't ask the partner which layer to use. It names where the change
+went in one line ("Fixed the citation in the market research and rewrote the
+Market section from it"). If the partner objects to the process, Claude edits
+the final draft and doesn't argue.
+
+**New tools:**
+
+| Tool | What it does |
+|---|---|
+| `edit_section` | Applies a narrative or clerical change to one section's draft as a new version, without reopening research or the section's enhancements. Light path: no revision walk. Several can stack before one compile |
+| `edit_final` | Applies a change to the compiled final draft so the partner sees it now, then writes the same change into the section it came from (and the research, when facts or sources changed) as new versions, and records the pairing. Refuses only if it can't locate the text's section, and says so |
+
+**Compile never silently overwrites.** Before writing a new final draft,
+`compile` compares the current final draft with what the sections would
+produce. Text in the final draft that isn't traceable to a section (an edit
+that wasn't carried back, or someone editing the file outside the connector)
+stops the compile with `final_has_untracked_edits`. The error lists the
+differences and offers to carry each one back with `edit_final`. A partner
+can tell Claude to discard them; that's the only way they're dropped.
+
+**Agent-facing docs** for `start_revision`, `edit_section`, `edit_final` and
+`compile` carry the routing table above, so any client (Claude, ChatGPT, Claude
+Code) applies the same rule. The `memopop` skill in the plugin repeats it.
 
 ## Defaults chosen for v1
 
