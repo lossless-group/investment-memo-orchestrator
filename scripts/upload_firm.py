@@ -1,34 +1,40 @@
 #!/usr/bin/env python3
-"""Import a firm made by the local pipeline (``io/<firm>/``) into connector shape.
+"""Upload a firm made by the local pipeline (``io/<firm>/``) to the connector.
 
-An operator act, run on the laptop. It writes nothing to the server: it builds a
-staging folder that mirrors what the server keeps, so it can be checked locally
-before anything moves::
+Spec: ``context-v/specs/Upload-Deal-Folders-With-a-Binaries-Manifest.md``.
 
-    <out>/firms/<firm>/        # the workspace, as /data/firms/<firm>/ holds it
-    <out>/buckets/<firm>/      # the bucket, as its keys (LocalBucket layout)
-    <out>/report.md            # per deal: what was imported, what comes next
+Run on the laptop. It stages first and writes nothing to the server::
 
-    uv run python scripts/import_firm.py io/humain --firm humain-vc --out /tmp/humain-import
+    uv run python scripts/upload_firm.py io/humain --firm humain-vc --out /tmp/humain-upload
+
+    <out>/firms/<firm>/        # deal folders and firm files, as /data/firms/<firm>/ holds them
+    <out>/blobs/<sha256>       # each binary once, by content
+    <out>/manifests/<path>/binaries-on-server.yaml   # one per local deal folder and the firm root
+    <out>/plan.json            # what apply_upload.py does on the server
+    <out>/apply_upload.py      # the server-side step, shipped with the staging
+    <out>/report.md            # per deal: what goes up, what next_step will ask for
+
+``--apply`` then streams the staging to the server over ``railway ssh``, runs
+the apply step as the service user (it backs the firm up first), and copies the
+manifests into the local deal folders.
 
 ``--firm`` is the slug on the server, which must equal the firm's didi.sh entity
-slug (humain is ``humain-vc`` there); the local folder name does not matter.
+slug; the local folder name does not matter. A deal's server name comes from
+``memopop_deal`` in its config, else from its domain.
 
-For each deal it picks the newest output version with drafts (else research,
-else a finished memo) and turns it into a ``deal.json`` the connector can walk:
+For each deal:
 
-- ``1-research/<key>-research.md`` becomes ``research/<key>.md``, recorded as
-  approved (the operator ran and accepted it locally).
-- ``2-sections/<key>.md`` becomes ``sections/<key>.md``.
-- The deal config, deck analysis, dataroom inventory, Sources.md, and the
-  finished memo become ready text materials, so Claude reads them as inputs.
+- Research and section drafts of the newest version that has them become
+  ``research/<key>.md`` and ``sections/<key>.md``, research recorded as approved.
+- The newest finished memo (``7-<Deal>-v*.md``, else ``6-<Deal>-v*.md``) becomes
+  compiled version 1, labelled with its local version, so a site can show it.
+- Every other text file in the deal folder is kept under ``local/<path>``.
+- Every binary goes to the bucket once, as ``blobs/<sha256>``, and is recorded
+  both as a material in ``deal.json`` and in the deal folder's
+  ``binaries-on-server.yaml``. A binary already in that manifest with the same
+  hash is not staged again.
 - When every section has a draft and a finished memo exists, the optional
-  enhancement steps are recorded as skipped: the local run already applied
-  them. Required steps are never skipped; what is missing is what next_step
-  will ask for.
-- Every text file of that version is kept under ``imported/<version>/``; the
-  originals in ``inputs/`` and the binaries in ``exports/`` and the version
-  folder go to the bucket under ``imported/``.
+  enhancement steps are recorded as skipped: the local run already applied them.
 
 Section files are matched to the outline's keys by key, by number plus name,
 or by key prefix, because outline filenames and local filenames drifted.
@@ -41,6 +47,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -61,7 +68,10 @@ ENHANCEMENTS_DEAL = [
     "enhance.summaries",
 ]
 ENHANCEMENTS_SECTION = ["enhance.citations", "enhance.fact_check", "enhance.tables"]
-SKIP_FILES = {".DS_Store"}
+SKIP_FILES = {".DS_Store", "binaries-on-server.yaml"}
+MANIFEST = "binaries-on-server.yaml"
+FINAL_MEMO = re.compile(r"^([67])-.+-v\d+(\.\d+)+\.md$")
+FIRM_DIRS = ("configs", "templates", "assets")
 
 
 def now_iso() -> str:
@@ -170,6 +180,56 @@ def pick_version(deal_dir: Path) -> Path | None:
     return None
 
 
+def final_memo(deal_dir: Path) -> tuple[Path, Path] | None:
+    """The newest finished memo: (version folder, memo file). 7- beats 6- in a version."""
+    outputs = deal_dir / "outputs"
+    if not outputs.is_dir():
+        return None
+    versions = sorted(
+        (p for p in outputs.iterdir() if p.is_dir() and "-v" in p.name), key=version_key, reverse=True
+    )
+    for v in versions:
+        memos = sorted(
+            (p for p in v.glob("*.md") if FINAL_MEMO.match(p.name)),
+            key=lambda p: p.name[0],
+            reverse=True,
+        )
+        if memos:
+            return v, memos[0]
+    return None
+
+
+def binary_kind(rel: Path) -> str:
+    parts = [p.lower() for p in rel.parts]
+    name = rel.name.lower()
+    if any("dataroom" in p or "data-room" in p for p in parts):
+        return "dataroom"
+    if "exports" in parts or "outputs" in parts:
+        return "export"
+    if "deck" in name or rel.suffix.lower() in (".key", ".pptx", ".ppt"):
+        return "deck"
+    if rel.suffix.lower() in (".xlsx", ".xls", ".csv", ".numbers"):
+        return "financials"
+    if rel.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"):
+        return "image"
+    return "other"
+
+
+def read_manifest(folder: Path) -> dict:
+    p = folder / MANIFEST
+    if not p.is_file():
+        return {}
+    return (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("files") or {}
+
+
+def file_sha(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def config_notes(cfg: dict) -> str:
     """The deal config as a notes material: what the operator told the pipeline."""
     lines = [f"# Deal notes for {cfg.get('legal_name') or cfg.get('name')} (imported)", ""]
@@ -200,9 +260,47 @@ def config_notes(cfg: dict) -> str:
 
 class Stager:
     def __init__(self, out: Path, firm: str):
+        self.out = out
+        self.firm = firm
         self.ws = out / "firms" / firm
-        self.bucket = out / "buckets" / firm
+        self.blobs = out / "blobs"
         self.bucket_bytes = 0
+        self.blob_hashes: set[str] = set()
+        self.reused = 0
+
+    def put_blob(
+        self, src: Path, rel: Path, manifest: dict, entries: dict, now: str, deal: str | None
+    ) -> dict:
+        """Stage a binary once by content; return its manifest entry."""
+        digest = file_sha(src)
+        key = f"blobs/{digest}"
+        known = manifest.get(rel.as_posix())
+        if known and known.get("sha256") == digest:
+            self.reused += 1
+            entry = dict(known)
+        else:
+            if digest not in self.blob_hashes:
+                self.blobs.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, self.blobs / digest)
+                self.blob_hashes.add(digest)
+                self.bucket_bytes += src.stat().st_size
+            entry = {
+                "sha256": digest,
+                "bytes": src.stat().st_size,
+                "kind": binary_kind(rel),
+                "bucket_key": key,
+                "uploaded_at": now,
+            }
+            if deal:
+                entry["material_id"] = material_id(deal, "binary", digest)
+        entries[rel.as_posix()] = entry
+        return entry
+
+    def write_manifest(self, local_rel: Path, deal: str | None, entries: dict) -> None:
+        p = self.out / "manifests" / local_rel / MANIFEST
+        p.parent.mkdir(parents=True, exist_ok=True)
+        doc = {"firm": self.firm, "deal": deal, "files": dict(sorted(entries.items()))}
+        p.write_text(yaml.safe_dump(doc, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
     def write_ws(self, rel: str | Path, text: str) -> None:
         p = self.ws / rel
@@ -214,25 +312,19 @@ class Stager:
         p.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, p)
 
-    def put_bucket(self, src: Path, key: str) -> None:
-        p = self.bucket / key
-        p.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, p)
-        self.bucket_bytes += src.stat().st_size
-
-
 def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict:
     """Stage one deal; return its report line."""
     cfg_path = deal_dir / f"{deal_dir.name}.json"
-    report: dict = {"local": deal_dir.name}
+    report: dict = {"local": deal_dir.name, "local_path": deal_dir.relative_to(firm_dir).as_posix()}
     if not cfg_path.is_file():
         report["skipped"] = "no deal config"
         return report
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
     company = cfg.get("legal_name") or cfg.get("name") or deal_dir.name
     url = cfg.get("url")
-    domain = domain_of(url)
-    slug = slugify(domain) if domain else slugify(company)
+    domain = cfg.get("domain") or domain_of(url)
+    named = (cfg.get("memopop_deal") or {}).get("deal")
+    slug = named or (slugify(domain) if domain else slugify(company))
     template = cfg.get("outline") or cfg.get("template") or DEFAULT_TEMPLATE
     opath = outline_path(firm_dir, template)
     if opath is None:
@@ -319,14 +411,14 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
         ):
             if (version / name).is_file():
                 material(kind, title, (version / name).read_text(encoding="utf-8"), version / name)
-        memos = sorted(version.glob("7-*.md"))
-        if memos:
-            material(
-                "other",
-                f"Previous memo, {version.name} (imported)",
-                memos[0].read_text(encoding="utf-8"),
-                memos[0],
-            )
+    final = final_memo(deal_dir)
+    if final:
+        material(
+            "other",
+            f"Previous memo, {final[0].name} (imported)",
+            final[1].read_text(encoding="utf-8"),
+            final[1],
+        )
     sources_md = deal_dir / "inputs" / "Sources.md"
 
     # research and drafts
@@ -374,7 +466,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
         )
 
     keys = [s["key"] for s in sections]
-    finished = version is not None and any(version.glob("7-*.md")) and len(got_drafts) == len(keys)
+    finished = version is not None and final is not None and len(got_drafts) == len(keys)
     if finished:
         reason = (
             f"Already applied in the local pipeline run {version.name} this deal was imported from."
@@ -396,23 +488,58 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
             )
         state["skips_reported"] = len(state["skips"])  # nothing new to tell the partner
 
-    # keep every text file of the version; binaries and originals go to the bucket
-    if version:
-        for f in version.rglob("*"):
-            if not f.is_file() or f.name in SKIP_FILES:
-                continue
-            sub = f.relative_to(version)
-            if is_text(f):
-                stage.copy_ws(f, rel / "imported" / version.name / sub)
-            else:
-                stage.put_bucket(f, f"imported/{slug}/{version.name}/{sub.as_posix()}")
-    for folder in ("inputs", "exports", "assets"):
-        for f in (deal_dir / folder).rglob("*") if (deal_dir / folder).is_dir() else []:
-            if f.is_file() and f.name not in SKIP_FILES:
-                stage.put_bucket(
-                    f, f"imported/{slug}/{folder}/{f.relative_to(deal_dir / folder).as_posix()}"
-                )
-    stage.copy_ws(cfg_path, rel / "imported" / cfg_path.name)
+    # the newest finished memo is compiled version 1, labelled with its local version
+    if final:
+        memo = final[1].read_text(encoding="utf-8")
+        label = final[0].name.rsplit("-", 1)[-1]
+        digest = sha(memo)
+        stage.write_ws(rel / "compiled" / "1" / "memo.md", memo)
+        state["compiled"] = {"version": 1, "label": label, "sha256": digest, "keys": {}, "at": now}
+        state["artifacts"]["compile.assemble"] = {
+            "step_id": "compile.assemble",
+            "section": None,
+            "path": "compiled/1/memo.md",
+            "kind": "compiled",
+            "version": 1,
+            "sha256": digest,
+            "chars": len(memo),
+            "partner_approved": False,
+            "partner_notes": f"Imported from the local pipeline run {final[0].name}.",
+            "instruction_version": "1",
+            "saved_at": now,
+        }
+        state["log"].append({"at": now, "event": "compiled", "version": 1, "label": label})
+
+    # the whole deal folder: text under local/, binaries to the bucket once, recorded
+    manifest = read_manifest(deal_dir)
+    entries: dict = {}
+    binaries = 0
+    for f in sorted(deal_dir.rglob("*")):
+        if not f.is_file() or f.name in SKIP_FILES or "/." in f.as_posix():
+            continue
+        sub = f.relative_to(deal_dir)
+        if is_text(f):
+            stage.copy_ws(f, rel / "local" / sub)
+            continue
+        entry = stage.put_blob(f, sub, manifest, entries, now, slug)
+        binaries += 1
+        state["materials"].append(
+            {
+                "material_id": entry.get("material_id") or material_id(slug, "binary", entry["sha256"]),
+                "kind": entry["kind"],
+                "status": "ready",
+                "source": "upload",
+                "title": sub.as_posix(),
+                "filename": f.name,
+                "bucket_key": entry["bucket_key"],
+                "sha256": entry["sha256"],
+                "bytes": entry["bytes"],
+                "local_path": sub.as_posix(),
+                "added_at": now,
+                "ready_at": now,
+            }
+        )
+    stage.write_manifest(deal_dir.relative_to(firm_dir), slug, entries)
 
     stage.write_ws(rel / "deal.json", json.dumps(state, indent=2) + "\n")
     missing_research = [k for k in keys if k not in got_research]
@@ -422,6 +549,8 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
         research=len(got_research),
         drafts=len(got_drafts),
         materials=len(state["materials"]),
+        binaries=binaries,
+        compiled=state["compiled"]["label"] if state["compiled"] else None,
         finished=finished,
         missing_research=missing_research,
         missing_drafts=missing_drafts,
@@ -432,57 +561,101 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
 # ------------------------------------------------------------------ the firm
 
 
-def import_firm(firm_dir: Path, firm: str, out: Path, only: list[str] | None = None) -> list[dict]:
+def upload_firm(firm_dir: Path, firm: str, out: Path, only: list[str] | None = None) -> list[dict]:
+    """Stage the firm for upload; write plan.json, report.md and the apply step."""
     if out.exists() and any(out.iterdir()):
         raise SystemExit(f"{out} is not empty; pick a fresh --out")
     stage = Stager(out, firm)
     now = now_iso()
-    for sub in ("templates", "configs"):
-        if (firm_dir / sub).is_dir():
-            for f in (firm_dir / sub).rglob("*"):
-                if f.is_file() and f.name not in SKIP_FILES:
-                    if is_text(f):
-                        stage.copy_ws(f, f.relative_to(firm_dir))
-                    else:
-                        stage.put_bucket(f, f"imported/_firm/{f.relative_to(firm_dir).as_posix()}")
-    if (firm_dir / "assets").is_dir():
-        for f in (firm_dir / "assets").rglob("*"):
-            if f.is_file() and f.name not in SKIP_FILES:
-                stage.put_bucket(
-                    f, f"imported/_firm/assets/{f.relative_to(firm_dir / 'assets').as_posix()}"
-                )
-    firm_json = {"default_template": DEFAULT_TEMPLATE}
-    stage.write_ws("firm.json", json.dumps(firm_json, indent=2) + "\n")
+
+    # the firm's own files: configs, outlines, scorecards, assets
+    firm_paths: list[str] = []
+    manifest = read_manifest(firm_dir)
+    entries: dict = {}
+    for sub in FIRM_DIRS:
+        for f in sorted((firm_dir / sub).rglob("*")) if (firm_dir / sub).is_dir() else []:
+            if not f.is_file() or f.name in SKIP_FILES:
+                continue
+            rel = f.relative_to(firm_dir)
+            if is_text(f):
+                stage.copy_ws(f, rel)
+                firm_paths.append(rel.as_posix())
+            else:
+                stage.put_blob(f, rel, manifest, entries, now, None)
+    stage.write_manifest(Path("."), None, entries)
 
     reports = []
     for deal_dir in sorted(p for p in (firm_dir / "deals").iterdir() if p.is_dir()):
         if only and deal_dir.name not in only:
             continue
         reports.append(import_deal(stage, firm_dir, deal_dir, now))
+    # outlines pinned from the repo by import_deal are firm files too
+    for p in sorted((stage.ws / "templates" / "outlines").glob("*.yaml")):
+        rel = p.relative_to(stage.ws).as_posix()
+        if rel not in firm_paths:
+            firm_paths.append(rel)
 
     slugs = [r["deal"] for r in reports if "deal" in r]
     dupes = {s for s in slugs if slugs.count(s) > 1}
     if dupes:
-        raise SystemExit(f"two local deals map to the same slug: {sorted(dupes)}")
+        raise SystemExit(f"two local deals map to the same server deal: {sorted(dupes)}")
 
-    lines = [f"# Import of {firm} ({now})", "", f"Bucket bytes staged: {stage.bucket_bytes:,}", ""]
+    plan = {
+        "firm": firm,
+        "at": now,
+        "deals": slugs,
+        "firm_paths": firm_paths,
+        "blobs": sorted(stage.blob_hashes),
+        "local": {r["deal"]: r["local_path"] for r in reports if "deal" in r},
+    }
+    (out / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+    shutil.copy2(Path(__file__).with_name("apply_upload.py"), out / "apply_upload.py")
+
+    lines = [
+        f"# Upload of {firm} ({now})",
+        "",
+        f"- Deals: {len(slugs)}",
+        f"- Firm files: {len(firm_paths)}",
+        f"- Binaries to send: {len(stage.blob_hashes)} ({stage.bucket_bytes / 1e6:,.0f} MB); "
+        f"already uploaded per manifests: {stage.reused}",
+        "",
+    ]
     for r in reports:
         if "skipped" in r:
             lines.append(f"- **{r['local']}**: skipped ({r['skipped']})")
             continue
         lines.append(
-            f"- **{r['local']}** → `{r['deal']}` ({r['template']}, {r['version']}): "
+            f"- **{r['local']}** → `{r['deal']}` ({r['template']}, sections from {r['version']}): "
             f"research {r['research']}/{r['sections']}, drafts {r['drafts']}/{r['sections']}, "
-            f"{r['materials']} materials{', finished' if r['finished'] else ''}"
+            f"compiled {r['compiled'] or 'none'}, {r['binaries']} binaries"
         )
         if r["missing_research"]:
-            lines.append(
-                f"  - next_step will ask for research on: {', '.join(r['missing_research'])}"
-            )
+            lines.append(f"  - next_step will ask for research on: {', '.join(r['missing_research'])}")
         if r["missing_drafts"] and r["missing_drafts"] != r["missing_research"]:
             lines.append(f"  - and drafts of: {', '.join(r['missing_drafts'])}")
     (out / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return reports
+
+
+def apply(out: Path, firm_dir: Path, service: str) -> None:
+    """Stream the staging to the server, run apply_upload.py there, then copy the manifests home."""
+    plan = json.loads((out / "plan.json").read_text(encoding="utf-8"))
+    remote = (
+        "set -e; rm -rf /tmp/upload; mkdir -p /tmp/upload; tar -xf - -C /tmp/upload; "
+        "chown -R memopop:memopop /tmp/upload; cd /app; "
+        f"runuser -u memopop -- env HOME=/home/memopop /opt/venv/bin/python /tmp/upload/apply_upload.py "
+        f"{plan['firm']} /tmp/upload; rm -rf /tmp/upload"
+    )
+    tar = subprocess.Popen(["tar", "-cf", "-", "-C", str(out), "."], stdout=subprocess.PIPE)
+    ssh = subprocess.run(["railway", "ssh", "--service", service, "--", "sh", "-c", remote], stdin=tar.stdout)
+    tar.stdout.close()
+    if tar.wait() != 0 or ssh.returncode != 0:
+        raise SystemExit("apply failed on the server; nothing copied home (see the output above)")
+    for src in (out / "manifests").rglob(MANIFEST):
+        dest = firm_dir / src.parent.relative_to(out / "manifests") / MANIFEST
+        if dest.parent.is_dir():
+            shutil.copy2(src, dest)
+    print("manifests copied into the local deal folders")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -490,10 +663,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("firm_dir", type=Path, help="the local firm folder, e.g. io/humain")
     parser.add_argument("--firm", required=True, help="the firm's slug on the server")
     parser.add_argument("--out", type=Path, required=True, help="an empty staging folder")
-    parser.add_argument("--deal", action="append", help="import only this local deal (repeatable)")
+    parser.add_argument("--deal", action="append", help="only this local deal (repeatable)")
+    parser.add_argument("--apply", action="store_true", help="send the staging to the server")
+    parser.add_argument("--service", default="connector", help="the Railway service to apply on")
     args = parser.parse_args(argv)
-    import_firm(args.firm_dir.resolve(), args.firm, args.out.resolve(), args.deal)
-    print((args.out / "report.md").read_text(encoding="utf-8"))
+    out = args.out.resolve()
+    if args.apply and (out / "plan.json").is_file():
+        apply(out, args.firm_dir.resolve(), args.service)
+        return 0
+    upload_firm(args.firm_dir.resolve(), args.firm, out, args.deal)
+    print((out / "report.md").read_text(encoding="utf-8"))
+    if args.apply:
+        apply(out, args.firm_dir.resolve(), args.service)
     return 0
 
 
