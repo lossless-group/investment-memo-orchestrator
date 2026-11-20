@@ -78,6 +78,25 @@ The hash, not the path or the date, decides. That's what keeps a re-run from cop
 
 Everything else in the deal folder is text: the config, research for every version, sections, finished memos, data room analysis, due-diligence notes, `Sources.md`. It goes into the firm's workspace, which jj versions. The latest finished memo becomes compiled version 1, so a site can show it at once. Keeping text in step in both directions is the next spec, not this one.
 
+## The firm's own files
+
+Deals aren't the only content. The firm folder's configuration is uploaded and kept in step the same way, and it matters most:
+
+- `configs/` (brand config and any others)
+- `templates/outlines/` (the deal outlines)
+- `templates/scorecards/`
+- other firm-level text, such as fund notes
+
+Text goes to the same paths in the firm's workspace, and binaries (fonts, logos) go through the manifest like any other binary, with one `binaries-on-server.yaml` at the firm root.
+
+**Outlines will drift first.** Checked 2026-11-20 on the first firm: the brand config and scorecard matched the server, but the main outline had been changed locally after the import, so the server was running the older one. The server also had an outline the local folder doesn't, from the shared templates.
+
+**Partners will edit outlines.** As more partners use the connector, they'll want to add their own insights to an outline: a question to always ask, a source to prefer, a section to reorder. The connector has no tool for that today. That needs:
+
+- a tool to read a firm's outline and one to change it (an `edit_outline` beside Plan 9's `edit_section`), recorded in the firm's history like any other save
+- the change reaching the local folder, which makes outlines the first thing the two-way sync must cover
+- a decision on whether an outline change applies to deals already under way or only to new ones
+
 ## The 901 keys already imported
 
 Don't upload them again. A one-time server-side pass:
