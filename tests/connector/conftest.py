@@ -62,6 +62,8 @@ REST_ROUTES = {
     "get_artifact": ("GET", "/v1/deals/{deal}/artifacts/{artifact_id}"),
     "save_snapshot": ("POST", "/v1/snapshots"),
     "compile": ("POST", "/v1/deals/{deal}/compile"),
+    "list_skills": ("GET", "/v1/skills"),
+    "get_skill": ("GET", "/v1/skills/{name}"),
 }
 
 MCP_HEADERS = {

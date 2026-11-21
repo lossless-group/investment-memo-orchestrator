@@ -21,6 +21,8 @@ TOOLS = {
     "compile",
     "start_revision",
     "cancel_revision",
+    "list_skills",
+    "get_skill",
 }
 
 #: (readOnlyHint, destructiveHint) per tool, from the spec's tools table.
@@ -35,6 +37,8 @@ HINTS = {
     "compile": (False, False),
     "start_revision": (False, False),
     "cancel_revision": (False, True),
+    "list_skills": (True, False),
+    "get_skill": (True, False),
 }
 
 #: The starting codes from the spec's Errors section, with their kinds.
