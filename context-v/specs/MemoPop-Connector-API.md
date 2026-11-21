@@ -148,6 +148,7 @@ become **Claude steps**; nodes that depend on our research APIs wait for v2.
 | `research.section` | research / section | claude, `needs_partner` | yes | `section_research`, `research`, `competitive_researcher` (competition section) |
 | `research.sources` | research / deal | claude, `needs_partner` | no | `aggregate_sources` |
 | `draft.section` | draft / section | claude | yes | `draft` (`writer`) |
+| `draft.rewrite` | draft / section | claude, only when a revision reopens it | no | `section_reviser` (added by Finish-Turning-Agents-into-Connector-Steps, step 1) |
 | `enhance.tables` | enhance / section | claude | no | `generate_tables` |
 | `enhance.diagrams` | enhance / deal | claude | no | `generate_diagrams`, `enrich_visualizations` |
 | `enhance.citations` | enhance / section | claude | no | `cite`, `validate_citations` |
