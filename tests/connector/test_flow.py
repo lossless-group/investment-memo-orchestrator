@@ -6,8 +6,9 @@ from __future__ import annotations
 import pytest
 
 from src.connector.registry import load_registry
+from src.connector.workspace import open_workspace
 
-from .conftest import SECTIONS, Mcp, key_headers
+from .conftest import SECTIONS, TEMPLATE, Mcp, call, key_headers, new_deal
 from .fake_claude import FakeClaude, OverMcp, OverRest
 from .fixtures import canned
 
@@ -79,3 +80,48 @@ def test_the_same_walk_over_rest_succeeds_identically(client):
     assert rest_walk.compiled["report"] == mcp_walk.compiled["report"]
     assert "/test-firm/" in rest_walk.compiled["html_url"]
     assert "/other-firm/" in mcp_walk.compiled["html_url"]
+
+
+NO_URL_NOTICE = (
+    "This deal has no company website on record. Before researching, ask the partner for "
+    "the company's URL, and don't research until you have it."
+)
+
+
+@pytest.mark.spec("CONN-PT-02")
+def test_a_deal_without_a_url_asks_for_it_before_research(ws):
+    deal = call(ws, "create_new_deal", company="Nameless Co", template=TEMPLATE)["deal"]
+
+    step = call(ws, "next_step", deal=deal)
+    assert step["step_id"] == "research.section"
+    instruction = step["instruction"]
+    assert "(not given)" not in instruction
+    assert instruction.startswith(NO_URL_NOTICE), instruction[:300]
+    assert "its website (ask the partner)" in instruction
+
+    # A deal with a URL gets no such notice.
+    with_url = new_deal(ws, company="Fixture Co", url="https://fixture.co")
+    other = call(ws, "next_step", deal=with_url)["instruction"]
+    assert "no company website on record" not in other
+    assert "https://fixture.co" in other
+
+
+@pytest.mark.spec("CONN-PT-06")
+def test_a_read_of_a_skipped_step_says_so_in_the_inputs(settings):
+    settings.disabled_steps = {"materials.brief"}
+    ws = open_workspace(settings, "test-firm")
+    deal = new_deal(ws)
+
+    def one_ready_material(state):
+        state["materials"] = [{"material_id": "mat-ready01", "kind": "notes", "status": "ready"}]
+
+    ws.update_deal(deal, one_ready_material)
+
+    step = call(ws, "next_step", deal=deal)
+    assert step["step_id"] == "research.section"
+    assert step["inputs"], "a read of a skipped step must never resolve to an empty list"
+    (notice,) = [i for i in step["inputs"] if i.get("skipped")]
+    assert notice["artifact_id"] == "materials.brief"
+    assert "materials.brief" in notice["text"] or "Brief the partner's materials" in notice["text"]
+    assert "skipped" in notice["text"]
+    assert "turned off on this server" in notice["text"]  # the skip's reason
