@@ -17,17 +17,30 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from . import API_VERSION, SERVER_VERSION
 from .auth import protected_resource_document
 from .errors import CATALOGUE
+from .prompts import PROMPTS
 from .registry.changelog import API_CHANGELOG
+from .registry.skills import load_skills
 
 if TYPE_CHECKING:
     from .app import Connector
 
 TITLE = "MemoPop"
 TAGLINE = (
-    "MemoPop hands a venture partner's Claude the MemoPop memo method one step at a time, "
-    "and keeps every artifact: research section by section, approved by the partner, then "
-    "drafted, enhanced, and compiled into a branded memo."
+    "MemoPop holds a firm's finished investment memos and lets a partner's Claude change them: "
+    "fix a citation, rewrite a section, change wording, each change kept as a new version and "
+    "compiled into the branded memo. It also hands Claude the MemoPop memo method one step at a "
+    "time for a new memo: research section by section, approved by the partner, then drafted, "
+    "enhanced, and compiled."
 )
+#: How a finished memo gets changed; mirrors the MCP server's instructions.
+EDIT_FLOW = [
+    "Call list_skills to see the playbooks, and get_skill to load the one that fits the change.",
+    "A source, citation, or missing fact goes in the section's research; then the section is "
+    "rewritten from it (start_revision with start: research).",
+    "Wording, tone, order, or typos go in the section (start_revision with start: draft).",
+    "Once every change is worked through, call compile for the next version.",
+    "Partners on more than one firm: call whoami, and pass `firm` to act for another.",
+]
 FLOW = [
     "Call list_deals to find the deal, or create_new_deal to start one.",
     "Optionally call add_materials with the partner's deck, dataroom, or notes.",
@@ -59,7 +72,7 @@ ENVELOPE_SCHEMA = {
     },
 }
 
-PATH_PARAMS = {"deal": "deal", "id": "artifact_id"}
+PATH_PARAMS = {"deal": "deal", "id": "artifact_id", "name": "name"}
 
 
 def _path_params(path: str) -> list[str]:
@@ -159,7 +172,7 @@ def openapi(connector: Connector) -> dict:
         "info": {
             "title": "MemoPop connector API",
             "version": SERVER_VERSION,
-            "summary": "Ten tools that let a partner's Claude write and revise a MemoPop memo.",
+            "summary": "The tools that let a partner's Claude change, write, and revise a MemoPop memo.",
             "description": TAGLINE
             + f" The same tools are served over MCP at {s.mcp_url}. Errors: {s.public_base_url}/docs/errors.",
         },
@@ -190,8 +203,14 @@ def llms_txt(connector: Connector) -> str:
     lines.append(
         f"Connect at {connector.settings.mcp_url} (MCP, Streamable HTTP) or use the REST API under {base}/v1/. Sign in with didi.sh."
     )
+    lines += ["", "How a finished memo gets changed:", ""]
+    lines += [f"{i}. {step}" for i, step in enumerate(EDIT_FLOW, 1)]
     lines += ["", "How a memo gets written:", ""]
     lines += [f"{i}. {step}" for i, step in enumerate(FLOW, 1)]
+    lines += ["", "## Skills", "", "Load one with get_skill before making that kind of change.", ""]
+    lines += [f"- {s.name}: {s.description}" for s in load_skills().values()]
+    lines += ["", "## Prompts", "", "Entry points in the connector's menu (MCP prompts/list).", ""]
+    lines += [f"- {p.title} (`{p.name}`): {p.description}" for p in PROMPTS]
     lines += ["", "## Tools", ""]
     for tool in connector.registry.tools.values():
         lines.append(f"- [{tool.name}]({base}/docs#{tool.name}): {tool.summary}")
@@ -257,7 +276,24 @@ def docs_html(connector: Connector) -> str:
         f"<p>Connector URL: <code>{e(connector.settings.mcp_url)}</code>. REST: <code>/v1/</code>. API version {API_VERSION}.</p>"
     )
     out.append(
+        "<h3>How a finished memo gets changed</h3><ol>"
+        + "".join(f"<li>{e(s)}</li>" for s in EDIT_FLOW)
+        + "</ol>"
+    )
+    out.append(
         "<h3>How a memo gets written</h3><ol>" + "".join(f"<li>{e(s)}</li>" for s in FLOW) + "</ol>"
+    )
+    out.append(
+        "<h3>Skills</h3><ul>"
+        + "".join(
+            f"<li><code>{e(s.name)}</code>: {e(s.description)}</li>" for s in load_skills().values()
+        )
+        + "</ul>"
+    )
+    out.append(
+        "<h3>Prompts</h3><ul>"
+        + "".join(f"<li><strong>{e(p.title)}</strong>: {e(p.description)}</li>" for p in PROMPTS)
+        + "</ul>"
     )
     out.append(
         "<ul>"

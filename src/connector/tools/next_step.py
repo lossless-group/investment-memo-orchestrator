@@ -81,9 +81,9 @@ def handle(ws: Workspace, params: Input) -> dict:
         "inputs": flow.gather_inputs(registry, ws, state, inst),
         "produces": {"kind": produces.kind, "checks": produces.checks} if produces else None,
         "needs_partner": inst.step.needs_partner,
-        "revision": flow.revision_view(state.get("revision"))
-        if flow.reopened(state, inst.key)
-        else None,
+        "revision": (
+            flow.revision_view(state.get("revision")) if flow.reopened(state, inst.key) else None
+        ),
         "skipped_since_last_call": skipped,
         "tell_partner": tell,
         "progress": progress,

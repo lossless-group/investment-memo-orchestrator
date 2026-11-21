@@ -22,6 +22,8 @@ TOOL_MODULES = [
     "compile",
     "start_revision",
     "cancel_revision",
+    "list_skills",
+    "get_skill",
 ]
 
 
