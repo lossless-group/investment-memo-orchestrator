@@ -112,10 +112,18 @@ def pending_materials(state: dict) -> list[dict]:
     return [m for m in state.get("materials", []) if m.get("status") in ("queued", "pending")]
 
 
+#: The rewrite step (section_reviser): never part of a memo's first walk; handed
+#: out only when a revision reopens it, and given exactly what it reads (the
+#: section's research and its current text), with no other inputs.
+REWRITE_STEP = "draft.rewrite"
+
+
 def applicable(inst: Instance, state: dict) -> bool:
-    """materials.brief exists only once some material is ready."""
+    """materials.brief exists only once some material is ready; the rewrite only on request."""
     if inst.step.id == "materials.brief":
         return bool(ready_materials(state))
+    if inst.step.id == REWRITE_STEP:
+        return reopened(state, inst.key)
     return True
 
 
@@ -184,14 +192,19 @@ def with_revision(instruction: str, state: dict, inst: Instance) -> str:
     )
     materials = (
         " The new materials for this revision are among the inputs; use them."
-        if revision["material_ids"]
+        if revision["material_ids"] and inst.step.id != REWRITE_STEP
         else ""
     )
     angle = "\n".join(f"> {line}" for line in revision["angle"].splitlines())
+    previous = (
+        "The section as it stands"
+        if inst.step.id == REWRITE_STEP
+        else "Your previous submission for this step"
+    )
     return (
         f"This is a revision of {names}, asked for by the partner in their words:\n\n"
         f"{angle}\n\n"
-        "Your previous submission for this step is among the inputs. Revise it in light of "
+        f"{previous} is among the inputs. Revise it in light of "
         "that request rather than starting over: keep what still holds, change what the "
         f"request changes, and tell the partner in one line what changed.{materials}"
         f"\n\n{instruction}"
@@ -437,10 +450,11 @@ def gather_inputs(registry: Registry, ws: Workspace, state: dict, inst: Instance
         else:
             wanted.append((step.artifact_id(None), step.title))
     own = inst.key
-    if own in state["artifacts"] and own not in [w[0] for w in wanted]:
+    exact = inst.step.id == REWRITE_STEP  # its two reads and nothing else
+    if not exact and own in state["artifacts"] and own not in [w[0] for w in wanted]:
         wanted.append((own, "Your previous submission for this step"))
     revision = state.get("revision")
-    if revision and reopened(state, own):
+    if revision and reopened(state, own) and not exact:
         ready = {m["material_id"] for m in ready_materials(state)}
         for mid in revision["material_ids"]:
             if mid in ready and f"material:{mid}" not in [w[0] for w in wanted]:

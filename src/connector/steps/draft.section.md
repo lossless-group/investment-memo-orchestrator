@@ -7,8 +7,8 @@ required: true
 runs_on: claude
 needs_partner: false
 order: 50
-version: "1"
-reads: ["research.section:@section", materials.brief]
+version: "2"
+reads: ["research.section:@section", materials.brief, "section.current:@section"]
 requires_approved: ["research.section:@section"]
 produces:
   kind: section
@@ -35,11 +35,20 @@ It should answer:
 
 {{guiding_questions}}
 
+Use no knowledge of your own and do no web research: write only from your inputs.
+Researching and writing are separate tasks: if the section needs a fact the
+research doesn't hold, leave it out and tell the partner in one line what's
+missing, so it can be researched first.
+
 ## How to write it
 
 - **Use the approved research.** Every fact comes from the research input (and
   the materials brief, if there is one). Don't add facts the partner hasn't
   seen. Keep the research's citations: same markers, same definitions.
+- **In a revision, start from the section as it stands.** When the section's
+  current text is among your inputs (`section.current`), rewrite it from the
+  research: keep what the research still supports, tables and citations
+  included, and change what the research or the partner's request changes.
 - **Specific over vague.** Exact numbers, dates, and names. No superlatives
   without data ("revolutionary", "massive market").
 - **A venture mindset.** Build the case for what could go right while staying

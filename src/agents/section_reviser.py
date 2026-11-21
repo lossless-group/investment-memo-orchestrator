@@ -27,6 +27,12 @@ before, each attempt, the verdict and a machine-readable report, so any revision
 is traceable and diffable after the fact. Archives live in a subdirectory
 because assembly globs `2-sections/*.md` non-recursively — a sibling file would
 be assembled into the memo.
+
+**Connector step.** This agent is now the connector's `draft.rewrite` step
+(`src/connector/steps/draft.rewrite.md`), which Claude does in the partner's
+chat: it rewrites one section from exactly two inputs, the section's research
+and its current text, with no outside knowledge and no web research. It is
+handed out only when a revision reopens it, never in a memo's first walk.
 """
 
 from __future__ import annotations
