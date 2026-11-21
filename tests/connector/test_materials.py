@@ -191,7 +191,7 @@ def test_an_unreachable_link_is_a_skip_and_the_deal_continues(ws, links):
     for mid in ids:
         assert material(state, mid)["status"] != "ready"
 
-    (row,) = call(ws, "list_deals")["deals"]
+    (row,) = call(ws, "list_deals", include_skips=True)["deals"]
     assert row["materials_pending"] == 0
     assert [s["code"] for s in row["skips"]] == ["material_unreadable"] * 2
 

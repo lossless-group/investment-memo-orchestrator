@@ -134,7 +134,7 @@ def test_list_deals_shows_phase_pending_materials_and_skips(settings):
     assert [s["step_id"] for s in step["skipped_since_last_call"]] == ["materials.brief"]
     assert step["skipped_since_last_call"][0]["code"] == "step_disabled"
 
-    (row,) = call(ws, "list_deals")["deals"]
+    (row,) = call(ws, "list_deals", include_skips=True)["deals"]
     assert row["deal"] == deal
     assert row["phase"] == "research"
     assert row["materials_pending"] == 1

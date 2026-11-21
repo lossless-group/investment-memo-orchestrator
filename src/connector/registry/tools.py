@@ -22,6 +22,7 @@ TOOL_MODULES = [
     "compile",
     "start_revision",
     "cancel_revision",
+    "whoami",
 ]
 
 

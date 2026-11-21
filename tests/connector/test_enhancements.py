@@ -118,7 +118,7 @@ def test_disabling_any_optional_step_skips_it_and_the_memo_still_compiles(
         assert len(reported) == count, walk.reported_skips
         assert all(s["code"] == "step_disabled" and s["reason"] for s in reported)
 
-    (listed,) = call(ws, "list_deals")["deals"]
+    (listed,) = call(ws, "list_deals", include_skips=True)["deals"]
     assert _subset(expected_skip, listed["skips"]), listed["skips"]
 
     page = client.get(walk.compiled["html_url"])
@@ -152,7 +152,7 @@ def test_an_optional_server_step_that_raises_is_skipped_and_the_flow_continues(
     for name, _ in canned.SECTIONS.values():
         assert name in page.text
 
-    (listed,) = call(ws, "list_deals")["deals"]
+    (listed,) = call(ws, "list_deals", include_skips=True)["deals"]
     assert _subset(expected_skip, listed["skips"])
     after = call(ws, "next_step", deal=deal)
     assert after["done"] is True
@@ -218,7 +218,7 @@ def test_claude_skips_an_optional_step_with_a_reason_and_the_flow_moves_on(ws):
         "code": "step_skipped",
         "reason": reason,
     }
-    (listed,) = call(ws, "list_deals")["deals"]
+    (listed,) = call(ws, "list_deals", include_skips=True)["deals"]
     assert reported in listed["skips"]
 
     # Skipping again is refused: the step is no longer handed out.

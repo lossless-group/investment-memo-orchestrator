@@ -104,6 +104,9 @@ class ToolDef:
     #: Tool-specific `next` text for a code, where the catalogue's default is too general.
     error_next_overrides: dict[str, str] = field(default_factory=dict)
     implemented: bool = True
+    #: The handler also takes the caller's Principal (None when called transport-free),
+    #: and a sign-in on several firms may call it without naming one (whoami).
+    uses_principal: bool = False
 
     def __post_init__(self) -> None:
         if not any(i.name == "firm" for i in self.inputs):

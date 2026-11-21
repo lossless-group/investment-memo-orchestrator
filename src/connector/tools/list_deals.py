@@ -22,6 +22,7 @@ MAX_LIMIT = 100
 class Input(ToolInput):
     cursor: str | None = Field(default=None, max_length=400)
     limit: int = Field(default=DEFAULT_LIMIT, ge=1)
+    include_skips: bool = False
 
 
 def encode_cursor(after: str) -> str:
@@ -43,11 +44,21 @@ def decode_cursor(cursor: str) -> str:
     return after
 
 
-def summarise(ws: Workspace, state: dict) -> dict:
+def skips_by_reason(skips: list[dict]) -> list[dict]:
+    """Each distinct reason once, with how many skips gave it, in first-seen order."""
+    counts: dict[str | None, int] = {}
+    for skip in skips:
+        reason = skip.get("reason")
+        counts[reason] = counts.get(reason, 0) + 1
+    return [{"reason": reason, "count": count} for reason, count in counts.items()]
+
+
+def summarise(ws: Workspace, state: dict, include_skips: bool = False) -> dict:
     from .compile import job_summary
 
     registry = load_registry()
-    return {
+    skips = state.get("skips", [])
+    row = {
         "deal": state["deal"],
         "company": state["company"],
         "stage": state.get("stage"),
@@ -55,20 +66,27 @@ def summarise(ws: Workspace, state: dict) -> dict:
         "phase": flow.phase_of(registry, state, ws),
         "next_step_hint": flow.hint(registry, state, ws),
         "materials_pending": len(flow.pending_materials(state)),
-        "skips": [
+        "skips_count": len(skips),
+        "skips_by_reason": skips_by_reason(skips),
+        "compile": job_summary(ws, state),
+        "memo_version": flow.last_label(state),
+        "revision": flow.revision_view(state.get("revision")),
+        "updated_at": state["updated_at"],
+    }
+    legal_name = state.get("legal_name")
+    if legal_name and legal_name != state["company"]:
+        row["legal_name"] = legal_name
+    if include_skips:
+        row["skips"] = [
             {
                 "step_id": s["step_id"],
                 "section": s.get("section"),
                 "code": s["code"],
                 "reason": s.get("reason"),
             }
-            for s in state.get("skips", [])
-        ],
-        "compile": job_summary(ws, state),
-        "memo_version": flow.last_label(state),
-        "revision": flow.revision_view(state.get("revision")),
-        "updated_at": state["updated_at"],
-    }
+            for s in skips
+        ]
+    return row
 
 
 def handle(ws: Workspace, params: Input) -> dict:
@@ -83,7 +101,7 @@ def handle(ws: Workspace, params: Input) -> dict:
         state = ws.read_deal(slug)
         if pipeline.sweep_deal(ws, slug, state):  # materials that can never finish
             state = ws.read_deal(slug)
-        deals.append(summarise(ws, state))
+        deals.append(summarise(ws, state, params.include_skips))
     body: dict = {"deals": deals, "next_cursor": None}
     if len(slugs) > limit:
         body["next_cursor"] = encode_cursor(page[-1])
@@ -114,17 +132,41 @@ TOOL = ToolDef(
             "How many deals per page, 1 to 100 (larger values are capped at 100). Default 20.",
             20,
         ),
+        InputDoc(
+            "include_skips",
+            "boolean",
+            "true to list every skipped step with its section, code, and reason. Off by "
+            "default: an imported deal can carry dozens of skips with the same reason, which "
+            "skips_by_reason already counts.",
+            False,
+        ),
     ],
     returns=[
         ReturnDoc("deals", "One entry per deal, ordered by slug."),
         ReturnDoc("deals[].deal", "The deal's slug, used by every other tool."),
-        ReturnDoc("deals[].company", "The company's name as the partner gave it."),
+        ReturnDoc(
+            "deals[].company",
+            "The company's name as it trades, as the partner gave it or the deal config says.",
+        ),
+        ReturnDoc(
+            "deals[].legal_name",
+            "The company's legal name, only when it differs from company (a renamed company); "
+            "search both when the partner names a company.",
+        ),
         ReturnDoc("deals[].stage", "The stage, if one was given."),
         ReturnDoc("deals[].template", "The memo template (outline) the deal uses."),
         ReturnDoc("deals[].phase", "materials, research, draft, enhance, compile, or done."),
         ReturnDoc("deals[].next_step_hint", "One line saying what next_step will hand out."),
         ReturnDoc("deals[].materials_pending", "How many materials are still being extracted."),
-        ReturnDoc("deals[].skips", "Optional steps that were skipped, with the code and reason."),
+        ReturnDoc("deals[].skips_count", "How many optional steps were skipped."),
+        ReturnDoc(
+            "deals[].skips_by_reason",
+            "Each distinct skip reason once, with its count: [{reason, count}].",
+        ),
+        ReturnDoc(
+            "deals[].skips",
+            "Only with include_skips: every skipped step, with step_id, section, code, and reason.",
+        ),
         ReturnDoc(
             "deals[].compile",
             "The last compile: job_id, status (running, done, or failed), version, and, once "
@@ -167,7 +209,8 @@ TOOL = ToolDef(
                         "phase": "research",
                         "next_step_hint": "Call next_step: research.section for Executive Summary is next.",
                         "materials_pending": 0,
-                        "skips": [],
+                        "skips_count": 0,
+                        "skips_by_reason": [],
                         "updated_at": ANY,
                     }
                 ],

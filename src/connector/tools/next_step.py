@@ -81,9 +81,9 @@ def handle(ws: Workspace, params: Input) -> dict:
         "inputs": flow.gather_inputs(registry, ws, state, inst),
         "produces": {"kind": produces.kind, "checks": produces.checks} if produces else None,
         "needs_partner": inst.step.needs_partner,
-        "revision": flow.revision_view(state.get("revision"))
-        if flow.reopened(state, inst.key)
-        else None,
+        "revision": (
+            flow.revision_view(state.get("revision")) if flow.reopened(state, inst.key) else None
+        ),
         "skipped_since_last_call": skipped,
         "tell_partner": tell,
         "progress": progress,
@@ -132,7 +132,9 @@ TOOL = ToolDef(
         ReturnDoc("instruction_version", "The instruction's version, recorded on what you submit."),
         ReturnDoc(
             "inputs",
-            "Artifacts to read, each with artifact_id, title, version, and text (long texts are cut; get_artifact pages the rest from next_offset).",
+            "Artifacts to read, each with artifact_id, title, version, and text (long texts are cut; get_artifact pages the rest from next_offset). "
+            "A read whose step was skipped comes as an input with skipped: true and a text saying "
+            "which step and why, instead of being left out.",
         ),
         ReturnDoc("produces", "The kind of artifact to submit and the checks it must pass."),
         ReturnDoc(

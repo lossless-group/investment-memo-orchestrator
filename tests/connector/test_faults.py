@@ -91,7 +91,7 @@ def test_the_down_saves_nothing_and_list_deals_still_answers(tmp_path, root):
     assert (ws.root / "deals" / deal / "deal.json").read_text() == before
     state = json.loads(before)
     assert not any(key.startswith("enhance.") for key in state["handed_out"])
-    summary = call(ws, "list_deals")["deals"][0]
+    summary = call(ws, "list_deals", include_skips=True)["deals"][0]
     assert summary["phase"] == "enhance"
     assert [s["step_id"] for s in summary["skips"]] == ["research.sources"]
 

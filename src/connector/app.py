@@ -55,9 +55,13 @@ class Connector:
             requested = args.get("firm") if isinstance(args, dict) else None
             if requested is not None and not isinstance(requested, str):
                 raise ConnectorError("validation_failed", "`firm` must be a string.")
-            firm = select_firm(principal, requested)
+            definition = self.registry.tools.get(tool)
+            if definition is not None and definition.uses_principal and requested is None:
+                firm = principal.firms[0]  # the firm chosen at sign-in
+            else:
+                firm = select_firm(principal, requested)
             ws = open_workspace(self.settings, firm)
-            body = invoke(tool, args, ws, self.registry)
+            body = invoke(tool, args, ws, self.registry, principal)
         except ConnectorError as err:
             return err.status, envelope(err)
         except Exception:  # never let a transport see a raw exception

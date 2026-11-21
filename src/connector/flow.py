@@ -348,6 +348,16 @@ def with_notice(instruction: str, tell: str | None) -> str:
 
 # ------------------------------------------------------------------ rendering
 
+#: Leads every instruction that names the company's website when the deal has none.
+#: A company with a similar name is the usual wrong match, so research waits for it.
+NO_URL_NOTICE = (
+    "This deal has no company website on record. Before researching, ask the partner for "
+    "the company's URL, and don't research until you have it. A company with a similar "
+    "name is a common wrong match."
+)
+#: Stands in for {{url}} when there is none, so the step's sentences still read.
+NO_URL_TEXT = "its website (ask the partner)"
+
 
 def render_instruction(inst: Instance, state: dict) -> str:
     info = section_info(state, inst.section) or {}
@@ -357,7 +367,7 @@ def render_instruction(inst: Instance, state: dict) -> str:
     values = {
         "company": state["company"],
         "deal": state["deal"],
-        "url": state.get("url") or "the company's website (not given)",
+        "url": state.get("url") or NO_URL_TEXT,
         "stage": state.get("stage") or "not given",
         "step_id": inst.step.id,
         "section_key": inst.section or "",
@@ -367,9 +377,10 @@ def render_instruction(inst: Instance, state: dict) -> str:
         "target_words": str(words),
     }
     text = inst.step.instruction_text()
+    asks_for_url = not state.get("url") and "{{url}}" in text
     for name, value in values.items():
         text = text.replace("{{" + name + "}}", str(value))
-    return text
+    return f"{NO_URL_NOTICE}\n\n{text}" if asks_for_url else text
 
 
 def current_section_key(registry: Registry, state: dict, section: str) -> str | None:
@@ -454,10 +465,49 @@ def gather_inputs(registry: Registry, ws: Workspace, state: dict, inst: Instance
         else:
             text = _artifact_text(ws, state, artifact_id)
             if text is None:
+                notice = _skipped_read(registry, state, artifact_id)
+                if notice is not None:
+                    found.append(notice)
                 continue
             version = state["artifacts"][artifact_id]["version"]
         found.append({"artifact_id": artifact_id, "title": title, "version": version, "text": text})
     return _fit(found)
+
+
+def _skipped_read(registry: Registry, state: dict, artifact_id: str) -> dict | None:
+    """An input saying a read resolved to nothing because its step was skipped.
+
+    Without it a step can reach Claude with an empty ``inputs`` list and no word on
+    why (CONN-PT-06). Reads of steps that simply haven't run yet stay silent.
+    """
+    step_id, _, section = artifact_id.partition(":")
+    section = section or None
+    skip = next(
+        (
+            s
+            for s in reversed(state.get("skips", []))
+            if s["step_id"] == step_id and s.get("section") == section
+        ),
+        None,
+    )
+    if skip is None:
+        return None
+    step = registry.step(step_id)
+    title = step.title if step else step_id
+    where = ""
+    if section:
+        where = f" for {(section_info(state, section) or {}).get('name', section)}"
+    reason = _plain(skip.get("reason")) or skip.get("code") or "no reason was recorded"
+    return {
+        "artifact_id": artifact_id,
+        "title": f"Skipped: {title}{where}",
+        "version": None,
+        "skipped": True,
+        "text": (
+            f"{title} ({step_id}){where} was skipped, so it has nothing for you to read: "
+            f"{reason}. Work from your other inputs."
+        ),
+    }
 
 
 def _fit(items: list[dict]) -> list[dict]:

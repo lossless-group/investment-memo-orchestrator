@@ -1,4 +1,4 @@
-"""The ten tools, as transport-free functions over a :class:`Workspace`.
+"""The tools, as transport-free functions over a :class:`Workspace`.
 
 Each tool lives in its own module and exports ``TOOL``. :func:`invoke` is the
 one entry point: it validates input against the tool's model, runs the handler,
@@ -27,7 +27,9 @@ def _validation_errors(exc: ValidationError) -> list[dict[str, Any]]:
     ]
 
 
-def invoke(name: str, args: dict[str, Any] | None, ws: Workspace, registry=None) -> dict[str, Any]:
+def invoke(
+    name: str, args: dict[str, Any] | None, ws: Workspace, registry=None, principal=None
+) -> dict[str, Any]:
     from ..registry import load_registry
 
     registry = registry or load_registry()
@@ -49,7 +51,9 @@ def invoke(name: str, args: dict[str, Any] | None, ws: Workspace, registry=None)
     if params.firm is not None and params.firm != ws.firm:
         raise ConnectorError("forbidden_firm")
     try:
-        body = tool.handler(ws, params)
+        body = (
+            tool.handler(ws, params, principal) if tool.uses_principal else tool.handler(ws, params)
+        )
     except ConnectorError:
         raise
     except OSError as exc:

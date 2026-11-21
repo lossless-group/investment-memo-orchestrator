@@ -21,6 +21,7 @@ TOOLS = {
     "compile",
     "start_revision",
     "cancel_revision",
+    "whoami",
 }
 
 #: (readOnlyHint, destructiveHint) per tool, from the spec's tools table.
@@ -35,6 +36,7 @@ HINTS = {
     "compile": (False, False),
     "start_revision": (False, False),
     "cancel_revision": (False, True),
+    "whoami": (True, False),
 }
 
 #: The starting codes from the spec's Errors section, with their kinds.

@@ -230,9 +230,52 @@ def file_sha(path: Path) -> str:
     return h.hexdigest()
 
 
+def trading_name(cfg: dict) -> str | None:
+    """The name the company trades under: trading_name, then name, then legal_name."""
+    for field in ("trading_name", "name", "legal_name"):
+        value = cfg.get(field)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def write_brief(state: dict, final: tuple[Path, Path], version: Path | None) -> str:
+    """The materials brief for a finished deal: what it has and where it came from.
+
+    The local run already read these materials, so this lists them instead of
+    summarizing them again. Steps that read ``materials.brief`` then get something
+    real rather than nothing (CONN-PT-05).
+    """
+    memo_version = final[0].name.rsplit("-", 1)[-1]
+    lines = [
+        f"# Materials brief: {state['company']} (imported)",
+        "",
+        f"This deal was finished in the local pipeline and imported. Its finished memo is "
+        f"{memo_version}, from the local run {final[0].name} (`{final[1].name}`); it is "
+        "compiled version 1 here and is also among the materials.",
+    ]
+    if version is not None and version != final[0]:
+        lines.append(f"The research and section drafts come from the local run {version.name}.")
+    lines += [
+        "",
+        "The local run read these materials and applied the enhancements, so this brief "
+        "lists them rather than summarizing them again. Read a text material with "
+        "get_artifact; binaries are in the firm's bucket.",
+        "",
+        "## Materials",
+        "",
+    ]
+    for m in state["materials"]:
+        what = m.get("title") or m.get("filename") or m["material_id"]
+        size = f", {m['bytes']:,} bytes" if m.get("bytes") else ""
+        where = "in the bucket" if m.get("bucket_key") else "text"
+        lines.append(f"- `{m['material_id']}` ({m.get('kind')}, {where}{size}): {what}")
+    return "\n".join(lines) + "\n"
+
+
 def config_notes(cfg: dict) -> str:
     """The deal config as a notes material: what the operator told the pipeline."""
-    lines = [f"# Deal notes for {cfg.get('legal_name') or cfg.get('name')} (imported)", ""]
+    lines = [f"# Deal notes for {trading_name(cfg) or 'this deal'} (imported)", ""]
     for field in ("description", "url", "stage", "type", "mode"):
         if cfg.get(field):
             lines.append(f"- **{field}:** {cfg[field]}")
@@ -320,7 +363,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
         report["skipped"] = "no deal config"
         return report
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-    company = cfg.get("legal_name") or cfg.get("name") or deal_dir.name
+    company = trading_name(cfg) or deal_dir.name
     url = cfg.get("url")
     domain = cfg.get("domain") or domain_of(url)
     named = (cfg.get("memopop_deal") or {}).get("deal")
@@ -339,6 +382,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
     state = {
         "deal": slug,
         "company": company,
+        "legal_name": cfg.get("legal_name"),
         "url": url,
         "domain": domain,
         "stage": cfg.get("stage"),
@@ -471,8 +515,8 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
         reason = (
             f"Already applied in the local pipeline run {version.name} this deal was imported from."
         )
-        skips = [("materials.brief", None)]
-        skips += [(step, None) for step in ENHANCEMENTS_DEAL]
+        # materials.brief is written below, once every material is recorded, not skipped
+        skips = [(step, None) for step in ENHANCEMENTS_DEAL]
         skips += [(step, k) for step in ENHANCEMENTS_SECTION for k in keys]
         if "research.sources" not in state["artifacts"]:
             skips.append(("research.sources", None))
@@ -540,6 +584,16 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
             }
         )
     stage.write_manifest(deal_dir.relative_to(firm_dir), slug, entries)
+
+    if finished:
+        artifact(
+            "materials.brief",
+            None,
+            "materials/brief.md",
+            "brief",
+            write_brief(state, final, version),
+            False,
+        )
 
     stage.write_ws(rel / "deal.json", json.dumps(state, indent=2) + "\n")
     missing_research = [k for k in keys if k not in got_research]
