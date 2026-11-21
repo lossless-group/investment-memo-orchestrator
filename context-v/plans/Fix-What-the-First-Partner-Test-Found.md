@@ -38,7 +38,7 @@ The five items under "What needs fixing before other partners use it" in [[First
 
 **Test** (`tests/connector/test_deals.py`): a deal with 30 identical skips lists one reason with count 30. With `include_skips=True` the full list comes back.
 
-- [ ] Done
+- [x] Done (2026-11-21, `connector/fix-partner-test`). The existing tests that read the per-skip list now pass `include_skips: true`; their assertions are unchanged.
 
 ## 2. A sentence for a deal with no URL
 
@@ -51,7 +51,7 @@ The five items under "What needs fixing before other partners use it" in [[First
 
 **Test** (`tests/connector/test_flow.py`): render `research.section` for a deal without a URL. The output has no "(not given)" and starts with the ask-for-the-URL notice.
 
-- [ ] Done
+- [x] Done (2026-11-21) as the notice: `needs_partner` is the approval flag and carries no question, so a step that returns the question itself is a follow-up. The notice leads every step whose instruction names `{{url}}` (research.section, research.sources, materials.brief, enhance.fact_check).
 
 ## 3. The deal's name is the trading name
 
@@ -64,7 +64,7 @@ The five items under "What needs fixing before other partners use it" in [[First
 
 **Test** (`tests/test_upload_firm.py`): a config with `legal_name` and `trading_name` stages a deal whose `company` is the trading name.
 
-- [ ] Done
+- [x] Done (2026-11-21) in the uploader and `list_deals`. Not done: fixing the known config in the first firm's folder and looking for others, because engineers don't touch `io/`; that is an operator task before the next upload.
 
 ## 4. A `whoami` tool
 
@@ -72,7 +72,7 @@ The five items under "What needs fixing before other partners use it" in [[First
 
 **Test** (`tests/connector/test_auth.py`): a token for an account on two firms returns both, with the active one marked. A static key returns the firm it's bound to.
 
-- [ ] Done
+- [x] Done (2026-11-21): tool, REST route, docs entry, spec row. The server-instructions mention is left to the engineer who owns that string (Serve-the-Method-from-the-Server, CONN-SKL-01).
 
 ## 5. Steps on imported deals get their inputs
 
@@ -87,7 +87,7 @@ The five items under "What needs fixing before other partners use it" in [[First
 
 **Test** (`tests/connector/test_flow.py` and `tests/test_upload_firm.py`): an imported, finished deal's `research.section` step has at least the brief and its previous research among its inputs.
 
-- [ ] Done
+- [x] Done (2026-11-21): the uploader writes the brief for finished deals, and `gather_inputs()` adds a skipped-step input. The other half (binaries as materials) is [[Apply-the-Deal-Folder-Uploader]].
 
 ## Done when
 
