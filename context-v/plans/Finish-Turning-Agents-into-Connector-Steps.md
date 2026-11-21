@@ -13,11 +13,14 @@ authors:
 augmented_with:
   - Claude Code on Claude Opus 5.5
 at_semantic_version: 0.0.0.1
-status: Ready
+status: In-Progress
 spec_reference: context-v/specs/MemoPop-Connector-API.md
 depends_on: [Phase-7-Plugin-and-Real-Claude]
 site_uuid: 79ea9a93-45f0-48f9-9984-74c88ce1f56b
 hex_code: 38ng9b
+loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
+branch: connector/rewrite-step
+owns_test_ids: [CONN-STEP-11, CONN-STEP-12]
 ---
 
 # Finish Turning the Agents into Connector Steps

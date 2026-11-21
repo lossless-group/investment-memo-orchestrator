@@ -805,6 +805,60 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-REV-09` | Given a deal imported from local run `v0.2.2`, then its first compile is labelled `v0.2.3`; given a new deal, `v0.0.1`; an unchanged recompile keeps its label |
 | `CONN-REV-10` | Given an open revision, then `list_deals` shows it, and every deal shows its `memo_version` |
 
+### Partner-test fixes (Fix-What-the-First-Partner-Test-Found, 2026-11-21)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-PT-01` | Given a deal with 30 skips sharing one reason, when `list_deals` runs, then it returns `skips_count: 30` and that reason once with its count, and no per-skip list; with `include_skips: true` the full list comes back |
+| `CONN-PT-02` | Given a deal with no URL, when `research.section` is rendered, then the instruction contains no "(not given)" and leads with a notice to ask the partner for the company's URL before researching |
+| `CONN-PT-03` | Given a deal config with `legal_name` and `trading_name`, when the uploader stages it, then `company` is the trading name and `legal_name` is kept; `list_deals` returns both when they differ |
+| `CONN-PT-04` | Given a token for an account on two firms, when `whoami` runs, then it returns the account, both firms with the active one marked, and the connector version; given a static key, the firm it is bound to |
+| `CONN-PT-05` | Given a finished deal staged by the uploader, then `materials.brief` is a saved artifact (not a skip), and the deal's `research.section` step has the brief and its previous research among its inputs |
+| `CONN-PT-06` | Given a step whose read resolves to a skipped step, then its inputs include a notice naming the skipped step and the reason, never a silently empty list |
+
+### Rewrite step (Finish-Turning-Agents-into-Connector-Steps, step 1)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-STEP-11` | Given the registry, then a rewrite step exists with `source_agent` `section_reviser`, reading only the section's research and its current draft, and its instruction forbids outside knowledge and web research |
+| `CONN-STEP-12` | Given a revision with `start: research`, then the reopened `draft.section` step has the section's current draft among its inputs and the same no-outside-knowledge line in its instruction |
+
+### The method served from the server (Serve-the-Method-from-the-Server)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-SKL-01` | Given the MCP server, then its instructions open with editing finished memos (not writing new ones), name `list_skills`, and mention `whoami` for partners on more than one firm |
+| `CONN-SKL-02` | Given the skills folder, when `list_skills` runs, then every skill file is listed with its name and one-line description |
+| `CONN-SKL-03` | Given a skill name, `get_skill` returns its playbook; given an unknown name, `not_found` listing the names that exist |
+| `CONN-SKL-04` | Given the MCP server, then `prompts/list` returns the four entry prompts, each naming MemoPop and a skill that exists |
+
+### Compiled memos for firm sites (Serve-Compiled-Memos-to-Firm-Sites)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-SITE-01` | Given a compiled deal and the firm's site key, when the site endpoint is called, then it returns the latest compiled memo, its label, its compile time, and signed export links |
+| `CONN-SITE-02` | Given another firm's site key, then `403`; given no key, `401` |
+| `CONN-SITE-03` | Given a deal with no compiled version, then `404` |
+| `CONN-SITE-04` | Given a firm with `site_memo_url` and a slug for the deal, when `compile` finishes, then its response includes `site_url` |
+
+### Edit tools for finished memos (Edit-Tools-for-Finished-Memos)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-EDIT-01` | Given a drafted section, when `edit_section` applies edits, then the section has a new version, its research is untouched, and no revision opens; an `old` string that does not match exactly once returns `validation_failed` naming it |
+| `CONN-EDIT-02` | Given two `edit_section` calls, then the next compile includes both |
+| `CONN-EDIT-03` | Given a compiled final edited outside the sections, then `compile` returns `final_has_untracked_edits` listing each difference with its section; with `discard_untracked: true` it compiles |
+| `CONN-EDIT-04` | Given `edit_final` on the latest compiled final, then the partner's change is in a new compiled version and in the section it falls in, and the next compile reproduces it without `final_has_untracked_edits` |
+| `CONN-EDIT-05` | Given `edit_outline` on one deal, then another deal using the same outline is unchanged, and an added section appears in that deal's `next_step` |
+| `CONN-EDIT-06` | Given `edit_outline` with `apply_to: firm`, then the firm's outline changes and the response lists the deals using it, none of them changed |
+
+### Uploader (Apply-the-Deal-Folder-Uploader)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-UPL-01` | Given a known-blobs list, when the uploader stages a firm, then no blob on the list is staged, and the materials and manifests still record those files |
+| `CONN-UPL-02` | Given a staged firm and the server state after apply, when the check script runs, then it reports per deal the compiled label against the newest local memo, sections against the outline, and materials against the manifest |
+
 ## Done when
 
 1. A partner at a test firm adds the connector in Claude Desktop, signs in with
