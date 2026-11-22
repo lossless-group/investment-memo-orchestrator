@@ -979,6 +979,14 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-UPL-02` | Given a staged firm and the server state after apply, when the check script runs, then it reports per deal the compiled label against the newest local memo, sections against the outline, and materials against the manifest |
 | `CONN-UPL-03` | Given an imported deal that isn't finished, with binaries among its materials, when `next_step` reaches `materials.brief`, then it hands the step out with each binary's extracted text, or a notice for a binary with none, never `artifact_not_found` |
 
+### Hex-code citations (Hex-Code-Citations-and-a-Repair-Tool)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-HEX-01` | Given two sections citing the same URL under different local keys, when a research step's submission is checked and the memo compiles, then both use one hex key from `source_key()`, and the compiled markdown has one definition for it |
+| `CONN-HEX-02` | Given a section submitted with numbered keys, then `submit_artifact` accepts it and compile converts its keys to hex; given a hex key that doesn't match its definition's source, the check names it |
+| `CONN-HEX-03` | Given the connector's `research.section` and `draft.section` instructions, then they ask for hex keys, never `[^1]` |
+
 ## Done when
 
 1. A partner at a test firm adds the connector in Claude Desktop, signs in with

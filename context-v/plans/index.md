@@ -16,6 +16,7 @@
 * [MemoPop Connector API, Phase 6: History and Snapshots](MemoPop-Connector-API-Phase-6-History-and-Snapshots.md) - Every saved artifact becomes a jj change the client never sees, and one save backs the firm's whole workspace up to its bucket.
 * [MemoPop Connector API, Phase 7: The Plugin and Real Claude](MemoPop-Connector-API-Phase-7-Plugin-and-Real-Claude.md) - A thin skill that keeps Claude on the method, packaged with the connector, and a test where real Claude writes the fixture memo.
 * [MemoPop Landing Page Specification](MemoPop-Landing-Page-Specification.md) - Comprehensive spec for building the MemoPop marketing landing page, designed for implementation by AI code assistants.
+* [Hex-Code Citations, and a Tool to Repair Memos Cited by Number](Hex-Code-Citations-and-a-Repair-Tool.md) - Draft with source-derived hex keys as LFM requires, and repair memos whose numbered keys collided across sections.
 * [Migrate `studies/open-specs-and-standards/` into its own pseudo-monorepo](Migrating-Study-to-its-own-Pseudomonrepo.md)
 * [Reconciling Perplexity Citations Against Retrieved Sources](Reconciling-Perplexity-Citations-Against-Retrieved-Sources.md) - Sonar hands us the sources it actually retrieved on every call, and we throw them away — so every URL in every memo is a guess.
 * [Reorganize Context-V Into Canonical Categories](Reorganize-Context-V-Into-Canonical-Categories.md) - Step-by-step prompt for reclassifying all context-v files into the four canonical categories: Specification, Reminder, Prompt, Blueprint.
