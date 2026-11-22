@@ -8,6 +8,7 @@
 | `MEMOPOP_JWKS_URL` | Where token signing keys are fetched | `https://id.didi.sh/.well-known/jwks.json` |
 | `MEMOPOP_TOKEN_AUDIENCE` | The `aud` tokens must carry (`<aud>/mcp` is accepted too) | `https://memopop.didi.sh` |
 | `MEMOPOP_STATIC_KEYS` | Interim per-firm keys, `firm=key,firm=key` (Claude Code and the health check only) | none |
+| `MEMOPOP_SITE_KEYS` | Per-firm read-only keys for the firm's own site, `firm=key,firm=key`; they read compiled memos at `/site/v1/...` and nothing else | none |
 | `MEMOPOP_DISABLED_STEPS` | Ops switch: comma-separated step ids to skip (optional steps only) | none |
 | `MEMOPOP_COMPILE_BUDGET_SECONDS` | How long compile works before it returns a job instead | `200` |
 | `MEMOPOP_LINK_SECRET` | Signs compiled-memo links served from a local bucket (S3 links are presigned) | random per process |
@@ -56,7 +57,7 @@ def _parse_s3_firms(env) -> dict[str, dict[str, str]]:
     return firms
 
 
-def _parse_static_keys(raw: str) -> dict[str, str]:
+def _parse_static_keys(raw: str, name: str = "MEMOPOP_STATIC_KEYS") -> dict[str, str]:
     keys: dict[str, str] = {}
     for pair in raw.split(","):
         pair = pair.strip()
@@ -64,7 +65,7 @@ def _parse_static_keys(raw: str) -> dict[str, str]:
             continue
         firm, sep, key = pair.partition("=")
         if not sep or not firm.strip() or not key.strip():
-            raise ValueError("MEMOPOP_STATIC_KEYS must look like firm=key,firm=key")
+            raise ValueError(f"{name} must look like firm=key,firm=key")
         keys[firm.strip()] = key.strip()
     return keys
 
@@ -78,6 +79,8 @@ class ConnectorSettings:
     token_audience: str = "https://memopop.didi.sh"
     #: firm -> key. Interim; removed the day didi.sh OAuth is live for every client.
     static_keys: dict[str, str] = field(default_factory=dict)
+    #: firm -> key for the firm's own site: reads compiled memos, nothing else.
+    site_keys: dict[str, str] = field(default_factory=dict)
     disabled_steps: set[str] = field(default_factory=set)
     #: Test only (src/connector/faults.py): firms whose own outlines may inject faults.
     fault_firms: set[str] = field(default_factory=set)
@@ -135,6 +138,7 @@ class ConnectorSettings:
             jwks_url=get("MEMOPOP_JWKS_URL", default="https://id.didi.sh/.well-known/jwks.json"),
             token_audience=get("MEMOPOP_TOKEN_AUDIENCE", default="https://memopop.didi.sh"),
             static_keys=_parse_static_keys(get("MEMOPOP_STATIC_KEYS", default="")),
+            site_keys=_parse_static_keys(get("MEMOPOP_SITE_KEYS", default=""), "MEMOPOP_SITE_KEYS"),
             disabled_steps={
                 s.strip() for s in get("MEMOPOP_DISABLED_STEPS", default="").split(",") if s.strip()
             },

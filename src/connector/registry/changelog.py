@@ -9,6 +9,17 @@ from __future__ import annotations
 API_CHANGELOG: list[dict] = [
     {
         "date": "2026-11-21",
+        "version": "1.7.0",
+        "changes": [
+            "compile returns a new field, `site_url` (additive): the firm site's page for the "
+            "deal, when firm.json has `site_memo_url` and `site_memo_slugs` covers the deal.",
+            "New route outside the tools (additive): GET /site/v1/firms/{firm}/deals/{deal}/memo "
+            "returns the latest compiled memo to the firm's own site, behind a per-firm site key "
+            "from MEMOPOP_SITE_KEYS. Site keys can't call the tools.",
+        ],
+    },
+    {
+        "date": "2026-11-21",
         "version": "1.6.0",
         "changes": [
             "New tools `list_skills` and `get_skill` (additive, read-only): MemoPop's playbooks "

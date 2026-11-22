@@ -29,6 +29,7 @@ from .. import flow
 from ..compile import links, pipeline
 from ..errors import ConnectorError
 from ..registry import load_registry
+from ..site import site_url_for
 from ..registry.types import ANY, Example, InputDoc, ReturnDoc, ToolDef, ToolInput
 from ..workspace import Workspace
 from ._examples import drafts_walk, research_walk
@@ -168,7 +169,7 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
                 tx.write_json(ws.deal_rel(deal) / "deal.json", current),
             ]
         ws.history.record(f"compile.assemble: deal {deal}, v{version}", written)
-    return {
+    body = {
         "deal": deal,
         "html_url": links.signed_url(ws, keys["html"]) if "html" in formats else None,
         "pdf_url": links.signed_url(ws, keys["pdf"]) if "pdf" in formats else None,
@@ -176,6 +177,10 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
         "label": label,
         "report": report,
     }
+    site_url = site_url_for(ws, deal)
+    if site_url:
+        body["site_url"] = site_url
+    return body
 
 
 def _fail_job(ws: Workspace, deal: str, job_id: str, exc: BaseException) -> None:
@@ -334,6 +339,11 @@ TOOL = ToolDef(
             "(sources listed, missing definitions).",
         ),
         ReturnDoc(
+            "site_url",
+            "Only when the firm's site has a page for this deal: that page, which now shows "
+            "this compile.",
+        ),
+        ReturnDoc(
             "job_id",
             "Only when compiling takes longer than about 200 seconds, with status running; "
             "list_deals reports the job and, once it is done, its links.",
@@ -351,8 +361,10 @@ TOOL = ToolDef(
         "the HTML memo, and tell the partner the PDF will follow.",
     },
     next=(
-        "give the partner the links, and tell them in one line each about anything in the "
-        "report's skipped and not_run. If you got a job_id, call list_deals later for the links."
+        "give the partner the links (and site_url, if there is one: the firm's page for the "
+        "memo, which now shows this version), and tell them in one line each about anything "
+        "in the report's skipped and not_run. If you got a job_id, call list_deals later for "
+        "the links."
     ),
     examples=[
         Example(

@@ -365,6 +365,41 @@ Per [[Sign-In-Through-didi-sh-OAuth]]:
   Claude Code and the health check only. It is never given to a client and is
   removed from the code path the day OAuth works.
 
+### Site read endpoint
+
+A firm's own site reads its latest compiled memos over REST. This is not an
+MCP tool ([[Serve-Compiled-Memos-to-Firm-Sites]]; code in
+`src/connector/site.py`).
+
+- **`GET /site/v1/firms/{firm}/deals/{deal}/memo`**, with
+  `Authorization: Bearer <site key>`. Site keys are per firm, in
+  `MEMOPOP_SITE_KEYS` (`firm=key,firm=key`), and read-only. They are separate
+  from partner auth: a site key can't call the tools under `/v1/`, and a
+  partner's token or static key is refused here. Each read and each refusal
+  is logged with the firm and deal, never the key.
+- **401** `unauthenticated` for no key, a key that isn't a site key, or no
+  `Bearer` scheme. **403** `forbidden_firm` for another firm's site key.
+  **404** `deal_not_found` for an unknown deal, `artifact_not_found` for a
+  deal never compiled. Errors use the usual envelope.
+- **200** returns `firm`, `deal`, `company`, `version`, `label`,
+  `compiled_at`, `markdown` (the latest `compiled/<version>/memo.md`),
+  `html_url` and `pdf_url` (signed, seven days; `null` when that export was
+  never made, as for a memo imported from a local run), and
+  `images_unresolved`, with `Cache-Control: private, no-store`.
+- **Images.** Memos compiled on the server embed their market-sizing diagram
+  as a `data:` URI and place no other images (nothing writes
+  `materials/deck-images.json` yet). Memos imported from local runs point at
+  deck screenshots and diagrams by local path. The uploader put those files
+  in the bucket as `blobs/<sha256>`, each recorded as a material with its
+  `local_path`, so the endpoint rewrites each local image reference that
+  matches one uploaded binary to a signed link. When the same file name is in
+  several runs' outputs, the copy from the memo's own version (its `label`)
+  wins. `http(s)` and `data:` images are left alone. Local references with no
+  uploaded file are left as written and listed in `images_unresolved`.
+- **The compile reply links to the page.** `firm.json` may carry
+  `site_memo_url` (a pattern with `{slug}`) and `site_memo_slugs`
+  (`{deal: slug}`). When both cover the deal, `compile` returns `site_url`.
+
 ## Storage
 
 On the Railway volume, `MEMO_IO_ROOT=/data/firms`:
