@@ -20,7 +20,7 @@ depends_on: []
 tags: [Plan, Connector, Upload, Bucket, Materials, Sync]
 loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
 branch: connector/uploader-prep
-owns_test_ids: [CONN-UPL-01, CONN-UPL-02, CONN-UPL-03]
+owns_test_ids: [CONN-UPL-01, CONN-UPL-02, CONN-UPL-03, CONN-UPL-04]
 ---
 
 # Apply the Deal-Folder Uploader
