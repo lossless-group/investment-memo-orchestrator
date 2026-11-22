@@ -7,7 +7,8 @@ date_authored_initial_draft: 2026-11-22
 date_authored_current_draft: 2026-11-22
 at_semantic_version: 0.0.0.1
 publish: false
-status: Open
+status: Resolved
+date_resolved: 2026-11-22
 tags: [Connector, Upload, History, jj]
 authors:
   - Michael Staton
@@ -37,3 +38,12 @@ The files on disk are correct, and so is the bucket. Binaries are stored once as
 4. **Clean up the existing workspace,** once, with the operator's go-ahead and a backup first: delete the `._*` files, then record the rest as one entry, "upload 2026-11-21 (recorded late)".
 
 Related: [[Apply-the-Deal-Folder-Uploader]].
+
+## Resolution
+
+Resolved 2026-11-22.
+
+- **The real cause of the empty history entry wasn't a timeout.** `JjHistory.record` named every path with `root-file:`, which matches an exact file only. The uploader records each deal as a folder (`deals/<deal>`), so those filesets matched nothing, and only the loose firm files (four of them) were committed. A by-hand `jj commit` of 2,567 files took under a second. Fix: a folder is named with `root:` (that path and everything under it). Test CONN-HIST-06.
+- **macOS metadata:** staging skips `._*` and `.DS_Store` in firm folders as well as deal folders; `apply` packs with `COPYFILE_DISABLE=1`, `--no-xattrs` and both excludes; `apply_upload.py` deletes any that arrive before copying. Test CONN-UPL-05.
+- **The one firm affected was cleaned up on the server:** 3,090 `._` files deleted, and the unrecorded changes committed as "upload 2026-11-21 (recorded late)". The second upload's changes, which hit the same bug before this fix was deployed, were committed by hand right after it ran.
+

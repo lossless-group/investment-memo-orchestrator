@@ -918,6 +918,7 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-HIST-03` | When `save_snapshot` runs, then an archive is written to the firm's bucket under `snapshots/`, with change counts against the previous snapshot |
 | `CONN-HIST-04` | Given two firms, then their jj repositories and bucket locations are separate and neither can reach the other's |
 | `CONN-HIST-05` | Given binary materials, then none is inside the jj working copy |
+| `CONN-HIST-06` | Given a folder passed to `record` (as the uploader passes each deal), then every file under it is committed in that change and nothing under it is left in the working copy |
 
 ### Deploy and live health (Plan 2)
 
@@ -1014,6 +1015,7 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-UPL-02` | Given a staged firm and the server state after apply, when the check script runs, then it reports per deal the compiled label against the newest local memo, sections against the outline, and materials against the manifest |
 | `CONN-UPL-03` | Given an imported deal that isn't finished, with binaries among its materials, when `next_step` reaches `materials.brief`, then it hands the step out with each binary's extracted text, or a notice for a binary with none, never `artifact_not_found` |
 | `CONN-UPL-04` | Given the same bytes at two paths in one deal, then one material carries both paths and the manifest has two entries sharing its id |
+| `CONN-UPL-05` | Given macOS metadata files (`._*`, `.DS_Store`) beside a firm's files, then staging leaves them out, `apply` packs with `COPYFILE_DISABLE=1` and excludes them, and the server deletes any that arrive before copying |
 
 ### Hex-code citations (Hex-Code-Citations-and-a-Repair-Tool)
 

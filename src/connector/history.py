@@ -216,6 +216,16 @@ def _fileset(rel: str) -> str:
     return "root-file:" + json.dumps(rel)
 
 
+def _tree_fileset(rel: str) -> str:
+    """A jj fileset naming a folder and everything under it.
+
+    ``root-file:`` matches an exact path only, so a folder passed to ``record``
+    (the uploader records each deal as one) matched nothing and its files were
+    never committed.
+    """
+    return "root:" + json.dumps(rel)
+
+
 class JjHistory:
     """One firm's history, kept in a jj repository at the firm root."""
 
@@ -299,7 +309,10 @@ class JjHistory:
         try:
             with self._lock():
                 self.ensure_repo()
-                filesets = [_fileset(rel) for rel in rels]
+                filesets = [
+                    _tree_fileset(rel) if (self.root / rel).is_dir() else _fileset(rel)
+                    for rel in rels
+                ]
                 if not self._run("diff", "--name-only", *filesets).strip():
                     return
                 self._run("commit", "--message", message, *filesets)

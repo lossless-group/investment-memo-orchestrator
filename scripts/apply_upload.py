@@ -89,12 +89,30 @@ def notify_site(ws: Workspace, deals: list[str]) -> None:
         site_hook.notify(ws, deal, _compiled(ws, deal) or {})
 
 
+def drop_macos_metadata(up: Path) -> int:
+    """Delete ``._*`` and ``.DS_Store`` files under the staging; return how many.
+
+    A staging packed on a Mac without COPYFILE_DISABLE carries a ``._`` file
+    beside every real one. They are never content, so they never reach the
+    workspace, whatever the sender did.
+    """
+    dropped = 0
+    for f in sorted(up.rglob("*")):
+        if f.is_file() and (f.name.startswith("._") or f.name == ".DS_Store"):
+            f.unlink()
+            dropped += 1
+    return dropped
+
+
 def main(firm: str, up: Path) -> int:
     plan = json.loads((up / "plan.json").read_text(encoding="utf-8"))
     if plan["firm"] != firm:
         raise SystemExit(f"staging is for {plan['firm']}, not {firm}")
     ws = open_workspace(ConnectorSettings.from_env(), firm)
     root = ws.root
+    dropped = drop_macos_metadata(up)
+    if dropped:
+        print(f"staging: dropped {dropped} macOS metadata file(s)", flush=True)
     staged = up / "firms" / firm
 
     missing = missing_known(ws.bucket, plan)
@@ -124,11 +142,19 @@ def main(firm: str, up: Path) -> int:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(staged / rel, dest)
         touched.append(dest)
-    ws.history.record(f"upload: {len(plan['deals'])} deals and the firm's files from the local folder", touched)
-    print(f"workspace: {len(plan['deals'])} deals replaced, {len(plan['firm_paths'])} firm files", flush=True)
+    ws.history.record(
+        f"upload: {len(plan['deals'])} deals and the firm's files from the local folder", touched
+    )
+    print(
+        f"workspace: {len(plan['deals'])} deals replaced, {len(plan['firm_paths'])} firm files",
+        flush=True,
+    )
     notify_site(ws, changed)
     left = site_hook.wait_for_senders(HOOK_WAIT_SECONDS)
-    print(f"site: {len(changed)} deal(s) with a new compiled version; {left} notification(s) unfinished", flush=True)
+    print(
+        f"site: {len(changed)} deal(s) with a new compiled version; {left} notification(s) unfinished",
+        flush=True,
+    )
     return 0
 
 

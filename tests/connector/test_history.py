@@ -355,3 +355,27 @@ def test_a_failing_jj_is_logged_and_the_save_still_stands(settings, caplog):
     path = ws.root / "deals" / deal / "research" / f"{SECTIONS[0]}.md"
     assert path.read_text() == canned.research(SECTIONS[0])
     assert any("could not record" in r.getMessage() for r in caplog.records)
+
+
+# ---------------------------------------------------------------- CONN-HIST-06
+
+
+@pytest.mark.spec("CONN-HIST-06")
+def test_recording_a_folder_records_every_file_under_it(ws, jj):
+    """The uploader records each deal as a folder. A folder path must commit what's under it."""
+    deal = new_deal(ws)
+    folder = ws.root / "deals" / deal
+    (folder / "local" / "sections").mkdir(parents=True, exist_ok=True)
+    (folder / "local" / "sections" / "01-overview.md").write_text("# Overview\n")
+    (folder / "compiled").mkdir(exist_ok=True)
+    (folder / "compiled" / "memo.md").write_text("# Memo\n")
+
+    ws.history.record("upload: one deal", [folder])
+
+    described = jj.run(ws.root, "log", "--no-graph", "-r", "@-", "-T", "description")
+    assert described.startswith("upload: one deal")
+    recorded = jj.run(ws.root, "diff", "--name-only", "-r", "@-")
+    assert f"deals/{deal}/local/sections/01-overview.md" in recorded
+    assert f"deals/{deal}/compiled/memo.md" in recorded
+    left = jj.run(ws.root, "diff", "--name-only", "-r", "@", snapshot=True)
+    assert f"deals/{deal}/" not in left

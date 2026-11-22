@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -77,6 +78,13 @@ ENHANCEMENTS_DEAL = [
 ]
 ENHANCEMENTS_SECTION = ["enhance.citations", "enhance.fact_check", "enhance.tables"]
 SKIP_FILES = {".DS_Store", "binaries-on-server.yaml"}
+
+
+def is_macos_metadata(name: str) -> bool:
+    """A Finder or AppleDouble file (``._x``, ``.DS_Store``): never content, never sent."""
+    return name.startswith("._") or name == ".DS_Store"
+
+
 MANIFEST = "binaries-on-server.yaml"
 FINAL_MEMO = re.compile(r"^([67])-.+-v\d+(\.\d+)+\.md$")
 FIRM_DIRS = ("configs", "templates", "assets")
@@ -196,7 +204,9 @@ def final_memo(deal_dir: Path) -> tuple[Path, Path] | None:
     if not outputs.is_dir():
         return None
     versions = sorted(
-        (p for p in outputs.iterdir() if p.is_dir() and "-v" in p.name), key=version_key, reverse=True
+        (p for p in outputs.iterdir() if p.is_dir() and "-v" in p.name),
+        key=version_key,
+        reverse=True,
     )
     for v in versions:
         memos = sorted(
@@ -399,6 +409,7 @@ class Stager:
         p = self.ws / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, p)
+
 
 def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict:
     """Stage one deal; return its report line."""
@@ -710,7 +721,7 @@ def upload_firm(
     entries: dict = {}
     for sub in FIRM_DIRS:
         for f in sorted((firm_dir / sub).rglob("*")) if (firm_dir / sub).is_dir() else []:
-            if not f.is_file() or f.name in SKIP_FILES:
+            if not f.is_file() or f.name in SKIP_FILES or is_macos_metadata(f.name):
                 continue
             rel = f.relative_to(firm_dir)
             if is_text(f):
@@ -769,7 +780,9 @@ def upload_firm(
             + (f" ({r['unreadable']} with no text, recorded skipped)" if r["unreadable"] else "")
         )
         if r["missing_research"]:
-            lines.append(f"  - next_step will ask for research on: {', '.join(r['missing_research'])}")
+            lines.append(
+                f"  - next_step will ask for research on: {', '.join(r['missing_research'])}"
+            )
         if r["missing_drafts"] and r["missing_drafts"] != r["missing_research"]:
             lines.append(f"  - and drafts of: {', '.join(r['missing_drafts'])}")
     (out / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -785,8 +798,16 @@ def apply(out: Path, firm_dir: Path, service: str) -> None:
         f"runuser -u memopop -- env HOME=/home/memopop /opt/venv/bin/python /tmp/upload/apply_upload.py "
         f"{plan['firm']} /tmp/upload; rm -rf /tmp/upload"
     )
-    tar = subprocess.Popen(["tar", "-cf", "-", "-C", str(out), "."], stdout=subprocess.PIPE)
-    ssh = subprocess.run(["railway", "ssh", "--service", service, "--", "sh", "-c", remote], stdin=tar.stdout)
+    # macOS tar adds a ._ AppleDouble entry beside every file with extended
+    # attributes unless COPYFILE_DISABLE is set; the excludes catch any on disk.
+    tar = subprocess.Popen(
+        ["tar", "-cf", "-", "--no-xattrs", "--exclude=._*", "--exclude=.DS_Store", "-C", str(out), "."],
+        stdout=subprocess.PIPE,
+        env={**os.environ, "COPYFILE_DISABLE": "1"},
+    )
+    ssh = subprocess.run(
+        ["railway", "ssh", "--service", service, "--", "sh", "-c", remote], stdin=tar.stdout
+    )
     tar.stdout.close()
     if tar.wait() != 0 or ssh.returncode != 0:
         raise SystemExit("apply failed on the server; nothing copied home (see the output above)")

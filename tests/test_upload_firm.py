@@ -49,7 +49,9 @@ def test_finished_memo_is_compiled_v1_and_binaries_go_once(tmp_path):
     state = json.loads((out / "firms/acme-vc/deals/widget-com/deal.json").read_text())
     assert state["compiled"]["version"] == 1
     assert state["compiled"]["label"] == "v0.0.2"
-    assert (out / "firms/acme-vc/deals/widget-com/compiled/1/memo.md").read_text() == "# Newest memo\n"
+    assert (
+        out / "firms/acme-vc/deals/widget-com/compiled/1/memo.md"
+    ).read_text() == "# Newest memo\n"
 
     plan = json.loads((out / "plan.json").read_text())
     assert len(plan["blobs"]) == 1  # three copies of the same bytes, one blob
@@ -237,7 +239,9 @@ def test_an_imported_unfinished_deal_walks_through_the_materials_brief(tmp_path)
     ws = open_staged(tmp_path, out)
     step = invoke("next_step", {"deal": "widget-com"}, ws)
     assert step["step_id"] == "materials.brief"
-    deck_input = next(i for i in step["inputs"] if i["artifact_id"] == f"material:{deck['material_id']}")
+    deck_input = next(
+        i for i in step["inputs"] if i["artifact_id"] == f"material:{deck['material_id']}"
+    )
     assert PAGE_MARKERS[0] in deck_input["text"]
 
 
@@ -252,12 +256,16 @@ def test_a_ready_material_with_no_text_file_is_a_notice_not_an_error(tmp_path):
     deal_json = out / "firms/acme-vc/deals/widget-com/deal.json"
     state = json.loads(deal_json.read_text())
     deck = next(m for m in state["materials"] if m.get("filename") == "deck.pdf")
-    (out / f"firms/acme-vc/deals/widget-com/materials/{deck['material_id']}.md").unlink(missing_ok=True)
+    (out / f"firms/acme-vc/deals/widget-com/materials/{deck['material_id']}.md").unlink(
+        missing_ok=True
+    )
 
     ws = open_staged(tmp_path, out)
     step = invoke("next_step", {"deal": "widget-com"}, ws)
     assert step["step_id"] == "materials.brief"
-    notice = next(i for i in step["inputs"] if i["artifact_id"] == f"material:{deck['material_id']}")
+    notice = next(
+        i for i in step["inputs"] if i["artifact_id"] == f"material:{deck['material_id']}"
+    )
     assert "deck.pdf" in notice["text"] and "no text" in notice["text"].lower()
 
 
@@ -275,7 +283,9 @@ def test_known_blobs_are_not_staged_but_still_recorded(tmp_path):
     known = tmp_path / "known-blobs.txt"
     known.write_text(f"hashing imported/ keys...\n{digest}\n\n{'0' * 64}\n")
     out = tmp_path / "stage"
-    upload_firm.main([str(firm), "--firm", "acme-vc", "--out", str(out), "--known-blobs", str(known)])
+    upload_firm.main(
+        [str(firm), "--firm", "acme-vc", "--out", str(out), "--known-blobs", str(known)]
+    )
 
     plan = json.loads((out / "plan.json").read_text())
     assert plan["blobs"] == []
@@ -323,7 +333,10 @@ def test_fold_copies_each_imported_hash_to_blobs_once(tmp_path):
     assert set(result.hashes) == hashes
     assert result.copied == 2 and result.objects == 3
     assert sorted(bucket.list("blobs/")) == sorted(f"blobs/{h}" for h in hashes)
-    for h, data in ((hashlib.sha256(deck).hexdigest(), deck), (hashlib.sha256(other).hexdigest(), other)):
+    for h, data in (
+        (hashlib.sha256(deck).hexdigest(), deck),
+        (hashlib.sha256(other).hexdigest(), other),
+    ):
         assert bucket.get(f"blobs/{h}") == data
     assert len(bucket.list("imported/")) == 3  # never deleted here
 
@@ -487,3 +500,68 @@ def test_the_check_matches_every_path_of_a_shared_material(tmp_path):
     assert row["materials"]["manifest"] == 3 and row["materials"]["matched"] == 3
     assert row["materials"]["extra"] == [] and row["materials"]["missing"] == []
     assert row["materials"]["ok"]
+
+
+# ------------------------------------------------------------------ no macOS metadata (CONN-UPL-05)
+
+
+@pytest.mark.spec("CONN-UPL-05")
+def test_staging_leaves_out_macos_metadata_files(tmp_path):
+    firm = make_firm(tmp_path)
+    (firm / "configs" / "._brand.yaml").write_bytes(b"\x00\x05\x16\x07 appledouble")
+    (firm / "configs" / ".DS_Store").write_bytes(b"\x00\x00\x00\x01Bud1")
+    deal = firm / "deals" / "Widget"
+    (deal / "._Widget.json").write_bytes(b"\x00\x05\x16\x07 appledouble")
+    (deal / "outputs" / "Widget-v0.0.2" / "._7-Widget-v0.0.2.md").write_bytes(b"\x00\x05\x16\x07")
+    out = tmp_path / "stage"
+    upload_firm.upload_firm(firm, "acme-vc", out)
+
+    names = [p.name for p in out.rglob("*")]
+    assert not [n for n in names if n.startswith("._") or n == ".DS_Store"]
+    plan = json.loads((out / "plan.json").read_text())
+    assert not [p for p in plan["firm_paths"] if Path(p).name.startswith("._")]
+
+
+@pytest.mark.spec("CONN-UPL-05")
+def test_apply_packs_the_staging_without_macos_metadata(tmp_path, monkeypatch):
+    out = tmp_path / "stage"
+    out.mkdir()
+    (out / "plan.json").write_text(json.dumps({"firm": "acme-vc"}))
+    seen = {}
+
+    class FakeTar:
+        def __init__(self, cmd, stdout=None, env=None):
+            seen["cmd"], seen["env"] = cmd, env or {}
+            self.stdout = open(__file__, "rb")
+
+        def wait(self):
+            return 0
+
+    class Done:
+        returncode = 0
+
+    monkeypatch.setattr(upload_firm.subprocess, "Popen", FakeTar)
+    monkeypatch.setattr(upload_firm.subprocess, "run", lambda *a, **k: Done())
+    upload_firm.apply(out, tmp_path / "firm", "connector")
+
+    assert seen["env"].get("COPYFILE_DISABLE") == "1"
+    assert "--exclude=._*" in seen["cmd"] and "--exclude=.DS_Store" in seen["cmd"]
+
+
+@pytest.mark.spec("CONN-UPL-05")
+def test_the_server_drops_macos_metadata_before_copying(tmp_path):
+    import apply_upload
+
+    staged = tmp_path / "upload" / "firms" / "acme-vc"
+    sections = staged / "deals" / "widget-com" / "local" / "sections"
+    sections.mkdir(parents=True)
+    (sections / "01-overview.md").write_text("# Overview\n")
+    (sections / "._01-overview.md").write_bytes(b"\x00\x05\x16\x07")
+    (staged / ".DS_Store").write_bytes(b"Bud1")
+
+    dropped = apply_upload.drop_macos_metadata(tmp_path / "upload")
+
+    assert dropped == 2
+    assert (sections / "01-overview.md").exists()
+    assert not (sections / "._01-overview.md").exists()
+    assert not (staged / ".DS_Store").exists()
