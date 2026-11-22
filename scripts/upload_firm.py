@@ -31,7 +31,9 @@ For each deal:
 - Every other text file in the deal folder is kept under ``local/<path>``.
 - Every binary goes to the bucket once, as ``blobs/<sha256>``, and is recorded
   both as a material in ``deal.json`` and in the deal folder's
-  ``binaries-on-server.yaml``. A binary already in that manifest with the same
+  ``binaries-on-server.yaml``. The same bytes at several paths in one deal are
+  one material listing every path (``local_paths``); the manifest, keyed by
+  path, points each of them at that material. A binary already in that manifest with the same
   hash is not staged again, nor is one whose hash is in ``--known-blobs <file>``
   (the hash list ``scripts/fold_imported_blobs.py`` prints on the server).
 - Each binary's text is extracted here, with the connector's own reader, into
@@ -601,6 +603,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
     entries: dict = {}
     binaries = 0
     unreadable = 0
+    by_sha: dict[str, dict] = {}  # one material per distinct content in the deal
     for f in sorted(deal_dir.rglob("*")):
         if not f.is_file() or f.name in SKIP_FILES or "/." in f.as_posix():
             continue
@@ -610,7 +613,13 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
             continue
         entry = stage.put_blob(f, sub, manifest, entries, now, slug)
         binaries += 1
+        shared = by_sha.get(entry["sha256"])
+        if shared is not None:  # same bytes at another path: same material, one more path
+            shared["local_paths"].append(sub.as_posix())
+            entry["material_id"] = shared["material_id"]
+            continue
         mid = entry.get("material_id") or material_id(slug, "binary", entry["sha256"])
+        entry["material_id"] = mid
         record = {
             "material_id": mid,
             "kind": entry["kind"],
@@ -620,7 +629,8 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
             "bucket_key": entry["bucket_key"],
             "sha256": entry["sha256"],
             "bytes": entry["bytes"],
-            "local_path": sub.as_posix(),
+            "local_path": sub.as_posix(),  # the first path; local_paths has them all
+            "local_paths": [sub.as_posix()],
             "added_at": now,
         }
         # the text the materials pipeline would extract on the server, extracted here
@@ -642,6 +652,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
                 }
             )
         state["materials"].append(record)
+        by_sha[entry["sha256"]] = record
     stage.write_manifest(deal_dir.relative_to(firm_dir), slug, entries)
 
     if finished:
