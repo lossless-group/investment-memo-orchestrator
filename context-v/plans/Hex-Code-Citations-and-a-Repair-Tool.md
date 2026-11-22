@@ -43,7 +43,9 @@ def source_key(definition: str) -> str:
 - Identity: the first `http(s)://` or `file://` link in the definition, percent-decoded, lowercased, trailing slash removed. With no link, the definition text with its date prefix removed, whitespace collapsed, lowercased.
 - Key: `sha256(identity)`, as an integer, written in base 36 (`0-9a-z`), first 6 characters.
 - `assign_keys(definitions: dict[str, str]) -> dict[str, str]` maps each old key to its hex key. If two different identities give the same 6 characters, both get 8.
-- Deck and dataroom claims keep a readable prefix: `[^deck-<hex>]` for a deck, `[^dr-<hex>]` for a dataroom file.
+- No prefixes: deck and dataroom sources get plain keys like any other (decided 2026-11-21; a `file://` link can't tell a deck from a dataroom file reliably).
+- "First link" is the first bare `http(s)://` or `file://` URL anywhere in the definition, ending at whitespace, `)`, `]` or `>` (the regex in `src/citation_keys.py` on `connector/hex-citations`, commit `9b213ad`, is canonical).
+- Keys are assigned once per memo, over every definition in every section, so two sections can't collide with each other.
 
 ## Part 1: the repair tool and skill (branch `fix/citation-repair-tool`)
 
@@ -60,6 +62,12 @@ def source_key(definition: str) -> str:
 - Connector: `research.section` and `draft.section` instructions use `[^<hex>]` keys and tell Claude how to make one (the server computes and checks it). `submit_artifact`'s citation checks accept hex keys and flag a key that doesn't match its source. `compile` keeps hex keys in `memo.md`; the exports number them.
 - Exports: confirm `cli/export_branded.py` (Pandoc) numbers hex footnotes in order, and that the site endpoint's markdown works with LFM's hex rendering.
 - Old numbered research and sections still assemble: numbered keys are converted to hex at assembly with `assign_keys()`.
+
+## Decided 2026-11-21 (operator direction: hex in markdown, numbers only at render)
+
+- The compiled `memo.md` keeps hex keys, one per source. Exports (Pandoc) and LFM sites number them. CONN-CMP-04 changes from "consolidated and renumbered" to "consolidated, one key per source; exports number them".
+- `consolidate_citations()` and `merge_duplicate_definitions()` dedupe by source and stop renumbering. A test that asserts a literal `[^1]` after consolidation changes to assert one key per source.
+- `cli/utils/restore_uncited_footnotes.py` reads only `[^\d+]:` definitions: Part 2 makes it read hex keys too.
 
 ## Test IDs
 

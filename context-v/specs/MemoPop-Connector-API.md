@@ -881,7 +881,7 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-CMP-01` | Given every section drafted, when `compile` runs, then it returns working HTML and PDF links and a report of sections, enhancements run, and skips |
 | `CONN-CMP-02` | Given a section without a draft, then `compile` returns `invalid` |
 | `CONN-CMP-03` | Given a compile that would exceed its time budget, then it returns a `job_id` and `list_deals` reports when it finishes |
-| `CONN-CMP-04` | Given section drafts with citations, then the compiled memo has its citations consolidated and renumbered |
+| `CONN-CMP-04` | Given section drafts with citations, then the compiled memo has its citations consolidated, one hex key per source (amended 2026-11-21: the markdown keeps hex keys; exports and sites number them) |
 | `CONN-FLOW-01` | Given the fixture deal, when the scripted client walks it from creation to compile over MCP, then every step succeeds and the compiled memo contains every section |
 | `CONN-FLOW-02` | The same walk over REST succeeds identically |
 
