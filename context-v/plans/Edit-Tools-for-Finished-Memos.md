@@ -13,11 +13,12 @@ authors:
 augmented_with:
   - Claude Code on Claude Opus 5.5
 at_semantic_version: 0.0.0.1
-status: Ready
+status: In-Progress
 spec_reference: context-v/specs/MemoPop-Connector-API.md
 depends_on: [Finish-Turning-Agents-into-Connector-Steps, Apply-the-Deal-Folder-Uploader]
 tags: [Plan, Connector, Revisions, Plan-9]
 loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
+branch: connector/edit-tools
 owns_test_ids: [CONN-EDIT-01, CONN-EDIT-02, CONN-EDIT-03, CONN-EDIT-04, CONN-EDIT-05, CONN-EDIT-06]
 ---
 
