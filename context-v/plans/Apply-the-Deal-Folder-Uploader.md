@@ -20,7 +20,7 @@ depends_on: []
 tags: [Plan, Connector, Upload, Bucket, Materials, Sync]
 loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
 branch: connector/uploader-prep
-owns_test_ids: [CONN-UPL-01, CONN-UPL-02, CONN-UPL-03]
+owns_test_ids: [CONN-UPL-01, CONN-UPL-02, CONN-UPL-03, CONN-UPL-04]
 ---
 
 # Apply the Deal-Folder Uploader
@@ -39,7 +39,7 @@ Every step that writes to the server waits for Michael's go-ahead. The uploader 
 
 - [x] Fix [[Uploaded-Binary-Materials-Have-No-Text-File]] first: binaries recorded as `ready` with no `materials/<id>.md` break `next_step` on unfinished imported deals. Done: the uploader extracts each binary's text locally with the connector's own reader (`ready` with `materials/<id>.md`, or `skipped` with the reason), and `gather_inputs()` turns a ready material with no text file into a notice. CONN-UPL-03.
 
-- [ ] Fix [[Same-Bytes-at-Two-Paths-Share-a-Material-Id]]: one material per distinct hash per deal, before `--apply`.
+- [x] Fix [[Same-Bytes-at-Two-Paths-Share-a-Material-Id]]: one material per distinct hash per deal, before `--apply`. Done: one material carries every path (`local_paths`), and manifest entries share its id. CONN-UPL-04.
 
 ### 1. Fold the 901 imported keys into blobs, server-side
 

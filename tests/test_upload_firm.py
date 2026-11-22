@@ -54,7 +54,9 @@ def test_finished_memo_is_compiled_v1_and_binaries_go_once(tmp_path):
     plan = json.loads((out / "plan.json").read_text())
     assert len(plan["blobs"]) == 1  # three copies of the same bytes, one blob
     binaries = [m for m in state["materials"] if m.get("bucket_key")]
-    assert len(binaries) == 3 and {m["bucket_key"] for m in binaries} == {f"blobs/{plan['blobs'][0]}"}
+    # three copies of the same bytes are one material carrying all three paths (CONN-UPL-04)
+    assert len(binaries) == 1 and binaries[0]["bucket_key"] == f"blobs/{plan['blobs'][0]}"
+    assert len(binaries[0]["local_paths"]) == 3
     assert (out / "firms/acme-vc/configs/brand.yaml").is_file()
     assert "configs/brand.yaml" in plan["firm_paths"]
 
@@ -282,7 +284,8 @@ def test_known_blobs_are_not_staged_but_still_recorded(tmp_path):
 
     state = json.loads((out / "firms/acme-vc/deals/widget-com/deal.json").read_text())
     binaries = [m for m in state["materials"] if m.get("bucket_key")]
-    assert len(binaries) == 3 and {m["bucket_key"] for m in binaries} == {f"blobs/{digest}"}
+    assert len(binaries) == 1 and binaries[0]["bucket_key"] == f"blobs/{digest}"
+    assert len(binaries[0]["local_paths"]) == 3
     manifest = yaml.safe_load((out / "manifests/deals/Widget/binaries-on-server.yaml").read_text())
     assert {e["sha256"] for e in manifest["files"].values()} == {digest}
     assert len(manifest["files"]) == 3
@@ -431,3 +434,56 @@ def test_check_flags_a_blob_missing_from_the_bucket(tmp_path):
     row = check_upload.compare(firm, snap)[0]
     assert row["materials"]["not_in_bucket"] == ["inputs/deck.pdf"]
     assert not row["ok"]
+
+
+# ------------------------------------------------------------------ one material per content (CONN-UPL-04)
+
+WIDGET_PATHS = [
+    "inputs/deck.pdf",
+    "outputs/Widget-v0.0.1/images/deck-copy.pdf",
+    "outputs/Widget-v0.0.2/images/deck-copy.pdf",
+]
+
+
+@pytest.mark.spec("CONN-UPL-04")
+def test_the_same_bytes_at_two_paths_are_one_material(tmp_path):
+    firm = make_firm(tmp_path)
+    out = tmp_path / "stage"
+    upload_firm.upload_firm(firm, "acme-vc", out)
+
+    state = json.loads((out / "firms/acme-vc/deals/widget-com/deal.json").read_text())
+    binaries = [m for m in state["materials"] if m.get("bucket_key")]
+    assert len(binaries) == 1
+    material = binaries[0]
+    assert material["local_paths"] == WIDGET_PATHS
+    ids = [m["material_id"] for m in state["materials"]]
+    assert len(ids) == len(set(ids))  # no id appears twice in deal.json
+    # the unreadable bytes are one skip, not one per path
+    assert len([s for s in state["skips"] if s.get("material_id") == material["material_id"]]) == 1
+
+    manifest = yaml.safe_load((out / "manifests/deals/Widget/binaries-on-server.yaml").read_text())
+    assert sorted(manifest["files"]) == WIDGET_PATHS
+    assert {e["material_id"] for e in manifest["files"].values()} == {material["material_id"]}
+
+
+@pytest.mark.spec("CONN-UPL-04")
+def test_the_check_matches_every_path_of_a_shared_material(tmp_path):
+    import check_upload
+
+    from src.connector.bucket import LocalBucket
+
+    firm = make_firm(tmp_path)
+    out = tmp_path / "stage"
+    upload_firm.upload_firm(firm, "acme-vc", out)
+    bucket = LocalBucket(tmp_path / "bucket")
+    for blob in (out / "blobs").iterdir():
+        bucket.put(f"blobs/{blob.name}", blob.read_bytes())
+    shutil.copy2(
+        out / "manifests/deals/Widget/binaries-on-server.yaml",
+        firm / "deals/Widget/binaries-on-server.yaml",
+    )
+
+    row = check_upload.compare(firm, check_upload.snapshot(out / "firms/acme-vc", bucket))[0]
+    assert row["materials"]["manifest"] == 3 and row["materials"]["matched"] == 3
+    assert row["materials"]["extra"] == [] and row["materials"]["missing"] == []
+    assert row["materials"]["ok"]

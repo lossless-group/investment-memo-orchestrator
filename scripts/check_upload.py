@@ -70,7 +70,8 @@ def snapshot(firm_root: Path, bucket=None) -> dict:
                     "status": m.get("status"),
                     "source": m.get("source"),
                     "filename": m.get("filename"),
-                    "local_path": m.get("local_path"),
+                    "local_paths": m.get("local_paths")
+                    or ([m["local_path"]] if m.get("local_path") else []),
                     "sha256": m.get("sha256"),
                     "bucket_key": key,
                     "has_text": (deal_dir / "materials" / f"{m.get('material_id')}.md").is_file(),
@@ -156,8 +157,8 @@ def compare(firm_dir: Path, snap: dict, manifests: Path | None = None) -> list[d
             for path, e in (manifest_doc.get("files") or {}).items()
             if not e.get("local_missing")
         }
-        by_path = {m["local_path"]: m for m in server["materials"] if m.get("local_path")}
-        matched, missing, not_in_bucket, no_text = [], [], [], []
+        by_path = {path: m for m in server["materials"] for path in m.get("local_paths") or []}
+        matched, missing, not_in_bucket, no_text, id_differs = [], [], [], [], []
         for path, entry in sorted(entries.items()):
             m = by_path.get(path)
             if m is None or m.get("sha256") != entry.get("sha256"):
@@ -168,6 +169,8 @@ def compare(firm_dir: Path, snap: dict, manifests: Path | None = None) -> list[d
                 not_in_bucket.append(path)
             if m.get("status") == "ready" and not m.get("has_text"):
                 no_text.append(path)
+            if entry.get("material_id") and entry["material_id"] != m.get("material_id"):
+                id_differs.append(path)
         extra = sorted(p for p in by_path if p not in entries)
         materials = {
             "manifest": len(entries),
@@ -176,8 +179,9 @@ def compare(firm_dir: Path, snap: dict, manifests: Path | None = None) -> list[d
             "extra": extra,
             "not_in_bucket": not_in_bucket,
             "ready_without_text": no_text,
+            "material_id_differs": id_differs,
         }
-        materials["ok"] = not (missing or extra or not_in_bucket or no_text)
+        materials["ok"] = not (missing or extra or not_in_bucket or no_text or id_differs)
 
         row.update(
             compiled=compiled,
@@ -217,6 +221,7 @@ def render(rows: list[dict]) -> str:
             ("on the server, not in the manifest", "extra"),
             ("not in the bucket", "not_in_bucket"),
             ("ready but no text file", "ready_without_text"),
+            ("manifest names another material", "material_id_differs"),
         ):
             if m[key]:
                 lines.append(f"       {label}: {', '.join(m[key])}")
