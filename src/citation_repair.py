@@ -10,19 +10,23 @@ This rewrites only the markers and the definitions block of the finished memo,
 so prose, later passes and hand edits survive. Output keys are hex keys from
 source_key(), so a repaired memo cannot collide again. It repairs only what it
 can prove, region by region (a region is a section's span in the memo, found by
-the section file's first `## ` heading). A region is repaired only when ALL hold:
+the section file's first `## ` heading), footnote by footnote:
 
-  - the heading occurs exactly once in the memo;
-  - the section's research file defines each key once (a key defined twice
-    means the keys were already collapsed, the older cascading-renumber bug,
-    and a local key no longer identifies a source);
-  - every key the section cites has a definition (research, or the section);
-  - the region has the same number of markers as the section file, and pairing
-    them in order is one-to-one. Anything else means the region was edited after
-    assembly; it is never matched by surrounding text.
+  - the heading must occur exactly once in the memo, or the region is refused;
+  - a research file with no appended blocks that defines a key twice with
+    different sources (the older cascading-renumber bug) refuses the region;
+  - each memo marker is paired with a section-file marker: in order across the
+    whole region when that is still one-to-one, as assembled; otherwise only on
+    lines whose prose is byte-identical to the section file, markers in the same
+    places. Markers on other lines were edited after assembly and are kept. It
+    never matches by surrounding text;
+  - a paired key is read in its research file block by block
+    (src/research_blocks.py): a section part drafted from a block reads that
+    block, otherwise the block that defines the key. A key the blocks define
+    differently, or nothing defines, is kept.
 
-A refused region stays byte-identical, keeping its numbered keys and their
-definitions. Text with no research file (title, Executive Summary, Closing,
+A kept marker stays as it was, with its key and its definition, so a refused
+region stays byte-identical. Text with no research file (title, Executive Summary, Closing,
 scorecard, anything added after assembly) keeps pointing at the source it points
 to now, converted to hex, and is reported as unverified: there is no local key
 to recover. `prose()` checks that nothing but markers and the block changed.
@@ -32,6 +36,7 @@ Used by cli/repair_citations.py; importable so a connector tool can call it.
 
 from __future__ import annotations
 
+import difflib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,6 +45,7 @@ from urllib.parse import unquote
 
 from .agents.citation_assembly import _source_identity
 from .citation_keys import assign_keys
+from .research_blocks import COLLAPSED, part_block, read_research_keys, section_parts
 
 MARK = re.compile(r"\[\^([a-zA-Z0-9_-]+)\](?!:)")
 ANY_MARK = re.compile(r"\[\^[a-zA-Z0-9_-]+\]")
@@ -151,10 +157,60 @@ def _region_bounds(body: str, heads, start_i: int, section_text: str) -> Tuple[i
     return heads[start_i][0], heads[j][0] if j < len(heads) else len(body)
 
 
+EDITED = "line edited after assembly"
+
+
+def _strip_markers(line: str) -> Tuple[str, List[int]]:
+    """The line without markers, and where each marker stood in that text."""
+    positions: List[int] = []
+    removed = 0
+    for m in ANY_MARK.finditer(line):
+        positions.append(m.start() - removed)
+        removed += m.end() - m.start()
+    return ANY_MARK.sub("", line), positions
+
+
+def _pair_lines(region_lines: List[str], section_lines: List[str]) -> Dict[int, int]:
+    """Region line index -> section line index, for lines whose prose is
+    byte-identical and whose markers stand in the same places."""
+    region = [_strip_markers(line) for line in region_lines]
+    section = [_strip_markers(line) for line in section_lines]
+    matcher = difflib.SequenceMatcher(None, [p for p, _ in region], [p for p, _ in section], autojunk=False)
+    pairs: Dict[int, int] = {}
+    for tag, a0, a1, b0, _b1 in matcher.get_opcodes():
+        if tag != "equal":
+            continue
+        for offset in range(a1 - a0):
+            i, j = a0 + offset, b0 + offset
+            if region[i][1] == section[j][1]:
+                pairs[i] = j
+    return pairs
+
+
+def _one_to_one(memo_keys: List[str], local_keys: List[str]) -> bool:
+    """Same number of markers, and pairing them in order is one-to-one."""
+    if not memo_keys or len(memo_keys) != len(local_keys):
+        return False
+    forward: Dict[str, str] = {}
+    back: Dict[str, str] = {}
+    for memo_key, local_key in zip(memo_keys, local_keys):
+        if forward.setdefault(memo_key, local_key) != local_key or back.setdefault(local_key, memo_key) != memo_key:
+            return False
+    return True
+
+
+def _summary(refused: Dict[str, int]) -> str:
+    return "; ".join(f"{n} refused: {reason}" for reason, n in refused.items())
+
+
 def _plan_region(vd: Path, section_file: Path, body: str, heads, entry: Dict[str, Any]):
-    """Decide one section's region. Returns (start, end, local_keys, known) to
-    repair, or None; fills `entry` with the status, and `bounds` when refused
-    with a known span."""
+    """Decide one section's region, marker by marker.
+
+    Returns (start, end, decisions), one decision per memo marker in the region
+    in order: ("def", definition) to repair it, or ("keep", reason) to leave it
+    as it is. Returns None when the region can't be located or cites nothing.
+    Fills `entry` with the status and counts.
+    """
     research_file = vd / "1-research" / f"{section_file.stem}-research.md"
     section_text = section_file.read_text()
     heading = next((line for line in section_text.splitlines() if line.startswith("## ")), None)
@@ -168,45 +224,98 @@ def _plan_region(vd: Path, section_file: Path, body: str, heads, entry: Dict[str
         return None
     start, end = _region_bounds(body, heads, hits[0], section_text)
     region = body[start:end]
-    research = definitions_with_duplicates(research_file.read_text())
-    research_keys = [k for k, _ in research]
-    dup = sorted({k for k in research_keys if research_keys.count(k) > 1})
+    research_text = research_file.read_text()
+    research = read_research_keys(research_text)
     section_defs = dict(definitions_with_duplicates(section_text))
-    section_body = "\n".join(line for line in section_text.splitlines() if not DEF_LINE.match(line))
-    local = MARK.findall(section_body)
+    all_lines = section_text.splitlines()
+    all_parts = section_parts(all_lines)
+    parts = (all_parts[-1] + 1) if all_parts else 1
+    kept = [(line, p) for line, p in zip(all_lines, all_parts) if not DEF_LINE.match(line)]
+    section_lines = [line for line, _ in kept]
+    line_parts = [p for _, p in kept]
+    local = MARK.findall("\n".join(section_lines))
+    region_lines = region.split("\n")
     found = MARK.findall(region)
     entry.update(markers_memo=len(found), markers_section=len(local))
+    if research.appended:
+        entry.update(research_blocks=len(research.blocks), section_parts=parts)
 
-    def refuse(reason):
-        entry.update(status="unrepairable", reason=reason)
-        entry["_bounds"] = (start, end)
-        return None
+    if research.collapsed and not research.appended:
+        # The older bug: the file defines a key twice, so a local key no longer
+        # names one source anywhere in this section. In a file with appended
+        # blocks, a key one block defines twice is refused on its own below.
+        research_keys = [k for k, _ in definitions_with_duplicates(research_text)]
+        entry.update(
+            status="unrepairable",
+            reason=f"research file defines {', '.join('[^%s]' % k for k in research.collapsed)} more than once "
+            f"({len(research_keys)} definitions, {len(set(research_keys))} distinct keys): "
+            "local keys do not identify sources",
+            repaired=0,
+            refused={COLLAPSED: len(found)} if found else {},
+        )
+        return start, end, [("keep", COLLAPSED)] * len(found)
 
-    if dup:
-        return refuse(
-            f"research file defines {', '.join('[^%s]' % k for k in dup)} more than once "
-            f"({len(research)} definitions, {len(set(research_keys))} distinct keys): "
-            "local keys do not identify sources"
-        )
-    known = dict(research)
-    known.update(section_defs)
-    undefined = sorted({k for k in local if k not in known})
-    if undefined:
-        return refuse(
-            f"section cites {', '.join('[^%s]' % k for k in undefined)} with no definition in its research file"
-        )
-    if len(found) != len(local):
-        return refuse("marker count differs between memo region and section file: edited after assembly")
-    forward: Dict[str, str] = {}
-    back: Dict[str, str] = {}
-    for memo_key, local_key in zip(found, local):
-        if forward.setdefault(memo_key, local_key) != local_key or back.setdefault(local_key, memo_key) != memo_key:
-            return refuse(f"memo [^{memo_key}] pairs with more than one local key: markers edited or reordered")
-    if not local:
+    if not found and not local:
         entry.update(status="no-citations")
         return None
-    entry.update(status="repaired")
-    return start, end, local, known
+
+    # Each memo marker is paired with a section marker (key, part) or None.
+    local_marks = [(key, line_parts[j]) for j, line in enumerate(section_lines) for key in MARK.findall(line)]
+    paired: List[Optional[Tuple[str, int]]] = []
+    if _one_to_one(found, [key for key, _ in local_marks]):
+        # The whole region still pairs one for one with the section file, as
+        # assembled: every marker is proven in order, edited wording or not.
+        paired = list(local_marks)
+    else:
+        # Otherwise pair markers only on lines whose prose is byte-identical to
+        # the section file, so a few edited lines don't block the region.
+        pairs = _pair_lines(region_lines, section_lines)
+        for i, line in enumerate(region_lines):
+            memo_keys = MARK.findall(line)
+            if i in pairs:
+                paired += [(key, line_parts[pairs[i]]) for key in MARK.findall(section_lines[pairs[i]])]
+            else:
+                paired += [None] * len(memo_keys)
+
+    decisions: List[Tuple[str, str]] = []
+    refused_keys: Dict[str, List[str]] = {}
+    for pair in paired:
+        if pair is None:
+            decisions.append(("keep", EDITED))
+            continue
+        key, part = pair
+        if key in section_defs:
+            decisions.append(("def", section_defs[key]))
+            continue
+        definition, _, reason = research.resolve(key, part_block(part, parts, len(research.blocks)))
+        if definition is None:
+            decisions.append(("keep", reason))
+            listed = refused_keys.setdefault(reason, [])
+            if f"[^{key}]" not in listed:
+                listed.append(f"[^{key}]")
+        else:
+            decisions.append(("def", definition))
+
+    repaired = sum(1 for kind, _ in decisions if kind == "def")
+    refused: Dict[str, int] = {}
+    for kind, value in decisions:
+        if kind == "keep":
+            refused[value] = refused.get(value, 0) + 1
+    entry.update(repaired=repaired, refused=refused)
+    if refused_keys:
+        entry["refused_keys"] = refused_keys
+    if not refused:
+        entry.update(status="repaired")
+    elif repaired:
+        entry.update(status="partial", reason=_summary(refused))
+    elif len(found) != len(local):
+        entry.update(
+            status="unrepairable",
+            reason="marker count differs between memo region and section file: edited after assembly",
+        )
+    else:
+        entry.update(status="unrepairable", reason=_summary(refused))
+    return start, end, decisions
 
 
 def repair_memo(version_dir: Path, memo: Optional[str] = None) -> RepairResult:
@@ -225,7 +334,7 @@ def repair_memo(version_dir: Path, memo: Optional[str] = None) -> RepairResult:
         memo_defs.setdefault(key, definition)
 
     heads = [(m.start(), m.group(0)) for m in HEAD.finditer(body)]
-    spans = []  # (start, end, kind, local_keys, known, stem)
+    spans = []  # (start, end, decisions, stem)
     for section_file in sorted((vd / "2-sections").glob("*.md")):
         if not (vd / "1-research" / f"{section_file.stem}-research.md").exists():
             continue
@@ -233,88 +342,100 @@ def repair_memo(version_dir: Path, memo: Optional[str] = None) -> RepairResult:
         report["regions"].append(entry)
         plan = _plan_region(vd, section_file, body, heads, entry)
         if plan:
-            start, end, local, known = plan
-            spans.append((start, end, "repaired", local, known, section_file.stem))
-        elif "_bounds" in entry:
-            start, end = entry.pop("_bounds")
-            spans.append((start, end, "refused", None, None, section_file.stem))
+            spans.append((*plan, section_file.stem))
 
-    if not any(r.get("status") == "repaired" for r in report["regions"]):
+    counts: Dict[str, Any] = {"repaired": 0, "refused": {}}
+    for region in report["regions"]:
+        counts["repaired"] += region.get("repaired", 0)
+        for reason, n in region.get("refused", {}).items():
+            counts["refused"][reason] = counts["refused"].get(reason, 0) + n
+    report["counts"] = counts
+
+    if not counts["repaired"]:
         report["result"] = "nothing repairable; memo left unchanged"
         return RepairResult(memo_path, original, original, False, report)
 
-    spans.sort()
+    spans.sort(key=lambda s: (s[0], s[1]))
     for a, b in zip(spans, spans[1:]):
         if a[1] > b[0]:
-            raise ValueError(f"regions {a[5]} and {b[5]} overlap")
+            raise ValueError(f"regions {a[3]} and {b[3]} overlap")
 
-    # Partition the body: repaired regions read local keys against their own
-    # research; refused regions are kept as they are; the rest is unverified
-    # and resolves through the memo's own block.
-    chunks = []  # (text, kind, keys or None, known)
+    # Partition the body into regions and the unverified text between them.
+    # Region markers follow their decisions; unverified markers resolve through
+    # the memo's own block.
+    chunks: List[Tuple[str, Optional[List[Tuple[str, str]]]]] = []
     pos = 0
-    for start, end, kind, local, known, _stem in spans:
+    for start, end, decisions, _stem in spans:
         if start > pos:
-            chunks.append((body[pos:start], "unverified", None, memo_defs))
-        chunks.append((body[start:end], kind, local, known))
+            chunks.append((body[pos:start], None))
+        chunks.append((body[start:end], decisions))
         pos = end
     if pos < len(body):
-        chunks.append((body[pos:], "unverified", None, memo_defs))
+        chunks.append((body[pos:], None))
 
-    # Every (chunk, key) that resolves to a definition gets a pseudo-key; hex
-    # keys are assigned across all of them at once, so one source is one key.
+    # Every marker that resolves to a definition gets a pseudo-key; hex keys are
+    # assigned across all of them at once, so one source is one key.
     resolved: Dict[str, str] = {}
-    marker_keys: List[List[str]] = []
+    plans: List[List[Tuple[str, str]]] = []  # per chunk: ("tag", tag) or ("keep", memo key)
     missing: List[str] = []
-    for index, (text, kind, local, known) in enumerate(chunks):
-        keys = list(local) if local is not None else MARK.findall(text)
-        marker_keys.append(keys)
-        if kind == "refused":
-            continue
-        for key in keys:
-            if key in known:
-                resolved[f"{index}:{key}"] = known[key]
-            elif f"{index}:{key}" not in missing:
-                missing.append(f"{index}:{key}")
+    kept_keys: set = set()
+    for text, decisions in chunks:
+        plan: List[Tuple[str, str]] = []
+        for n, key in enumerate(MARK.findall(text)):
+            if decisions is not None:
+                decision = decisions[n]
+            else:
+                decision = ("def", memo_defs[key]) if key in memo_defs else ("keep", "missing")
+            if decision[0] == "def":
+                tag = f"m{len(resolved)}"
+                resolved[tag] = decision[1]
+                plan.append(("tag", tag))
+                continue
+            plan.append(("keep", key))
+            if decisions is not None:
+                kept_keys.add(key)
+            elif f"[^{key}]" not in missing:
+                missing.append(f"[^{key}]")
+        plans.append(plan)
     hex_of = assign_keys(resolved)
 
-    kept_keys = {k for i, c in enumerate(chunks) if c[1] == "refused" for k in marker_keys[i]}
-    clash = kept_keys & set(hex_of.values())
-    if clash:
-        raise ValueError(f"a new hex key equals a key kept in a refused region: {sorted(clash)}")
+    # A kept key may equal a new hex key only when both name one source.
+    for tag, new in hex_of.items():
+        if new in kept_keys and (
+            new not in memo_defs or _source_identity(memo_defs[new]) != _source_identity(resolved[tag])
+        ):
+            raise ValueError(f"a new hex key equals a key kept in a refused region: [^{new}]")
 
     new_texts: List[str] = []
     order: List[str] = []
     definition_of: Dict[str, str] = {}
-    for index, (text, kind, _local, known) in enumerate(chunks):
-        keys = marker_keys[index]
-        if kind == "refused":
-            new_texts.append(text)
-            for key in keys:
-                if key not in definition_of and key in memo_defs:
-                    definition_of[key] = memo_defs[key]
-                    order.append(key)
-            continue
-        new_keys = [hex_of.get(f"{index}:{key}", key) for key in keys]
+    for (text, decisions), plan in zip(chunks, plans):
+        new_keys = []
+        for kind, value in plan:
+            if kind == "tag":
+                new = hex_of[value]
+                definition_of.setdefault(new, resolved[value])
+            else:
+                new = value
+                if new in memo_defs:
+                    definition_of.setdefault(new, memo_defs[new])
+            if new in definition_of and new not in order:
+                order.append(new)
+            new_keys.append(new)
         it = iter(new_keys)
         new_texts.append(MARK.sub(lambda _m: f"[^{next(it)}]", text))
-        for key, new in zip(keys, new_keys):
-            if new not in definition_of and f"{index}:{key}" in resolved:
-                definition_of[new] = resolved[f"{index}:{key}"]
-                order.append(new)
-        if kind == "unverified" and keys:
+        if decisions is None and plan:
             report["unverified"].append(
                 {
                     "headings": [m.group(0).strip() for m in HEAD.finditer(text)],
-                    "markers": len(keys),
+                    "markers": len(plan),
                     "reason": "no research file: kept pointing at the source it points to now",
                 }
             )
 
     if missing:
         report["notes"].append(
-            "markers with no definition anywhere (kept as they were, unlinked): "
-            + ", ".join(f"[^{m.split(':', 1)[1]}]" for m in missing)
+            "markers with no definition anywhere (kept as they were, unlinked): " + ", ".join(missing)
         )
 
     new_body = "".join(new_texts)
@@ -368,6 +489,9 @@ class ScanRow:
     collapsed: List[str]
     ambiguous: bool = False
     duplicate_of: List[str] = field(default_factory=list)
+    # Research files whose appended blocks reuse keys (repairable block by
+    # block), as opposed to `collapsed`: one block defining a key twice.
+    appended: List[str] = field(default_factory=list)
 
     @property
     def share(self) -> Optional[float]:
@@ -384,10 +508,13 @@ def _scan_memo(memo: Path) -> Optional[ScanRow]:
     heads = [(m.start(), m.group(0)) for m in HEAD.finditer(text)]
     urls_of = {rf: {u for u in _url_definitions(rf.read_text()).values() if u} for rf in research_files}
     collapsed = []
+    appended = []
     for rf in research_files:
-        keys = [k for k, _ in definitions_with_duplicates(rf.read_text())]
-        if len(keys) != len(set(keys)):
+        keys = read_research_keys(rf.read_text())
+        if keys.collapsed:
             collapsed.append(rf.name)
+        if keys.appended and keys.reused_keys():
+            appended.append(rf.name)
     wrong = checked = 0
     per: Dict[str, int] = {}
     for sf in sorted((vd / "2-sections").glob("*.md")):
@@ -412,7 +539,7 @@ def _scan_memo(memo: Path) -> Optional[ScanRow]:
             if url not in own and any(url in v for other, v in urls_of.items() if other != rf):
                 wrong += 1
                 per[sf.stem] = per.get(sf.stem, 0) + 1
-    return ScanRow(memo, wrong, checked, per, collapsed)
+    return ScanRow(memo, wrong, checked, per, collapsed, appended=appended)
 
 
 def scan(io_root: Path) -> List[ScanRow]:
