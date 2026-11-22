@@ -921,6 +921,7 @@ renumber; retire one by striking it through. Status is derived by
 |---|---|
 | `CONN-UPL-01` | Given a known-blobs list, when the uploader stages a firm, then no blob on the list is staged, and the materials and manifests still record those files |
 | `CONN-UPL-02` | Given a staged firm and the server state after apply, when the check script runs, then it reports per deal the compiled label against the newest local memo, sections against the outline, and materials against the manifest |
+| `CONN-UPL-03` | Given an imported deal that isn't finished, with binaries among its materials, when `next_step` reaches `materials.brief`, then it hands the step out with each binary's extracted text, or a notice for a binary with none, never `artifact_not_found` |
 
 ## Done when
 
