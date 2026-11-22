@@ -2,12 +2,13 @@
 Citation Assembly Agent - Consolidates and renumbers citations across all sections.
 
 This agent runs after all citation-adding and cleanup agents to:
-1. Collect all citations from section files (2-sections/)
-2. Build a global renumbering map (sequential, by first appearance)
-3. Remove citation definitions from section bodies
-4. Update inline references with new numbers
-5. Consolidate all citations into ONE block at document end
-6. Assemble the final draft
+1. Pair each section (2-sections/X.md) with its research file's definitions
+   (1-research/X-research.md): citation keys are local to a section
+2. Number sources 1..N across the memo by first appearance, one number per
+   source (identified by link), via consolidate_citations()
+3. Warn about any citation whose source is not in its section's research
+4. Consolidate all citations into ONE block at document end
+5. Assemble the final draft
 
 Can be called:
 - As part of the workflow (after remove_invalid_sources, before validate_citations)
@@ -227,7 +228,10 @@ def _source_identity(definition: str) -> str:
     return ' '.join(definition.split()).lower()
 
 
-def consolidate_citations(texts: List[str]) -> Tuple[List[str], str, Dict[str, Any]]:
+def consolidate_citations(
+    texts: List[str],
+    definitions: Optional[List[Optional[Dict[str, str]]]] = None,
+) -> Tuple[List[str], str, Dict[str, Any]]:
     """
     Consolidate citations across self-contained texts, with no files and no state.
 
@@ -240,6 +244,10 @@ def consolidate_citations(texts: List[str]) -> Tuple[List[str], str, Dict[str, A
 
     Args:
         texts: Section texts in memo order, each with its own [^key]: definitions
+        definitions: Optional, one dict per text: definitions that text's keys
+            resolve to when the text does not define them itself (the local
+            pipeline passes each section's research-file definitions here).
+            A definition in the text wins over one passed here.
 
     Returns:
         (bodies, citation_block, stats): each text with its definitions removed
@@ -253,11 +261,12 @@ def consolidate_citations(texts: List[str]) -> Tuple[List[str], str, Dict[str, A
     missing: List[str] = []
     bodies: List[str] = []
     for index, text in enumerate(texts):
-        definitions = extract_citation_definitions(text)
+        known: Dict[str, str] = dict((definitions[index] or {}) if definitions else {})
+        known.update(extract_citation_definitions(text))
         body = remove_citation_definitions_from_content(text)
         local: Dict[str, str] = {}
         for key in extract_inline_citations(body):
-            definition = definitions.get(key)
+            definition = known.get(key)
             if definition is None:
                 missing.append(f"{index}:{key}")
                 identity = f"missing:{index}:{key}"
@@ -429,6 +438,12 @@ def renumber_citations(output_dir: Path) -> Dict[str, Any]:
 
     Does NOT assemble the final draft — that's the assembler's job.
 
+    CAUTION: this treats citation keys as GLOBAL across sections, so when two
+    sections' research files both use [^25] for different sources, both get
+    the first one found. assemble_citations() no longer uses it for that reason
+    (see context-v/issues/Final-Draft-Citations-Collide-Across-Sections.md);
+    it remains for cli/assemble_draft.py.
+
     Args:
         output_dir: Path to output directory containing 2-sections/
 
@@ -594,9 +609,13 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
     """
     Full citation assembly: renumber citations AND assemble the final draft.
 
-    This is the pipeline-facing function used by the workflow agent.
-    It calls renumber_citations() for the renumbering, then concatenates
-    sections + citation block into the final draft file.
+    This is the pipeline-facing function used by the workflow agent. Each
+    section's keys are resolved against its own research file and the sections
+    go through consolidate_citations() (as the connector's compile does), then
+    sections + citation block are written as the final draft, with
+    merge_duplicate_definitions() as the last pass. Stats include
+    "research_mismatches": one warning per citation whose source is not in its
+    section's research file.
 
     NOTE: This agent creates the final draft file. The TOC agent runs AFTER
     this in the workflow to insert the Table of Contents. Do not add TOC
@@ -622,42 +641,79 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
         except (OSError, ValueError):
             state = {}
     sections_dir = output_dir / "2-sections"
+    research_dir = output_dir / "1-research"
     header_file = output_dir / "header.md"
 
-    # Step 1: Renumber citations (stays in its lane). Section files keep
-    # their semantic IDs (`[^chroma-site]`, etc.) — the assembler does NOT
-    # rewrite section files with the renumbered IDs. The old→new map comes
-    # back here and gets applied in memory when we concatenate the final draft.
-    renumber_result = renumber_citations(output_dir)
-    citation_block = renumber_result.get("citation_block", "")
-    old_to_new: Dict[str, str] = renumber_result.get("old_to_new", {})
-
     if not sections_dir.exists():
-        return renumber_result
+        print("  ⚠️  No sections directory found")
+        return {"messages": ["Citation assembly skipped: no sections directory"]}
 
-    # Step 2: Assemble final draft. For each section, apply the renumber map
-    # in memory so the rendered output uses sequential numerics ([^1], [^2], …)
-    # while the on-disk section files keep their durable semantic IDs.
-    print("  📄 Assembling final draft...")
-
-    final_parts = []
-
-    # Add header if exists (also renumbered in memory)
-    if header_file.exists():
-        header_content = header_file.read_text()
-        if old_to_new:
-            header_content = renumber_inline_citations(header_content, old_to_new)
-        final_parts.append(header_content)
-
-    # Add all sections, applying the renumber map in memory.
+    # Step 1: Pair each text with the definitions its keys mean. Citation keys
+    # are LOCAL to a section: each research file numbers its sources from 1, so
+    # Overview's [^25] and Flags' [^25] are usually different sources. A section
+    # resolves its keys against its own research file (2-sections/X.md ↔
+    # 1-research/X-research.md, the name writer.py reads), then against any
+    # definitions it carries itself. Section files keep their semantic IDs on
+    # disk; renumbering happens in memory, in consolidate_citations().
+    print("  📖 Reading sections and their research files...")
     section_files = sorted(sections_dir.glob("*.md"))
-    for section_file in section_files:
-        section_content = section_file.read_text()
-        if old_to_new:
-            section_content = renumber_inline_citations(section_content, old_to_new)
-        final_parts.append(section_content)
+    fallback = _unambiguous_research_definitions(research_dir)
 
-    # Add consolidated citation block at the end
+    names: List[str] = []
+    texts: List[str] = []
+    research_of: List[Optional[Dict[str, str]]] = []
+    if header_file.exists():
+        names.append(header_file.name)
+        texts.append(header_file.read_text())
+        research_of.append(None)
+    for section_file in section_files:
+        research_file = research_dir / f"{section_file.stem}-research.md"
+        names.append(section_file.name)
+        texts.append(section_file.read_text())
+        research_of.append(
+            extract_citation_definitions(research_file.read_text()) if research_file.exists() else None
+        )
+
+    resolve_with: List[Dict[str, str]] = []
+    for name, text, research in zip(names, texts, research_of):
+        if research is not None:
+            resolve_with.append(research)
+            _strip_definitions_kept_in_research(sections_dir / name, text, research)
+            continue
+        # No research file (header.md, a hand-added section, a stub-less run):
+        # borrow a definition only when every research file that defines the
+        # key agrees on its source. An ambiguous key stays undefined and is
+        # reported, rather than silently taking the first section's source.
+        own = extract_citation_definitions(text)
+        borrowed: Dict[str, str] = {}
+        for key in extract_inline_citations(remove_citation_definitions_from_content(text)):
+            if key in own:
+                continue
+            if key in fallback:
+                borrowed[key] = fallback[key]
+            else:
+                print(f"    ⚠️  {name}: [^{key}] has no definition and no research file to resolve it")
+        resolve_with.append(borrowed)
+
+    # Step 2: Consolidate. One number per source across the memo, 1..N by first
+    # appearance; a source is identified by its link.
+    bodies, citation_block, cstats = consolidate_citations(texts, resolve_with)
+    print(f"  📊 Found {cstats['cited']} unique citations across {len(section_files)} sections")
+    for missing in cstats["missing"]:
+        index, key = missing.split(":", 1)
+        print(f"    ⚠️  Warning: No definition found for [^{key}] in {names[int(index)]}")
+
+    # Step 3: Guard. Every citation in the assembled sections must point at a
+    # source its own research file cited. A mismatch is this bug class
+    # (a key resolved against another section's research), so log each one.
+    mismatches, unchecked = check_citations_against_research(names, texts, bodies, citation_block, research_of)
+    for warning in mismatches:
+        print(f"    ⚠️  {warning}")
+    for name in unchecked:
+        print(f"    ℹ️  {name}: no research file, citations not checked against research")
+
+    print("  📄 Assembling final draft...")
+    final_parts = list(bodies)
     if citation_block:
         final_parts.append(citation_block)
 
@@ -685,13 +741,105 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
     final_draft_path.write_text(normalize_section_breaks(final_content))
     print(f"  ✓ Final draft: {final_draft_path.name}")
 
-    stats = renumber_result.get("stats", {})
-    stats["final_draft"] = str(final_draft_path)
+    summary = f"Assembled {cstats['sources']} citations (sequential 1-{cstats['sources']})"
+    if cstats["missing"]:
+        summary += f", {len(cstats['missing'])} missing definitions"
+    if mismatches:
+        summary += f", {len(mismatches)} not in their section's research"
+    print(f"\n  ✅ {summary}")
+
+    stats = {
+        "total_inline_refs": cstats["cited"],
+        "definitions_found": cstats["sources"],
+        "missing_definitions": len(cstats["missing"]),
+        "renumbered": True,
+        "research_mismatches": mismatches,
+        "unchecked_sections": unchecked,
+        "final_draft": str(final_draft_path),
+    }
 
     return {
-        "messages": renumber_result.get("messages", []),
+        "messages": [summary],
         "citation_assembly": stats,
     }
+
+
+def _unambiguous_research_definitions(research_dir: Path) -> Dict[str, str]:
+    """Keys every research file that defines them agrees on.
+
+    The fallback for a text with no research file of its own. A key two research
+    files define with different sources is left out: it has no single meaning.
+    """
+    seen: Dict[str, Optional[str]] = {}
+    if not research_dir.exists():
+        return {}
+    for research_file in sorted(research_dir.glob("*.md")):
+        for key, definition in extract_citation_definitions(research_file.read_text()).items():
+            if key not in seen:
+                seen[key] = definition
+            elif seen[key] is not None and _source_identity(seen[key]) != _source_identity(definition):
+                seen[key] = None
+    return {key: definition for key, definition in seen.items() if definition is not None}
+
+
+def _strip_definitions_kept_in_research(section_file: Path, text: str, research: Dict[str, str]) -> None:
+    """Remove a section file's own [^X]: definitions when its research holds them.
+
+    Definitions belong in 1-research/. A section definition is only removed when
+    the research file defines the same key with the same source, so a definition
+    that exists nowhere else (or disagrees with research) is never lost.
+    """
+    own = extract_citation_definitions(text)
+    if not own:
+        return
+    if all(key in research and _source_identity(research[key]) == _source_identity(d) for key, d in own.items()):
+        section_file.write_text(remove_citation_definitions_from_content(text))
+        print(f"    ✓ {section_file.name} (definitions left to research)")
+
+
+_INLINE_MARKER = re.compile(r'\[\^([a-zA-Z0-9_-]+)\]')
+
+
+def check_citations_against_research(
+    names: List[str],
+    texts: List[str],
+    bodies: List[str],
+    citation_block: str,
+    research_of: List[Optional[Dict[str, str]]],
+) -> Tuple[List[str], List[str]]:
+    """Check the assembled output: each section cites only its own research.
+
+    For every text with a research file, each inline citation in the assembled
+    body is followed to its definition in the consolidated block, and that
+    source must be one the research file defines. Original keys are recovered
+    by pairing markers in order (renumbering replaces them one for one).
+
+    Returns:
+        (mismatches, unchecked): one warning per (section, key) whose source is
+        not in that section's research; names of texts with no research file.
+    """
+    block = extract_citation_definitions(citation_block) if citation_block else {}
+    mismatches: List[str] = []
+    unchecked: List[str] = []
+    for name, text, body, research in zip(names, texts, bodies, research_of):
+        if research is None:
+            if extract_inline_citations(body):
+                unchecked.append(name)
+            continue
+        allowed = {_source_identity(d) for d in research.values()}
+        original = _INLINE_MARKER.findall(remove_citation_definitions_from_content(text))
+        assembled = _INLINE_MARKER.findall(body)
+        reported = set()
+        for old_key, new_key in zip(original, assembled):
+            definition = block.get(new_key)
+            if definition is None or old_key in reported:
+                continue
+            if _source_identity(definition) not in allowed:
+                reported.add(old_key)
+                link = _DEFINITION_URL.search(definition)
+                source = link.group(1) if link else definition[:80]
+                mismatches.append(f"{name}: [^{old_key}] cites a source not in its research file ({source})")
+    return mismatches, unchecked
 
 
 # CLI interface for standalone usage

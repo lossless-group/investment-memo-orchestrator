@@ -5,13 +5,13 @@ date_authored_initial_draft: 2026-11-17
 date_authored_current_draft: 2026-11-17
 date_authored_final_draft: null
 date_first_published: null
-date_last_updated: 2026-11-17
+date_last_updated: 2026-11-21
 at_semantic_version: 0.0.0.1
 usage_index: 1
 publish: false
 category: Specification
 date_created: 2026-11-17
-date_modified: 2026-11-17
+date_modified: 2026-11-21
 tags: [Citations, Assembly, Codified-Mode, Final-Draft]
 authors:
   - Michael Staton
@@ -42,3 +42,9 @@ Add a test with two sections that share a key but cite different sources.
 ## Repair used on the first case
 
 A one-off script remapped each section region of the existing final draft: global number → section-local key (inverting the run's own `old_to_new`), local key → that section's research definition, then `consolidate_citations()` across all regions.
+
+## Fix (code), 2026-11-21
+
+On branch `fix/citation-collisions` ([[Fix-Citation-Collisions-in-Final-Assembly]] steps 1 to 3). `assemble_citations()` now reads each `2-sections/X.md` with its own `1-research/X-research.md` and consolidates through `consolidate_citations()`; the global first-come fill from `1-research/*.md` is gone, and `merge_duplicate_definitions()` is still the last pass. A text with no research file (such as `header.md`) borrows a definition only when every research file that defines the key agrees on its source; otherwise the key is reported missing. A guard follows each assembled citation to its source and warns when the source isn't in that section's research file. Tests: `tests/test_citation_collisions.py`.
+
+Still open: finding and repairing the memos assembled before the fix (plan steps 4 and 5), and `cli/assemble_draft.py`, which still calls the global-key `renumber_citations()`.
