@@ -9,6 +9,23 @@ from __future__ import annotations
 API_CHANGELOG: list[dict] = [
     {
         "date": "2026-11-21",
+        "version": "1.6.0",
+        "changes": [
+            "New tools `list_skills` and `get_skill` (additive, read-only): MemoPop's playbooks "
+            "for changing a finished memo (fix a source or citation, rewrite a section from its "
+            "research, edit wording, just edit the memo, change the outline for this memo, "
+            "compile and check the site), served from the server. REST: GET /v1/skills and "
+            "GET /v1/skills/{name}.",
+            "New error code `skill_not_found` (additive): get_skill was given an unknown name; "
+            "`details.available` lists the names.",
+            "MCP prompts (additive): Edit a memo, Fix a citation, Change the outline for this "
+            "memo, Check the memo on the site. Each takes an optional `request`.",
+            "The MCP server's instructions now lead with changing finished memos, and name "
+            "list_skills and whoami.",
+        ],
+    },
+    {
+        "date": "2026-11-21",
         "version": "1.5.0",
         "changes": [
             "New tool `whoami` (additive, read-only; `GET /v1/whoami`): the signed-in "

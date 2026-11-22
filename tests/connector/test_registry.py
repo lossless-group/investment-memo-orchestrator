@@ -22,6 +22,8 @@ TOOLS = {
     "start_revision",
     "cancel_revision",
     "whoami",
+    "list_skills",
+    "get_skill",
 }
 
 #: (readOnlyHint, destructiveHint) per tool, from the spec's tools table.
@@ -37,6 +39,8 @@ HINTS = {
     "start_revision": (False, False),
     "cancel_revision": (False, True),
     "whoami": (True, False),
+    "list_skills": (True, False),
+    "get_skill": (True, False),
 }
 
 #: The starting codes from the spec's Errors section, with their kinds.

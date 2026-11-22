@@ -23,6 +23,8 @@ TOOL_MODULES = [
     "start_revision",
     "cancel_revision",
     "whoami",
+    "list_skills",
+    "get_skill",
 ]
 
 

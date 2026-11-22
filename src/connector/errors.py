@@ -130,6 +130,15 @@ _SPECS = [
         "`details.available` lists the names that exist.",
     ),
     ErrorSpec(
+        "skill_not_found",
+        INVALID,
+        404,
+        "No MemoPop skill by that name.",
+        "Call list_skills to see the skills that exist, then get_skill with one of those names.",
+        "get_skill was given a name that matches no playbook. `details.available` lists the "
+        "names that exist. Added with list_skills and get_skill (additive).",
+    ),
+    ErrorSpec(
         "validation_failed",
         INVALID,
         422,

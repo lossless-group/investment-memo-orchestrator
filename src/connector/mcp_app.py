@@ -26,11 +26,14 @@ import mcp_types as types
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from mcp.server.lowlevel import Server
+from mcp.shared.exceptions import MCPError
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.routing import Route
 
 from . import SERVER_VERSION
 from .errors import ConnectorError, envelope
+from .prompts import BY_NAME as PROMPTS_BY_NAME
+from .prompts import PROMPTS, REQUEST_ARGUMENT, REQUEST_DESCRIPTION
 
 if TYPE_CHECKING:
     from .app import Connector
@@ -38,12 +41,21 @@ if TYPE_CHECKING:
 PRINCIPAL_KEY = "memopop_connector_principal"
 
 INSTRUCTIONS = (
-    "MemoPop writes investment memos with you, one step at a time. Always call next_step "
-    "and do only what it says. Show the partner every research file and wait for their "
-    "approval before submitting it as approved. On a skipped step, tell the partner in one "
-    "line and continue. On a `down` error, stop and tell the partner. To change a memo "
-    "that is drafted or compiled, agree the change with the partner, call start_revision, "
-    "then follow next_step again and compile."
+    "MemoPop holds this firm's finished investment memos. "
+    "Partners use it to change them: fix a citation, rewrite a section, change wording. "
+    "Put each change where it belongs without asking the partner which layer: a source, "
+    "citation or missing fact goes in the section's research, then the section is rewritten "
+    'from it; wording goes in the section; "just edit the memo" goes in the final draft and is '
+    "carried back to its section. Say in one line where the change went. "
+    "Always call next_step and do only what it says. Show the partner every research file "
+    "and wait for their approval before submitting it as approved. On a skipped step, tell "
+    "the partner in one line and continue. On a `down` error, stop and tell the partner. "
+    "To change a memo that is drafted or compiled, agree the change with the partner, call "
+    "start_revision, then follow next_step again and compile. "
+    "Call list_skills to see the playbooks, and load the one that fits with get_skill before "
+    "you start a change. "
+    "For partners on more than one firm, call whoami to see the firms and which one is "
+    "active, and pass `firm` to act for another."
 )
 
 
@@ -64,6 +76,8 @@ class McpTransport:
             instructions=INSTRUCTIONS,
             on_list_tools=self._list_tools,
             on_call_tool=self._call_tool,
+            on_list_prompts=self._list_prompts,
+            on_get_prompt=self._get_prompt,
         )
         self._manager: StreamableHTTPSessionManager | None = None
 
@@ -105,6 +119,44 @@ class McpTransport:
             content=[types.TextContent(type="text", text=_result_text(body))],
             structuredContent=body,
             isError=not body.get("ok", False),
+        )
+
+    # ------------------------------------------------------------ prompts
+
+    async def _list_prompts(self, ctx, params) -> types.ListPromptsResult:
+        return types.ListPromptsResult(
+            prompts=[
+                types.Prompt(
+                    name=p.name,
+                    title=p.title,
+                    description=p.description,
+                    arguments=[
+                        types.PromptArgument(
+                            name=REQUEST_ARGUMENT, description=REQUEST_DESCRIPTION, required=False
+                        )
+                    ],
+                )
+                for p in PROMPTS
+            ]
+        )
+
+    async def _get_prompt(self, ctx, params: types.GetPromptRequestParams) -> types.GetPromptResult:
+        prompt = PROMPTS_BY_NAME.get(params.name)
+        if prompt is None:
+            raise MCPError(
+                types.INVALID_PARAMS,
+                f"No MemoPop prompt called '{params.name}'. "
+                f"The prompts are: {', '.join(PROMPTS_BY_NAME)}.",
+            )
+        request = (params.arguments or {}).get(REQUEST_ARGUMENT)
+        return types.GetPromptResult(
+            description=prompt.description,
+            messages=[
+                types.PromptMessage(
+                    role="user",
+                    content=types.TextContent(type="text", text=prompt.render(request)),
+                )
+            ],
         )
 
     # ------------------------------------------------------------ ASGI

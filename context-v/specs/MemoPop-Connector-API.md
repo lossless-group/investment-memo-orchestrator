@@ -186,7 +186,7 @@ then compile. Rules:
 
 ## The tools
 
-All nine, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
+All eleven, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
 `destructiveHint`; Claude requires both on every tool.
 
 | Tool | REST | RO | D | Blocks? |
@@ -200,6 +200,8 @@ All nine, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
 | `save_snapshot` | `POST /v1/snapshots` | no | no | no |
 | `compile` | `POST /v1/deals/{deal}/compile` | no | no | yes (required) |
 | `whoami` | `GET /v1/whoami` | yes | no | no |
+| `list_skills` | `GET /v1/skills` | yes | no | no |
+| `get_skill` | `GET /v1/skills/{name}` | yes | no | no |
 
 \* `next_step` records skips and marks the step handed out, so it isn't
 read-only even though it changes no artifacts.
@@ -281,6 +283,14 @@ version, report: { sections, enhancements_run, skipped: [...] } }`. The links
 are signed and expire after seven days. If compiling would exceed about 200 seconds (inside Claude's 240-second limit),
 it returns `{ job_id, status: running }` and `list_deals` reports completion.
 
+**`list_skills`** `{}` → `{ skills: [{ name, description }] }`. The playbooks
+in `src/connector/skills/`, each a markdown file whose frontmatter carries its
+`name` and one-line `description` (see §How partners get the method).
+
+**`get_skill`** `{ name }` → `{ name, description, text }`, where `text` is the
+playbook. An unknown name is `skill_not_found`, with `details.available`
+listing the names that exist.
+
 ## Errors
 
 Every failure, on both transports, uses one envelope:
@@ -313,7 +323,7 @@ Starting codes (each must have a docs entry):
 | Kind | Codes |
 |---|---|
 | `down` | `service_unavailable`, `storage_unavailable`, `timeout`, `internal_error` |
-| `invalid` | `drafts_incomplete`, `link_expired`, `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version`, `not_implemented` |
+| `invalid` | `drafts_incomplete`, `link_expired`, `skill_not_found`, `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version`, `not_implemented` |
 | `skipped` | `step_disabled`, `step_failed`, `step_skipped`, `material_unreadable` |
 
 ## Versioning
@@ -843,7 +853,7 @@ renumber; retire one by striking it through. Status is derived by
 |---|---|
 | `CONN-SKL-01` | Given the MCP server, then its instructions open with editing finished memos (not writing new ones), name `list_skills`, and mention `whoami` for partners on more than one firm |
 | `CONN-SKL-02` | Given the skills folder, when `list_skills` runs, then every skill file is listed with its name and one-line description |
-| `CONN-SKL-03` | Given a skill name, `get_skill` returns its playbook; given an unknown name, `not_found` listing the names that exist |
+| `CONN-SKL-03` | Given a skill name, `get_skill` returns its playbook; given an unknown name, `skill_not_found` listing the names that exist |
 | `CONN-SKL-04` | Given the MCP server, then `prompts/list` returns the four entry prompts, each naming MemoPop and a skill that exists |
 
 ### Compiled memos for firm sites (Serve-Compiled-Memos-to-Firm-Sites)

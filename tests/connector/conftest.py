@@ -63,6 +63,8 @@ REST_ROUTES = {
     "save_snapshot": ("POST", "/v1/snapshots"),
     "compile": ("POST", "/v1/deals/{deal}/compile"),
     "whoami": ("GET", "/v1/whoami"),
+    "list_skills": ("GET", "/v1/skills"),
+    "get_skill": ("GET", "/v1/skills/{name}"),
 }
 
 MCP_HEADERS = {
