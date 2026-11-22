@@ -56,7 +56,10 @@ if [ -z "$(find io -mindepth 2 -maxdepth 2 -print -quit 2>/dev/null)" ]; then
   echo "  io/ submodules absent: ignoring ${IO_DEPENDENT[*]} (they read private firm data)"
   for f in "${IO_DEPENDENT[@]}"; do PYTEST_ARGS+=(--ignore="$f"); done
 fi
-uv run pytest "${PYTEST_ARGS[@]}" || FAILED=1
+# `python -m pytest`, not the `pytest` launcher: in a worktree with a long path,
+# uv writes that launcher as a `#!/bin/sh` script, and macOS strips DYLD_* when
+# the protected /bin/sh starts, so WeasyPrint can't find pango there.
+uv run python -m pytest "${PYTEST_ARGS[@]}" || FAILED=1
 
 hdr "ledger"
 if [ "$#" -gt 0 ]; then
