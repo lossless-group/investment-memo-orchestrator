@@ -38,6 +38,8 @@ EDIT_FLOW = [
     "A source, citation, or missing fact goes in the section's research; then the section is "
     "rewritten from it (start_revision with start: research).",
     "Wording, tone, order, or typos go in the section (start_revision with start: draft).",
+    "To show the partner a section or the memo as it will look, call preview and give them "
+    "its link; never render the markdown or number citations yourself.",
     "Once every change is worked through, call compile for the next version.",
     "Partners on more than one firm: call whoami, and pass `firm` to act for another.",
 ]

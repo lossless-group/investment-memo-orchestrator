@@ -28,6 +28,7 @@ TOOLS = {
     "edit_final",
     "get_outline",
     "edit_outline",
+    "preview",
 }
 
 #: (readOnlyHint, destructiveHint) per tool, from the spec's tools table.
@@ -49,6 +50,7 @@ HINTS = {
     "edit_final": (False, False),
     "get_outline": (True, False),
     "edit_outline": (False, False),
+    "preview": (True, False),
 }
 
 #: The starting codes from the spec's Errors section, with their kinds.

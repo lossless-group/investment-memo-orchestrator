@@ -69,6 +69,7 @@ REST_ROUTES = {
     "edit_final": ("POST", "/v1/deals/{deal}/final-edits"),
     "get_outline": ("GET", "/v1/outlines"),
     "edit_outline": ("POST", "/v1/deals/{deal}/outline-edits"),
+    "preview": ("GET", "/v1/deals/{deal}/preview"),
 }
 
 MCP_HEADERS = {

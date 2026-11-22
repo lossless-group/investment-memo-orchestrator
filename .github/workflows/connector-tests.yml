@@ -55,6 +55,14 @@ jobs:
             | sudo tar -xz -C /usr/local/bin ./jj
           jj --version
 
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the LFM renderer's packages
+        run: npm ci --prefix src/connector/render --no-audit --no-fund
+
       - name: Sync dependencies
         run: uv sync --extra dev
 

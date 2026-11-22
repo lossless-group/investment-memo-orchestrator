@@ -537,6 +537,47 @@ def strip_memo_mode_label(markdown_content: str) -> str:
     return MODE_LABEL.sub('', markdown_content)
 
 
+RENDERERS = ("pandoc", "lfm")
+
+
+def lfm_page(template: str, markdown_content: str) -> str:
+    """The branded page with its body rendered by LFM: the brand CSS styles LFM's HTML.
+
+    ``template`` is create_html_template()'s page, whose only pandoc variable is
+    ``$body$``. LFM's own classes (callouts, the sources list) get a few rules
+    after the brand's.
+    """
+    from src.connector.render.lfm import LFM_CSS, render_markdown
+
+    body = render_markdown(markdown_content)
+    page = template.replace("$body$", body, 1).replace("</style>", LFM_CSS + "    </style>", 1)
+    return normalize_table_col_widths(page)
+
+
+def embed_local_images(html: str, base_dir: Path) -> str:
+    """Inline <img src> files found under ``base_dir`` as data URIs.
+
+    Pandoc's --embed-resources does this for its exports; the LFM path does it
+    here, so an HTML written to exports/<mode>/ still shows deck screenshots
+    referenced relative to the memo.
+    """
+    import base64
+    import mimetypes
+
+    def repl(match: re.Match) -> str:
+        src = match.group(2)
+        if re.match(r'^(?:[a-z]+:|//|#)', src, re.I):
+            return match.group(0)
+        path = (base_dir / src).resolve()
+        if not path.is_file():
+            return match.group(0)
+        kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        data = base64.b64encode(path.read_bytes()).decode()
+        return f'{match.group(1)}data:{kind};base64,{data}{match.group(3)}'
+
+    return re.sub(r'(<img\b[^>]*?\bsrc=")([^"]+)(")', repl, html, flags=re.I)
+
+
 def render_branded_html(
     markdown_content: str,
     *,
@@ -546,6 +587,7 @@ def render_branded_html(
     css_path: Path,
     dark_mode: bool = False,
     memo_date: Optional[str] = None,
+    renderer: str = "pandoc",
 ) -> str:
     """Markdown to the branded HTML page, with no files read or written by the caller.
 
@@ -554,6 +596,9 @@ def render_branded_html(
     io/ or the working directory. Same template, same pandoc conversion, same
     column-width normalisation. It strips the first H1 (the template carries the
     title) and does not embed remote resources, so it makes no network calls.
+
+    ``renderer="lfm"`` makes the body with Lossless Flavored Markdown instead of
+    pandoc (src/connector/render/lfm.py), inside the same branded page.
     """
     import tempfile
 
@@ -562,6 +607,10 @@ def render_branded_html(
         r'^#\s+(?:Investment Memo[:\s]*)?[^\n]+\n+', '', markdown_content, count=1
     )
     template = create_html_template(title, company, brand, css_path, dark_mode, memo_date)
+    if renderer == "lfm":
+        return lfm_page(template, markdown_content)
+    if renderer != "pandoc":
+        raise ValueError(f"unknown renderer {renderer!r}: pandoc or lfm")
     with tempfile.TemporaryDirectory(prefix="memopop-export-") as tmp:
         template_path = Path(tmp) / "template.html"
         template_path.write_text(template, encoding="utf-8")
@@ -579,7 +628,8 @@ def convert_to_branded_html(
     output_path: Path,
     brand: BrandConfig,
     css_path: Path,
-    dark_mode: bool = False
+    dark_mode: bool = False,
+    renderer: str = "pandoc",
 ) -> Path:
     """Convert markdown to branded HTML.
 
@@ -589,7 +639,11 @@ def convert_to_branded_html(
         brand: Brand configuration
         css_path: Path to CSS file
         dark_mode: If True, use dark mode styling
+        renderer: "pandoc" (default) or "lfm" (Lossless Flavored Markdown,
+                  src/connector/render/lfm.py), inside the same branded page
     """
+    if renderer not in RENDERERS:
+        raise ValueError(f"unknown renderer {renderer!r}: pandoc or lfm")
 
     if not input_path.exists():
         raise FileNotFoundError(f"Input file not found: {input_path}")
@@ -702,6 +756,17 @@ def convert_to_branded_html(
 
     # Create HTML template (with optional custom memo_date from company data)
     template = create_html_template(title, company, brand, css_path, dark_mode, memo_date)
+
+    if renderer == "lfm":
+        # LFM makes the body; the brand CSS styles it. No pandoc, so local
+        # images are inlined here instead of by --embed-resources.
+        try:
+            html = embed_local_images(lfm_page(template, markdown_content), input_path.parent)
+            output_path.write_text(html, encoding='utf-8')
+            return output_path
+        finally:
+            if temp_input_path.exists():
+                temp_input_path.unlink()
 
     # Save template to temp file
     template_path = output_path.parent / f".temp_template_{output_path.stem}.html"
@@ -829,6 +894,7 @@ Examples:
   %(prog)s output/ --all                    # Export all memos (dark mode)
   %(prog)s memo.md -o exports/accel/        # Custom output directory
   %(prog)s memo.md --brand hypernova        # Specific brand with dark mode
+  %(prog)s memo.md --renderer lfm           # Body rendered with Lossless Flavored Markdown
 
 Multiple Brands:
   Create brand config files for different clients:
@@ -900,6 +966,14 @@ Multiple Brands:
         choices=['light', 'dark'],
         default='dark',
         help='Color mode: dark (default) or light'
+    )
+    parser.add_argument(
+        '--renderer',
+        choices=list(RENDERERS),
+        default='pandoc',
+        help="Body renderer: pandoc (default) or lfm (Lossless Flavored Markdown, as the "
+             "firm sites render; needs Node and `npm ci --prefix src/connector/render`). "
+             "The brand CSS styles either. A theme renders with pandoc only."
     )
 
     args = parser.parse_args()
@@ -1000,8 +1074,16 @@ Multiple Brands:
     # Determine dark mode flag
     dark_mode = args.mode == 'dark'
 
-    # Check pandoc
-    ensure_pandoc_installed()
+    if args.renderer == 'lfm':
+        from src.connector.render.lfm import LfmUnavailable, check_available
+        try:
+            check_available()
+        except LfmUnavailable as e:
+            print(f"✗ {e}")
+            sys.exit(1)
+    else:
+        # Check pandoc
+        ensure_pandoc_installed()
 
     # Get CSS path (base template for all brands)
     css_path = Path(__file__).parent.parent / 'templates' / 'base-style.css'
@@ -1013,7 +1095,10 @@ Multiple Brands:
     # base-style.css colour splice when the brand config or --theme names one.
     theme_dir = None
     theme_name = args.theme if args.theme is not None else getattr(brand, 'theme', None)
-    if theme_name and theme_name.lower() != 'none':
+    if theme_name and theme_name.lower() != 'none' and args.renderer == 'lfm':
+        print(f"  Note: theme {theme_name} renders with pandoc only; --renderer lfm uses the "
+              "brand CSS (base-style.css) instead.")
+    elif theme_name and theme_name.lower() != 'none':
         from cli.themed_export import find_theme
         try:
             theme_dir = find_theme(theme_name, firm=args.firm)
@@ -1078,7 +1163,9 @@ Multiple Brands:
                 convert_with_theme(md_file, html_path, brand, theme_dir, dark_mode,
                                    company_name=company, version=f"v{ver}" if ver else None)
             else:
-                convert_to_branded_html(md_file, html_path, brand, css_path, dark_mode)
+                convert_to_branded_html(
+                    md_file, html_path, brand, css_path, dark_mode, renderer=args.renderer
+                )
             size = html_path.stat().st_size / 1024
             mode_label = "dark" if dark_mode else "light"
             print(f"✓ HTML ({mode_label}): {html_path.name} ({size:.1f} KB)")

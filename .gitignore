@@ -27,6 +27,9 @@ wheels/
 .env
 .venv
 
+# Node packages for the LFM renderer (npm ci --prefix src/connector/render)
+node_modules/
+
 # IDE
 .vscode/
 .idea/

@@ -29,6 +29,7 @@ TOOL_MODULES = [
     "edit_final",
     "get_outline",
     "edit_outline",
+    "preview",
 ]
 
 

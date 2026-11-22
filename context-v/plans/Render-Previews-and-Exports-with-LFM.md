@@ -12,10 +12,12 @@ authors:
   - Michael Staton
 augmented_with:
   - Claude Code on Claude Opus 5.5
-at_semantic_version: 0.0.0.1
-status: Draft
+at_semantic_version: 0.0.1.0
+status: In-Progress
 spec_reference: context-v/specs/MemoPop-Connector-API.md
+loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
 depends_on: [Hex-Code-Citations-and-a-Repair-Tool]
+owns_test_ids: [CONN-LFM-01, CONN-LFM-02, CONN-LFM-03, CONN-LFM-04, CONN-LFM-05, CONN-LFM-06]
 tags: [Plan, LFM, Exports, Previews, Connector, Agents]
 ---
 
@@ -33,9 +35,17 @@ With hex-code citations ([[Hex-Code-Citations-and-a-Repair-Tool]]), Pandoc still
 
 Agents can't close the gap themselves. Partners now work through Claude and, later, ChatGPT and Claude Code. They will want to see a draft as it will look. LFM is published to JSR (npm-compat: `@jsr/lossless-group__lfm`). A Claude artifact can load scripts only from cdnjs, jsDelivr (npm) and unpkg, which don't serve JSR packages, and ChatGPT's canvas is more restricted still. If each agent rendered markdown its own way, every preview would differ.
 
-## Decision (proposed 2026-11-21)
+## Decision (2026-11-21)
 
 Render on the server, once, with LFM. Agents never render a memo themselves.
+
+The open questions below, resolved by the VP Eng before the build:
+
+- **LFM runs outside Astro.** `@lossless-group/lfm@0.11.0` is on npm with a Node-free `/browser` entry, and the root entry works in Node. The renderer pins 0.11.0 exactly (and `unified`, `remark-rehype`, `rehype-stringify` exactly) in `src/connector/render/package.json` and its lockfile. It imports `/browser`, which has no Open Graph fetching, so a render makes no network calls.
+- **Exports keep the firm's brand CSS** from `brand-<firm>-config.yaml`, as `render_branded_html` does today. LFM makes the HTML body; the branded page and its CSS around it are unchanged, plus a few rules for what LFM adds (callouts, the sources list).
+- **The site endpoint keeps returning markdown.** The firm's site renders it with LFM itself. No HTML is added there.
+- **Two steps, never one chain.** `parseMarkdown`, then `remark-rehype` and `rehype-stringify`. Chaining `remarkLfm` and `remarkRehype` in one processor silently skips callouts and citations (a known LFM issue). Citations are numbered from the hex keys in first-cited order, and the sources list is rendered from `tree.data.citations.ordered`.
+- **Behind a setting until checked.** `MEMOPOP_EXPORT_RENDERER` (`pandoc` by default, or `lfm`) chooses compile's renderer; `cli/export_branded.py --renderer lfm` does the same locally. `preview` always uses LFM.
 
 ## Steps
 
@@ -47,9 +57,16 @@ Render on the server, once, with LFM. Agents never render a memo themselves.
 
 ## Open questions
 
-- Does `@lossless-group/lfm`'s core run outside Astro with plain `unified`? The LFM skill says non-Astro consumers use it with their own pipeline, but check the trigger map and the components it expects.
-- Which brand CSS applies to LFM's HTML: the firm's `brand-<firm>-config.yaml` CSS as today, or the firm site's theme tokens?
-- Does the site endpoint keep returning markdown (the site renders it) or add rendered HTML?
+Resolved in the Decision above (2026-11-21):
+
+- ~~Does `@lossless-group/lfm`'s core run outside Astro with plain `unified`?~~ Yes, from npm, two steps.
+- ~~Which brand CSS applies to LFM's HTML?~~ The firm's `brand-<firm>-config.yaml` CSS, as today.
+- ~~Does the site endpoint keep returning markdown?~~ Yes.
+
+Still open:
+
+- When does `MEMOPOP_EXPORT_RENDERER` default to `lfm`? Once a partner has compared an LFM export with the pandoc one for each firm brand.
+- Firms whose brand config names a `theme` (`cli/themed_export.py`) render locally with pandoc only; `--renderer lfm` falls back to the brand CSS for them.
 
 ## Related
 

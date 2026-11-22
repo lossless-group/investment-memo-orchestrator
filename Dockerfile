@@ -12,6 +12,15 @@
 # suite runs. .dockerignore is an allowlist: io/, .env, logs, and output never
 # enter the build context.
 
+# The LFM renderer's Node packages (src/connector/render), installed from its
+# lockfile in a Node image; the final image takes node_modules and the node
+# binary, not npm.
+FROM node:22.11.0-bookworm-slim AS lfm
+WORKDIR /render
+COPY src/connector/render/package.json src/connector/render/package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund \
+ && npm cache clean --force
+
 FROM python:3.13-slim-bookworm
 
 ARG JJ_VERSION=0.46.0
@@ -32,6 +41,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 #   poppler-utils                  pdftoppm / pdftotext (deck and dataroom pages)
 #   tesseract-ocr                  OCR for scanned materials
 #   ghostscript, imagemagick       image and PDF normalisation
+#   libstdc++6                     node (the LFM renderer, copied in below)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl \
@@ -43,7 +53,13 @@ RUN apt-get update \
       tesseract-ocr tesseract-ocr-eng \
       ghostscript \
       imagemagick \
+      libstdc++6 \
  && rm -rf /var/lib/apt/lists/*
+
+# Node runs the LFM renderer (src/connector/render/lfm.py): preview always, and
+# compile's exports when MEMOPOP_EXPORT_RENDERER=lfm.
+COPY --from=lfm /usr/local/bin/node /usr/local/bin/node
+RUN node --version
 
 # jj keeps each firm's history; without it history is silently off.
 RUN case "${TARGETARCH:-amd64}" in \
@@ -65,6 +81,7 @@ RUN uv sync --frozen --no-dev --no-install-project \
  && rm -rf /root/.cache
 
 COPY src ./src
+COPY --from=lfm /render/node_modules ./src/connector/render/node_modules
 # compile renders through cli/export_branded.py (src/connector/compile/pipeline.py).
 COPY cli ./cli
 COPY templates ./templates
@@ -73,7 +90,9 @@ COPY scripts/health_check.py scripts/provision_firm.py scripts/docker-entrypoint
 RUN useradd --system --create-home --home-dir /home/memopop --uid 10001 memopop \
  && chmod +x scripts/docker-entrypoint.sh \
  && mkdir -p /data \
- && python -c "import src.connector.serve"
+ && python -c "import src.connector.serve" \
+ && printf '## Check\n\nRendered.[^a3f9b2]\n\n[^a3f9b2]: [Source](https://example.org).\n' \
+      | node src/connector/render/lfm_render.mjs | grep -q 'class="sources"'
 
 EXPOSE 8080
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
