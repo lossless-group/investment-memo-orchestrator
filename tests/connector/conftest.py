@@ -65,6 +65,10 @@ REST_ROUTES = {
     "whoami": ("GET", "/v1/whoami"),
     "list_skills": ("GET", "/v1/skills"),
     "get_skill": ("GET", "/v1/skills/{name}"),
+    "edit_section": ("POST", "/v1/deals/{deal}/section-edits"),
+    "edit_final": ("POST", "/v1/deals/{deal}/final-edits"),
+    "get_outline": ("GET", "/v1/outlines"),
+    "edit_outline": ("POST", "/v1/deals/{deal}/outline-edits"),
 }
 
 MCP_HEADERS = {

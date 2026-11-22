@@ -24,6 +24,10 @@ TOOLS = {
     "whoami",
     "list_skills",
     "get_skill",
+    "edit_section",
+    "edit_final",
+    "get_outline",
+    "edit_outline",
 }
 
 #: (readOnlyHint, destructiveHint) per tool, from the spec's tools table.
@@ -41,6 +45,10 @@ HINTS = {
     "whoami": (True, False),
     "list_skills": (True, False),
     "get_skill": (True, False),
+    "edit_section": (False, False),
+    "edit_final": (False, False),
+    "get_outline": (True, False),
+    "edit_outline": (False, False),
 }
 
 #: The starting codes from the spec's Errors section, with their kinds.
