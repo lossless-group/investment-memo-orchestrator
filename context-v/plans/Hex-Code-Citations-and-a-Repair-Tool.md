@@ -17,7 +17,7 @@ status: In-Progress
 issue_reference: context-v/issues/Final-Draft-Citations-Collide-Across-Sections.md
 loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
 depends_on: [Fix-Citation-Collisions-in-Final-Assembly]
-owns_test_ids: [CONN-HEX-01, CONN-HEX-02, CONN-HEX-03]
+owns_test_ids: [CONN-HEX-01, CONN-HEX-02, CONN-HEX-03, CONN-HEX-04, CONN-HEX-05, CONN-HEX-06, CONN-HEX-07, CONN-HEX-08]
 tags: [Plan, Citations, Hex-Codes, LFM, Repair, Agent-Skills]
 ---
 
@@ -80,6 +80,8 @@ def source_key(definition: str) -> str:
 | `CONN-HEX-03` | Given the connector's `research.section` and `draft.section` instructions, then they ask for hex keys, never `[^1]` |
 
 The repair tool's tests are pipeline tests (`tests/test_repair_citations.py`), not connector IDs.
+
+CONN-HEX-04..08 cover [[Appended-Research-Blocks-Reuse-Footnote-Keys]]: appended research blocks re-keyed at append time, and assembly, repair and the scan reading older files block by block (`tests/test_appended_research_blocks.py`). The rows are in the spec's HEX table.
 
 ## Then (the operator's go-ahead)
 

@@ -987,6 +987,11 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-HEX-01` | Given two sections citing the same URL under different local keys, when a research step's submission is checked and the memo compiles, then both use one hex key from `source_key()`, and the compiled markdown has one definition for it |
 | `CONN-HEX-02` | Given a section submitted with numbered keys, then `submit_artifact` accepts it and compile converts its keys to hex; given a hex key that doesn't match its definition's source, the check names it |
 | `CONN-HEX-03` | Given the connector's `research.section` and `draft.section` instructions, then they ask for hex keys, never `[^1]` |
+| `CONN-HEX-04` | Given a research file a run appends new sources to, when the block is appended, then the file defines each key once (the block's keys are hex, a source already in the file keeps its key), and a section citing both blocks assembles with each footnote linked to its own block's source |
+| `CONN-HEX-05` | Given an existing research file whose appended block reused numbered keys, when the memo assembles, then each section part resolves against its own block, and in a one-part section a key the blocks define differently is left unlinked and reported in `refused_keys`, while the other keys resolve |
+| `CONN-HEX-06` | Given a finished memo assembled from such a file, when repaired, then each `### Added from` part is matched to its block, a one-part section refuses only the conflicting keys (status `partial`), counts by reason are reported, and prose is unchanged |
+| `CONN-HEX-07` | Given a region whose markers no longer pair one for one with its section file, when repaired, then markers on lines whose prose is byte-identical to the section file are repaired and the edited line's markers are kept and counted as `line edited after assembly`; a region that still pairs one for one is repaired whole |
+| `CONN-HEX-08` | Given research files with appended blocks and with collapsed keys, when scanned, then the scan reports "appended blocks" separately from "collapsed keys" |
 
 ## Done when
 

@@ -687,6 +687,12 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
     names: List[str] = []
     texts: List[str] = []
     research_of: List[Optional[Dict[str, str]]] = []
+    # A research file with appended blocks can define one key once per block,
+    # for different sources. Those sections are read block by block: each
+    # marker is renamed in memory to a key naming its block, and a key whose
+    # block can't be told is refused (left unlinked and reported).
+    disambiguated: Dict[int, Tuple[str, Dict[str, str]]] = {}
+    refused_keys: List[str] = []
     if header_file.exists():
         names.append(header_file.name)
         texts.append(header_file.read_text())
@@ -695,15 +701,27 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
         research_file = research_dir / f"{section_file.stem}-research.md"
         names.append(section_file.name)
         texts.append(section_file.read_text())
-        research_of.append(
-            extract_citation_definitions(research_file.read_text()) if research_file.exists() else None
-        )
+        if not research_file.exists():
+            research_of.append(None)
+            continue
+        keys = _research_keys(research_file.read_text())
+        if keys.appended:
+            text, resolve, refused = _disambiguate_section(texts[-1], keys)
+            disambiguated[len(texts) - 1] = (text, resolve)
+            refused_keys += [f"{section_file.name}: [^{key}] {reason}" for key, reason in refused]
+            research_of.append(keys.merged())
+        else:
+            research_of.append(extract_citation_definitions(research_file.read_text()))
 
     resolve_with: List[Dict[str, str]] = []
-    for name, text, research in zip(names, texts, research_of):
+    for index, (name, text, research) in enumerate(zip(names, texts, research_of)):
         if research is not None:
-            resolve_with.append(research)
             _strip_definitions_kept_in_research(sections_dir / name, text, research)
+            if index in disambiguated:
+                texts[index], research_of[index] = disambiguated[index]
+                resolve_with.append(research_of[index])
+            else:
+                resolve_with.append(research)
             continue
         # No research file (header.md, a hand-added section, a stub-less run):
         # borrow a definition only when every research file that defines the
@@ -727,6 +745,8 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
     for missing in cstats["missing"]:
         index, key = missing.split(":", 1)
         print(f"    ⚠️  Warning: No definition found for [^{key}] in {names[int(index)]}")
+    for refused in refused_keys:
+        print(f"    ⚠️  Refused {refused}: left unlinked")
 
     # Step 3: Guard. Every citation in the assembled sections must point at a
     # source its own research file cited. A mismatch is this bug class
@@ -771,6 +791,8 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
         summary += f", {len(cstats['missing'])} missing definitions"
     if mismatches:
         summary += f", {len(mismatches)} not in their section's research"
+    if refused_keys:
+        summary += f", {len(refused_keys)} refused (research blocks disagree)"
     print(f"\n  ✅ {summary}")
 
     stats = {
@@ -779,6 +801,7 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
         "missing_definitions": len(cstats["missing"]),
         "renumbered": False,
         "research_mismatches": mismatches,
+        "refused_keys": refused_keys,
         "unchecked_sections": unchecked,
         "final_draft": str(final_draft_path),
     }
@@ -799,12 +822,66 @@ def _unambiguous_research_definitions(research_dir: Path) -> Dict[str, str]:
     if not research_dir.exists():
         return {}
     for research_file in sorted(research_dir.glob("*.md")):
-        for key, definition in extract_citation_definitions(research_file.read_text()).items():
+        text = research_file.read_text()
+        keys = _research_keys(text)
+        own = keys.merged() if keys.appended else extract_citation_definitions(text)
+        for key in keys.conflicts():
+            seen[key] = None
+        for key, definition in own.items():
             if key not in seen:
                 seen[key] = definition
             elif seen[key] is not None and _source_identity(seen[key]) != _source_identity(definition):
                 seen[key] = None
     return {key: definition for key, definition in seen.items() if definition is not None}
+
+
+def _research_keys(text: str):
+    """A research file's definitions block by block (src/research_blocks.py)."""
+    from ..research_blocks import read_research_keys
+
+    return read_research_keys(text, parse=lambda block: list(extract_citation_definitions(block).items()))
+
+
+def _disambiguate_section(text: str, keys) -> Tuple[str, Dict[str, str], List[Tuple[str, str]]]:
+    """Rename a section's markers (in memory) to keys naming the block they mean.
+
+    Part i of a section split at `### Added from …` is read against block i when
+    the section has one part per block; otherwise each key is read in whichever
+    block defines it. A key two blocks define differently, with no part to say
+    which, is refused: its marker stays as it is, with no definition, and is
+    reported. Keys the section defines itself are left for it to resolve.
+
+    Returns (text, definitions for the renamed keys, [(key, reason)] refused).
+    """
+    from ..research_blocks import part_block, section_parts
+
+    own = extract_citation_definitions(text)
+    lines = text.split("\n")
+    parts = section_parts(lines)
+    count = (parts[-1] + 1) if parts else 1
+    resolve: Dict[str, str] = {}
+    refused: List[Tuple[str, str]] = []
+
+    def rename(match: re.Match, part: int) -> str:
+        key = match.group(1)
+        if key in own:
+            return match.group(0)
+        definition, block, reason = keys.resolve(key, part_block(part, count, len(keys.blocks)))
+        if definition is None:
+            if (key, reason) not in refused:
+                refused.append((key, reason))
+            return match.group(0)
+        pseudo = f"{key}--b{block + 1}"
+        resolve[pseudo] = definition
+        return f"[^{pseudo}]"
+
+    out = []
+    for line, part in zip(lines, parts):
+        if re.match(r'^\[\^[a-zA-Z0-9_-]+\]:', line):
+            out.append(line)
+        else:
+            out.append(re.sub(r'\[\^([a-zA-Z0-9_-]+)\](?!:)', lambda m, p=part: rename(m, p), line))
+    return "\n".join(out), resolve, refused
 
 
 def _strip_definitions_kept_in_research(section_file: Path, text: str, research: Dict[str, str]) -> None:

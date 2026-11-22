@@ -51,6 +51,10 @@ def _print_report(report: dict) -> None:
         print(f"  {'unverified':40s} {item['markers']:3d} markers  {heads}")
     for note in report.get("notes", []):
         print(f"  note: {note}")
+    counts = report.get("counts")
+    if counts:
+        refused = ", ".join(f"{n} {reason}" for reason, n in counts["refused"].items()) or "none"
+        print(f"  markers repaired: {counts['repaired']}; refused: {refused}")
     print(report.get("result", ""))
 
 
@@ -84,7 +88,15 @@ def _scan(io_root: Path) -> int:
         share = f"{100 * row.share:.0f}%" if row.share is not None else "-"
         flags = []
         if row.collapsed:
-            flags.append(f"collapsed keys in {len(row.collapsed)} research file(s): those sections will be refused")
+            flags.append(
+                f"collapsed keys in {len(row.collapsed)} research file(s): those sections "
+                "(those keys, in files with appended blocks) will be refused"
+            )
+        if row.appended:
+            flags.append(
+                f"appended blocks reuse keys in {len(row.appended)} research file(s): "
+                "repaired block by block, conflicting keys refused"
+            )
         if row.ambiguous:
             flags.append("several 7-*.md here: pass --memo")
         if row.duplicate_of:

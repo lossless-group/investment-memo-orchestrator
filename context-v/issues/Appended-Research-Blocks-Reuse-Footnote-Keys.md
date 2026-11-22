@@ -5,9 +5,10 @@ date_created: 2026-11-21
 date_modified: 2026-11-21
 date_authored_initial_draft: 2026-11-21
 date_authored_current_draft: 2026-11-21
-at_semantic_version: 0.0.0.1
+at_semantic_version: 0.0.0.2
 publish: false
-status: Open
+status: Resolved
+date_resolved: 2026-11-21
 tags: [Citations, Research, Assembly]
 authors:
   - Michael Staton
@@ -36,5 +37,16 @@ Found 2026-11-21 while diagnosing memos the repair tool refused. In one memo, 12
 2. **Make assembly block-aware** for research files that already exist: split at `## Added from`, and resolve each key in the block that defines it. When two blocks define a key differently, refuse that key rather than silently taking the last.
 3. **Make repair block-aware** in the same way (shared helper). Split sections at `### Added from` and match each part to its block. In a one-part section, resolve each key in the block that defines it, and refuse only keys whose definitions conflict, not the whole file. Pair markers on lines whose prose is identical to the section file, so a few edited lines don't block a whole region.
 4. **Tell the two apart in the scan.** Report "appended blocks" separately from "collapsed keys".
+
+## Resolution
+
+Resolved 2026-11-21 on `connector/citations-appended-blocks` ([[2026-11-21_12]]). Tests CONN-HEX-04..08 in `tests/test_appended_research_blocks.py`.
+
+1. **Stopped.** `rekey_appended()` in `src/research_append.py` re-keys every appended block (augment and thesis-frame paths) before writing it: each source gets its hex key from `assign_keys()`, a source the file already defines keeps its key there and its duplicate definition is dropped, and a hex key the file already uses for another source widens to 8 characters. Hex keys rather than continued numbering because they are the keys assembly assigns anyway, need no count of the keys above, and can't collide with numbered or hex keys already in the file; existing tests needed no change.
+2. **Assembly is block-aware.** `src/research_blocks.py` splits research at each block's stamp or `## Added …` heading and sections at `### Added …` headings. With one section part per block, part *i* reads block *i*; otherwise each key is read in the block that defines it. A key two blocks define differently, with no part to choose, is left unlinked, printed, and listed in `refused_keys`. Renaming happens in memory; section files are not changed.
+3. **Repair is block-aware** with the same helper. A region that still pairs one for one with its section file is paired whole, as before; otherwise markers are paired only on lines whose prose is byte-identical to the section file. Each footnote is repaired or kept with a reason; regions can be `partial`, and `repair-report.json` has per-region `repaired`, `refused` and `refused_keys`, and memo-wide `counts`. In a file with appended blocks, a key one block defines twice is refused on its own; a file with no appended blocks that defines a key twice is still refused whole.
+4. **The scan** reports "appended blocks reuse keys" separately from "collapsed keys".
+
+Dry runs (nothing written) on the memo this issue was found in: 123 of 406 links change, 358 markers repaired, 48 refused (39 keys two blocks define differently in one-part sections, 7 keys one block defines twice, including the two `[^3]` in the overview, 2 on edited lines). Before, every section was refused. The "about 26 on edited lines" predicted earlier now repair, because those regions still pair one for one with their section files. Two other memos from the same firm that were already partly repaired gain 62 and 19 corrected links, with sections refused before for marker counts or reused keys now repaired in full or in part; the sections whose research collapsed keys in a single block stay refused.
 
 Related: [[Fix-Citation-Collisions-in-Final-Assembly]], [[Hex-Code-Citations-and-a-Repair-Tool]].

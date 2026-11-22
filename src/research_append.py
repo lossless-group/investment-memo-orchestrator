@@ -15,6 +15,13 @@ is being added beside it. A `write_text` there throws away the half of the
 picture nobody asked to discard, and a second gathering will not reproduce the
 first exactly, so facts disappear between versions.
 
+An appended block is re-keyed before it is written (`rekey_appended()`): its
+footnotes get hex keys from src/citation_keys.py, and a source the file already
+defines keeps the key it has there. So a file defines each key once, and a key
+means the same source in every block. Appended blocks used to number from 1
+again, which made assembly link the reused block's footnotes to the appended
+block's sources (context-v/issues/Appended-Research-Blocks-Reuse-Footnote-Keys.md).
+
 Appended blocks carry a provenance stamp naming the frame and run that produced
 them. That is what lets a later reader — or the fact-checker — tell one thesis's
 evidence from another's, and what makes a frame reversible: dropping a thesis
@@ -28,7 +35,12 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
+from .citation_keys import LONG, _key, assign_keys, source_identity
 from .md_breaks import normalize_section_breaks
+from .research_blocks import line_definitions, read_research_keys
+
+_MARKER = re.compile(r"\[\^([a-zA-Z0-9_-]+)\]")
+_DEF_LINE = re.compile(r"^\[\^([a-zA-Z0-9_-]+)\]:")
 
 STAMP_RE = re.compile(
     r"<!--\s*research-block:\s*frame=(?P<frame>[^\s]+)\s+run=(?P<run>[^\s]+)\s+appended=(?P<date>[^\s]+)\s*-->"
@@ -57,6 +69,50 @@ def has_block(text: str, frame_slug: str, run_version: str) -> bool:
         s["frame"] == frame_slug and s["run"] == run_version
         for s in existing_stamps(text)
     )
+
+
+def rekey_appended(prior: str, body: str) -> str:
+    """Re-key a block about to be appended to ``prior`` so no key is reused.
+
+    Each source the block defines gets its hex key from ``assign_keys()``. A
+    source ``prior`` already defines (one meaning, in any block) keeps the key it
+    has there, and its definition is dropped from the block, so the file defines
+    it once. A hex key that ``prior`` already uses for another source is widened
+    to 8 characters. Keys the block cites but does not define are left alone.
+
+    Hex keys rather than continued numbering: the hex key is the one assembly
+    gives the source anyway, it needs no count of the keys above it, and it
+    cannot collide with a numbered or hex key already in the file.
+    """
+    new_defs: dict[str, str] = {}
+    for key, definition in line_definitions(body):
+        new_defs.setdefault(key, definition)
+    if not new_defs:
+        return body
+    known = read_research_keys(prior)
+    prior_key_of: dict[str, str] = {}
+    for key, definition in known.merged().items():
+        prior_key_of.setdefault(source_identity(definition), key)
+    taken = set(known.keys())
+
+    mapping: dict[str, str] = {}
+    dropped: set[str] = set()
+    for old, new in assign_keys(new_defs).items():
+        identity = source_identity(new_defs[old])
+        if identity in prior_key_of:
+            mapping[old] = prior_key_of[identity]
+            dropped.add(old)
+        elif new in taken:
+            mapping[old] = _key(identity, LONG)
+        else:
+            mapping[old] = new
+
+    def dropped_definition(line: str) -> bool:
+        m = _DEF_LINE.match(line)
+        return bool(m) and m.group(1) in dropped
+
+    kept_lines = [line for line in body.split("\n") if not dropped_definition(line)]
+    return _MARKER.sub(lambda m: f"[^{mapping.get(m.group(1), m.group(1))}]", "\n".join(kept_lines))
 
 
 def write_or_append_research(
@@ -104,7 +160,7 @@ def write_or_append_research(
         else f"## Refreshed under thesis frame: {getattr(frame, 'name', slug)}"
     )
 
-    body = content.strip()
+    body = rekey_appended(prior, content.strip())
     # The appended body is a whole research file in its own right, with its own
     # H1 and its own "### Citations" heading. Demote the H1 so the merged file
     # keeps one top-level heading, and leave the citations block alone — the
@@ -144,7 +200,7 @@ def append_augmentation(path: Path, content: str, *, run_version: str, new_sourc
     version = run_version or "unversioned"
     if has_block(prior, AUGMENT_SLUG, version):
         return "skipped-duplicate"
-    body = re.sub(r"^#\s+", "### ", content.strip(), count=1, flags=re.MULTILINE)
+    body = re.sub(r"^#\s+", "### ", rekey_appended(prior, content.strip()), count=1, flags=re.MULTILINE)
     noun = "source" if new_sources == 1 else "sources"
     path.write_text(
         prior.rstrip()
