@@ -30,7 +30,7 @@ def test_key_is_sha256_of_the_link_in_base_36():
 
 def test_same_link_same_key_whatever_the_text():
     a = "2025, Jan 08. [Survey](https://example.org/a%20b/). Fixture Press."
-    b = "2024, Dec 01. [Another title](https://example.org/a b). Someone else."
+    b = "2024, Dec 01. [Another title](https://EXAMPLE.org/A%20b). Someone else."
     assert source_key(a) == source_key(b)
 
 

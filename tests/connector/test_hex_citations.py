@@ -57,7 +57,11 @@ def _research_approved(ws, deal: str, content_for) -> dict:
             partner_approved=True,
         )
         step = call(ws, "next_step", deal=deal)
-    return step
+    # Steps between research and drafting (research.sources) are walked as usual.
+    walk = FakeClaude(Direct(ws)).walk(
+        deal, until=lambda s: s["step_id"] == "draft.section", compile=False
+    )
+    return walk.stopped_at
 
 
 def _compile_drafts(ws, deal: str, step: dict, drafts: dict[str, str]) -> str:
