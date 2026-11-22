@@ -7,7 +7,7 @@ required: false
 runs_on: claude
 needs_partner: false
 order: 80
-version: "1"
+version: "2"
 reads: ["section.current:@section", "research.section:@section", research.sources]
 produces:
   kind: section
@@ -51,10 +51,11 @@ traction metrics and milestones; claims about competitors; any direct quote.
 ## How to do it
 
 - **Keep every existing citation that is right.** Don't renumber, rename, merge,
-  or tidy a marker. `[^deck]` stays `[^deck]`.
+  or tidy a marker. A key stays exactly as written.
 - **Add a citation to each uncited factual claim** the research supports. Reuse
-  the research's definition for that source. New markers continue from the
-  highest number already in the section.
+  the research's key and definition for that source. Keys are hex codes made
+  from the source (SHA-256 of its link, in base 36, first six characters), so
+  the same source always has the same key; never invent one.
 - **Fix wrong citations.** If a marker points to a source that doesn't say what
   the sentence claims, point it at the source that does, or remove the marker.
 - **Use only sources in your inputs.** Never invent a source, a title, a date, or
@@ -72,13 +73,13 @@ The whole section, in markdown:
 
 - Starts with `## {{section_name}}`.
 - Inline citations after punctuation with one space before each marker:
-  `The market reached $50B in 2024. [^1]`
+  `The market reached $50B in 2024. [^3shksu]`
 - Ends with one complete `### Citations` block: every marker used in the section,
   each defined once, in the form
-  `[^1]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A`.
+  `[^3shksu]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A`.
   Two-digit days, the title wrapped in its link, both Published and Updated.
 
-It must be at least 80 words, carry at least one citation, and every `[^n]` must
+It must be at least 80 words, carry at least one citation, and every key (`[^3shksu]`) must
 have a definition in the block, or the submission is rejected.
 
 ## Submit

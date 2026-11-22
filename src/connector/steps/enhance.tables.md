@@ -7,7 +7,7 @@ required: false
 runs_on: claude
 needs_partner: false
 order: 60
-version: "1"
+version: "2"
 reads: ["section.current:@section", "research.section:@section"]
 produces:
   kind: section
@@ -60,7 +60,7 @@ its `artifact_id`, and `offset` = its `next_offset` until you have all of it.
   tables stays exactly as written. You may shorten a sentence whose figures now
   sit in the table right below it, but never drop a figure from the section.
 - **Every figure keeps its citation.** Put the marker in the cell that holds the
-  figure (`$12M [^3]`), using the same marker the prose used. Write `—` for a
+  figure (`$12M [^3shksu]`), using the same marker the prose used. Write `—` for a
   cell you have no figure for; never estimate one.
 - **Place each table where it belongs**: after the paragraph that discusses those
   figures, not at the end of the section.
@@ -74,12 +74,12 @@ The whole section, in markdown:
 - Starts with `## {{section_name}}`.
 - The section's original prose, with your tables in place.
 - Inline citations after punctuation with one space before each marker
-  (`... in 2024. [^1]`); in a table cell, after the figure.
+  (`... in 2024. [^3shksu]`); in a table cell, after the figure.
 - Ends with the `### Citations` block, carrying the definition of every marker
   used in the section, in the form
-  `[^1]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A`.
+  `[^3shksu]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A`.
 
-It must be at least 80 words, and every `[^n]` must have a definition in the
+It must be at least 80 words, and every key (`[^3shksu]`) must have a definition in the
 `### Citations` block, or the submission is rejected.
 
 ## Submit

@@ -7,7 +7,7 @@ required: false
 runs_on: claude
 needs_partner: false
 order: 90
-version: "1"
+version: "2"
 reads: ["section.current:@section", "research.section:@section"]
 produces:
   kind: section
@@ -82,13 +82,13 @@ The whole corrected section, in markdown:
 
 - Starts with `## {{section_name}}`.
 - Inline citations after punctuation with one space before each marker
-  (`... in 2024. [^1]`).
+  (`... in 2024. [^3shksu]`).
 - Ends with the `### Citations` block, carrying the definition of every marker
   still used, in the form
-  `[^1]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A`.
+  `[^3shksu]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A`.
 
 If nothing needed correcting, submit the section unchanged: that records that the
-check ran. It must be at least 80 words, and every `[^n]` must have a definition,
+check ran. It must be at least 80 words, and every key (`[^3shksu]`) must have a definition,
 or the submission is rejected.
 
 ## Submit

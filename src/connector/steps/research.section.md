@@ -7,7 +7,7 @@ required: true
 runs_on: claude
 needs_partner: true
 order: 30
-version: "2"
+version: "3"
 reads: [materials.brief]
 produces:
   kind: research
@@ -17,6 +17,7 @@ produces:
     max_chars: 400000
     has_citations: 1
     citations_resolve: true
+    hex_keys_match_sources: true
 path: "research/{section}.md"
 source_agent: src/agents/perplexity_section_researcher.py
 enabled: true
@@ -47,16 +48,17 @@ Answer these questions with specific data:
 
 - **Verifiable, current facts.** Numbers, growth rates, names, and recent events,
   each with its date ("TAM of $50B in 2024", not "a large market").
-- **Every factual claim cited** with an inline marker: `[^1]`, `[^2]`. Aim for
-  5 to 10 diverse sources: analyst reports, financial and tech journalism,
+- **Every factual claim cited** with an inline marker carrying the source's hex
+  key (see "Citation keys" below), like `[^3vdxyl]`. Aim for 5 to 10 diverse
+  sources: analyst reports, financial and tech journalism,
   company filings and announcements.
 - **The right company.** The only correct company is at {{url}}. Check you have
   the right entity before you write. If you can't find something about this
   company specifically, write "Data not available" rather than borrowing facts
   from a similarly named one.
 - **The company's own materials.** If a materials brief is in your inputs, it
-  holds claims from the company's deck or dataroom. Cite them as `[^deck]`,
-  check them against outside sources where you can, and say so explicitly when
+  holds claims from the company's deck or dataroom. Cite each document as a
+  source like any other, with its own definition and hex key, check them against outside sources where you can, and say so explicitly when
   an outside source contradicts the deck.
 - **A venture mindset.** Look for what could go right. Note risks where they
   belong, but don't end with a skeptical wrap-up or a list of conditions; the
@@ -69,17 +71,36 @@ from what they give you.
 ## Format
 
 Markdown, about {{target_words}} words, with inline citations placed after the
-punctuation with one space before each marker: `The market reached $50B. [^1]`.
+punctuation with one space before each marker: `The market reached $50B. [^3vdxyl]`.
 End with the citation list:
 
 ```
 ### Citations
 
-[^1]: 2025, Jan 08. [Source Title](https://full-url). Publisher. Published: 2025-01-08 | Updated: N/A
+[^3vdxyl]: 2025, Jan 08. [Source Title](https://full-url). Publisher. Published: 2025-01-08 | Updated: N/A
 ```
 
 Use two-digit days ("Jan 08"), wrap every title in a link, and include both the
-Published and Updated fields. Every `[^n]` you use must be defined in the list.
+Published and Updated fields. Every key you use must be defined in the list.
+
+## Citation keys
+
+Each source gets a **hex key** made from the source itself, so the same source
+has the same key in every section and two sources never share one (the memo
+numbers them only when it is rendered):
+
+1. Take the first `https://`, `http://` or `file://` link in the source's
+   citation line, percent-decode it, lowercase it, and drop a trailing `/`.
+   A source with no link uses its citation text without the date, with runs of
+   whitespace collapsed to one space, lowercased.
+2. Hash that with SHA-256, read the digest as one integer, and write it in
+   base 36 (`0-9a-z`). The key is the first six characters.
+
+`https://full-url` gives `[^3vdxyl]`. If you can run code, compute each key that
+way. If you can't, don't guess one: use short placeholder letters (`[^a]`,
+`[^b]`, ...) and the server converts them to hex keys when the memo compiles. A
+hex-looking key that doesn't match its source is refused, and the refusal says
+which key the source gives.
 
 ## Show the partner, then submit
 

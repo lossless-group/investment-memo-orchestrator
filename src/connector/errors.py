@@ -275,7 +275,7 @@ _SPECS = [
         422,
         "One of the edits can't be placed in a section of the memo.",
         "Read details.reason. Make that edit smaller so it sits inside one section's text, "
-        "leave out citation numbers (they are renumbered in the final), or make the change "
+        "leave out citation keys (a section's keys can differ from the final's), or make the change "
         "with edit_section on the section instead. Nothing was saved.",
         "edit_final finds the section each edit falls in from the final's level-2 headings, "
         "then makes the same edit in that section. An edit that spans two sections, falls "

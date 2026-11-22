@@ -7,7 +7,7 @@ required: false
 runs_on: claude
 needs_partner: false
 order: 110
-version: "1"
+version: "2"
 reads: ["section.current:*", enhance.scorecard]
 produces:
   kind: summaries
@@ -89,13 +89,13 @@ in your inputs' titles, one after the other:
 
 ### Citations
 
-[^1]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A
+[^3shksu]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A
 ```
 
 One `### Citations` block at the end covers both sections; leave it out if you
 cited nothing. A heading that matches no section is ignored, so copy the names
 exactly. If the outline has no closing section, submit only the executive
-summary. The content must be at least 80 words, and every `[^n]` must be defined,
+summary. The content must be at least 80 words, and every key (`[^3shksu]`) must be defined,
 or the submission is rejected.
 
 ## Submit
