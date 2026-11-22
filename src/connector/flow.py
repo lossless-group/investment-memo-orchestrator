@@ -113,9 +113,12 @@ def pending_materials(state: dict) -> list[dict]:
 
 
 def applicable(inst: Instance, state: dict) -> bool:
-    """materials.brief exists only once some material is ready."""
+    """materials.brief exists only once some material is ready; a revision_only step
+    only when the open revision reopened it."""
     if inst.step.id == "materials.brief":
         return bool(ready_materials(state))
+    if inst.step.revision_only:
+        return reopened(state, inst.key)
     return True
 
 
@@ -141,7 +144,7 @@ def is_skipped(inst: Instance, state: dict) -> bool:
 #: when the revision starts from research.
 REOPEN_SECTION_STEPS = (
     "research.section",
-    "draft.section",
+    "draft.rewrite",
     "enhance.tables",
     "enhance.citations",
     "enhance.fact_check",
@@ -184,14 +187,19 @@ def with_revision(instruction: str, state: dict, inst: Instance) -> str:
     )
     materials = (
         " The new materials for this revision are among the inputs; use them."
-        if revision["material_ids"]
+        if revision["material_ids"] and not inst.step.revision_only
         else ""
     )
     angle = "\n".join(f"> {line}" for line in revision["angle"].splitlines())
+    previous = (
+        "The section as it stands"
+        if inst.step.revision_only
+        else "Your previous submission for this step"
+    )
     return (
         f"This is a revision of {names}, asked for by the partner in their words:\n\n"
         f"{angle}\n\n"
-        "Your previous submission for this step is among the inputs. Revise it in light of "
+        f"{previous} is among the inputs. Revise it in light of "
         "that request rather than starting over: keep what still holds, change what the "
         f"request changes, and tell the partner in one line what changed.{materials}"
         f"\n\n{instruction}"
@@ -448,10 +456,13 @@ def gather_inputs(registry: Registry, ws: Workspace, state: dict, inst: Instance
         else:
             wanted.append((step.artifact_id(None), step.title))
     own = inst.key
-    if own in state["artifacts"] and own not in [w[0] for w in wanted]:
+    # A revision_only step (the rewrite) gets exactly its reads: no previous
+    # submission, and new evidence only through the research.
+    exact = inst.step.revision_only
+    if not exact and own in state["artifacts"] and own not in [w[0] for w in wanted]:
         wanted.append((own, "Your previous submission for this step"))
     revision = state.get("revision")
-    if revision and reopened(state, own):
+    if revision and reopened(state, own) and not exact:
         ready = {m["material_id"] for m in ready_materials(state)}
         for mid in revision["material_ids"]:
             if mid in ready and f"material:{mid}" not in [w[0] for w in wanted]:

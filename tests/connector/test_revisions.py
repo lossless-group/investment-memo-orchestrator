@@ -75,7 +75,7 @@ def test_a_research_revision_walks_the_section_then_the_deal_summaries(ws):
 
     steps = walk_revision(ws, deal)
     handed = [(s["step_id"], s["section"]) for s in steps]
-    assert handed[:2] == [("research.section", "02-market"), ("draft.section", "02-market")]
+    assert handed[:2] == [("research.section", "02-market"), ("draft.rewrite", "02-market")]
     assert {h for h in handed[2:]} <= (
         {(e, "02-market") for e in SECTION_ENHANCEMENTS}
         | {("enhance.summaries", None), ("enhance.one_pager", None)}
@@ -103,7 +103,12 @@ def test_revision_materials_reach_every_reopened_step(ws):
     steps = walk_revision(ws, deal)
     assert steps
     for step in steps:
-        assert f"material:{mid}" in [i["artifact_id"] for i in step["inputs"]], step["step_id"]
+        ids = [i["artifact_id"] for i in step["inputs"]]
+        if step["step_id"] == "draft.rewrite":
+            # New evidence reaches the rewrite only through the research.
+            assert f"material:{mid}" not in ids
+        else:
+            assert f"material:{mid}" in ids, step["step_id"]
         assert step["revision"]["material_ids"] == [mid]
 
 
@@ -119,7 +124,7 @@ def test_a_draft_revision_does_not_redo_research(ws):
         start="draft",
     )
     handed = [(s["step_id"], s["section"]) for s in walk_revision(ws, deal)]
-    assert handed[0] == ("draft.section", "03-team")
+    assert handed[0] == ("draft.rewrite", "03-team")
     assert ("research.section", "03-team") not in handed
 
 
@@ -155,17 +160,23 @@ def test_one_open_revision_at_a_time_and_no_compile_mid_revision(ws):
 
 
 @pytest.mark.spec("CONN-REV-06")
-def test_cancel_restores_the_section_and_leaves_the_deal_done(ws):
+def test_cancel_restores_the_section_and_leaves_the_deal_done(ws, registry):
+    from src.connector import flow
+
     deal = compiled(ws)
-    before = call(ws, "get_artifact", deal=deal, artifact_id="draft.section:02-market")
+    # The section's current text: the latest of its draft and the enhancements of it.
+    current = flow.current_section_key(registry, deal_state(ws, deal), "02-market")
+    before = call(ws, "get_artifact", deal=deal, artifact_id=current)
     call(ws, "start_revision", deal=deal, sections=["02-market"], angle=ANGLE)
     walk_revision(ws, deal)
-    changed = call(ws, "get_artifact", deal=deal, artifact_id="draft.section:02-market")
+    changed = call(ws, "get_artifact", deal=deal, artifact_id=current)
     assert changed["text"] != before["text"]
 
     body = call(ws, "cancel_revision", deal=deal)
-    assert "draft.section:02-market" in body["restored"]
-    after = call(ws, "get_artifact", deal=deal, artifact_id="draft.section:02-market")
+    assert current in body["restored"]
+    assert "draft.rewrite:02-market" in body["dropped"]
+    assert flow.current_section_key(registry, deal_state(ws, deal), "02-market") == current
+    after = call(ws, "get_artifact", deal=deal, artifact_id=current)
     assert after["text"] == before["text"]
     assert after["version"] > changed["version"]
     assert call(ws, "next_step", deal=deal)["done"] is True

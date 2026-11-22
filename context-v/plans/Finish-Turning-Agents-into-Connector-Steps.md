@@ -4,7 +4,7 @@ title: "Finish Turning the Agents into Connector Steps"
 lede: "13 of the orchestrator's roughly 40 agents are steps the connector can hand Claude. The rest, starting with the revision and correction agents that editing finished memos depends on, still need converting."
 publish: true
 date_created: 2026-11-20
-date_modified: 2026-11-20
+date_modified: 2026-11-21
 date_authored_initial_draft: 2026-11-20
 date_authored_current_draft: 2026-11-20
 date_authored_final_draft:
@@ -34,8 +34,8 @@ The method is decided ([[The-Server-Hands-Claude-the-Method-One-Step-at-a-Time]]
 ## What to convert, in order
 
 1. **Revision**, which Plan 9 runs on:
-   - `section_reviser.py`, revising a section's prose without losing what it said. It becomes the rewrite step: inputs are the research file and the current section draft only, with no outside knowledge and no web research.
-   - Also give `draft.section` the current draft as an input when it runs as part of a revision, and add the same no-outside-knowledge line to its instructions.
+   - [x] `section_reviser.py`, revising a section's prose without losing what it said. It becomes the rewrite step: inputs are the research file and the current section draft only, with no outside knowledge and no web research. *Done 2026-11-21: `draft.rewrite`, a `revision_only` step that both `start_revision` paths reopen in place of `draft.section`. Its inputs are exactly the research and the section as it stands, and the partner's request leads its instruction (CONN-STEP-11, CONN-REV-01, CONN-REV-03).*
+   - [x] Also give `draft.section` the current draft as an input when it runs as part of a revision, and add the same no-outside-knowledge line to its instructions. *Superseded 2026-11-21 (VP Eng with the operator): revisions use `draft.rewrite`, so `draft.section` writes first drafts only. It carries the no-outside-knowledge line and doesn't read `section.current` (CONN-STEP-12, restated).*
 2. **Correction**, for "this citation is wrong" and "this fact is off": `fact_verifier`, `fact_corrector`, `citation_validator`, `citation_corrector`, `remove_invalid_sources`, `attribution_audit`.
 3. **Rewrites and enrichment**: `key_info_rewrite`, `competitive_landscape_researcher`, `competitive_landscape_evaluator`, `link_enrichment`, `socials_enrichment`, `inject_deck_images` (if `enhance.*` doesn't already cover it).
 4. **Clean-up passes**, which may be server-side code rather than Claude steps: `citation_spacing`, `internal_comments_sanitizer`, `anomalies`.

@@ -70,6 +70,7 @@ SPEC_STEPS = {
     "research.section": ("research", "section", "claude", True),
     "research.sources": ("research", "deal", "claude", False),
     "draft.section": ("draft", "section", "claude", True),
+    "draft.rewrite": ("draft", "section", "claude", False),
     "enhance.tables": ("enhance", "section", "claude", False),
     "enhance.diagrams": ("enhance", "deal", "claude", False),
     "enhance.citations": ("enhance", "section", "claude", False),

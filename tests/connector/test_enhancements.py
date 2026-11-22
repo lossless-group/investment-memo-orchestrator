@@ -14,7 +14,8 @@ from .fake_claude import Direct, FakeClaude
 from .fixtures import canned
 
 #: Every optional step in the registry (Claude steps and the server step list).
-OPTIONAL_STEPS = [s.id for s in load_registry().steps if not s.required]
+#: Optional steps of a memo's first walk; revision_only steps never run in it.
+OPTIONAL_STEPS = [s.id for s in load_registry().steps if not s.required and not s.revision_only]
 
 #: compile's optional server steps. Written out rather than imported, so a
 #: compile module that fails to import fails these tests instead of hiding them;

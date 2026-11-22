@@ -134,6 +134,7 @@ Every step is declared once:
 | `needs_partner` | The step ends only when the partner has approved the artifact |
 | `source_agent` | The agent in `src/agents/` the instruction was adapted from |
 | `enabled` | Ops switch. A disabled optional step is skipped with `step_disabled` |
+| `revision_only` | The step is never in a memo's first walk; `next_step` hands it out only when an open revision reopens it (default `false`) |
 
 ### First mapping from today's workflow
 
@@ -148,6 +149,7 @@ become **Claude steps**; nodes that depend on our research APIs wait for v2.
 | `research.section` | research / section | claude, `needs_partner` | yes | `section_research`, `research`, `competitive_researcher` (competition section) |
 | `research.sources` | research / deal | claude, `needs_partner` | no | `aggregate_sources` |
 | `draft.section` | draft / section | claude | yes | `draft` (`writer`) |
+| `draft.rewrite` | draft / section | claude, `revision_only` | no | `section_reviser` (added by Finish-Turning-Agents-into-Connector-Steps, step 1) |
 | `enhance.tables` | enhance / section | claude | no | `generate_tables` |
 | `enhance.diagrams` | enhance / deal | claude | no | `generate_diagrams`, `enrich_visualizations` |
 | `enhance.citations` | enhance / section | claude | no | `cite`, `validate_citations` |
@@ -598,7 +600,9 @@ numbers; one or several), the colleague's `angle` in their own words, optional
 `draft` (same evidence, new framing: only the draft is redone).
 
 **What reopens.** For each named section: its research (when `start` is
-`research`), its draft, and its section-scoped enhancements (tables,
+`research`), its rewrite (`draft.rewrite`, which rewrites the section as it
+stands from its research and the partner's request; `draft.section` writes
+first drafts only), and its section-scoped enhancements (tables,
 citations, fact check). For the deal: the summaries and the one-pager, which
 summarize every section. Nothing else changes.
 
@@ -853,12 +857,12 @@ renumber; retire one by striking it through. Status is derived by
 
 | ID | Given / When / Then |
 |---|---|
-| `CONN-REV-01` | Given a compiled deal, when `start_revision` reopens one section from `research`, then `next_step` hands out that section's research, its draft, its section enhancements, then the summaries and one-pager, and nothing else; each carries the `revision` object and its previous submission among the inputs |
-| `CONN-REV-02` | Given a revision with `material_ids`, then those materials are among the inputs of every reopened step |
-| `CONN-REV-03` | Given `start: draft`, then the section's research is not handed out again |
+| `CONN-REV-01` | Given a compiled deal, when `start_revision` reopens one section from `research`, then `next_step` hands out that section's research, then `draft.rewrite` (not `draft.section`), its section enhancements, then the summaries and one-pager, and nothing else; each carries the `revision` object and its previous submission among the inputs (for `draft.rewrite`, the section as it stands) |
+| `CONN-REV-02` | Given a revision with `material_ids`, then those materials are among the inputs of every reopened step except `draft.rewrite`, which gets new evidence only through the research |
+| `CONN-REV-03` | Given `start: draft`, then `draft.rewrite` is reopened and the section's research is not handed out again |
 | `CONN-REV-04` | Given a revision, when the walk finishes and `compile` runs, then the revision closes into `revisions` with the compiled version, and the label is the next patch |
 | `CONN-REV-05` | Given an open revision, then a second `start_revision` returns `revision_open`, and `compile` returns `revision_incomplete` until the reopened steps are done |
-| `CONN-REV-06` | Given a revised section, when `cancel_revision` runs, then the section's draft reads as it did before the revision, at a new version, and `next_step` reports the deal done |
+| `CONN-REV-06` | Given a revised section, when `cancel_revision` runs, then the section's current text reads as it did before the revision (each changed artifact restored at a new version, the rewrite dropped), and `next_step` reports the deal done |
 | `CONN-REV-07` | Given a section with no draft, then `start_revision` on it returns `section_not_drafted`; given an unknown section, `validation_failed` |
 | `CONN-REV-08` | Given research resubmitted unchanged during a revision, then it still counts as done (no endless re-handout) |
 | `CONN-REV-09` | Given a deal imported from local run `v0.2.2`, then its first compile is labelled `v0.2.3`; given a new deal, `v0.0.1`; an unchanged recompile keeps its label |
@@ -879,8 +883,8 @@ renumber; retire one by striking it through. Status is derived by
 
 | ID | Given / When / Then |
 |---|---|
-| `CONN-STEP-11` | Given the registry, then a rewrite step exists with `source_agent` `section_reviser`, reading only the section's research and its current draft, and its instruction forbids outside knowledge and web research |
-| `CONN-STEP-12` | Given a revision with `start: research`, then the reopened `draft.section` step has the section's current draft among its inputs and the same no-outside-knowledge line in its instruction |
+| `CONN-STEP-11` | Given the registry, then a rewrite step exists with `source_agent` `section_reviser`, marked `revision_only`, reading only the section's research and its current draft; when a revision hands it out, its inputs are exactly those two and the partner's request (the angle) leads its instruction, and its instruction forbids outside knowledge and web research |
+| `CONN-STEP-12` | Given a first walk, then `draft.section` (first drafts only) carries the same no-outside-knowledge line in its instruction and does not read `section.current` (restated 2026-11-21 before it shipped: revisions use `draft.rewrite`) |
 
 ### The method served from the server (Serve-the-Method-from-the-Server)
 

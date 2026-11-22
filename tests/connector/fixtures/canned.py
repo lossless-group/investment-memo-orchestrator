@@ -164,6 +164,8 @@ def for_step(step_id: str, section: str | None) -> str:
     per_section = {
         "research.section": research,
         "draft.section": draft,
+        # A revision's rewrite starts from the section as it stands, table included.
+        "draft.rewrite": tables,
         "enhance.tables": tables,
         # Revisions start from the section as it stands, so they keep the table.
         "enhance.citations": tables,

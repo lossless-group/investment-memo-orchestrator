@@ -19,6 +19,8 @@ def _expected_steps() -> list[tuple[str, str | None]]:
     for step in load_registry().steps:
         if step.runs_on != "claude" or step.id == "materials.brief":  # no materials yet
             continue
+        if step.revision_only:  # handed out only when a revision reopens it
+            continue
         out += [(step.id, s) for s in SECTIONS] if step.scope == "section" else [(step.id, None)]
     return out
 
