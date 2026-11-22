@@ -7,6 +7,8 @@ Run as the service user from /app, never by hand on a laptop::
 
 In order:
 
+0. Refuse, changing nothing, if a blob the staging counts on being in the bucket
+   already (``known_blobs``, from ``--known-blobs``) isn't there.
 1. Back up the whole firm folder (``.jj`` included) to ``/data/backups/<firm>-<UTC time>``.
 2. Put each staged binary into the firm's bucket as ``blobs/<sha256>``, skipping
    any key that already exists, so nothing is stored twice.
@@ -31,6 +33,11 @@ from src.connector.config import ConnectorSettings  # noqa: E402
 from src.connector.workspace import open_workspace  # noqa: E402
 
 
+def missing_known(bucket, plan: dict) -> list[str]:
+    """The known blobs the staging relies on that the bucket doesn't hold."""
+    return [d for d in plan.get("known_blobs") or [] if not bucket.exists(f"blobs/{d}")]
+
+
 def main(firm: str, up: Path) -> int:
     plan = json.loads((up / "plan.json").read_text(encoding="utf-8"))
     if plan["firm"] != firm:
@@ -38,6 +45,13 @@ def main(firm: str, up: Path) -> int:
     ws = open_workspace(ConnectorSettings.from_env(), firm)
     root = ws.root
     staged = up / "firms" / firm
+
+    missing = missing_known(ws.bucket, plan)
+    if missing:
+        raise SystemExit(
+            f"{len(missing)} known blob(s) are not in the bucket, e.g. blobs/{missing[0]}; "
+            "run fold_imported_blobs.py first, or stage without --known-blobs. Nothing changed."
+        )
 
     backup = Path("/data/backups") / f"{firm}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}"
     backup.parent.mkdir(parents=True, exist_ok=True)

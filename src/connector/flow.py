@@ -471,7 +471,7 @@ def gather_inputs(registry: Registry, ws: Workspace, state: dict, inst: Instance
     found: list[dict] = []
     for artifact_id, title in wanted:
         if artifact_id.startswith("material:"):
-            text = ws.read_text(f"deals/{state['deal']}/materials/{artifact_id[9:]}.md")
+            text = _material_text(ws, state, artifact_id[9:])
             version = 1
         else:
             text = _artifact_text(ws, state, artifact_id)
@@ -483,6 +483,25 @@ def gather_inputs(registry: Registry, ws: Workspace, state: dict, inst: Instance
             version = state["artifacts"][artifact_id]["version"]
         found.append({"artifact_id": artifact_id, "title": title, "version": version, "text": text})
     return _fit(found)
+
+
+def _material_text(ws: Workspace, state: dict, material_id: str) -> str:
+    """A ready material's text, or a notice when it has none (CONN-UPL-03).
+
+    A binary recorded ready with no text file (an older upload) must not stop the
+    walk with ``artifact_not_found``.
+    """
+    try:
+        return ws.read_text(f"deals/{state['deal']}/materials/{material_id}.md")
+    except ConnectorError as exc:
+        if exc.code != "artifact_not_found":
+            raise
+    record = next((m for m in state.get("materials", []) if m["material_id"] == material_id), {})
+    name = record.get("local_path") or record.get("filename") or material_id
+    return (
+        f"Material {name}: no text was extracted from it, so it has nothing for you to read. "
+        "Work from your other inputs."
+    )
 
 
 def _skipped_read(registry: Registry, state: dict, artifact_id: str) -> dict | None:
