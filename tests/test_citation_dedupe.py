@@ -4,6 +4,7 @@ See context-v/issues/Dataroom-Citations-Duplicate-In-Consolidated-Block.md.
 """
 import re
 
+from src.citation_keys import source_key
 from src.agents.citation_assembly import (
     consolidate_citations,
     extract_citation_definitions,
@@ -13,12 +14,15 @@ from src.agents.citation_assembly import (
 PROFORMA = "file:///deal/inputs/20261109_cap%20table%20proforma%20v2.xlsx"
 
 
-def test_file_links_with_different_publisher_text_share_one_number():
+def test_file_links_with_different_publisher_text_share_one_key():
     a = f"Pro forma claim.[^3]\n\n[^3]: 2026, Nov 09. [Pro forma]({PROFORMA}). New Silicon Corporation.\n"
     b = f"Same doc.[^7]\n\n[^7]: 2026, Nov 09. [Pro forma]({PROFORMA}). Company-prepared spreadsheet.\n"
     bodies, block, stats = consolidate_citations([a, b])
     assert stats["sources"] == 1
-    assert bodies[0].strip().endswith("[^1]") and bodies[1].strip().endswith("[^1]")
+    # One key per source: the source's hex key, in both sections and the block.
+    key = source_key(f"[Pro forma]({PROFORMA})")
+    assert bodies[0].strip().endswith(f"[^{key}]") and bodies[1].strip().endswith(f"[^{key}]")
+    assert list(extract_citation_definitions(block)) == [key]
 
 
 def test_encoded_and_decoded_links_match():
