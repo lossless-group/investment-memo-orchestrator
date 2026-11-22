@@ -41,6 +41,8 @@ canonical copy in the password manager, never commit it.
 | `MEMOPOP_STATIC_KEYS` | `test-firm=<key>` (comma-separated `firm=key` pairs; Claude Code and the health check only, never given to a client) | **yes** |
 | `MEMOPOP_LINK_SECRET` | 64 random hex characters (`openssl rand -hex 32`). Without it, signed links to compiled memos stop working at every restart | **yes** |
 | `MEMOPOP_COMPILE_BUDGET_SECONDS` | leave unset (`200`): compile returns a job past this | no |
+| `MEMOPOP_EXPORT_RENDERER` | leave unset (`pandoc`) until LFM exports are checked against each firm's brand; `lfm` renders compile's HTML and PDF with Lossless Flavored Markdown. `preview` always uses LFM | no |
+| `MEMOPOP_NODE_BIN` | leave unset (`node`, which the image installs for the LFM renderer) | no |
 | `MEMOPOP_DISABLED_STEPS` | empty; see "Switching a step off" | no |
 | `MEMOPOP_BUCKET_BACKEND` | `s3` | no |
 | `MEMOPOP_S3_FIRM_<FIRM>_BUCKET` | the firm's bucket name, from its Credentials tab | no |

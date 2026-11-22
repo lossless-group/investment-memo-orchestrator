@@ -16,5 +16,7 @@
 **/*.py[cod]
 **/*.log
 **/.DS_Store
+# The image installs the LFM renderer's packages itself (Dockerfile, stage lfm).
+**/node_modules
 **/.env*
 **/*.db

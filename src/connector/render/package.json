@@ -1,0 +1,15 @@
+{
+  "name": "memopop-lfm-render",
+  "private": true,
+  "description": "Renders a memo's markdown to HTML with Lossless Flavored Markdown. Called by src/connector/render/lfm.py.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@lossless-group/lfm": "0.11.0",
+    "rehype-stringify": "10.0.1",
+    "remark-rehype": "11.1.2",
+    "unified": "11.0.5"
+  }
+}
