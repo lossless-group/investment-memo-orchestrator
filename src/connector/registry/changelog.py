@@ -9,6 +9,24 @@ from __future__ import annotations
 API_CHANGELOG: list[dict] = [
     {
         "date": "2026-11-21",
+        "version": "1.10.0",
+        "changes": [
+            "New tool `preview` (additive, read-only; GET /v1/deals/{deal}/preview?artifact=): "
+            "renders a section's current text, the whole memo (`memo`, assembled from the "
+            "current sections as compile would, saving no version), or any artifact with "
+            "Lossless Flavored Markdown inside the firm's branded page, and returns a signed "
+            "`html_url` and the `html`. Citations are numbered from their hex keys in "
+            "first-cited order. It works before compile.",
+            "compile's HTML export, and the PDF printed from it, can be rendered with LFM "
+            "(server setting MEMOPOP_EXPORT_RENDERER=lfm); the default stays pandoc, so "
+            "exports are unchanged until it is switched. The firm's brand CSS styles either.",
+            "The server's instructions, and the new `preview-a-memo` playbook, tell agents to "
+            "call preview to show a memo, and never to render the markdown or invent citation "
+            "numbers themselves.",
+        ],
+    },
+    {
+        "date": "2026-11-21",
         "version": "1.9.0",
         "changes": [
             "Citation keys are hex codes made from the source (sha256 of its first link, in "
