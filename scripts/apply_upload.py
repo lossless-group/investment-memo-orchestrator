@@ -15,6 +15,8 @@ In order:
 3. Replace each uploaded deal's folder with the staged one, under the deal's lock.
 4. Copy the firm's staged configs, outlines and scorecards over the server's.
 5. Record one change in the firm's history covering all of it.
+6. Tell the firm's site about each deal whose compiled version changed
+   (``src/connector/site_hook.py``), and wait for those sends before exiting.
 
 Deals on the server that the upload doesn't name are left alone.
 """
@@ -29,13 +31,62 @@ from pathlib import Path
 
 sys.path.insert(0, "/app")
 
+from src.connector import site_hook  # noqa: E402
 from src.connector.config import ConnectorSettings  # noqa: E402
-from src.connector.workspace import open_workspace  # noqa: E402
+from src.connector.workspace import Workspace, open_workspace  # noqa: E402
+
+#: How long the script waits for site notifications before exiting: every
+#: attempt's 5 s timeout plus the backoff between them, with room to spare.
+HOOK_WAIT_SECONDS = 90.0
 
 
 def missing_known(bucket, plan: dict) -> list[str]:
     """The known blobs the staging relies on that the bucket doesn't hold."""
     return [d for d in plan.get("known_blobs") or [] if not bucket.exists(f"blobs/{d}")]
+
+
+def _compiled(ws: Workspace, deal: str) -> dict | None:
+    """The deal's compiled record on the server, or None if it has none (or no deal)."""
+    if not ws.deal_exists(deal):
+        return None
+    return ws.read_deal(deal).get("compiled") or None
+
+
+def _changed(before: dict | None, after: dict | None) -> bool:
+    if not after:
+        return False
+    if not before:
+        return True
+    return (before.get("version"), before.get("sha256")) != (
+        after.get("version"),
+        after.get("sha256"),
+    )
+
+
+def replace_deals(ws: Workspace, staged: Path, deals: list[str]) -> list[str]:
+    """Replace each deal's folder with the staged one; notify the site of changed compiles.
+
+    Returns the deals whose compiled version changed. The notifications run in
+    the background (``site_hook.wait_for_senders`` waits for them).
+    """
+    changed: list[str] = []
+    for deal in deals:
+        with ws.lock(deal):
+            before = _compiled(ws, deal)
+            dest = ws.root / "deals" / deal
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(staged / "deals" / deal, dest)
+            after = _compiled(ws, deal)
+        if _changed(before, after):
+            changed.append(deal)
+    return changed
+
+
+def notify_site(ws: Workspace, deals: list[str]) -> None:
+    """Notify the firm's site for each deal, once the change is recorded."""
+    for deal in deals:
+        site_hook.notify(ws, deal, _compiled(ws, deal) or {})
 
 
 def main(firm: str, up: Path) -> int:
@@ -66,14 +117,8 @@ def main(firm: str, up: Path) -> int:
             put += 1
     print(f"bucket: {put} put, {len(plan['blobs']) - put} already there", flush=True)
 
-    touched: list[Path] = []
-    for deal in plan["deals"]:
-        with ws.lock(deal):
-            dest = root / "deals" / deal
-            if dest.exists():
-                shutil.rmtree(dest)
-            shutil.copytree(staged / "deals" / deal, dest)
-        touched.append(dest)
+    changed = replace_deals(ws, staged, plan["deals"])
+    touched: list[Path] = [root / "deals" / deal for deal in plan["deals"]]
     for rel in plan["firm_paths"]:
         dest = root / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -81,6 +126,9 @@ def main(firm: str, up: Path) -> int:
         touched.append(dest)
     ws.history.record(f"upload: {len(plan['deals'])} deals and the firm's files from the local folder", touched)
     print(f"workspace: {len(plan['deals'])} deals replaced, {len(plan['firm_paths'])} firm files", flush=True)
+    notify_site(ws, changed)
+    left = site_hook.wait_for_senders(HOOK_WAIT_SECONDS)
+    print(f"site: {len(changed)} deal(s) with a new compiled version; {left} notification(s) unfinished", flush=True)
     return 0
 
 
