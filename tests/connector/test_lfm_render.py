@@ -111,9 +111,7 @@ def test_missing_node_or_package_is_a_clear_error(monkeypatch, tmp_path):
 
 
 @pytest.mark.spec("CONN-LFM-02")
-def test_compile_and_preview_report_service_unavailable_without_the_renderer(
-    settings, monkeypatch
-):
+def test_compile_and_preview_report_service_unavailable_without_the_renderer(settings, monkeypatch):
     ws = open_workspace(dataclasses.replace(settings, export_renderer="lfm"), "test-firm")
     deal = drafted(ws)
     monkeypatch.setenv("MEMOPOP_NODE_BIN", "no-such-node-binary")
@@ -183,7 +181,9 @@ def test_export_branded_renders_with_lfm_and_inlines_local_images(tmp_path):
     memo = folder / "memo.md"
     memo.write_text(
         "# Investment Memo: Fixture Co\n\n"
-        + HEX_MEMO.replace("### Citations", "![Slide 1](deck-screenshots/page-01.png)\n\n### Citations")
+        + HEX_MEMO.replace(
+            "### Citations", "![Slide 1](deck-screenshots/page-01.png)\n\n### Citations"
+        )
     )
     out = tmp_path / "out.html"
     convert_to_branded_html(
