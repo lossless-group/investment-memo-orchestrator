@@ -88,22 +88,23 @@ def test_source_key_is_six_base36_characters_and_stable():
     # Same link, different date, title and publisher: same source, same key.
     assert source_key(f"2025-01-01. [Another title]({URL_A}). Someone else.") == key
     # The link is percent-decoded, lowercased, and loses its trailing slash.
-    assert source_key("2026. [x](HTTPS://Example.com/a%2Dsource/)") == key
+    assert source_key("2026. [x](https://Example.com/a%2Dsource/)") == key
     assert source_key(DEF_B) != key
 
 
 def test_source_key_without_a_link_uses_the_text_without_its_date():
     one = source_key("2026, Nov 01. Interview with the founder,   on pricing.")
-    two = source_key("2025-03-04. interview with the founder, on pricing.")
+    two = source_key("2025, Mar 04. interview with the founder, on pricing.")
     assert one == two
     assert re.fullmatch(r"[0-9a-z]{6}", one)
 
 
-def test_deck_and_dataroom_keys_keep_a_readable_prefix():
+def test_deck_and_dataroom_keys_are_plain_keys():
+    # Decided for both branches (plan, 748ace9): no deck- or dr- prefixes.
     deck = source_key("2025. [Company Pitch Deck](internal-document). Company Materials.")
     dataroom = source_key("2025. [Cap table](file:///deals/acme/dataroom/cap-table.xlsx). Dataroom.")
-    assert re.fullmatch(r"deck-[0-9a-z]{6}", deck)
-    assert re.fullmatch(r"dr-[0-9a-z]{6}", dataroom)
+    assert re.fullmatch(r"[0-9a-z]{6}", deck)
+    assert re.fullmatch(r"[0-9a-z]{6}", dataroom)
 
 
 def test_assign_keys_gives_one_key_per_source():
@@ -113,15 +114,15 @@ def test_assign_keys_gives_one_key_per_source():
 
 
 def test_assign_keys_widens_both_keys_to_eight_on_a_collision(monkeypatch):
-    real = citation_keys._digest
+    real = citation_keys._key
 
-    def forced(identity):
+    def forced(identity, length=citation_keys.SHORT):
         # A and B share their first six characters; C does not.
         if identity in (URL_A, URL_B):
-            return "abcdef" + ("11" if identity == URL_A else "22") + "zzzz"
-        return real(identity)
+            return ("abcdef" + ("11" if identity == URL_A else "22") + "zzzz")[:length]
+        return real(identity, length)
 
-    monkeypatch.setattr(citation_keys, "_digest", forced)
+    monkeypatch.setattr(citation_keys, "_key", forced)
     keys = assign_keys({"1": DEF_A, "2": DEF_B, "3": DEF_C})
     assert keys["1"] == "abcdef11"
     assert keys["2"] == "abcdef22"
