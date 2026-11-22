@@ -326,7 +326,8 @@ outline's sections; with neither: `{ outlines: [{ name, source: firm |
 memopop, default, sections }] }`, excluding deals' pinned copies.
 
 **`edit_outline`** `{ deal, edits: [{ op: add_section | update_section |
-remove_section, section?, after?, name?, description?, guiding_questions? }],
+move_section | remove_section, section?, after?, name?, description?,
+guiding_questions? }],
 apply_to?: deal | firm }` → `{ deal, template, apply_to, added, changed,
 removed, sections, deals_using?, next_hint }`. By default (`apply_to: deal`)
 the firm's outline is copied once into a pinned outline for the deal

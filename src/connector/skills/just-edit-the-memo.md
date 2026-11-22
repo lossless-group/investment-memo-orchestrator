@@ -6,17 +6,15 @@ description: The partner says to just edit the memo they're looking at, overridi
 
 Use this when the partner overrides the process: "just change it in the memo", "don't redo anything, edit what I'm reading". Do what they ask and don't argue about the process.
 
-A change made only in the final draft would be overwritten the next time anything recompiles, so it is always **carried back**: into the section it falls in, and into that section's research too when a fact or source changed.
+A change made only in the final draft would be overwritten the next time anything recompiles, so `edit_final` always **carries it back**: it changes the compiled memo now (a new version, label bumped, fresh links), writes the same change into the section it falls in, and records the pairing, so the next compile reproduces it.
 
-**Needs `edit_final`, which is not on the server yet.** Once it is: call `edit_final` with the deal and the exact old and new text. It changes the compiled memo now, writes the same change into the section (and research), and records the pairing, so the next compile reproduces it.
+1. Find the deal with `list_deals`. Read the latest compiled memo with `get_artifact` (`compile.assemble`).
+2. Call `edit_final` with the deal and `edits`: each `old` copied exactly from the memo, inside one section's text, matching once. Leave citation numbers out of `old`: they are renumbered in the final, so the section has different ones. Set `facts_changed: true` when the change alters a fact or a source.
+3. If it returns `edit_not_placed`, `details.reason` says why (it spans two sections, sits outside every section, or the section words it differently). Make the edit smaller, or make it with `edit_section` on that section and then compile.
+4. Give the partner the links. With `facts_changed`, follow `next_hint`: `start_revision` with `start: research` on that section, so its research says what the memo now says (see `fix-a-source-or-citation`).
 
-**Until then, use the revision path:**
+The same tool carries back changes `compile` reports as `final_has_untracked_edits` (someone edited the final outside MemoPop): for each difference the partner wants kept, make the section say what the final says with `edit_section` (or `edit_final`), then compile again. Drop them with `compile` and `discard_untracked: true` only when the partner says so.
 
-1. Find the deal with `list_deals`. Work out which section the text is in.
-2. Wording only: call `start_revision` with that section, the partner's request as `angle`, and `start: draft`. A fact or source changed: use `start: research` and fix the research first (see `fix-a-source-or-citation`).
-3. Call `next_step`, apply exactly the change asked for, submit it with `submit_artifact`, and keep calling `next_step` until it says done.
-4. Compile, so the partner sees the change in the memo (see `compile-and-check-the-site`).
+Tell the partner in one line that the memo is changed and which section now carries the change.
 
-Tell the partner in one line that the memo is changed and the change will survive the next compile.
-
-Call next: `edit_final` (not yet available; until it is, `start_revision` with `start: draft`, then `compile`).
+Call next: `edit_final`.

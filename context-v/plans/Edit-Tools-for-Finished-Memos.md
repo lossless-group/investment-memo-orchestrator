@@ -40,7 +40,7 @@ Narrative or clerical changes: wording, tone, order, emphasis, typos, formatting
 - Saves a new version of the section's current artifact (`current_section_key`). It doesn't reopen research or enhancements, and doesn't open a revision. Several can stack before one compile.
 - Refuses while a revision is open on the same section (`revision_open`).
 - Tests: an edit makes a new version and leaves research untouched. An `old` string that doesn't match once returns `validation_failed` naming it. Compile after two edits includes both.
-- [ ] Done
+- [x] Done
 
 ## 2. Compile refuses to overwrite untracked edits
 
@@ -49,7 +49,7 @@ Must land before `edit_final`, since `edit_final` is the way out of it.
 - Before writing a new final draft, `compile` rebuilds the draft the current sections would produce for the *previous* compiled version and compares it with that version's stored final. Differences are text someone changed outside the sections.
 - If any: refuse with `final_has_untracked_edits`, listing each difference with its section, and offer `edit_final` to carry it back. A `discard_untracked: true` input drops them, used only when the partner says so.
 - Tests: hand-edit a compiled final, then compile: refused, difference listed. With `discard_untracked`: compiles.
-- [ ] Done
+- [x] Done
 
 ## 3. `edit_final`
 
@@ -59,7 +59,7 @@ The partner overrides the process: "just edit the memo I'm looking at."
 - Applies them to the final so the partner sees them now (a new compiled version, label bumped), then writes the same change into the section each edit falls in, as a new section version, and records the pairing. When `facts_changed`, the response's `next` tells Claude to update the section's research too, through `start_revision`.
 - Locates the section by the assembled draft's section boundaries. If an edit spans sections or can't be placed, it refuses and says which edit.
 - Tests: an edit to the final shows up in the section, and the next compile reproduces it without `final_has_untracked_edits`.
-- [ ] Done
+- [x] Done
 
 ## 4. `get_outline` and `edit_outline`
 
@@ -69,13 +69,34 @@ The decision (spec, 2026-11-20): an outline change made while working on a memo 
 - `edit_outline(deal, edits)`: copies the firm's outline into the deal as its own pinned outline (unless it already has one), applies the edits there, and records the change in the firm's history. The deal's `template` then points at the pinned copy. A section that's added or whose questions changed shows in `next_step` as needing work.
 - An `apply_to: firm` option changes the firm's outline itself and returns the list of deals using it, without changing them. Claude then works through them one at a time with the partner.
 - Tests: editing a deal's outline doesn't change another deal using the same outline. A new section appears in `next_step`.
-- [ ] Done
+- [x] Done
 
 ## 5. Docs and routing
 
-- [ ] The agent-facing docs for `start_revision`, `edit_section`, `edit_final`, `edit_outline` and `compile` carry the routing table.
-- [ ] The step instructions for research and rewrite repeat the two-task rule (research edits are one task, the rewrite from research plus draft is another).
-- [ ] Regenerate the docs. Redeploy.
+- [x] The agent-facing docs for `start_revision`, `edit_section`, `edit_final`, `edit_outline` and `compile` carry the routing table.
+- [x] The step instructions for research and rewrite repeat the two-task rule (research edits are one task, the rewrite from research plus draft is another).
+- [ ] Regenerate the docs. Redeploy. (The docs are generated from the registry at request time, so they regenerate with the deploy; the redeploy is the VP Eng's.)
+
+## As built (2026-11-21)
+
+- **The guard compares three texts per section,** not two: the stored final (F),
+  what the sections produced for it (B, now kept as
+  `compiled/<v>/from-sections.md` rather than rebuilt from history, which may
+  not be readable), and what they produce now (C). F equal to B: not edited in
+  the final. F equal to C: edited and already carried back. Otherwise untracked.
+  Blocks are compared with citation numbers, citation lists and whitespace
+  normalised. An imported memo has no B until the first section-changing tool
+  writes it.
+- **Carrying an untracked difference back** is done with `edit_section` (make
+  the section say what the final says) or `edit_final`; the error's `next` says
+  both.
+- **`edit_final` places an edit** by the final's level-2 headings, matched to
+  the sections as compile gathered them, and writes the artifact compile reads
+  the section from (which can be `enhance.summaries`).
+- **Outlines**: the pinned copy is `<template>--<deal>` in the firm's outlines,
+  written from the deal's own sections. A changed description or questions
+  marks the section (`outline_seq`) so `next_step` hands its research and draft
+  out again. `move_section` was added for reordering.
 
 ## Done when
 

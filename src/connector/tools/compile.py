@@ -25,7 +25,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from .. import flow
+from .. import edits, flow
 from ..compile import links, pipeline
 from ..errors import ConnectorError
 from ..registry import load_registry
@@ -63,6 +63,7 @@ def wait_for_workers(timeout: float) -> int:
 class Input(ToolInput):
     deal: str = Field(min_length=1, max_length=100)
     formats: list[Literal["html", "pdf"]] | None = Field(default=None, min_length=1)
+    discard_untracked: bool = False
 
 
 def _missing_drafts(state: dict) -> list[str]:
@@ -99,15 +100,7 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
     label = previous.get("label") if same and previous.get("label") else None
     label = label or flow.bump_label(flow.last_label(state))
     keys = dict(previous.get("keys") or {}) if same else {}
-    html = None
-    for fmt in ("html", "pdf"):  # the PDF is printed from the HTML
-        if fmt not in formats or (fmt in keys and ws.bucket.exists(keys[fmt])):
-            continue
-        if html is None:
-            html = pipeline.render_html(ws, state, memo)
-        data = html.encode("utf-8") if fmt == "html" else pipeline.render_pdf(html)
-        keys[fmt] = f"compiled/{deal}/{version}/memo.{fmt}"
-        ws.bucket.put(keys[fmt], data, links.CONTENT_TYPES[f".{fmt}"])
+    keys = export(ws, state, version, memo, formats, keys)
 
     with ws.lock(deal):
         current = ws.read_deal(deal)
@@ -124,6 +117,7 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
             "sha256": digest,
             "keys": keys,
             "at": now,
+            "from_sections": edits.baseline_rel(version),
         }
         current["artifacts"]["compile.assemble"] = {
             "step_id": "compile.assemble",
@@ -165,6 +159,7 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
         with ws.transaction() as tx:
             written = [
                 tx.write_text(folder / "memo.md", memo),
+                tx.write_text(folder / edits.FROM_SECTIONS, memo),
                 tx.write_json(folder / "report.json", report),
                 tx.write_json(ws.deal_rel(deal) / "deal.json", current),
             ]
@@ -181,6 +176,23 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
     if site_url:
         body["site_url"] = site_url
     return body
+
+
+def export(
+    ws: Workspace, state: dict, version: int, memo: str, formats: list[str], keys: dict
+) -> dict:
+    """Render the asked-for exports of ``memo`` into the firm's bucket; keep ones already there."""
+    keys = dict(keys)
+    html = None
+    for fmt in ("html", "pdf"):  # the PDF is printed from the HTML
+        if fmt not in formats or (fmt in keys and ws.bucket.exists(keys[fmt])):
+            continue
+        if html is None:
+            html = pipeline.render_html(ws, state, memo)
+        data = html.encode("utf-8") if fmt == "html" else pipeline.render_pdf(html)
+        keys[fmt] = f"compiled/{state['deal']}/{version}/memo.{fmt}"
+        ws.bucket.put(keys[fmt], data, links.CONTENT_TYPES[f".{fmt}"])
+    return keys
 
 
 def _fail_job(ws: Workspace, deal: str, job_id: str, exc: BaseException) -> None:
@@ -223,6 +235,20 @@ def handle(ws: Workspace, params: Input) -> dict:
         job = _running(state)
         if job is not None:
             return {"deal": deal, "job_id": job["job_id"], "status": "running"}
+        if not params.discard_untracked:
+            differences = edits.untracked_differences(ws, load_registry(), state)
+            if differences:
+                compiled = state["compiled"]
+                raise ConnectorError(
+                    "final_has_untracked_edits",
+                    f"The final draft ({compiled.get('label') or 'v' + str(compiled['version'])}) "
+                    f"has {len(differences)} change(s) that aren't in its sections.",
+                    details={
+                        "version": compiled["version"],
+                        "label": compiled.get("label"),
+                        "differences": differences,
+                    },
+                )
 
     job_id = f"cmp-{uuid.uuid4().hex[:12]}"
     started = flow.now_iso()
@@ -301,7 +327,8 @@ TOOL = ToolDef(
     summary="Assemble a deal's sections into the finished memo and export it as HTML and PDF.",
     when_to_use=(
         "next_step says done and compile_ready, or the partner wants to see the memo as it "
-        "stands once every section has a draft."
+        "stands once every section has a draft, or every change from edit_section is in. "
+        + edits.ROUTING
     ),
     when_not_to_use=(
         "before every section has a draft (it is refused); call next_step and finish the "
@@ -314,6 +341,14 @@ TOOL = ToolDef(
             "array",
             "Which exports to make: html, pdf, or both (the default).",
             ["html", "pdf"],
+        ),
+        InputDoc(
+            "discard_untracked",
+            "boolean",
+            "true to compile even though the final draft has changes that aren't in its "
+            "sections (final_has_untracked_edits), dropping them. Only when the partner says to "
+            "drop them.",
+            False,
         ),
     ],
     returns=[
@@ -352,10 +387,17 @@ TOOL = ToolDef(
     changes=(
         "writes the compiled memo to the workspace (readable with get_artifact as "
         "compile.assemble), puts the exports in the firm's bucket, and records any optional "
-        "step that was skipped."
+        "step that was skipped. It never overwrites changes made to the final draft outside "
+        "the sections unless discard_untracked is true."
     ),
     duration="typically under a minute; past about 200 seconds it returns a job instead.",
-    errors=["deal_not_found", "drafts_incomplete", "revision_incomplete", "service_unavailable"],
+    errors=[
+        "deal_not_found",
+        "drafts_incomplete",
+        "revision_incomplete",
+        "final_has_untracked_edits",
+        "service_unavailable",
+    ],
     error_next_overrides={
         "service_unavailable": 'The PDF export is down: call again with formats ["html"] for '
         "the HTML memo, and tell the partner the PDF will follow.",
