@@ -16,8 +16,12 @@ budget on broad search and doesn't introduce LLM-fabricated URLs at the
 research layer.
 
 When a model provider is reachable, the agent additionally invokes Claude
-to synthesize per-section research notes with proper [^N] citations
-from the curated content — matching the Perplexity output format. When
+to synthesize per-section research notes with citations from the curated
+content — matching the Perplexity output format. The model cites sources by
+number ([^1] is the first curated source), and the agent then rewrites every
+key in code to the source's hex key from src/citation_keys.py, so the same
+source has the same key in every section and keys never collide when the
+sections are assembled. When
 absent (or by `mode: codified-raw`), the agent writes the raw fetched
 content with a citation list footer; the writer downstream then does
 more synthesis work.
@@ -351,6 +355,24 @@ def _persist_and_extract(inputs_dir: Path, sources_md, fetched: Dict[str, Any],
     extract_for_deal(inputs_dir, skip_existing=not force)
 
 
+def _hex_keys_for(matching: List[SourceEntry]) -> Dict[str, str]:
+    """Source number n (1-based, the order the sources are given) -> its hex key.
+
+    Assigned in code from the curated entry's URL, not taken from the model:
+    the key belongs to the source, whatever the model wrote in its definition.
+    """
+    from ..citation_keys import assign_keys
+
+    return assign_keys({str(n): f"<{entry.url}>" for n, entry in enumerate(matching, start=1)})
+
+
+def _apply_hex_keys(content: str, matching: List[SourceEntry]) -> str:
+    """Rewrite numbered keys (markers and definitions) to the sources' hex keys."""
+    from .citation_assembly import rekey_citations
+
+    return rekey_citations(content, _hex_keys_for(matching))
+
+
 def _synthesize_raw(
     research_dir: Path,
     idx: int,
@@ -402,7 +424,8 @@ def _synthesize_raw(
     lines.append("")
 
     section_filename = research_filename_for(idx, section)
-    _write_research(research_dir, section_filename, "\n".join(lines), section, state)
+    content = _apply_hex_keys("\n".join(lines), matching)
+    _write_research(research_dir, section_filename, content, section, state)
 
 
 def _synthesize_via_claude(
@@ -595,6 +618,9 @@ def _synthesize_via_claude(
         print(f"    ⚠️  Claude synthesis failed: {e}; falling back to raw dump")
         return _synthesize_raw(research_dir, idx, section, matching, fetched, state)
 
+    # Grounding above checked the model's numbered markers against the sources;
+    # now give each source its hex key, in code.
+    content = _apply_hex_keys(content, matching)
     section_filename = research_filename_for(idx, section)
     _write_research(research_dir, section_filename, content, section, state)
 

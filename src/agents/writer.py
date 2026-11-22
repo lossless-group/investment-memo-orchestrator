@@ -424,7 +424,7 @@ def polish_section_research(
     prior_prose = _prior_section_prose(frame, section_def, output_dir)
     amending = bool(prior_prose.strip())
 
-    # Count citations before polishing (alphanumeric keys like [^1], [^deck], [^source_name])
+    # Count citations before polishing (hex keys like [^3vdxyl], and older [^1], [^deck])
     #
     # On an amend the section's OWN citations are as much at stake as the
     # research's — more so, since they are attached to prose a human may have
@@ -531,12 +531,12 @@ SECTION REQUIREMENTS:
 
 CITATION PRESERVATION (CRITICAL - WILL BE VALIDATED):
 - PRESERVE ALL {citations_before} CITATIONS EXACTLY - DO NOT REMOVE ANY
-- Citations may be numeric [^1] or alphanumeric [^deck] - preserve ALL of them
+- Citation keys are hex codes made from the source (like [^3vdxyl]): the same source has the same key in every section. Older research may still use numbers or words ([^deck]). Preserve ALL of them
 - Keep citation format: ". [^key]" (space before bracket, after punctuation)
 - Keep ALL citation keys exactly as they appear: {list(all_citations_before)[:10]}{'...' if len(all_citations_before) > 10 else ''}
 - DO NOT consolidate or remove "redundant" citations
-- DO NOT renumber or rename citations - [^deck] MUST stay [^deck], [^1] MUST stay [^1]
-- If a sentence has multiple citations [^1] [^deck], keep ALL of them
+- DO NOT renumber, rename, or invent citation keys - every key stays exactly as written in the input
+- If a sentence has multiple citations, keep ALL of them
 - INCLUDE the complete "### Citations" section at the end with ALL definitions
 - COPY the citation definitions EXACTLY as they appear in the input (same keys, same text)
 {"" if not has_images else f'''
@@ -558,7 +558,7 @@ WHAT YOU CAN DO:
 - Rephrase for clarity
 
 WHAT YOU CANNOT DO:
-- Remove or change citation markers [^N]
+- Remove or change citation markers [^key]
 - Remove the "### Citations" section
 - Change citation format or spacing
 - Add new factual claims without citations
