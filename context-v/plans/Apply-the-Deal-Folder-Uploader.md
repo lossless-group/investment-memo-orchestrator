@@ -39,6 +39,8 @@ Every step that writes to the server waits for Michael's go-ahead. The uploader 
 
 - [ ] Fix [[Uploaded-Binary-Materials-Have-No-Text-File]] first: binaries recorded as `ready` with no `materials/<id>.md` break `next_step` on unfinished imported deals.
 
+- [ ] Fix [[Same-Bytes-at-Two-Paths-Share-a-Material-Id]]: one material per distinct hash per deal, before `--apply`.
+
 ### 1. Fold the 901 imported keys into blobs, server-side
 
 So the first upload doesn't send the same bytes again. Per the spec's "The 901 keys already imported":
