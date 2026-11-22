@@ -188,7 +188,7 @@ then compile. Rules:
 
 ## The tools
 
-All fifteen, over both MCP and REST (with the two in §Revisions, seventeen). `RO` is `readOnlyHint`, `D` is
+All sixteen, over both MCP and REST (with the two in §Revisions, eighteen). `RO` is `readOnlyHint`, `D` is
 `destructiveHint`; Claude requires both on every tool.
 
 | Tool | REST | RO | D | Blocks? |
@@ -208,6 +208,7 @@ All fifteen, over both MCP and REST (with the two in §Revisions, seventeen). `R
 | `edit_final` | `POST /v1/deals/{deal}/final-edits` | no | no | no |
 | `get_outline` | `GET /v1/outlines` | yes | no | no |
 | `edit_outline` | `POST /v1/deals/{deal}/outline-edits` | no | no | no |
+| `preview` | `GET /v1/deals/{deal}/preview?artifact=…` | yes | no | no |
 
 \* `next_step` records skips and marks the step handed out, so it isn't
 read-only even though it changes no artifacts.
@@ -348,6 +349,19 @@ unless `discard_untracked: true`.
 **`get_skill`** `{ name }` → `{ name, description, text }`, where `text` is the
 playbook. An unknown name is `skill_not_found`, with `details.available`
 listing the names that exist.
+
+**`preview`** `{ deal, artifact }` → `{ deal, artifact, title, source,
+html_url, html }` (Render-Previews-and-Exports-with-LFM). `artifact` is `memo`
+(the current sections assembled as compile would, saving no version; every
+section needs a draft, else `drafts_incomplete`), a section's key, name or
+number (its current text), or an artifact id (`compile.assemble` is the last
+compiled memo). The text is rendered on the server with Lossless Flavored
+Markdown inside the firm's branded page, citations numbered from their hex
+keys in first-cited order; `html_url` is a signed link to it for seven days.
+Read-only: nothing in the deal changes, and the page is stored under
+`previews/<deal>/` in the firm's bucket for the link. Without Node or the LFM
+package on the server it is `service_unavailable`. Agents call it instead of
+rendering markdown or numbering citations themselves.
 
 ## Errors
 
@@ -987,6 +1001,17 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-HEX-01` | Given two sections citing the same URL under different local keys, when a research step's submission is checked and the memo compiles, then both use one hex key from `source_key()`, and the compiled markdown has one definition for it |
 | `CONN-HEX-02` | Given a section submitted with numbered keys, then `submit_artifact` accepts it and compile converts its keys to hex; given a hex key that doesn't match its definition's source, the check names it |
 | `CONN-HEX-03` | Given the connector's `research.section` and `draft.section` instructions, then they ask for hex keys, never `[^1]` |
+
+### Previews and exports rendered with LFM (Render-Previews-and-Exports-with-LFM)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-LFM-01` | Given markdown with hex citations defined in one order and cited in another, and a callout, when the LFM renderer runs, then the citations are numbered by first citation, the sources list follows that order under the Citations heading, and the callout is plain HTML with its title; `@lossless-group/lfm` is pinned to exactly 0.11.0 in `package.json` and its lockfile |
+| `CONN-LFM-02` | Given no Node or no installed LFM package, then the renderer raises an error naming which is missing (and `npm ci --prefix src/connector/render` for the package); `compile` (renderer `lfm`) and `preview` return `service_unavailable` |
+| `CONN-LFM-03` | Given `MEMOPOP_EXPORT_RENDERER` unset, then compile renders with pandoc as before; set to `lfm`, compile's HTML is the firm's branded page with LFM's body (citations numbered from hex keys, one sources list) and the PDF is printed from it; any other value is refused at startup |
+| `CONN-LFM-04` | Given `cli/export_branded.py --renderer lfm`, then the branded HTML's body is rendered by LFM and local images are inlined; `--renderer` is a documented option |
+| `CONN-LFM-05` | Given a deal with drafts and no compile, when `preview` is called for a section or `memo`, then it returns the rendered page and a signed link that serves it, and the deal is unchanged; `memo` before every section has a draft is `drafts_incomplete`, an unknown target `artifact_not_found`; REST `GET /v1/deals/{deal}/preview` and MCP return the same, and the tool is read-only |
+| `CONN-LFM-06` | Given the server's instructions and skills, then they send agents to `preview` and say never to render markdown or invent citation numbers; a `preview-a-memo` playbook exists, and the skills that show a memo name `preview` |
 
 ## Done when
 
