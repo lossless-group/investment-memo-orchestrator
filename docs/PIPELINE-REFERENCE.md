@@ -213,6 +213,7 @@ Every executable under `cli/`, `cli/utils/`, and `src/cli/`. Purpose is each fil
 | `cli/parse_research_pdf.py` | `pdf_paths` · `-o`, `--no-tables`, `-v` | CLI tool for scraping research PDFs into markdown with citations. |
 | `cli/recompile_memo.py` | `target` · `--firm`, `--deal`, `--version` | Recompile a memo from sections and consolidate citations. |
 | `cli/refocus_section.py` | `target`, `section` · `--firm`, `--deal`, `--version` | Refocus or repair a specific memo section when web research is thin or noisy. |
+| `cli/repair_citations.py` | `version_dir` · `--memo`, `--write`, `--out`, `--export`, `--brand`, `--firm`, `--scan` | Repair a finished memo whose citations link to another section's source, rewriting them as hex keys. |
 | `cli/resume_from_interruption.py` | `company_name` · `--firm`, `--deal`, `--version` | Resume workflow from last interruption. |
 | `cli/revise_section.py` | `section` · `--firm`, `--deal`, `--company`, `--version`, `--path`, `--angle`, `--angle-file`, `--attempts`, `--model`, `--reassemble`, `--dry-run` | Revise one memo section against an angle you supply, without losing its facts. |
 | `cli/rewrite_key_info.py` | `--corrections`, `--preview`, `--output-mode`, `--source-version`, `--source-path` | Correct crucial information in investment memos using YAML correction files. |

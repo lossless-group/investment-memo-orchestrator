@@ -1,6 +1,6 @@
 ---
 name: manage-memo-citations
-description: "Put memo citation definitions in 1-research/ rather than in section files, so they survive repeated assembly runs. Use whenever adding, moving, renaming, or debugging a citation in a generated memo; whenever a footnote renders as a bare marker, a reference disappears after re-assembly, or a citation ID collides; whenever asked \"why did my citation vanish\" or \"where should this source go\". Encodes the durability rule (the assembler strips definitions from section files but treats research files as a fallback source), the two assembly paths and which one used to drop them, semantic rather than numeric ID naming, and where a new citation belongs by theme."
+description: "Put memo citation definitions in 1-research/ rather than in section files, so they survive repeated assembly runs. Use whenever adding, moving, renaming, or debugging a citation in a generated memo; whenever a footnote renders as a bare marker, a reference disappears after re-assembly, or a citation ID collides; whenever asked \"why did my citation vanish\" or \"where should this source go\". Encodes the durability rule (the assembler strips definitions from section files but treats research files as a fallback source), the two assembly paths and which one used to drop them, hex-code IDs derived from the source (not numbers, not hand-made names), and where a new citation belongs by theme."
 title: "Manage Memo Citations Durably"
 lede: "Foundational citation definitions live in 1-research/, not in section files. The assembler strips defs from section files but treats research files as a durable fallback source — so anything you want to survive multiple assembly runs has to live there."
 date_authored_initial_draft: 2026-05-26
@@ -63,35 +63,41 @@ Research files are immune to step 4 by design.
 
 If a citation is referenced from multiple sections (e.g., the analyst-notes-vault), it can be defined in just one research file — the assembler walks all of them and finds the first match.
 
-## ID Naming: Semantic Over Numeric
+## ID Naming: Hex Codes From the Source
 
-**Use descriptive semantic IDs.** Example:
+**Use the source's hex key.** Lossless Flavored Markdown's rule 2 requires citation keys derived from the source, not sequential numbers, and MemoPop follows it. Make the key with `src/citation_keys.py`:
+
+```bash
+.venv/bin/python -c "from src.citation_keys import source_key; print(source_key('2026, Apr 17. [Cursor in talks to raise \$2B](https://example.com/cursor-raise).'))"
+```
 
 ```markdown
-[^cursor-2026]: 2026, Apr 17. [Cursor in talks to raise $2B at $50B valuation]…
-[^github-2018]: 2018, Jun 04. [Microsoft to acquire GitHub for $7.5 billion]…
-[^oracle-fy25]: 2025, Jun 11. [Oracle Announces Fiscal 2025 Fourth Quarter and Fiscal Full Year Financial Results]…
+[^k3x9qa]: 2026, Apr 17. [Cursor in talks to raise $2B at $50B valuation](https://…)…
+[^7hq2mz]: 2025. [Company Pitch Deck](internal-document). Company Materials.
+[^0p4wbc]: 2025. [Cap table](file:///…/dataroom/cap-table.xlsx). Dataroom.
 ```
 
 Not:
 
 ```markdown
-[^14]:  ❌  collides with whatever number the assembler renumbers something else to
-[^cite-1]:  ❌  not human-meaningful; tells you nothing when you grep
+[^14]:  ❌  a position in one section's list; another section's [^14] is a different source
+[^cursor-2026]:  ❌  readable, but two people name the same source two ways, and nothing checks it
 ```
 
-**Why semantic wins**:
-- Survives re-renumbering. The assembler maps `[^cursor-2026]` → some sequential number at write time, but the source stays semantic.
-- Self-documents. `grep cursor-2026` finds every body reference to that source.
-- Avoids collisions with the assembler's own numeric output. If you write `[^14]` by hand, the assembler will think you mean the global #14 citation, which may be something completely different.
+**Why hex wins**:
+- Same source, same key, in every section and memo. The key is hashed from the source's link (or its text without the date), so sections can't collide when they are stitched together. Numbered keys did, and most finished memos before 2026-11-21 link footnotes to another section's source ([[repair-memo-citations]] repairs them).
+- Checkable. A key that doesn't match its definition's source is detectable.
+- Readers still see 1, 2, 3: Pandoc and LFM number footnotes at render time.
 
-**The assembler's regex** (post-fix in our session) matches `[a-zA-Z0-9_-]+`, so hyphenated IDs like `cursor-2026` work. Underscores and digits also work. No other punctuation (no slashes, dots, colons).
+Deck and dataroom sources take plain keys like any other (no prefixes). If two different sources ever share six characters, `assign_keys()` gives both eight.
+
+**The assembler's regex** matches `[a-zA-Z0-9_-]+`, so hex keys work. Older semantic IDs like `cursor-2026` still assemble; don't add new ones.
 
 ## The Authoring Loop
 
 ```
-1. Edit section file (2-sections/*.md) with inline [^semantic-id] markers
-2. Make sure [^semantic-id]: definition exists in some 1-research/*.md file
+1. Edit section file (2-sections/*.md) with inline [^<hex>] markers (source_key())
+2. Make sure [^<hex>]: definition exists in some 1-research/*.md file
 3. Run assembler:
      python -m src.agents.citation_assembly io/{firm}/deals/{deal}/outputs/{Deal}-vX.Y.Z
 4. (optional) Run citation-positioning script:
@@ -108,8 +114,9 @@ Not:
 If the assembled draft has orphan `[^X]` markers showing as literal text (not superscript), one of three things happened:
 
 1. **A definition was only in a section file** and got stripped by an assembler run. Fix: move the definition into the appropriate `1-research/*-research.md` file, re-assemble.
-2. **A semantic ID has no definition anywhere** (you referenced it but never added `[^name]: …`). Fix: add the definition to a research file.
-3. **The body has a hand-typed numeric ID that doesn't exist in the consolidated block** (e.g., you wrote `[^14]` in a section file but only 11 citations are defined globally). Fix: change to a semantic ID with a real definition, or remove.
+2. **A key has no definition anywhere** (you referenced it but never added `[^name]: …`). Fix: add the definition to a research file.
+3. **The body has a hand-typed numeric ID that doesn't exist in the consolidated block** (e.g., you wrote `[^14]` in a section file but only 11 citations are defined globally). Fix: change to the source's hex key with a real definition, or remove.
+4. **Footnotes link to the wrong source** (another section's): the memo was assembled before the 2026-11-21 fix. Use [[repair-memo-citations]].
 
 To recover prior definitions:
 - Check `7-{Deal}-vX.Y.Z.md` of any earlier version (final drafts are flat, full snapshots).
@@ -126,15 +133,15 @@ One definition, one place: `1-research/`.
 
 ```markdown
 # in 1-research/02-why-invest-research.md (or whichever theme fits):
-[^my-new-citation]: 2026, May 26. [Title of source](https://url). Publisher. Brief note on what this supports. Published: 2026-05-26 | Updated: N/A
+[^<hex>]: 2026, May 26. [Title of source](https://url). Publisher. Brief note on what this supports. Published: 2026-05-26 | Updated: N/A
 ```
 
 ```markdown
 # in 2-sections/02-why-invest.md (or wherever you need to cite it):
-…and the company has crossed $1B in ARR. [^my-new-citation]
+…and the company has crossed $1B in ARR. [^<hex>]
 ```
 
-Run the assembler. Done.
+`<hex>` is `source_key()` of the definition line (without the `[^…]: ` prefix). Run the assembler. Done.
 
 ## See Also
 
@@ -142,4 +149,6 @@ Run the assembler. Done.
 - `context-v/reminders/Extended-Markdown-Citation-System-Syntax.md` — Obsidian-flavored citation syntax conventions
 - `scripts/fix_citation_positioning.py` — post-assembly script that enforces "citation after punctuation; consolidate same-ID repeats per paragraph"
 - `src/agents/citation_assembly.py` — the assembler itself
+- `src/citation_keys.py` — `source_key()` and `assign_keys()`, the hex keys
+- [[repair-memo-citations]] — repair memos whose footnotes link to another section's source
 - `src/final_draft.py` — naming/path conventions for the final draft file
