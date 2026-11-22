@@ -4,4 +4,4 @@ Spec of record: ``context-v/specs/MemoPop-Connector-API.md``.
 """
 
 API_VERSION = "1"
-SERVER_VERSION = "1.7.0"
+SERVER_VERSION = "1.8.0"

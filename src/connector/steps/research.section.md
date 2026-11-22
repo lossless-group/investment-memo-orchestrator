@@ -7,7 +7,7 @@ required: true
 runs_on: claude
 needs_partner: true
 order: 30
-version: "1"
+version: "2"
 reads: [materials.brief]
 produces:
   kind: research
@@ -27,6 +27,13 @@ You are gathering the facts for the **{{section_name}}** section of an investmen
 memo about **{{company}}** ({{url}}). Stage: {{stage}}. This is research, not the
 draft: collect what is true, with sources, so the partner can check it before
 anything is written.
+
+Research and writing are two separate tasks, done one after the other. This
+task is the research: notes that are verifiable, each fact with its source.
+They don't have to read well or tell a story. The section is written (or
+rewritten) afterwards as its own task, from exactly two inputs: this research
+file and the section as it stands. So everything the section should say has to
+be here.
 
 ## What the section covers
 

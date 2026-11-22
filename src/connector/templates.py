@@ -43,21 +43,32 @@ def _section_key(section: dict, index: int) -> str:
     return f"{index + 1:02d}-{name or 'section'}"
 
 
-def load_sections(ws: Workspace, name: str) -> list[dict]:
-    """The template's sections, in order, or ``template_not_found``."""
-    path = None
+def outline_path(ws: Workspace, name: str) -> tuple[Path, str]:
+    """Where the outline ``name`` lives, and whose it is (``firm`` or ``memopop``)."""
     if NAME_RE.match(name or ""):
-        for d in _dirs(ws):
+        for d, source in zip(_dirs(ws), ("firm", "memopop"), strict=True):
             candidate = d / f"{name}.yaml"
             if candidate.is_file():
-                path = candidate
-                break
-    if path is None:
-        raise ConnectorError(
-            "template_not_found",
-            f"No memo template called '{name}'." if NAME_RE.match(name or "") else None,
-            details={"available": available_templates(ws)},
-        )
+                return candidate, source
+    raise ConnectorError(
+        "template_not_found",
+        f"No memo template called '{name}'." if NAME_RE.match(name or "") else None,
+        details={"available": available_templates(ws)},
+    )
+
+
+def firm_outline_path(ws: Workspace, name: str) -> Path:
+    """Where the firm's own copy of outline ``name`` goes."""
+    return _dirs(ws)[0] / f"{name}.yaml"
+
+
+def section_key(section: dict, index: int) -> str:
+    return _section_key(section, index)
+
+
+def load_sections(ws: Workspace, name: str) -> list[dict]:
+    """The template's sections, in order, or ``template_not_found``."""
+    path, _ = outline_path(ws, name)
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     sections = []
     for index, section in enumerate(data.get("sections") or []):

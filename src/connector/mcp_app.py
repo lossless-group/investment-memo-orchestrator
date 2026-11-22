@@ -45,12 +45,14 @@ INSTRUCTIONS = (
     "Partners use it to change them: fix a citation, rewrite a section, change wording. "
     "Put each change where it belongs without asking the partner which layer: a source, "
     "citation or missing fact goes in the section's research, then the section is rewritten "
-    'from it; wording goes in the section; "just edit the memo" goes in the final draft and is '
-    "carried back to its section. Say in one line where the change went. "
+    'from it (start_revision); wording goes in the section (edit_section); "just edit the memo" '
+    "goes in the final draft and is carried back to its section (edit_final); a section added, "
+    "removed or reframed goes in this memo's outline (edit_outline). Say in one line where the "
+    "change went. "
     "Always call next_step and do only what it says. Show the partner every research file "
     "and wait for their approval before submitting it as approved. On a skipped step, tell "
     "the partner in one line and continue. On a `down` error, stop and tell the partner. "
-    "To change a memo that is drafted or compiled, agree the change with the partner, call "
+    "To redo a section's research or framing, agree the change with the partner, call "
     "start_revision, then follow next_step again and compile. "
     "Call list_skills to see the playbooks, and load the one that fits with get_skill before "
     "you start a change. "

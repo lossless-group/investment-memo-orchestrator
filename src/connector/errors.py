@@ -254,6 +254,36 @@ _SPECS = [
         "Added in plan 8 (additive).",
     ),
     ErrorSpec(
+        "final_has_untracked_edits",
+        INVALID,
+        409,
+        "The memo's final draft has changes that aren't in its sections, and compiling would "
+        "overwrite them.",
+        "Show the partner details.differences. To keep a difference, carry it back into its "
+        "section: call edit_final with that change, or edit_section on the section so it says "
+        "what the final says; then compile again. Only if the partner says to drop them, call "
+        "compile again with discard_untracked: true.",
+        "compile compares the latest compiled final with what the deal's sections produced "
+        "for it. Text in the final that isn't traceable to a section (an edit made to the "
+        "final outside the connector, or one in a memo imported from a local run) stops the "
+        "compile. `details.differences` lists each as `{section, name, change, final, "
+        "sections}`; `section` is null for the citations. Added in 1.8.0 (additive).",
+    ),
+    ErrorSpec(
+        "edit_not_placed",
+        INVALID,
+        422,
+        "One of the edits can't be placed in a section of the memo.",
+        "Read details.reason. Make that edit smaller so it sits inside one section's text, "
+        "leave out citation numbers (they are renumbered in the final), or make the change "
+        "with edit_section on the section instead. Nothing was saved.",
+        "edit_final finds the section each edit falls in from the final's level-2 headings, "
+        "then makes the same edit in that section. An edit that spans two sections, falls "
+        "outside every section (the title, the contents, the consolidated citations), or "
+        "whose text isn't in the section as written is refused. `details.edit` is its index "
+        "in `edits`. Added in 1.8.0 (additive).",
+    ),
+    ErrorSpec(
         "link_expired",
         INVALID,
         410,

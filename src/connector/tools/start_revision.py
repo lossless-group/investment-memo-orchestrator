@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from .. import flow
+from .. import edits, flow
 from ..errors import ConnectorError
 from ..registry import load_registry
 from ..registry.types import ANY, Example, InputDoc, ReturnDoc, ToolDef, ToolInput
@@ -124,6 +124,9 @@ def handle(ws: Workspace, params: Input) -> dict:
             state["revision"]["skips_before"] = len(state["skips"])
         flow.mark(state, "revision_opened", revision_id=revision_id, sections=keys)
         state["updated_at"] = now
+        # A memo imported from a local run: keep what its sections produce before they change,
+        # so compile can tell the partner's edits in the final from the revision's.
+        saved.update(edits.ensure_baseline(ws, registry, state))
         with ws.transaction() as tx:
             written = [tx.write_text(path, text) for path, text in saved.items()]
             written.append(tx.write_json(ws.deal_rel(deal) / "deal.json", state))
@@ -158,7 +161,7 @@ TOOL = ToolDef(
     when_to_use=(
         "the partner wants to change a memo that is drafted or compiled: new research to add, "
         "a different angle on a section, a correction. Read the section with get_artifact and "
-        "agree with the partner which sections change and how before you call it."
+        "agree with the partner which sections change and how before you call it. " + edits.ROUTING
     ),
     when_not_to_use=(
         "for a memo that is still being written (finish it with next_step), or to fix a step "

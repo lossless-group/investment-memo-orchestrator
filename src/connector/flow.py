@@ -126,6 +126,10 @@ def is_done(inst: Instance, state: dict) -> bool:
     record = state["artifacts"].get(inst.key)
     if record is None:
         return False
+    # The section's outline changed after this was saved (edit_outline): redo it.
+    changed = (section_info(state, inst.section) or {}).get("outline_seq") if inst.section else None
+    if changed and record.get("seq", 0) < changed:
+        return False
     if reopened(state, inst.key) and record.get("revision_id") != state["revision"]["id"]:
         return False  # done before the revision; it has to be done again
     return bool(record.get("partner_approved")) if inst.step.needs_partner else True

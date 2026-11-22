@@ -9,6 +9,34 @@ from __future__ import annotations
 API_CHANGELOG: list[dict] = [
     {
         "date": "2026-11-21",
+        "version": "1.8.0",
+        "changes": [
+            "New tool `edit_section` (additive; POST /v1/deals/{deal}/section-edits): change a "
+            "section's wording with old/new `edits` (each must match once) or a whole `text`, "
+            "saved as a new version of the section without reopening research or opening a "
+            "revision.",
+            "New tool `edit_final` (additive; POST /v1/deals/{deal}/final-edits): edit the "
+            "latest compiled memo, which becomes the next compiled version, and carry each edit "
+            "to the section it falls in as a new version, recorded in the deal's `final_edits`. "
+            "`facts_changed: true` makes `next_hint` send Claude to start_revision for the "
+            "research.",
+            "New tools `get_outline` (read-only; GET /v1/outlines) and `edit_outline` (POST "
+            "/v1/deals/{deal}/outline-edits): read and change the outline a memo uses. By "
+            "default the deal gets its own pinned copy (`<template>--<deal>`); `apply_to: firm` "
+            "changes the firm's outline and lists the deals on it in `deals_using`, changing "
+            "none of them. Added and reframed sections show in next_step.",
+            "compile takes `discard_untracked` (additive) and refuses with the new code "
+            "`final_has_untracked_edits` when the latest compiled final has changes its "
+            "sections don't produce; `details.differences` lists each by section. A compiled "
+            "version now keeps `compiled/<v>/from-sections.md`, what the sections produced.",
+            "New error code `edit_not_placed` (additive): an edit_final edit spans sections, "
+            "sits outside every section, or isn't in its section as written.",
+            "The docs of start_revision, edit_section, edit_final, edit_outline and compile "
+            "carry where each kind of change goes; the server's instructions name the tools.",
+        ],
+    },
+    {
+        "date": "2026-11-21",
         "version": "1.7.0",
         "changes": [
             "compile returns a new field, `site_url` (additive): the firm site's page for the "

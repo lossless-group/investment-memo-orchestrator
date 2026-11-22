@@ -25,6 +25,10 @@ TOOL_MODULES = [
     "whoami",
     "list_skills",
     "get_skill",
+    "edit_section",
+    "edit_final",
+    "get_outline",
+    "edit_outline",
 ]
 
 

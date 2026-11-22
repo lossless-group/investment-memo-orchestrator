@@ -188,7 +188,7 @@ then compile. Rules:
 
 ## The tools
 
-All eleven, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
+All fifteen, over both MCP and REST (with the two in §Revisions, seventeen). `RO` is `readOnlyHint`, `D` is
 `destructiveHint`; Claude requires both on every tool.
 
 | Tool | REST | RO | D | Blocks? |
@@ -204,12 +204,18 @@ All eleven, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
 | `whoami` | `GET /v1/whoami` | yes | no | no |
 | `list_skills` | `GET /v1/skills` | yes | no | no |
 | `get_skill` | `GET /v1/skills/{name}` | yes | no | no |
+| `edit_section` | `POST /v1/deals/{deal}/section-edits` | no | no | no |
+| `edit_final` | `POST /v1/deals/{deal}/final-edits` | no | no | no |
+| `get_outline` | `GET /v1/outlines` | yes | no | no |
+| `edit_outline` | `POST /v1/deals/{deal}/outline-edits` | no | no | no |
 
 \* `next_step` records skips and marks the step handed out, so it isn't
 read-only even though it changes no artifacts.
 
 No v1 tool deletes anything, so none is destructive. Overwriting an artifact
-keeps the old version in jj.
+keeps the old version in jj. The edit tools (Edit-Tools-for-Finished-Memos)
+write new versions of sections, finals, and outlines; nothing is removed, so
+they are not destructive either.
 
 ### Inputs and outputs
 
@@ -289,6 +295,56 @@ it returns `{ job_id, status: running }` and `list_deals` reports completion.
 in `src/connector/skills/`, each a markdown file whose frontmatter carries its
 `name` and one-line `description` (see §How partners get the method).
 
+**`edit_section`** `{ deal, section, edits?: [{ old, new }], text? }` →
+`{ deal, section, section_name, artifact_id, version, next_hint }`. Give
+`edits` (each `old` must match the section's current text exactly once; they
+apply in order) or `text` (the whole new section), not both. Saves a new
+version of the section's current artifact (`current_section_key`); research
+and enhancements are not reopened and no revision opens. Several stack before
+one compile. `old` matching zero or several times is `validation_failed`
+naming it; a section with no draft is `section_not_drafted`; an open revision
+on the section is `revision_open`.
+
+**`edit_final`** `{ deal, edits: [{ old, new }], facts_changed?, formats? }` →
+`{ deal, version, label, html_url, pdf_url, site_url?, carried: [{ edit,
+section, section_name, artifact_id, version }], next_hint }`. Each `old` must
+match the latest compiled final exactly once. The section an edit falls in is
+found from the final's level-2 headings; the same `old` must match that
+section's text exactly once. An edit that spans sections, falls outside every
+section (title, contents, consolidated citations), or whose text isn't in the
+section as written (citation numbers differ, for one) is `edit_not_placed`,
+with `details.edit` its index; nothing is saved unless every edit places. The
+edited final becomes the next compiled version (label bumped, exports
+re-rendered), and each section changed gets a new version; the pairing is
+recorded in the deal's `final_edits`. With `facts_changed: true`, `next_hint`
+says to update those sections' research through `start_revision`.
+
+**`get_outline`** `{ deal?, template? }` → with `deal`: `{ deal, template,
+pinned, pinned_from?, sections: [{ key, number, name, description,
+guiding_questions }] }`, the sections the deal uses; with `template`: that
+outline's sections; with neither: `{ outlines: [{ name, source: firm |
+memopop, default, sections }] }`, excluding deals' pinned copies.
+
+**`edit_outline`** `{ deal, edits: [{ op: add_section | update_section |
+move_section | remove_section, section?, after?, name?, description?,
+guiding_questions? }],
+apply_to?: deal | firm }` → `{ deal, template, apply_to, added, changed,
+removed, sections, deals_using?, next_hint }`. By default (`apply_to: deal`)
+the firm's outline is copied once into a pinned outline for the deal
+(`<template>--<deal>`), the edits apply there, the deal's `template` points at
+it, and the change is recorded in the firm's history. Section keys never
+change. An added section, and a section whose description or questions
+changed, show in `next_step` as needing research and a draft. With `apply_to:
+firm` the firm's outline itself changes (a firm copy is made of a MemoPop
+outline), no deal changes, and `deals_using` lists the deals on it so Claude
+can work through them one at a time with the partner.
+
+**`compile`** also takes `discard_untracked?` (see §Where an edit goes):
+before writing a new final it checks the latest compiled final against what
+the sections produced for it, and refuses with `final_has_untracked_edits`,
+`details.differences` listing each `{ section, name, final, sections }`,
+unless `discard_untracked: true`.
+
 **`get_skill`** `{ name }` → `{ name, description, text }`, where `text` is the
 playbook. An unknown name is `skill_not_found`, with `details.available`
 listing the names that exist.
@@ -325,7 +381,7 @@ Starting codes (each must have a docs entry):
 | Kind | Codes |
 |---|---|
 | `down` | `service_unavailable`, `storage_unavailable`, `timeout`, `internal_error` |
-| `invalid` | `drafts_incomplete`, `link_expired`, `skill_not_found`, `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version`, `not_implemented` |
+| `invalid` | `drafts_incomplete`, `link_expired`, `skill_not_found`, `final_has_untracked_edits`, `edit_not_placed`, `unauthenticated`, `forbidden_firm`, `deal_not_found`, `artifact_not_found`, `template_not_found`, `validation_failed`, `checks_failed`, `step_out_of_order`, `research_not_approved`, `material_too_large`, `link_unreachable`, `unsupported_version`, `not_implemented` |
 | `skipped` | `step_disabled`, `step_failed`, `step_skipped`, `material_unreadable` |
 
 ## Versioning
