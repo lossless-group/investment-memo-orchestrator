@@ -11,6 +11,8 @@
 | `MEMOPOP_SITE_KEYS` | Per-firm read-only keys for the firm's own site, `firm=key,firm=key`; they read compiled memos at `/site/v1/...` and nothing else | none |
 | `MEMOPOP_DISABLED_STEPS` | Ops switch: comma-separated step ids to skip (optional steps only) | none |
 | `MEMOPOP_COMPILE_BUDGET_SECONDS` | How long compile works before it returns a job instead | `200` |
+| `MEMOPOP_EXPORT_RENDERER` | What renders compile's HTML (and the PDF printed from it): `pandoc`, or `lfm` (Lossless Flavored Markdown, as the firm sites render). `preview` always uses `lfm` | `pandoc` |
+| `MEMOPOP_NODE_BIN` | The Node.js binary that runs the LFM renderer (`src/connector/render/lfm.py`) | `node` |
 | `MEMOPOP_LINK_SECRET` | Signs compiled-memo links served from a local bucket (S3 links are presigned) | random per process |
 | `MEMOPOP_BUCKET_BACKEND` | `local` or `s3` | `local` |
 | `MEMOPOP_BUCKET_LOCAL_ROOT` | Root of the local buckets (`<root>/<firm>/...`) | `<MEMO_IO_ROOT>/../buckets` |
@@ -36,6 +38,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 S3_FIRM_PREFIX = "MEMOPOP_S3_FIRM_"
+#: What may render compile's HTML (MEMOPOP_EXPORT_RENDERER).
+EXPORT_RENDERERS = ("pandoc", "lfm")
 S3_FIRM_FIELDS = ("BUCKET", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY", "ENDPOINT", "REGION")
 
 
@@ -103,6 +107,8 @@ class ConnectorSettings:
     jwks_cache_seconds: int = 300
     #: compile returns a job past this (spec: never block past 240 s; plan 5: 200 s).
     compile_budget_seconds: float = 200.0
+    #: Renders compile's HTML and PDF: "pandoc" until LFM's output is checked, then "lfm".
+    export_renderer: str = "pandoc"
     #: Signs local-bucket download links. Random per process unless set, so a
     #: restart invalidates them; production uses S3 presigned links instead.
     link_secret: str = field(default_factory=lambda: secrets.token_hex(32))
@@ -113,6 +119,11 @@ class ConnectorSettings:
         if self.bucket_local_root is None:
             self.bucket_local_root = self.io_root.parent / "buckets"
         self.bucket_local_root = Path(self.bucket_local_root)
+        if self.export_renderer not in EXPORT_RENDERERS:
+            raise ValueError(
+                f"MEMOPOP_EXPORT_RENDERER must be one of {', '.join(EXPORT_RENDERERS)}, "
+                f"not {self.export_renderer!r}"
+            )
 
     @property
     def mcp_url(self) -> str:
@@ -156,5 +167,6 @@ class ConnectorSettings:
             s3_addressing_style=get("MEMOPOP_S3_ADDRESSING_STYLE", default="virtual"),
             jj_bin=get("MEMOPOP_JJ_BIN", default="jj"),
             compile_budget_seconds=float(get("MEMOPOP_COMPILE_BUDGET_SECONDS", default="200")),
+            export_renderer=get("MEMOPOP_EXPORT_RENDERER", default="pandoc").strip().lower(),
             **({"link_secret": secret} if (secret := get("MEMOPOP_LINK_SECRET")) else {}),
         )

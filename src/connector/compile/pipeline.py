@@ -14,6 +14,10 @@ No model is called. Each stage reuses the existing agents' pure functions
 | ``compile.finalize`` | yes | (tidies whitespace) |
 | ``compile.html`` / ``compile.pdf`` | yes, when asked for | ``cli.export_branded.render_branded_html``, WeasyPrint |
 
+The HTML body is made by pandoc or by LFM (``MEMOPOP_EXPORT_RENDERER``,
+:mod:`..render.lfm`); either way the firm's brand CSS styles it, and the PDF is
+printed from that HTML.
+
 An optional stage that is switched off (``MEMOPOP_DISABLED_STEPS``) is skipped
 with ``step_disabled``; one that raises is skipped with ``step_failed`` and the
 memo is still produced (CONN-ENH-03). A required stage that raises fails the
@@ -306,17 +310,32 @@ def _brand(ws: Workspace):
     return BrandConfig.get_default_config()
 
 
-def render_html(ws: Workspace, state: dict, memo: str) -> str:
+def render_html(ws: Workspace, state: dict, memo: str, renderer: str | None = None) -> str:
+    """The branded HTML page for ``memo``; ``renderer`` defaults to the server's setting."""
     from cli.export_branded import render_branded_html
 
-    return render_branded_html(
-        memo,
-        title=f"{state['company']} - Investment Memo",
-        company=state["company"],
-        brand=_brand(ws),
-        css_path=BASE_CSS,
-        memo_date=datetime.now(UTC).strftime("%Y-%m-%d"),
-    )
+    from ..render.lfm import LfmRenderError, LfmUnavailable
+
+    try:
+        return render_branded_html(
+            memo,
+            title=f"{state['company']} - Investment Memo",
+            company=state["company"],
+            brand=_brand(ws),
+            css_path=BASE_CSS,
+            memo_date=datetime.now(UTC).strftime("%Y-%m-%d"),
+            renderer=renderer or ws.settings.export_renderer,
+        )
+    except LfmUnavailable as exc:
+        log.error("LFM rendering is unavailable: %s", exc)
+        raise ConnectorError(
+            "service_unavailable", "Rendering is unavailable on this server right now."
+        ) from exc
+    except LfmRenderError as exc:
+        log.error("LFM rendering failed: %s", exc)
+        raise ConnectorError(
+            "service_unavailable", "Rendering failed on this server right now."
+        ) from exc
 
 
 def render_pdf(html: str) -> bytes:
