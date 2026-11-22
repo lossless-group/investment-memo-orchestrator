@@ -8,6 +8,23 @@ from __future__ import annotations
 
 API_CHANGELOG: list[dict] = [
     {
+        "date": "2026-11-21",
+        "version": "1.5.0",
+        "changes": [
+            "New tool `whoami` (additive, read-only; `GET /v1/whoami`): the signed-in "
+            "account, the firm in use and its display name, every firm the sign-in can use "
+            "with the active one marked, `firm_required`, and the connector version.",
+            "list_deals returns `skips_count` and `skips_by_reason` per deal. The per-skip "
+            "`skips` list now comes back only with the new input `include_skips: true`. "
+            "Clients that read `skips` by default must pass it.",
+            "list_deals returns `legal_name` when it differs from `company`; `company` is the "
+            "name the company trades under.",
+            "next_step: a step whose read was skipped gets an input with `skipped: true` saying "
+            "which step and why, instead of nothing. A deal with no website on record has its "
+            "research instructions lead with a notice to ask the partner for the URL first.",
+        ],
+    },
+    {
         "date": "2026-10-15",
         "version": "1.4.0",
         "changes": [

@@ -155,3 +155,58 @@ def test_wrong_audience_expired_or_unknown_key_is_401(client, signing_key):
         assert "WWW-Authenticate" in response.headers, label
         mcp_response = Mcp(client, headers=_bearer(token)).post("tools/list")
         assert mcp_response.status_code == 401, label
+
+
+@pytest.mark.spec("CONN-PT-04")
+def test_whoami_names_the_account_its_firms_and_the_active_one(client, signing_key, io_root):
+    from src.connector import SERVER_VERSION
+
+    (io_root / "test-firm" / "firm.json").write_text(
+        json.dumps(
+            {"default_template": TEMPLATE, "entity_id": "ent_test_firm", "name": "Test Firm"}
+        )
+    )
+    token = make_token(
+        signing_key,
+        entity=TEST_FIRM_ENTITY,
+        entities=[TEST_FIRM_ENTITY, {"id": "ent_other", "slug": "other-firm"}],
+        name="Pat Partner",
+        email="pat@example.com",
+    )
+
+    response = client.get("/v1/whoami", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ok"] is True
+    assert body["account"]["name"] == "Pat Partner"
+    assert body["account"]["email"] == "pat@example.com"
+    assert body["firm"] == "test-firm"
+    assert body["firm_name"] == "Test Firm"
+    assert [(f["firm"], f["active"]) for f in body["firms"]] == [
+        ("test-firm", True),
+        ("other-firm", False),
+    ]
+    assert body["connector_version"] == SERVER_VERSION
+
+    # Naming the other firm makes it the active one.
+    other = client.get("/v1/whoami", params={"firm": "other-firm"}, headers=_bearer(token)).json()
+    assert other["firm"] == "other-firm"
+    assert [(f["firm"], f["active"]) for f in other["firms"]] == [
+        ("test-firm", False),
+        ("other-firm", True),
+    ]
+
+    # The same over MCP.
+    mcp = Mcp(client, headers=_bearer(token))
+    mcp.initialize()
+    result = mcp.call("whoami")
+    assert result["isError"] is False
+    assert result["structuredContent"] == body
+
+    # A static key answers with the one firm it is bound to.
+    static = client.get("/v1/whoami", headers={"Authorization": "Bearer sk-other-firm-0e4b8d1f3c"})
+    assert static.status_code == 200, static.text
+    keyed = static.json()
+    assert keyed["firm"] == "other-firm"
+    assert [(f["firm"], f["active"]) for f in keyed["firms"]] == [("other-firm", True)]
+    assert keyed["account"]["via"] == "static_key"

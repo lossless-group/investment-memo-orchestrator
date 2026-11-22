@@ -416,7 +416,7 @@ def server_view(get: Get, deal: str | None) -> ServerView:
         return ServerView(None, {})
     summary, cursor = None, None
     while summary is None:
-        params = {"limit": 100, **({"cursor": cursor} if cursor else {})}
+        params = {"limit": 100, "include_skips": "true", **({"cursor": cursor} if cursor else {})}
         page = get("/v1/deals", params).json()
         summary = next((d for d in page.get("deals", []) if d["deal"] == deal), None)
         cursor = page.get("next_cursor")

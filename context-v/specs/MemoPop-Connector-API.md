@@ -186,7 +186,7 @@ then compile. Rules:
 
 ## The tools
 
-All eight, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
+All nine, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
 `destructiveHint`; Claude requires both on every tool.
 
 | Tool | REST | RO | D | Blocks? |
@@ -199,6 +199,7 @@ All eight, over both MCP and REST. `RO` is `readOnlyHint`, `D` is
 | `get_artifact` | `GET /v1/deals/{deal}/artifacts/{id}` | yes | no | no |
 | `save_snapshot` | `POST /v1/snapshots` | no | no | no |
 | `compile` | `POST /v1/deals/{deal}/compile` | no | no | yes (required) |
+| `whoami` | `GET /v1/whoami` | yes | no | no |
 
 \* `next_step` records skips and marks the step handed out, so it isn't
 read-only even though it changes no artifacts.
@@ -208,9 +209,22 @@ keeps the old version in jj.
 
 ### Inputs and outputs
 
-**`list_deals`** `{ cursor?, limit? (default 20, max 100) }` →
-`{ deals: [{ deal, company, stage, template, phase, next_step_hint,
-materials_pending, skips: [...] , updated_at }], next_cursor? }`
+**`list_deals`** `{ cursor?, limit? (default 20, max 100), include_skips?
+(default false) }` → `{ deals: [{ deal, company, legal_name?, stage, template,
+phase, next_step_hint, materials_pending, skips_count, skips_by_reason:
+[{ reason, count }], skips?: [...], updated_at }], next_cursor? }`. `company`
+is the name the company trades under; `legal_name` is returned only when it
+differs. Skips are counted by reason; the per-skip list comes back only with
+`include_skips: true` (added 2026-11-21: an imported deal carries dozens of
+skips with one reason).
+
+**`whoami`** `{ firm? }` → `{ account: { subject, name, email, via }, firm,
+firm_name, firms: [{ firm, name, active }], firm_required, connector_version
+}`. Read-only, changes nothing. A sign-in on several firms may call it without
+`firm`: it then reports the firm chosen at sign-in as active, and
+`firm_required: true` says every other call needs `firm`. A static key reports
+the one firm it is bound to. `name` and `email` are null when the sign-in
+doesn't carry them.
 
 **`create_new_deal`** `{ company, url?, stage?, template? }` → `{ deal,
 created: bool, template, sections: [...] }`. The deal slug is derived from the

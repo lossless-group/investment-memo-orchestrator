@@ -134,7 +134,7 @@ def test_list_deals_shows_phase_pending_materials_and_skips(settings):
     assert [s["step_id"] for s in step["skipped_since_last_call"]] == ["materials.brief"]
     assert step["skipped_since_last_call"][0]["code"] == "step_disabled"
 
-    (row,) = call(ws, "list_deals")["deals"]
+    (row,) = call(ws, "list_deals", include_skips=True)["deals"]
     assert row["deal"] == deal
     assert row["phase"] == "research"
     assert row["materials_pending"] == 1
@@ -143,3 +143,56 @@ def test_list_deals_shows_phase_pending_materials_and_skips(settings):
         ("materials.brief", "step_disabled")
     ]
     assert row["updated_at"]
+
+
+IMPORT_REASON = (
+    "Already applied in the local pipeline run Fixture-v0.0.3 this deal was imported from."
+)
+
+
+@pytest.mark.spec("CONN-PT-01")
+def test_list_deals_counts_skips_by_reason_and_lists_them_only_on_request(ws):
+    deal = new_deal(ws)
+
+    def thirty_skips(state):
+        state["skips"] = [
+            {
+                "step_id": "enhance.citations",
+                "section": f"section-{n:02d}",
+                "code": "step_skipped",
+                "reason": IMPORT_REASON,
+                "at": "2026-11-21T00:00:00Z",
+            }
+            for n in range(30)
+        ]
+        state["skips_reported"] = 30
+
+    ws.update_deal(deal, thirty_skips)
+
+    (row,) = call(ws, "list_deals")["deals"]
+    assert row["skips_count"] == 30
+    assert row["skips_by_reason"] == [{"reason": IMPORT_REASON, "count": 30}]
+    assert "skips" not in row  # no per-skip list by default
+
+    (full,) = call(ws, "list_deals", include_skips=True)["deals"]
+    assert full["skips_count"] == 30
+    assert len(full["skips"]) == 30
+    assert {s["reason"] for s in full["skips"]} == {IMPORT_REASON}
+    assert full["skips"][0]["step_id"] == "enhance.citations"
+
+
+@pytest.mark.spec("CONN-PT-03")
+def test_list_deals_returns_the_legal_name_when_it_differs(ws):
+    renamed = new_deal(ws, company="Widget", url="https://widget.com")
+    plain = new_deal(ws, company="Plain Co", url="https://plain.co")
+
+    def set_legal(name):
+        return lambda state: state.update(legal_name=name)
+
+    ws.update_deal(renamed, set_legal("Old Name Inc."))
+    ws.update_deal(plain, set_legal("Plain Co"))
+
+    rows = {d["deal"]: d for d in call(ws, "list_deals")["deals"]}
+    assert rows[renamed]["company"] == "Widget"
+    assert rows[renamed]["legal_name"] == "Old Name Inc."
+    assert "legal_name" not in rows[plain]  # the same as company: not repeated
