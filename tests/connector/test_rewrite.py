@@ -43,12 +43,26 @@ def rewrite_step(registry):
     return steps[0]
 
 
+def submit(ws, deal: str, step: dict, content: str | None = None) -> dict:
+    args = {
+        "deal": deal,
+        "step_id": step["step_id"],
+        "content": content or canned.for_step(step["step_id"], step["section"]),
+    }
+    if step["section"] is not None:
+        args["section"] = step["section"]
+    if step["needs_partner"]:
+        args |= {"partner_approved": True, "partner_notes": "Approved by the colleague."}
+    return call(ws, "submit_artifact", **args)
+
+
 @pytest.mark.spec("CONN-STEP-11")
 def test_a_rewrite_step_reads_only_the_research_and_the_current_draft(registry):
     step = rewrite_step(registry)
     assert step.runs_on == "claude"
     assert step.scope == "section"
     assert step.phase == "draft"
+    assert step.revision_only is True
     assert sorted(step.reads) == sorted(["research.section:@section", "section.current:@section"])
     assert step.produces and step.produces.kind == "section"
     text = step.instruction_text()
@@ -57,7 +71,7 @@ def test_a_rewrite_step_reads_only_the_research_and_the_current_draft(registry):
 
 
 @pytest.mark.spec("CONN-STEP-11")
-def test_the_rewrite_step_runs_only_when_a_revision_reopens_it(ws, registry):
+def test_a_draft_revision_hands_out_the_rewrite_with_exactly_its_inputs(ws, registry):
     step = rewrite_step(registry)
     deal = compiled(ws)
     state = deal_state(ws, deal)
@@ -66,9 +80,8 @@ def test_the_rewrite_step_runs_only_when_a_revision_reopens_it(ws, registry):
     ), "a memo's first walk must never hand out the rewrite step"
     current = flow.current_section_key(registry, state, "03-team")
 
-    # The revision mechanics a light edit path opens: reopen only the rewrite. A
-    # material given to the revision is not one of its inputs: new evidence goes
-    # into the research first.
+    # A material given to the revision is not one of the rewrite's inputs: new
+    # evidence reaches it only through the research.
     added = call(ws, "add_materials", deal=deal, items=[{"kind": "other", "text": "2026 survey."}])
     mid = added["accepted"][0]["material_id"]
     call(
@@ -80,56 +93,53 @@ def test_the_rewrite_step_runs_only_when_a_revision_reopens_it(ws, registry):
         start="draft",
         material_ids=[mid],
     )
-
-    def reopen_rewrite(s):
-        s["revision"]["baseline"] = {f"{step.id}:03-team": {"version": 0, "seq": 0, "copy": None}}
-
-    ws.update_deal(deal, reopen_rewrite)
     handed = call(ws, "next_step", deal=deal)
     assert (handed["step_id"], handed["section"]) == (step.id, "03-team")
     ids = sorted(i["artifact_id"] for i in handed["inputs"])
     assert ids == sorted(["research.section:03-team", current]), ids
-    assert NO_OUTSIDE_KNOWLEDGE in handed["instruction"]
-    assert handed["instruction"].startswith("This is a revision")
-    assert "new materials" not in handed["instruction"]
+    instruction = handed["instruction"]
+    assert instruction.startswith("This is a revision")
+    assert instruction.index(ANGLE) < instruction.index("# Rewrite"), "the request leads"
+    assert NO_OUTSIDE_KNOWLEDGE in instruction
+    assert "new materials" not in instruction
 
-    body = call(
-        ws,
-        "submit_artifact",
-        deal=deal,
-        step_id=step.id,
-        section="03-team",
-        content=canned.tables("03-team"),
-    )
-    assert body["ok"] is True
+    assert submit(ws, deal, handed, canned.tables("03-team"))["ok"] is True
     after = deal_state(ws, deal)
     assert flow.current_section_key(registry, after, "03-team") == f"{step.id}:03-team"
-    assert call(ws, "next_step", deal=deal)["done"] is True
 
 
-@pytest.mark.spec("CONN-STEP-12")
-def test_a_research_revision_hands_the_draft_the_current_text_and_the_line(ws, registry):
+@pytest.mark.spec("CONN-STEP-11")
+def test_a_research_revision_rewrites_from_the_new_research(ws, registry):
+    step = rewrite_step(registry)
     deal = compiled(ws)
     current = flow.current_section_key(registry, deal_state(ws, deal), "02-market")
-    # The current draft is the enhanced text, not the first draft.section save.
-    assert current is not None and current != "draft.section:02-market", current
     call(ws, "start_revision", deal=deal, sections=["02-market"], angle=ANGLE, start="research")
 
     research = call(ws, "next_step", deal=deal)
     assert research["step_id"] == "research.section"
-    call(
-        ws,
-        "submit_artifact",
-        deal=deal,
-        step_id="research.section",
-        section="02-market",
-        content=canned.research("02-market"),
-        partner_approved=True,
-        partner_notes="Approved by the colleague.",
-    )
-    draft = call(ws, "next_step", deal=deal)
-    assert (draft["step_id"], draft["section"]) == ("draft.section", "02-market")
-    ids = [i["artifact_id"] for i in draft["inputs"]]
-    assert current in ids, ids
-    assert "research.section:02-market" in ids
-    assert NO_OUTSIDE_KNOWLEDGE in draft["instruction"]
+    submit(ws, deal, research, canned.research("02-market") + "\nRevised for the survey.\n")
+    version = deal_state(ws, deal)["artifacts"]["research.section:02-market"]["version"]
+
+    handed = call(ws, "next_step", deal=deal)
+    assert (handed["step_id"], handed["section"]) == (step.id, "02-market")
+    inputs = {i["artifact_id"]: i for i in handed["inputs"]}
+    assert sorted(inputs) == sorted(["research.section:02-market", current]), sorted(inputs)
+    assert inputs["research.section:02-market"]["version"] == version
+    assert handed["instruction"].startswith("This is a revision")
+    assert NO_OUTSIDE_KNOWLEDGE in handed["instruction"]
+
+
+@pytest.mark.spec("CONN-STEP-12")
+def test_a_first_draft_carries_the_line_and_does_not_read_the_current_text(ws, registry):
+    assert not any(r.startswith("section.current") for r in registry.step("draft.section").reads)
+    fake = FakeClaude(Direct(ws))
+    deal = fake.create()
+    for _ in range(20):
+        step = call(ws, "next_step", deal=deal)
+        if step["step_id"] == "draft.section":
+            break
+        submit(ws, deal, step)
+    else:
+        raise AssertionError("draft.section was never handed out")
+    assert step["revision"] is None
+    assert NO_OUTSIDE_KNOWLEDGE in step["instruction"]
