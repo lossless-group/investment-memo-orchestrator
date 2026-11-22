@@ -25,7 +25,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from .. import edits, flow
+from .. import edits, flow, site_hook
 from ..compile import links, pipeline
 from ..errors import ConnectorError
 from ..registry import load_registry
@@ -164,6 +164,9 @@ def run_compile(ws: Workspace, deal: str, formats: list[str], job_id: str) -> di
                 tx.write_json(ws.deal_rel(deal) / "deal.json", current),
             ]
         ws.history.record(f"compile.assemble: deal {deal}, v{version}", written)
+        compiled = current["compiled"]
+    if not same or keys != (previous.get("keys") or {}):  # a new version, or new exports
+        site_hook.notify(ws, deal, compiled)  # in the background; never raises
     body = {
         "deal": deal,
         "html_url": links.signed_url(ws, keys["html"]) if "html" in formats else None,

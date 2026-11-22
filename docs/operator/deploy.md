@@ -117,6 +117,21 @@ repository secret `MEMOPOP_HEALTH_KEY`, and store it in the password manager.
 A static key for a real firm is for Claude Code only, never for a client;
 clients sign in through didi.sh.
 
+### A firm's own site
+
+A firm whose site shows its memos needs a site key in `MEMOPOP_SITE_KEYS`
+(`<slug>=<key>`; the site holds the same key as `MEMOPOP_SITE_KEY`) and, in
+`firm.json`, any of:
+
+| Field | What it does |
+|---|---|
+| `site_memo_url` | The memo page's URL with `{slug}`; with `site_memo_slugs`, `compile` returns `site_url` |
+| `site_memo_slugs` | `{deal: slug}`, the site's own slug for each deal it shows |
+| `site_hook_url` | Where MemoPop POSTs a signed `memo.compiled` event after each new compiled version, so the site drops its cached copy (`context-v/specs/Notify-Firm-Sites-When-a-Memo-Compiles.md`) |
+
+Set `site_hook_url` only once the site's hook endpoint is live. Without it, or
+without a site key, compiles send nothing and the log says so.
+
 ## Switching a step off
 
 If an optional step misbehaves (an enhancement producing bad output, say), set
