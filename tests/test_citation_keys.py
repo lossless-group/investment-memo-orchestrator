@@ -34,6 +34,11 @@ def test_same_link_same_key_whatever_the_text():
     assert source_key(a) == source_key(b)
 
 
+def test_the_scheme_matches_in_any_case():
+    assert source_key("[X](HTTPS://Example.com/x)") == source_key("[X](https://example.com/x)")
+    assert source_key("[Y](File:///deal/deck.pdf)") == source_key("[Y](file:///deal/deck.pdf)")
+
+
 def test_file_links_are_identities_too():
     a = "[Pro forma](file:///deal/inputs/cap%20table.xlsx). Company."
     assert source_key(a) == _expected("file:///deal/inputs/cap table.xlsx")

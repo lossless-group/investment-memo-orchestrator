@@ -8,7 +8,7 @@ revision_only: true
 runs_on: claude
 needs_partner: false
 order: 55
-version: "1"
+version: "2"
 reads: ["research.section:@section", "section.current:@section"]
 requires_approved: ["research.section:@section"]
 produces:
@@ -18,6 +18,7 @@ produces:
     min_words: 80
     max_chars: 200000
     citations_resolve: true
+    hex_keys_match_sources: true
 path: "sections/{section}.rewrite.md"
 source_agent: src/agents/section_reviser.py
 enabled: true
@@ -44,8 +45,8 @@ can be researched as its own task.
 - **Start from the section as it stands.** Keep every figure, date, name, and
   quote the current text has, unless the research now changes or contradicts
   it. Bring in what the research adds where the request calls for it.
-- **Keep every citation.** Same markers, same definitions; a claim that moves
-  takes its marker with it. Don't add a marker the research doesn't define.
+- **Keep every citation.** Same hex keys, same definitions; a claim that moves
+  takes its marker with it. Never renumber or rename a key. Don't add a marker the research doesn't define.
 - **Keep the heading** (`## {{section_name}}`) and any tables, updated only
   where the research changes them.
 - **A venture mindset.** Build the case for what could go right while staying
@@ -56,8 +57,10 @@ can be researched as its own task.
 ## Format
 
 Markdown, about {{target_words}} words. Inline citations after punctuation
-with one space before each marker (`... in 2024. [^1]`), and end with the
-`### Citations` list carrying every marker you used.
+with one space before each marker (`... in 2024. [^3vdxyl]`), and end with the
+`### Citations` list carrying every marker you used. Keys are hex codes made
+from the source (SHA-256 of its link, in base 36, first six characters), the
+same in the research and the section; copy them from the research.
 
 ## Submit
 

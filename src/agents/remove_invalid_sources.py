@@ -1035,11 +1035,13 @@ def reorder_citations_in_file(file_path: Path) -> bool:
     content = file_path.read_text()
     original = content
 
-    # Extract all citation numbers currently in the file (inline refs)
-    inline_refs = set(re.findall(r'\[\^(\d+)\](?!:)', content))
+    # Extract all citation numbers currently in the file (inline refs). Only
+    # short numbers: a hex key (src/citation_keys.py) is six or eight base-36
+    # characters and can, rarely, be all digits; it must never be renumbered.
+    inline_refs = set(re.findall(r'\[\^(\d{1,5})\](?!:)', content))
 
     # Extract all citation numbers from definitions
-    definitions = set(re.findall(r'^\[\^(\d+)\]:', content, re.MULTILINE))
+    definitions = set(re.findall(r'^\[\^(\d{1,5})\]:', content, re.MULTILINE))
 
     # Combine and sort all citation numbers
     all_citations = sorted([int(n) for n in inline_refs | definitions])

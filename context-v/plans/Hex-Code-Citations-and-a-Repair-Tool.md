@@ -63,6 +63,8 @@ def source_key(definition: str) -> str:
 - Exports: confirm `cli/export_branded.py` (Pandoc) numbers hex footnotes in order, and that the site endpoint's markdown works with LFM's hex rendering.
 - Old numbered research and sections still assemble: numbered keys are converted to hex at assembly with `assign_keys()`.
 
+- [x] Done 2026-11-21 on `connector/hex-citations`: CONN-HEX-01..03 green, CONN-CMP-04 amended and green, API 1.9.0 ([[2026-11-21_11]]). Not changed: the Perplexity researcher, citation enrichment and the fact corrector still number keys; assembly converts them.
+
 ## Decided 2026-11-21 (operator direction: hex in markdown, numbers only at render)
 
 - The compiled `memo.md` keeps hex keys, one per source. Exports (Pandoc) and LFM sites number them. CONN-CMP-04 changes from "consolidated and renumbered" to "consolidated, one key per source; exports number them".

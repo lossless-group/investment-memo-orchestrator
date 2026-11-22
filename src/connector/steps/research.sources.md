@@ -7,7 +7,7 @@ required: false
 runs_on: claude
 needs_partner: true
 order: 40
-version: "1"
+version: "2"
 reads: ["research.section:*"]
 produces:
   kind: sources
@@ -37,7 +37,7 @@ its `artifact_id`, and `offset` = its `next_offset` until you have all of it.
 ## How to do it
 
 - **One entry per URL.** The same URL cited by several sections (under different
-  marker numbers) is one source. Keep the first complete title, publisher, and
+  markers) is one source. Keep the first complete title, publisher, and
   date you find for it.
 - **Group by section**, in the order of the sections. A source cited by several
   sections is listed once, under the first section that cites it, and labelled
@@ -68,13 +68,14 @@ Markdown:
 ```
 ## <Section name>
 
-- [^1]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A
+- [^3shksu]: 2025, Jan 08. [Title](https://url). Publisher. Published: 2025-01-08 | Updated: N/A
   Sections: Market, Traction
-- [^2]: ... ⚠ undated; vendor marketing used for TAM
+- [^<key>]: ... ⚠ undated; vendor marketing used for TAM
 ```
 
-Renumber the markers `[^1]`, `[^2]`, ... across the whole list so each source has
-one number. End with a line counting the sources and the flagged ones.
+List each source under its hex key, the one the research uses (SHA-256 of its
+link, in base 36, first six characters), so each source has one key. Don't
+renumber. End with a line counting the sources and the flagged ones.
 
 ## Show the partner, then submit
 

@@ -195,8 +195,9 @@ def _numbers(text: str) -> list[str]:
 
 
 @pytest.mark.spec("CONN-CMP-04")
-def test_compiled_citations_are_consolidated_and_renumbered(ws, client):
+def test_compiled_citations_are_consolidated_one_hex_key_per_source(ws, client):
     from src.agents.citation_assembly import consolidate_citations
+    from src.citation_keys import source_key
 
     drafts = canned.conflicting_drafts()
     fake = FakeClaude(Direct(ws))
@@ -220,14 +221,16 @@ def test_compiled_citations_are_consolidated_and_renumbered(ws, client):
 
     assert memo.count("### Citations") == 1
     body_text, _, block = memo.partition("### Citations")
-    definitions = dict(re.findall(r"^\[\^(\d+)\]: (.+)$", block, re.MULTILINE))
+    definitions = dict(re.findall(r"^\[\^([^\]\s]+)\]: (.+)$", block, re.MULTILINE))
     urls = {k: re.search(r"\((https?://[^)]+)\)", v).group(1) for k, v in definitions.items()}
     assert sorted(urls.values()) == sorted(set(canned.CONFLICTING_CLAIMS.values()))
     assert len(urls) == 4, "the same source cited by two sections is listed once"
-    assert _numbers(body_text) == ["1", "2", "3", "4"], "renumbered by first appearance"
-    assert list(definitions) == ["1", "2", "3", "4"]
+    # Keys are the sources' hex keys (exports number them), and the block
+    # lists them in first-cited order.
+    assert all(key == source_key(d) for key, d in definitions.items())
+    assert _numbers(body_text) == list(definitions), "block in first-cited order"
     for claim, url in canned.CONFLICTING_CLAIMS.items():
-        cited = re.search(re.escape(claim) + r"[^\[]*\[\^(\d+)\]", body_text)
+        cited = re.search(re.escape(claim) + r"[^\[]*\[\^([^\]\s]+)\]", body_text)
         assert cited, claim
         assert urls[cited.group(1)] == url, f"{claim} now cites {urls[cited.group(1)]}"
 

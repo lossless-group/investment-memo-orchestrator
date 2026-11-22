@@ -7,7 +7,7 @@ required: false
 runs_on: claude
 needs_partner: false
 order: 100
-version: "1"
+version: "2"
 reads: ["section.current:*"]
 produces:
   kind: scorecard
@@ -91,7 +91,7 @@ Markdown, exactly in this order:
    dimension it would move (`- [Capital Efficiency] What is monthly burn ...?`),
    starting with the lowest scores.
 
-Citations are optional. If you use any, every `[^n]` must be defined in a
+Citations are optional. If you use any, every key (`[^3shksu]`) must be defined in a
 `### Citations` block at the end, copied from the memo. The content must start
 with `## Scorecard` and be at least 80 words, or the submission is rejected.
 

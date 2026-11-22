@@ -26,7 +26,8 @@ import string
 from urllib.parse import unquote
 
 _BASE36 = string.digits + string.ascii_lowercase
-_LINK = re.compile(r"(?:https?|file)://[^\s)\]>]+")
+# Schemes are case-insensitive (HTTPS://, File://); the identity is lowercased anyway.
+_LINK = re.compile(r"(?:https?|file)://[^\s)\]>]+", re.IGNORECASE)
 # "2025, Jan 08. " — the date every definition starts with.
 _DATE_PREFIX = re.compile(r"^\s*\d{4},\s+[A-Za-z]{3,9}\.?\s+\d{1,2}\.\s*")
 

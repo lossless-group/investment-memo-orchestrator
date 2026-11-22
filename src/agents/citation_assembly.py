@@ -1,11 +1,13 @@
 """
-Citation Assembly Agent - Consolidates and renumbers citations across all sections.
+Citation Assembly Agent - Consolidates citations across all sections under hex keys.
 
 This agent runs after all citation-adding and cleanup agents to:
 1. Pair each section (2-sections/X.md) with its research file's definitions
    (1-research/X-research.md): citation keys are local to a section
-2. Number sources 1..N across the memo by first appearance, one number per
-   source (identified by link), via consolidate_citations()
+2. Give every source one hex key from src/citation_keys.py (source_key(),
+   identified by link), assigned once per memo, via consolidate_citations().
+   Old numbered keys are converted; nothing is renumbered, since exports and
+   LFM sites number footnotes at render
 3. Warn about any citation whose source is not in its section's research
 4. Consolidate all citations into ONE block at document end
 5. Assemble the final draft
@@ -24,7 +26,6 @@ import sys
 from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 from collections import OrderedDict
-from urllib.parse import unquote
 
 from ..state import MemoState
 from ..utils import get_latest_output_dir
@@ -217,15 +218,31 @@ _DEFINITION_URL = re.compile(r'\]\(((?:https?|file)://[^)\s]+)\)')
 def _source_identity(definition: str) -> str:
     """What makes two definitions the same source: the link, else the text.
 
-    Dataroom sources are file:// links, and the same document is often described
-    with different publisher text from one section to the next, so the link (not
-    the text) has to be the identity. Percent-encoding is decoded so an encoded
-    and an unencoded link to one document match.
+    The same rule source_key() hashes (src/citation_keys.py), so two definitions
+    are one source here exactly when they get one hex key. Dataroom sources are
+    file:// links, and the same document is often described with different
+    publisher text from one section to the next, so the link (not the text) has
+    to be the identity. Percent-encoding is decoded so an encoded and an
+    unencoded link to one document match.
     """
-    match = _DEFINITION_URL.search(definition)
-    if match:
-        return unquote(match.group(1)).rstrip('/').lower()
-    return ' '.join(definition.split()).lower()
+    from ..citation_keys import source_identity
+
+    return source_identity(definition)
+
+
+def rekey_citations(content: str, mapping: Dict[str, str]) -> str:
+    """Replace every [^key] in ``content``, inline markers and definitions alike.
+
+    One pass, so a key that maps onto another key's old name is never rewritten
+    twice. Keys not in ``mapping`` are left as they are.
+    """
+    if not mapping:
+        return content
+    return re.sub(
+        r'\[\^([a-zA-Z0-9_-]+)\]',
+        lambda m: f'[^{mapping.get(m.group(1), m.group(1))}]',
+        content,
+    )
 
 
 def consolidate_citations(
@@ -235,12 +252,13 @@ def consolidate_citations(
     """
     Consolidate citations across self-contained texts, with no files and no state.
 
-    Unlike renumber_citations(), which treats citation keys as global across
-    2-sections/, this treats each text's keys as LOCAL: section A's [^1] and
-    section B's [^1] may be different sources, because each text carries its own
-    definitions (the connector's section drafts do). A source is identified by
-    its URL (or, without one, its definition text), so a source cited by
-    several texts gets one number. Numbers run 1..N by first appearance.
+    Each text's keys are LOCAL: section A's [^1] and section B's [^1] may be
+    different sources, because each text carries its own definitions (the
+    connector's section drafts do). Every cited key is replaced by its source's
+    hex key from src/citation_keys.py, assigned once over the whole memo: the
+    same source is one key in every section, two sources never share one, and
+    keys that are already hex stay as they are. Nothing is renumbered; exports
+    (Pandoc) and LFM sites number footnotes when they render.
 
     Args:
         texts: Section texts in memo order, each with its own [^key]: definitions
@@ -251,36 +269,47 @@ def consolidate_citations(
 
     Returns:
         (bodies, citation_block, stats): each text with its definitions removed
-        and its inline citations renumbered; one consolidated block made by
+        and its inline citations rewritten to hex keys; one consolidated block,
+        one definition per source in first-cited order, made by
         format_citation_block() ("" if nothing is cited); and stats with
-        "sources" (definitions in the block), "cited" (distinct numbers used),
-        and "missing" (["<text index>:<key>", ...] cited without a definition).
+        "sources" (definitions in the block), "cited" (distinct sources cited,
+        undefined keys included), and "missing" (["<text index>:<key>", ...]
+        cited without a definition).
     """
-    number_of: Dict[str, str] = {}
-    definition_of: Dict[str, str] = {}
+    from ..citation_keys import assign_keys
+
     missing: List[str] = []
-    bodies: List[str] = []
+    stripped: List[str] = []
+    cited: Dict[str, str] = {}  # "<index>:<key>" -> definition
     for index, text in enumerate(texts):
         known: Dict[str, str] = dict((definitions[index] or {}) if definitions else {})
         known.update(extract_citation_definitions(text))
         body = remove_citation_definitions_from_content(text)
+        stripped.append(body)
+        for key in extract_inline_citations(body):
+            if key in known:
+                cited[f"{index}:{key}"] = known[key]
+            else:
+                missing.append(f"{index}:{key}")
+
+    hex_of = assign_keys(cited)  # once per memo, so sections can't collide
+    definition_of: "OrderedDict[str, str]" = OrderedDict()
+    bodies: List[str] = []
+    for index, body in enumerate(stripped):
         local: Dict[str, str] = {}
         for key in extract_inline_citations(body):
-            definition = known.get(key)
-            if definition is None:
-                missing.append(f"{index}:{key}")
-                identity = f"missing:{index}:{key}"
-            else:
-                identity = _source_identity(definition)
-            if identity not in number_of:
-                number_of[identity] = str(len(number_of) + 1)
-                if definition is not None:
-                    definition_of[number_of[identity]] = definition
-            local[key] = number_of[identity]
+            tag = f"{index}:{key}"
+            if tag in hex_of:
+                local[key] = hex_of[tag]
+                definition_of.setdefault(hex_of[tag], cited[tag])
         bodies.append(renumber_inline_citations(body, local))
-    ordered = sorted(definition_of, key=int)
-    block = format_citation_block(definition_of, ordered) if ordered else ""
-    stats = {"sources": len(ordered), "cited": len(number_of), "missing": missing}
+    ordered = list(definition_of)
+    block = format_citation_block(dict(definition_of), ordered) if ordered else ""
+    stats = {
+        "sources": len(ordered),
+        "cited": len(ordered) + len({m.split(":", 1)[1] for m in missing}),
+        "missing": missing,
+    }
     return bodies, block, stats
 
 
@@ -292,9 +321,9 @@ def merge_duplicate_definitions(markdown: str) -> Tuple[str, int]:
 
     The last pass before a final draft is written, whatever path assembled it.
     Definitions with the same _source_identity() are merged into the first;
-    inline citations are pointed at it, and all citations are renumbered 1..N
-    by first inline appearance, with the definitions rewritten in that order
-    where the first definition stood.
+    inline citations are pointed at it. Keys are kept, not renumbered (they are
+    hex keys, numbered only at render); the definitions are rewritten in
+    first-citation order where the first definition stood.
 
     Returns:
         (markdown, merged): merged is the number of duplicate definitions removed.
@@ -310,25 +339,21 @@ def merge_duplicate_definitions(markdown: str) -> Tuple[str, int]:
         first_key.setdefault(identity, key)
         keeper_of[key] = first_key[identity]
     merged = sum(1 for key, keeper in keeper_of.items() if key != keeper)
+    redirect = {k: v for k, v in keeper_of.items() if k != v}
 
     first_definition = _DEFINITION_LINE.search(markdown).start()
     body = re.sub(r'^\[\^[a-zA-Z0-9_-]+\]: .*\n?(?:[ \t]*\n)*', '', markdown, flags=re.MULTILINE)
-    body = renumber_inline_citations(body, {k: v for k, v in keeper_of.items() if k != v})
+    body = renumber_inline_citations(body, redirect)
 
     order: List[str] = []
     for key in extract_inline_citations(body):
         if key not in order and key in definitions:
             order.append(key)
-    new_number = {key: str(i) for i, key in enumerate(order, 1)}
-    body = renumber_inline_citations(body, new_number)
 
-    block = '\n'.join(f'[^{new_number[key]}]: {definitions[key]}\n' for key in order)
+    block = '\n'.join(f'[^{key}]: {definitions[key]}\n' for key in order)
     # The definitions were removed from the body, so map the original offset
     # of the first one to the same point in the rewritten text.
-    prefix = renumber_inline_citations(
-        renumber_inline_citations(markdown[:first_definition], {k: v for k, v in keeper_of.items() if k != v}),
-        new_number,
-    )
+    prefix = renumber_inline_citations(markdown[:first_definition], redirect)
     insert_at = len(prefix) if body.startswith(prefix) else len(body)
     return body[:insert_at] + block + '\n' + body[insert_at:], merged
 
@@ -695,8 +720,8 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
                 print(f"    ⚠️  {name}: [^{key}] has no definition and no research file to resolve it")
         resolve_with.append(borrowed)
 
-    # Step 2: Consolidate. One number per source across the memo, 1..N by first
-    # appearance; a source is identified by its link.
+    # Step 2: Consolidate. One hex key per source across the memo (numbered
+    # keys from older runs are converted); the block is in first-cited order.
     bodies, citation_block, cstats = consolidate_citations(texts, resolve_with)
     print(f"  📊 Found {cstats['cited']} unique citations across {len(section_files)} sections")
     for missing in cstats["missing"]:
@@ -741,7 +766,7 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
     final_draft_path.write_text(normalize_section_breaks(final_content))
     print(f"  ✓ Final draft: {final_draft_path.name}")
 
-    summary = f"Assembled {cstats['sources']} citations (sequential 1-{cstats['sources']})"
+    summary = f"Assembled {cstats['sources']} citations (one hex key per source)"
     if cstats["missing"]:
         summary += f", {len(cstats['missing'])} missing definitions"
     if mismatches:
@@ -752,7 +777,7 @@ def assemble_citations(output_dir: Path, state: Optional[Dict[str, Any]] = None)
         "total_inline_refs": cstats["cited"],
         "definitions_found": cstats["sources"],
         "missing_definitions": len(cstats["missing"]),
-        "renumbered": True,
+        "renumbered": False,
         "research_mismatches": mismatches,
         "unchecked_sections": unchecked,
         "final_draft": str(final_draft_path),

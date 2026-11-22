@@ -9,6 +9,24 @@ from __future__ import annotations
 API_CHANGELOG: list[dict] = [
     {
         "date": "2026-11-21",
+        "version": "1.9.0",
+        "changes": [
+            "Citation keys are hex codes made from the source (sha256 of its first link, in "
+            "base 36, first six characters; eight where two sources collide), as Lossless "
+            "Flavored Markdown requires. research.section (v3), draft.section (v3), "
+            "draft.rewrite (v2), research.sources (v2) and the enhance steps that show a "
+            "citation ask for them and say how one is made.",
+            "compile keeps hex keys in the memo's markdown, one key and one definition per "
+            "source in first-cited order, instead of renumbering 1..N; the HTML and PDF "
+            "exports number the footnotes. Drafts with numbered or placeholder keys are still "
+            "accepted, and compile converts their keys.",
+            "New submission check `hex_keys_match_sources` on research.section, draft.section "
+            "and draft.rewrite: a six- or eight-character base-36 key that isn't its "
+            "source's key is refused as `checks_failed`, naming the key the source gives.",
+        ],
+    },
+    {
+        "date": "2026-11-21",
         "version": "1.8.0",
         "changes": [
             "New tool `edit_section` (additive; POST /v1/deals/{deal}/section-edits): change a "

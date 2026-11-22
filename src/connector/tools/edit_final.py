@@ -9,7 +9,8 @@ deal's ``final_edits``.
 Where an edit goes is found from the final's level-2 headings, matched to the
 sections the way compile assembled them (see :mod:`..edits`). An edit that
 spans two sections, falls outside every section, or whose text the section
-doesn't have as written (citation numbers are renumbered in the final) is
+doesn't have as written (a numbered citation key in a section is its source's hex
+key in the final) is
 refused as ``edit_not_placed``, and nothing is saved.
 """
 
@@ -116,7 +117,7 @@ def handle(ws: Workspace, params: Input) -> dict:
                     index,
                     edit,
                     f"the {section['name']} section doesn't have that text exactly once as "
-                    "written (citation numbers in the final are renumbered).",
+                    "written (a citation key in the final can differ from the section's).",
                 )
             texts[target] = text.replace(edit.old, edit.new, 1)
             working = working.replace(edit.old, edit.new, 1)

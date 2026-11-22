@@ -12,19 +12,33 @@ from pathlib import Path
 from typing import Dict, Set
 
 
-def extract_markdown_footnotes(md_content: str) -> Dict[int, str]:
-    """Extract all footnote definitions from markdown."""
+def extract_markdown_footnotes(md_content: str) -> Dict[str, str]:
+    """Extract all footnote definitions from markdown, keyed by label.
+
+    Labels are hex keys (``[^3vdxyl]``, src/citation_keys.py) in new memos and
+    numbers or words (``[^1]``, ``[^deck]``) in older ones.
+    """
     footnotes = {}
 
-    # Match footnote definitions: [^1]: Content
-    pattern = r'^\[\^(\d+)\]:\s*(.+?)(?=^\[\^\d+\]:|$)'
+    # Match footnote definitions: [^label]: Content (to the end of the line)
+    pattern = r'^\[\^([^\]\s]+)\]:\s*(.+?)$'
 
-    for match in re.finditer(pattern, md_content, re.MULTILINE | re.DOTALL):
-        num = int(match.group(1))
-        content = match.group(2).strip()
-        footnotes[num] = content
+    for match in re.finditer(pattern, md_content, re.MULTILINE):
+        footnotes.setdefault(match.group(1), match.group(2).strip())
 
     return footnotes
+
+
+def extract_markdown_references(md_content: str) -> Set[str]:
+    """Labels cited inline in the markdown (a definition line is not a citation)."""
+    refs = set()
+    for match in re.finditer(r'\[\^([^\]\s]+)\]', md_content):
+        start = match.start()
+        at_line_start = start == 0 or md_content[start - 1] == '\n'
+        if at_line_start and md_content[match.end():match.end() + 1] == ':':
+            continue
+        refs.add(match.group(1))
+    return refs
 
 
 def extract_html_footnote_ids(html_content: str) -> Set[int]:
@@ -41,21 +55,24 @@ def extract_html_footnote_ids(html_content: str) -> Set[int]:
 
 
 def add_uncited_footnotes(html_content: str, md_content: str) -> str:
-    """Add unreferenced footnotes from markdown to HTML."""
+    """Add unreferenced footnotes from markdown to HTML.
 
-    # Extract footnotes from both sources
+    Pandoc numbers footnotes by where they are cited, whatever their labels, so
+    a definition is uncited when no inline marker uses its label, not when its
+    number is missing from the HTML. Restored notes are numbered after the last
+    one Pandoc wrote, in the order they are defined.
+    """
+
     md_footnotes = extract_markdown_footnotes(md_content)
-    html_ids = extract_html_footnote_ids(html_content)
-
-    # Find uncited footnotes
-    uncited = {num: content for num, content in md_footnotes.items()
-               if num not in html_ids}
+    cited = extract_markdown_references(md_content)
+    uncited = {label: content for label, content in md_footnotes.items() if label not in cited}
 
     if not uncited:
         print("✓ All footnotes are cited")
         return html_content
 
-    print(f"Found {len(uncited)} uncited footnote(s): {sorted(uncited.keys())}")
+    print(f"Found {len(uncited)} uncited footnote(s): {list(uncited)}")
+    next_id = max(extract_html_footnote_ids(html_content), default=0) + 1
 
     # Find the footnotes section
     footnote_section_pattern = r'(<section id="footnotes"[^>]*>.*?<ol>)(.*?)(</ol>.*?</section>)'
@@ -63,8 +80,7 @@ def add_uncited_footnotes(html_content: str, md_content: str) -> str:
 
     # Generate HTML for uncited footnotes
     uncited_html = []
-    for num in sorted(uncited.keys()):
-        content = uncited[num]
+    for num, content in enumerate(uncited.values(), start=next_id):
 
         # Convert markdown links to HTML if present
         content = re.sub(r'\[([^\]]+)\]\(([^\)]+)\)', r'<a href="\2">\1</a>', content)

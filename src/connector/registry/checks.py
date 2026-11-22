@@ -38,7 +38,7 @@ def has_citations(content: str, minimum: int | bool) -> tuple[bool, str]:
     cited = set(_INLINE.findall(content))
     return (
         len(cited) >= minimum,
-        f"{len(cited)} distinct inline citations ([^1] style); at least {minimum} needed.",
+        f"{len(cited)} distinct inline citations; at least {minimum} needed.",
     )
 
 
@@ -50,6 +50,34 @@ def citations_resolve(content: str, _: Any) -> tuple[bool, str]:
         listed = ", ".join(f"[^{m}]" for m in missing)
         return False, f"Cited but never defined in the citation list: {listed}."
     return True, "Every inline citation has a definition."
+
+
+_HEX_KEY = re.compile(r"[0-9a-z]{6}(?:[0-9a-z]{2})?")
+_DEFINITION_TEXT = re.compile(r"^\[\^([^\]\s]+)\]:[ \t]*(.*)$", re.MULTILINE)
+
+
+def hex_keys_match_sources(content: str, _: Any) -> tuple[bool, str]:
+    """Every hex-shaped key is the key its definition's source gives.
+
+    A hex key is ``source_key()`` of the source (src/citation_keys.py): six
+    base-36 characters, or eight where two sources collide. Numbered keys from
+    older drafts are not hex keys and pass; compile converts them.
+    """
+    from src.citation_keys import source_key
+
+    wrong = []
+    for key, definition in _DEFINITION_TEXT.findall(content):
+        if not _HEX_KEY.fullmatch(key):
+            continue
+        expected = source_key(definition)
+        if not key.startswith(expected):  # an 8-character key extends the 6
+            wrong.append(f"[^{key}] should be [^{expected}]")
+    if wrong:
+        return False, (
+            "Hex keys that don't match their source (a key is sha256 of the source's "
+            "link, in base 36, first six characters): " + "; ".join(wrong) + "."
+        )
+    return True, "Every hex key matches its source."
 
 
 def required_headings(content: str, headings: list[str]) -> tuple[bool, str]:
@@ -88,6 +116,7 @@ CHECKS: dict[str, Callable[[str, Any], tuple[bool, str]]] = {
     "max_chars": max_chars,
     "has_citations": has_citations,
     "citations_resolve": citations_resolve,
+    "hex_keys_match_sources": hex_keys_match_sources,
     "required_headings": required_headings,
     "fenced_yaml": fenced_yaml,
 }
