@@ -6,7 +6,7 @@ lede: "Memos assembled before the citation-collision fix numbered every section'
 date_authored_initial_draft: 2026-11-21
 date_authored_current_draft: 2026-11-21
 date_last_updated: 2026-11-21
-at_semantic_version: 0.0.0.1
+at_semantic_version: 0.0.0.2
 usage_index: 0
 publish: false
 category: Reference
@@ -23,6 +23,8 @@ augmented_with: "Claude Code on Claude Opus 5.5"
 Each section is researched on its own, and its research file numbers its sources from 1. Overview's `[^25]` and Flags' `[^25]` are different sources. Until 2026-11-21 the final assembler treated those numbers as if they meant the same thing everywhere: every section's `[^25]` linked to whichever section defined `[^25]` first. The prose is right and the section files are right; the finished memo (`7-<Deal>-<version>.md`) and every export made from it link claims to the wrong sources.
 
 The assembler is fixed for new runs ([[Final-Draft-Citations-Collide-Across-Sections]]). Memos already finished stay wrong until they are repaired. A scan on 2026-11-21 found about 40 affected finished versions.
+
+A second cause sits inside one section. When a run reused a prior version's research and added new sources, the new findings were appended under `## Added from N new sources` (or `## Added under thesis frame: …`), and that block numbered its footnotes from 1 again. One research file then defined `[^1]` once per block, for different sources, and assembly took the last one, so the reused text's footnotes linked to the appended block's sources ([[Appended-Research-Blocks-Reuse-Footnote-Keys]]). Appends now write hex keys, and assembly and repair read such files block by block.
 
 ## Why hex codes
 
@@ -65,7 +67,8 @@ Then commit each firm's changes in its own repo (`io/<firm>/` is a separate priv
 
 Each row is `wrong/cited share path`: how many of the memo's section citations link to a source that only another section's research cites. Flags under a row:
 
-- **collapsed keys in N research file(s)**: those sections will be refused (see below).
+- **collapsed keys in N research file(s)**: one block defines a key more than once (the older renumbering bug). In a file with no appended blocks the whole section is refused; in a file with appended blocks only those keys are.
+- **appended blocks reuse keys in N research file(s)**: the reuse-and-append case above. Repaired block by block; only keys the blocks define differently, in a section that can't say which block it meant, are refused. Not the same bug as collapsed keys, and mostly repairable.
 - **several 7-\*.md here**: pass `--memo`.
 - **duplicate of ...**: the same deal and version also sits under another folder (some firms have deals copied from `deals/` to `portfolio/`). Repair the one the firm actually uses and ask before touching the other.
 
@@ -76,8 +79,11 @@ The dry run prints, and `--write`/`--out` save to `repair-report.json`, one line
 | Status | Meaning |
 |---|---|
 | `repaired` | Every footnote now links to the source the section's own research gave it |
+| `partial` | Some footnotes repaired; the rest kept exactly as they were; `refused` counts them by reason |
 | `unrepairable` | Left byte-identical, numbered keys and all; `reason` says why |
 | `no-citations` | Nothing to do |
+
+Each region also carries `repaired` (markers repaired), `refused` (`{reason: count}`), `refused_keys` (which keys, by reason), and for research files with appended blocks `research_blocks` and `section_parts`. The top-level `counts` sums them over the memo, and the dry run prints that line last.
 
 Then `unverified`: text with no research file (title, Executive Summary, Closing Assessment, scorecard, anything added after assembly). Its footnotes are converted to hex but keep pointing at the source they point to now, because there is no section research to check them against. They were usually written against the final numbering and are often right, but nobody has proven it.
 
@@ -85,14 +91,21 @@ Also: `kept_numbered_keys` (the keys left in refused sections, still defined in 
 
 ## What it refuses, and why
 
-It repairs a section only when it can prove the mapping. Otherwise it leaves the section exactly as it was:
+It repairs a footnote only when it can prove the mapping, and leaves everything else exactly as it was. Most refusals are now per footnote, not per section.
 
-- **Research file defines a key more than once.** Memos from an older bug, where keys collapsed during renumbering, have research files with five `[^1]:` lines. The local key no longer names one source, so there is nothing to map back to. Guessing would replace one wrong link with another.
-- **Marker count differs between memo and section file, or the order doesn't pair one to one.** The section was edited after assembly (a revision pass, a hand edit). The tool never matches by surrounding text: a near-match is exactly how a claim gets the wrong source.
-- **Heading missing or found twice.** It can't find the section's span.
-- **A cited key has no definition in the research file.**
+**How a footnote is proven.** The memo's region for a section (from its `## ` heading) is paired with the section file. If every marker still pairs one for one in order, as assembled, the whole region is paired. Otherwise markers are paired only on lines whose prose (markers removed) is byte-identical to the section file, with the markers in the same places; footnotes on any other line are refused as `line edited after assembly`, and the rest of the region is still repaired. It never matches by surrounding text.
 
-Refused sections keep their numbered keys, so `grep -E '\[\^[0-9]+\]'` on a repaired memo finds exactly what is still unproven. If prose differs after repair (only markers and the block may change), it writes nothing.
+**How a key is read.** The research file is split into blocks at each appended block's stamp or `## Added …` heading, and the section at its `### Added …` headings. When the section has one part per block, part *i* is read against block *i*. Otherwise (a section redrafted in one part from the combined file) each key is read in the block that defines it.
+
+Refusal reasons in `refused`:
+
+- **`research blocks define this key differently`**: two blocks define the key with different sources and the section can't say which it meant. The other keys in the section are still repaired.
+- **`research file defines this key more than once in one block`**: the older collapsed-keys bug, where keys collapsed during renumbering. In a file with appended blocks only that key is refused. In a file with no appended blocks the whole section is refused (`unrepairable`, reason "research file defines [^N] more than once"): the renumbering left no key you can trust there.
+- **`line edited after assembly`**: see above.
+- **`no definition in its research file`**: a cited key nothing defines.
+- **Heading missing or found twice**: it can't find the section's span; the section is `unrepairable`.
+
+Refused footnotes keep their keys and the definitions they had, so `grep -E '\[\^[0-9]+\]'` on a repaired memo finds what is still unproven. If prose differs after repair (only markers and the block may change), it writes nothing.
 
 ## What to tell the partner
 
@@ -106,5 +119,6 @@ For refused sections, the two honest fixes are: regenerate the section (its rese
 
 - [[manage-memo-citations]]: where definitions live and how to add one
 - [[Final-Draft-Citations-Collide-Across-Sections]]: the bug
+- [[Appended-Research-Blocks-Reuse-Footnote-Keys]]: the appended-blocks bug, and `src/research_blocks.py`, the block reading shared by assembly and repair
 - [[Hex-Code-Citations-and-a-Repair-Tool]]: the plan, and the `source_key()` contract
 - `src/citation_repair.py`: the repair logic, importable for a connector tool
