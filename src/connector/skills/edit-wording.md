@@ -11,6 +11,6 @@ Use this when the change is narrative or clerical: wording, tone, order, emphasi
 3. If it returns `validation_failed`, an `old` didn't match exactly once: copy it again from the section and retry. If it returns `revision_open`, finish or cancel that revision first.
 4. Several edits can stack, across sections. When every change the partner asked for is in, compile once (see `compile-and-check-the-site`).
 
-Tell the partner in one line what changed and where, e.g. "Tightened the opening of the Team section."
+Tell the partner in one line what changed and where, e.g. "Tightened the opening of the Team section." To show them the section as it now reads, call `preview` with it (see `preview-a-memo`); never render it yourself.
 
 Call next: `edit_section`, then `compile`.

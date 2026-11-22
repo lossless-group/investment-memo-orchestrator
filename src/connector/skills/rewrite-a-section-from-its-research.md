@@ -22,4 +22,6 @@ Rules:
 
 Keeping the tasks apart stops invented facts, lets the research be checked on its own, and keeps iterations small. When the two were done together, drafts swung widely between versions.
 
+To show the partner the rewritten section before anything is compiled, call `preview` with the section once the draft is submitted (see `preview-a-memo`); never render it yourself.
+
 Call next: `submit_artifact` with the new draft, then `next_step`.
