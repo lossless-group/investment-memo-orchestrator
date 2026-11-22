@@ -194,7 +194,7 @@ Every executable under `cli/`, `cli/utils/`, and `src/cli/`. Purpose is each fil
 | `cli/evaluate_memo.py` | `company_or_path` · `--version`, `--output`, `--brief` | Standalone memo evaluation tool. |
 | `cli/export-all-html.sh` | — | Export all highest-version memos to HTML with citations |
 | `cli/export-all-modes.sh` | — | Export all investment memos in both light and dark modes |
-| `cli/export_branded.py` | `input` · `--firm`, `--deal`, `--version`, `-o`, `--brand`, `--pdf`, `--all`, `--theme`, `--mode` | Branded Memo Exporter - Multi-Brand Support |
+| `cli/export_branded.py` | `input` · `--firm`, `--deal`, `--version`, `-o`, `--brand`, `--pdf`, `--all`, `--theme`, `--mode`, `--renderer` | Branded Memo Exporter - Multi-Brand Support |
 | `cli/export_formats.py` | `input` · `-o`, `--format` | Multi-format memo exporter that preserves citations. |
 | `cli/export_web.py` | `input` · `--brand`, `--firm`, `--mode`, `--output` | Export a memo as a WEBPAGE — distinct from the document/PDF export. |
 | `cli/extract_financials.py` | `target` · `--firm`, `--deal`, `--version`, `--no-backup` | Re-run only the financial extractor against a finished dataroom analysis. |
