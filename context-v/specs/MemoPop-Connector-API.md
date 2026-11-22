@@ -457,6 +457,16 @@ MCP tool ([[Serve-Compiled-Memos-to-Firm-Sites]]; code in
 - **The compile reply links to the page.** `firm.json` may carry
   `site_memo_url` (a pattern with `{slug}`) and `site_memo_slugs`
   (`{deal: slug}`). When both cover the deal, `compile` returns `site_url`.
+- **The site is told when a memo compiles.** `firm.json` may also carry
+  `site_hook_url`. After a compile saves a new version (or new exports), and
+  after the uploader's apply step changes a deal's compiled version, MemoPop
+  POSTs a `memo.compiled` event naming the firm, deal, version, label and
+  compile time to that URL, signed with HMAC-SHA256 over
+  `"<timestamp>.<raw body>"` with the firm's site key. No memo text, no links.
+  It runs in the background, never delays or fails the compile, and retries a
+  timeout, connection error or 5xx up to three times. No `site_hook_url` or no
+  site key, no request. Spec: [[Notify-Firm-Sites-When-a-Memo-Compiles]]; code
+  in `src/connector/site_hook.py`.
 
 ## Storage
 
@@ -959,6 +969,17 @@ renumber; retire one by striking it through. Status is derived by
 | `CONN-SITE-02` | Given another firm's site key, then `403`; given no key, `401` |
 | `CONN-SITE-03` | Given a deal with no compiled version, then `404` |
 | `CONN-SITE-04` | Given a firm with `site_memo_url` and a slug for the deal, when `compile` finishes, then its response includes `site_url` |
+
+### Site notifications (Notify-Firm-Sites-When-a-Memo-Compiles)
+
+| ID | Given / When / Then |
+|---|---|
+| `CONN-HOOK-01` | Given a firm with `site_hook_url` and a site key, when a compile succeeds, then one signed `memo.compiled` request goes to that URL with the right body, a timestamp, and a signature verifiable with the firm's site key |
+| `CONN-HOOK-02` | Given a firm with no `site_hook_url` or no site key, when a compile succeeds, then no request is sent and the compile still succeeds |
+| `CONN-HOOK-03` | Given a hook that times out or returns 5xx, then it is retried up to 3 times and never fails or delays the compile reply; a 4xx is not retried |
+| `CONN-HOOK-04` | Given a compile that fails, then nothing is sent |
+| `CONN-HOOK-05` | Given the uploader's apply step, then it sends one notification per deal whose compiled version it changed, and none for unchanged deals |
+| `CONN-HOOK-06` | Given any notification, then its body has no memo text, no links and no key, and logs have neither the signature nor the key |
 
 ### Edit tools for finished memos (Edit-Tools-for-Finished-Memos)
 
