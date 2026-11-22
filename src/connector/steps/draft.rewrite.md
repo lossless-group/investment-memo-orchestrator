@@ -4,6 +4,7 @@ title: Rewrite one section from its research
 phase: draft
 scope: section
 required: false
+revision_only: true
 runs_on: claude
 needs_partner: false
 order: 55
@@ -24,7 +25,8 @@ enabled: true
 # Rewrite: {{section_name}} for {{company}}
 
 Rewrite the **{{section_name}}** section of the investment memo on **{{company}}**
-so it reads as the partner asked, from exactly two inputs:
+so it reflects the partner's request, quoted at the top of this instruction,
+using only your two inputs:
 
 - **The research** (`research.section`): the section's research file. It holds
   every fact the section may state, with its sources.
@@ -39,8 +41,9 @@ can be researched as its own task.
 
 ## How to rewrite it
 
-- **Change how it argues, not what it knows.** Keep every figure, date, name,
-  and quote the current text has, unless the research shows it is wrong.
+- **Start from the section as it stands.** Keep every figure, date, name, and
+  quote the current text has, unless the research now changes or contradicts
+  it. Bring in what the research adds where the request calls for it.
 - **Keep every citation.** Same markers, same definitions; a claim that moves
   takes its marker with it. Don't add a marker the research doesn't define.
 - **Keep the heading** (`## {{section_name}}`) and any tables, updated only

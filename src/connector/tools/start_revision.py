@@ -204,7 +204,8 @@ TOOL = ToolDef(
         ReturnDoc(
             "reopened",
             "Every step that will be handed out again: the sections' research (when start is "
-            "research), drafts, and section enhancements, then the summaries and one-pager.",
+            "research), their rewrites (draft.rewrite), and section enhancements, then the "
+            "summaries and one-pager.",
         ),
         ReturnDoc("base_label", "The memo version being revised (v0.2.3); null if never compiled."),
         ReturnDoc("next_hint", "What next_step will hand out first."),

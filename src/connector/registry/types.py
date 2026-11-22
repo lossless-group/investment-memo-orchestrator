@@ -193,6 +193,8 @@ class StepDef:
     #: Artifacts that must be partner-approved before this step can be submitted.
     requires_approved: list[str]
     instruction_path: Path | None
+    #: Never in a memo's first walk; handed out only when a revision reopens it.
+    revision_only: bool = False
     _body: str = ""
 
     def instruction_text(self) -> str:

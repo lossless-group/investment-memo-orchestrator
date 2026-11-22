@@ -5,7 +5,8 @@ Frontmatter fields (spec §The step registry): ``id``, ``title``, ``phase``,
 ``checks``), ``needs_partner``, ``source_agent``, ``enabled``, plus ``order``
 (registry order; steps are handed out by it), ``version`` (the instruction's
 version, recorded on every artifact the step produces), ``path`` (where the
-artifact is saved inside the deal), and ``requires_approved``.
+artifact is saved inside the deal), ``requires_approved``, and ``revision_only``
+(the step runs only when a revision reopens it, never in a memo's first walk).
 
 The body is the instruction, with ``{{placeholders}}`` filled per deal.
 """
@@ -56,6 +57,7 @@ def load_step(path: Path) -> StepDef:
         path=meta.get("path"),
         requires_approved=[str(r) for r in meta.get("requires_approved") or []],
         instruction_path=path,
+        revision_only=bool(meta.get("revision_only", False)),
         _body=body,
     )
     if step.phase not in PHASES or step.scope not in ("deal", "section"):

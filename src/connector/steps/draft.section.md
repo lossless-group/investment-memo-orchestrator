@@ -8,7 +8,7 @@ runs_on: claude
 needs_partner: false
 order: 50
 version: "2"
-reads: ["research.section:@section", materials.brief, "section.current:@section"]
+reads: ["research.section:@section", materials.brief]
 requires_approved: ["research.section:@section"]
 produces:
   kind: section
@@ -45,10 +45,6 @@ missing, so it can be researched first.
 - **Use the approved research.** Every fact comes from the research input (and
   the materials brief, if there is one). Don't add facts the partner hasn't
   seen. Keep the research's citations: same markers, same definitions.
-- **In a revision, start from the section as it stands.** When the section's
-  current text is among your inputs (`section.current`), rewrite it from the
-  research: keep what the research still supports, tables and citations
-  included, and change what the research or the partner's request changes.
 - **Specific over vague.** Exact numbers, dates, and names. No superlatives
   without data ("revolutionary", "massive market").
 - **A venture mindset.** Build the case for what could go right while staying
