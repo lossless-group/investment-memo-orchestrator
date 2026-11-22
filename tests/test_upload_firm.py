@@ -176,3 +176,258 @@ def test_a_finished_deal_gets_a_brief_and_research_sees_it(tmp_path):
     assert "materials.brief" in ids
     assert "research.section:01-overview" in ids
     assert next(i for i in inputs if i["artifact_id"] == "materials.brief")["text"] == brief
+
+
+# ------------------------------------------------------------------ uploaded binaries get text
+
+
+def make_unfinished_firm(root: Path) -> Path:
+    """A deal the local pipeline didn't finish: one section researched, no drafts, no memo.
+
+    Its inputs are a real deck (a PDF with text) and a logo (no text to extract).
+    """
+    from tests.connector.fixtures.materials import two_page_pdf
+
+    firm = make_finished_firm(root)
+    deal = firm / "deals" / "Widget"
+    shutil.rmtree(deal / "outputs")
+    research = deal / "outputs" / "Widget-v0.0.1" / "1-research"
+    research.mkdir(parents=True)
+    (research / "01-overview-research.md").write_text("# Research for 01-overview\n")
+    (deal / "inputs" / "deck.pdf").write_bytes(two_page_pdf())
+    (deal / "inputs" / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n not really an image")
+    return firm
+
+
+def open_staged(tmp_path: Path, out: Path):
+    from src.connector.config import ConnectorSettings
+    from src.connector.workspace import open_workspace
+
+    settings = ConnectorSettings(
+        io_root=out / "firms",
+        bucket_backend="local",
+        bucket_local_root=tmp_path / "buckets",
+        static_keys={},
+    )
+    return open_workspace(settings, "acme-vc")
+
+
+@pytest.mark.spec("CONN-UPL-03")
+def test_an_imported_unfinished_deal_walks_through_the_materials_brief(tmp_path):
+    from src.connector.tools import invoke
+    from tests.connector.fixtures.materials import PAGE_MARKERS
+
+    firm = make_unfinished_firm(tmp_path)
+    out = tmp_path / "stage"
+    upload_firm.upload_firm(firm, "acme-vc", out)
+
+    state = json.loads((out / "firms/acme-vc/deals/widget-com/deal.json").read_text())
+    by_file = {m["filename"]: m for m in state["materials"] if m.get("bucket_key")}
+    deck, logo = by_file["deck.pdf"], by_file["logo.png"]
+    # the deck's text was extracted with the connector's own reader, so it is ready
+    assert deck["status"] == "ready" and deck["chars"] > 0
+    text = (out / f"firms/acme-vc/deals/widget-com/materials/{deck['material_id']}.md").read_text()
+    assert all(marker in text for marker in PAGE_MARKERS)
+    # the logo has no text: skipped with a reason, never ready without a text file
+    assert logo["status"] == "skipped" and logo["error"]
+    assert any(s.get("material_id") == logo["material_id"] for s in state["skips"])
+
+    ws = open_staged(tmp_path, out)
+    step = invoke("next_step", {"deal": "widget-com"}, ws)
+    assert step["step_id"] == "materials.brief"
+    deck_input = next(i for i in step["inputs"] if i["artifact_id"] == f"material:{deck['material_id']}")
+    assert PAGE_MARKERS[0] in deck_input["text"]
+
+
+@pytest.mark.spec("CONN-UPL-03")
+def test_a_ready_material_with_no_text_file_is_a_notice_not_an_error(tmp_path):
+    """Deals staged before the fix recorded binaries ready with no text; they must still walk."""
+    from src.connector.tools import invoke
+
+    firm = make_unfinished_firm(tmp_path)
+    out = tmp_path / "stage"
+    upload_firm.upload_firm(firm, "acme-vc", out)
+    deal_json = out / "firms/acme-vc/deals/widget-com/deal.json"
+    state = json.loads(deal_json.read_text())
+    deck = next(m for m in state["materials"] if m.get("filename") == "deck.pdf")
+    (out / f"firms/acme-vc/deals/widget-com/materials/{deck['material_id']}.md").unlink(missing_ok=True)
+
+    ws = open_staged(tmp_path, out)
+    step = invoke("next_step", {"deal": "widget-com"}, ws)
+    assert step["step_id"] == "materials.brief"
+    notice = next(i for i in step["inputs"] if i["artifact_id"] == f"material:{deck['material_id']}")
+    assert "deck.pdf" in notice["text"] and "no text" in notice["text"].lower()
+
+
+# ------------------------------------------------------------------ known blobs (CONN-UPL-01)
+
+
+def deck_sha(firm: Path) -> str:
+    return upload_firm.file_sha(firm / "deals/Widget/inputs/deck.pdf")
+
+
+@pytest.mark.spec("CONN-UPL-01")
+def test_known_blobs_are_not_staged_but_still_recorded(tmp_path):
+    firm = make_firm(tmp_path)
+    digest = deck_sha(firm)
+    known = tmp_path / "known-blobs.txt"
+    known.write_text(f"hashing imported/ keys...\n{digest}\n\n{'0' * 64}\n")
+    out = tmp_path / "stage"
+    upload_firm.main([str(firm), "--firm", "acme-vc", "--out", str(out), "--known-blobs", str(known)])
+
+    plan = json.loads((out / "plan.json").read_text())
+    assert plan["blobs"] == []
+    assert digest in plan["known_blobs"]
+    assert not (out / "blobs" / digest).exists()
+
+    state = json.loads((out / "firms/acme-vc/deals/widget-com/deal.json").read_text())
+    binaries = [m for m in state["materials"] if m.get("bucket_key")]
+    assert len(binaries) == 3 and {m["bucket_key"] for m in binaries} == {f"blobs/{digest}"}
+    manifest = yaml.safe_load((out / "manifests/deals/Widget/binaries-on-server.yaml").read_text())
+    assert {e["sha256"] for e in manifest["files"].values()} == {digest}
+    assert len(manifest["files"]) == 3
+    assert "known" in (out / "report.md").read_text()
+
+
+@pytest.mark.spec("CONN-UPL-01")
+def test_read_known_blobs_takes_only_whole_hash_lines(tmp_path):
+    good = "a" * 64
+    path = tmp_path / "known.txt"
+    path.write_text(f"{good}\n  {good.upper()}  \nnot a hash\ncopied {'b' * 64}\n{'c' * 63}\n")
+    assert upload_firm.read_known_blobs(path) == {good}
+
+
+@pytest.mark.spec("CONN-UPL-01")
+def test_fold_copies_each_imported_hash_to_blobs_once(tmp_path):
+    import hashlib
+
+    import fold_imported_blobs
+
+    from src.connector.bucket import LocalBucket
+
+    bucket = LocalBucket(tmp_path / "bucket")
+    deck, other = b"%PDF-1.4 the deck", b"a spreadsheet"
+    bucket.put("imported/widget/v0.0.1/inputs/deck.pdf", deck)
+    bucket.put("imported/widget/v0.0.2/inputs/deck.pdf", deck)
+    bucket.put("imported/widget/v0.0.2/inputs/model.xlsx", other)
+    bucket.put("materials/mat-1/notes.pdf", b"not imported")
+    hashes = {hashlib.sha256(b).hexdigest() for b in (deck, other)}
+
+    dry = fold_imported_blobs.fold(bucket, dry_run=True)
+    assert set(dry.hashes) == hashes and not bucket.list("blobs/")
+
+    result = fold_imported_blobs.fold(bucket)
+    assert set(result.hashes) == hashes
+    assert result.copied == 2 and result.objects == 3
+    assert sorted(bucket.list("blobs/")) == sorted(f"blobs/{h}" for h in hashes)
+    for h, data in ((hashlib.sha256(deck).hexdigest(), deck), (hashlib.sha256(other).hexdigest(), other)):
+        assert bucket.get(f"blobs/{h}") == data
+    assert len(bucket.list("imported/")) == 3  # never deleted here
+
+    again = fold_imported_blobs.fold(bucket)
+    assert again.copied == 0 and set(again.hashes) == hashes
+
+
+@pytest.mark.spec("CONN-UPL-01")
+def test_apply_refuses_when_a_known_blob_is_not_in_the_bucket(tmp_path):
+    import apply_upload
+
+    from src.connector.bucket import LocalBucket
+
+    bucket = LocalBucket(tmp_path / "bucket")
+    bucket.put("blobs/" + "a" * 64, b"x")
+    plan = {"known_blobs": ["a" * 64, "b" * 64]}
+    assert apply_upload.missing_known(bucket, plan) == ["b" * 64]
+    assert apply_upload.missing_known(bucket, {}) == []
+
+
+# ------------------------------------------------------------------ the check (CONN-UPL-02)
+
+
+def staged_and_applied(tmp_path: Path):
+    """Stage a finished firm, then play the server: put the blobs, copy the manifests home."""
+    from src.connector.bucket import LocalBucket
+
+    firm = make_finished_firm(tmp_path)
+    out = tmp_path / "stage"
+    upload_firm.upload_firm(firm, "acme-vc", out)
+    bucket = LocalBucket(tmp_path / "bucket")
+    for blob in (out / "blobs").iterdir():
+        bucket.put(f"blobs/{blob.name}", blob.read_bytes())
+    shutil.copy2(
+        out / "manifests/deals/Widget/binaries-on-server.yaml",
+        firm / "deals/Widget/binaries-on-server.yaml",
+    )
+    return firm, out / "firms" / "acme-vc", bucket
+
+
+@pytest.mark.spec("CONN-UPL-02")
+def test_check_reports_a_matching_deal_as_ok(tmp_path):
+    import check_upload
+
+    firm, server, bucket = staged_and_applied(tmp_path)
+    snap = check_upload.snapshot(server, bucket)
+    rows = check_upload.compare(firm, snap)
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["deal"] == "widget-com" and row["ok"]
+    assert row["compiled"] == {"local": "v0.0.3", "server": "v0.0.3", "ok": True}
+    assert row["sections"]["outline"] == 2 and row["sections"]["drafted"] == 2
+    assert row["sections"]["ok"]
+    assert row["materials"]["manifest"] == 1 and row["materials"]["matched"] == 1
+    assert row["materials"]["ok"]
+
+    snap_file = tmp_path / "snap.json"
+    snap_file.write_text(json.dumps(snap))
+    assert check_upload.main(["compare", str(firm), "--snapshot", str(snap_file)]) == 0
+
+
+@pytest.mark.spec("CONN-UPL-02")
+def test_check_reports_each_difference(tmp_path):
+    import check_upload
+
+    firm, server, bucket = staged_and_applied(tmp_path)
+    deal_json = server / "deals/widget-com/deal.json"
+    state = json.loads(deal_json.read_text())
+    state["compiled"]["label"] = "v0.0.2"
+    del state["artifacts"]["draft.section:02-market"]
+    binary = next(m for m in state["materials"] if m.get("bucket_key"))
+    state["materials"].remove(binary)
+    deal_json.write_text(json.dumps(state))
+    # a second local deal the server never got
+    other = firm / "deals" / "Gadget"
+    other.mkdir()
+    (other / "Gadget.json").write_text(json.dumps({"name": "Gadget", "domain": "gadget.io"}))
+
+    snap = check_upload.snapshot(server, bucket)
+    rows = {r["local"]: r for r in check_upload.compare(firm, snap)}
+
+    widget = rows["Widget"]
+    assert not widget["ok"]
+    assert widget["compiled"] == {"local": "v0.0.3", "server": "v0.0.2", "ok": False}
+    assert widget["sections"]["drafted"] == 1 and not widget["sections"]["ok"]
+    assert widget["sections"]["missing_drafts"] == ["02-market"]
+    assert widget["materials"]["missing"] == ["inputs/deck.pdf"]
+    assert not widget["materials"]["ok"]
+    assert rows["Gadget"]["server"] is None and not rows["Gadget"]["ok"]
+
+    text = check_upload.render(list(rows.values()))
+    assert "v0.0.2" in text and "02-market" in text and "inputs/deck.pdf" in text
+
+    snap_file = tmp_path / "snap.json"
+    snap_file.write_text(json.dumps(snap))
+    assert check_upload.main(["compare", str(firm), "--snapshot", str(snap_file)]) == 1
+
+
+@pytest.mark.spec("CONN-UPL-02")
+def test_check_flags_a_blob_missing_from_the_bucket(tmp_path):
+    import check_upload
+
+    from src.connector.bucket import LocalBucket
+
+    firm, server, _ = staged_and_applied(tmp_path)
+    snap = check_upload.snapshot(server, LocalBucket(tmp_path / "empty-bucket"))
+    row = check_upload.compare(firm, snap)[0]
+    assert row["materials"]["not_in_bucket"] == ["inputs/deck.pdf"]
+    assert not row["ok"]

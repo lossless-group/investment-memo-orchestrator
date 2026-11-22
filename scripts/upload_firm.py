@@ -32,7 +32,12 @@ For each deal:
 - Every binary goes to the bucket once, as ``blobs/<sha256>``, and is recorded
   both as a material in ``deal.json`` and in the deal folder's
   ``binaries-on-server.yaml``. A binary already in that manifest with the same
-  hash is not staged again.
+  hash is not staged again, nor is one whose hash is in ``--known-blobs <file>``
+  (the hash list ``scripts/fold_imported_blobs.py`` prints on the server).
+- Each binary's text is extracted here, with the connector's own reader, into
+  ``materials/<material_id>.md``, so the material is ``ready`` as one added with
+  ``add_materials`` would be. A binary with no text (an image, a scan with no
+  text layer) is recorded ``skipped`` with the reason, as the server would.
 - When every section has a draft and a finished memo exists, the optional
   enhancement steps are recorded as skipped: the local run already applied them.
 
@@ -57,6 +62,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.connector.history import TEXT_EXTENSIONS  # noqa: E402
+from src.connector.materials.extract import Unextractable, extract  # noqa: E402
 from src.connector.tools.create_new_deal import domain_of, slugify  # noqa: E402
 
 REPO_OUTLINES = Path(__file__).resolve().parents[1] / "templates" / "outlines"
@@ -72,6 +78,8 @@ SKIP_FILES = {".DS_Store", "binaries-on-server.yaml"}
 MANIFEST = "binaries-on-server.yaml"
 FINAL_MEMO = re.compile(r"^([67])-.+-v\d+(\.\d+)+\.md$")
 FIRM_DIRS = ("configs", "templates", "assets")
+HASH_LINE = re.compile(r"^[0-9a-f]{64}$")
+EXTRACT_STEP = "materials.extract"
 
 
 def now_iso() -> str:
@@ -230,6 +238,18 @@ def file_sha(path: Path) -> str:
     return h.hexdigest()
 
 
+def read_known_blobs(path: Path) -> set[str]:
+    """Hashes already in the bucket as ``blobs/<sha256>``: every line that is exactly one.
+
+    Anything else on a line (progress output, a comment) makes it not count.
+    """
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if HASH_LINE.match(line.strip())
+    }
+
+
 def trading_name(cfg: dict) -> str | None:
     """The name the company trades under: trading_name, then name, then legal_name."""
     for field in ("trading_name", "name", "legal_name"):
@@ -301,8 +321,17 @@ def config_notes(cfg: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def server_slug(cfg: dict, deal_dir: Path) -> str:
+    """The deal's name on the server: memopop_deal, else its domain, else its company."""
+    named = (cfg.get("memopop_deal") or {}).get("deal")
+    if named:
+        return named
+    domain = cfg.get("domain") or domain_of(cfg.get("url"))
+    return slugify(domain) if domain else slugify(trading_name(cfg) or deal_dir.name)
+
+
 class Stager:
-    def __init__(self, out: Path, firm: str):
+    def __init__(self, out: Path, firm: str, known_blobs: set[str] | None = None):
         self.out = out
         self.firm = firm
         self.ws = out / "firms" / firm
@@ -310,6 +339,18 @@ class Stager:
         self.bucket_bytes = 0
         self.blob_hashes: set[str] = set()
         self.reused = 0
+        self.known = set(known_blobs or ())
+        self.known_used: set[str] = set()
+        self.texts: dict[str, tuple[str | None, str | None]] = {}
+
+    def text_of(self, src: Path, digest: str) -> tuple[str | None, str | None]:
+        """(text, None) or (None, why not), extracted once per distinct content."""
+        if digest not in self.texts:
+            try:
+                self.texts[digest] = (extract(src.read_bytes(), src.name), None)
+            except Unextractable as exc:
+                self.texts[digest] = (None, str(exc))
+        return self.texts[digest]
 
     def put_blob(
         self, src: Path, rel: Path, manifest: dict, entries: dict, now: str, deal: str | None
@@ -322,7 +363,9 @@ class Stager:
             self.reused += 1
             entry = dict(known)
         else:
-            if digest not in self.blob_hashes:
+            if digest in self.known:
+                self.known_used.add(digest)  # already in the bucket; nothing to send
+            elif digest not in self.blob_hashes:
                 self.blobs.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, self.blobs / digest)
                 self.blob_hashes.add(digest)
@@ -366,8 +409,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
     company = trading_name(cfg) or deal_dir.name
     url = cfg.get("url")
     domain = cfg.get("domain") or domain_of(url)
-    named = (cfg.get("memopop_deal") or {}).get("deal")
-    slug = named or (slugify(domain) if domain else slugify(company))
+    slug = server_slug(cfg, deal_dir)
     template = cfg.get("outline") or cfg.get("template") or DEFAULT_TEMPLATE
     opath = outline_path(firm_dir, template)
     if opath is None:
@@ -558,6 +600,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
     manifest = read_manifest(deal_dir)
     entries: dict = {}
     binaries = 0
+    unreadable = 0
     for f in sorted(deal_dir.rglob("*")):
         if not f.is_file() or f.name in SKIP_FILES or "/." in f.as_posix():
             continue
@@ -567,22 +610,38 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
             continue
         entry = stage.put_blob(f, sub, manifest, entries, now, slug)
         binaries += 1
-        state["materials"].append(
-            {
-                "material_id": entry.get("material_id") or material_id(slug, "binary", entry["sha256"]),
-                "kind": entry["kind"],
-                "status": "ready",
-                "source": "upload",
-                "title": sub.as_posix(),
-                "filename": f.name,
-                "bucket_key": entry["bucket_key"],
-                "sha256": entry["sha256"],
-                "bytes": entry["bytes"],
-                "local_path": sub.as_posix(),
-                "added_at": now,
-                "ready_at": now,
-            }
-        )
+        mid = entry.get("material_id") or material_id(slug, "binary", entry["sha256"])
+        record = {
+            "material_id": mid,
+            "kind": entry["kind"],
+            "source": "upload",
+            "title": sub.as_posix(),
+            "filename": f.name,
+            "bucket_key": entry["bucket_key"],
+            "sha256": entry["sha256"],
+            "bytes": entry["bytes"],
+            "local_path": sub.as_posix(),
+            "added_at": now,
+        }
+        # the text the materials pipeline would extract on the server, extracted here
+        text, why_not = stage.text_of(f, entry["sha256"])
+        if text is not None:
+            stage.write_ws(rel / "materials" / f"{mid}.md", text)
+            record.update(status="ready", chars=len(text), ready_at=now, error=None)
+        else:
+            record.update(status="skipped", error=why_not)
+            unreadable += 1
+            state["skips"].append(
+                {
+                    "step_id": EXTRACT_STEP,
+                    "section": None,
+                    "code": "material_unreadable",
+                    "reason": f"{sub.as_posix()}: {why_not}",
+                    "material_id": mid,
+                    "at": now,
+                }
+            )
+        state["materials"].append(record)
     stage.write_manifest(deal_dir.relative_to(firm_dir), slug, entries)
 
     if finished:
@@ -594,6 +653,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
             write_brief(state, final, version),
             False,
         )
+        state["skips_reported"] = len(state["skips"])  # the local run already read them
 
     stage.write_ws(rel / "deal.json", json.dumps(state, indent=2) + "\n")
     missing_research = [k for k in keys if k not in got_research]
@@ -604,6 +664,7 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
         drafts=len(got_drafts),
         materials=len(state["materials"]),
         binaries=binaries,
+        unreadable=unreadable,
         compiled=state["compiled"]["label"] if state["compiled"] else None,
         finished=finished,
         missing_research=missing_research,
@@ -615,11 +676,21 @@ def import_deal(stage: Stager, firm_dir: Path, deal_dir: Path, now: str) -> dict
 # ------------------------------------------------------------------ the firm
 
 
-def upload_firm(firm_dir: Path, firm: str, out: Path, only: list[str] | None = None) -> list[dict]:
-    """Stage the firm for upload; write plan.json, report.md and the apply step."""
+def upload_firm(
+    firm_dir: Path,
+    firm: str,
+    out: Path,
+    only: list[str] | None = None,
+    known_blobs: set[str] | None = None,
+) -> list[dict]:
+    """Stage the firm for upload; write plan.json, report.md and the apply step.
+
+    ``known_blobs`` are hashes already in the bucket as ``blobs/<sha256>``: they are
+    recorded like any other binary but not staged.
+    """
     if out.exists() and any(out.iterdir()):
         raise SystemExit(f"{out} is not empty; pick a fresh --out")
-    stage = Stager(out, firm)
+    stage = Stager(out, firm, known_blobs)
     now = now_iso()
 
     # the firm's own files: configs, outlines, scorecards, assets
@@ -660,6 +731,7 @@ def upload_firm(firm_dir: Path, firm: str, out: Path, only: list[str] | None = N
         "deals": slugs,
         "firm_paths": firm_paths,
         "blobs": sorted(stage.blob_hashes),
+        "known_blobs": sorted(stage.known_used),
         "local": {r["deal"]: r["local_path"] for r in reports if "deal" in r},
     }
     (out / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
@@ -671,7 +743,8 @@ def upload_firm(firm_dir: Path, firm: str, out: Path, only: list[str] | None = N
         f"- Deals: {len(slugs)}",
         f"- Firm files: {len(firm_paths)}",
         f"- Binaries to send: {len(stage.blob_hashes)} ({stage.bucket_bytes / 1e6:,.0f} MB); "
-        f"already uploaded per manifests: {stage.reused}",
+        f"already uploaded per manifests: {stage.reused}; "
+        f"already in the bucket per the known-blobs list: {len(stage.known_used)}",
         "",
     ]
     for r in reports:
@@ -682,6 +755,7 @@ def upload_firm(firm_dir: Path, firm: str, out: Path, only: list[str] | None = N
             f"- **{r['local']}** → `{r['deal']}` ({r['template']}, sections from {r['version']}): "
             f"research {r['research']}/{r['sections']}, drafts {r['drafts']}/{r['sections']}, "
             f"compiled {r['compiled'] or 'none'}, {r['binaries']} binaries"
+            + (f" ({r['unreadable']} with no text, recorded skipped)" if r["unreadable"] else "")
         )
         if r["missing_research"]:
             lines.append(f"  - next_step will ask for research on: {', '.join(r['missing_research'])}")
@@ -718,6 +792,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--firm", required=True, help="the firm's slug on the server")
     parser.add_argument("--out", type=Path, required=True, help="an empty staging folder")
     parser.add_argument("--deal", action="append", help="only this local deal (repeatable)")
+    parser.add_argument(
+        "--known-blobs",
+        type=Path,
+        help="a hash list (fold_imported_blobs.py's output): blobs already in the bucket",
+    )
     parser.add_argument("--apply", action="store_true", help="send the staging to the server")
     parser.add_argument("--service", default="connector", help="the Railway service to apply on")
     args = parser.parse_args(argv)
@@ -725,7 +804,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.apply and (out / "plan.json").is_file():
         apply(out, args.firm_dir.resolve(), args.service)
         return 0
-    upload_firm(args.firm_dir.resolve(), args.firm, out, args.deal)
+    known = read_known_blobs(args.known_blobs) if args.known_blobs else None
+    upload_firm(args.firm_dir.resolve(), args.firm, out, args.deal, known)
     print((out / "report.md").read_text(encoding="utf-8"))
     if args.apply:
         apply(out, args.firm_dir.resolve(), args.service)

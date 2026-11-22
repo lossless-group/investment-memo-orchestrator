@@ -20,7 +20,7 @@ depends_on: []
 tags: [Plan, Connector, Upload, Bucket, Materials, Sync]
 loop_reference: context-v/loops/Run-the-Connector-Plans-With-a-VP-Eng-and-Subagents.md
 branch: connector/uploader-prep
-owns_test_ids: [CONN-UPL-01, CONN-UPL-02]
+owns_test_ids: [CONN-UPL-01, CONN-UPL-02, CONN-UPL-03]
 ---
 
 # Apply the Deal-Folder Uploader
@@ -37,7 +37,7 @@ Every step that writes to the server waits for Michael's go-ahead. The uploader 
 
 ### 0. Give uploaded binaries their text
 
-- [ ] Fix [[Uploaded-Binary-Materials-Have-No-Text-File]] first: binaries recorded as `ready` with no `materials/<id>.md` break `next_step` on unfinished imported deals.
+- [x] Fix [[Uploaded-Binary-Materials-Have-No-Text-File]] first: binaries recorded as `ready` with no `materials/<id>.md` break `next_step` on unfinished imported deals. Done: the uploader extracts each binary's text locally with the connector's own reader (`ready` with `materials/<id>.md`, or `skipped` with the reason), and `gather_inputs()` turns a ready material with no text file into a notice. CONN-UPL-03.
 
 - [ ] Fix [[Same-Bytes-at-Two-Paths-Share-a-Material-Id]]: one material per distinct hash per deal, before `--apply`.
 
@@ -45,12 +45,21 @@ Every step that writes to the server waits for Michael's go-ahead. The uploader 
 
 So the first upload doesn't send the same bytes again. Per the spec's "The 901 keys already imported":
 
-- [ ] A server-side script (beside `apply_upload.py`) hashes every `imported/…` object in place, copies each distinct hash to `blobs/<hash>` once, and writes a hash list.
-- [ ] The uploader takes that list (`--known-blobs <file>`) and treats those hashes as already uploaded.
-- [ ] Test: a staged upload with a known-blobs list stages no blob that's on it.
-- [ ] Don't delete the `imported/…` keys yet (step 5).
+- [x] A server-side script (beside `apply_upload.py`) hashes every `imported/…` object in place, copies each distinct hash to `blobs/<hash>` once, and writes a hash list. `scripts/fold_imported_blobs.py`, tested against a local bucket, not yet run on the server.
+- [x] The uploader takes that list (`--known-blobs <file>`) and treats those hashes as already uploaded. `apply_upload.py` refuses, changing nothing, if one of them isn't in the bucket.
+- [x] Test: a staged upload with a known-blobs list stages no blob that's on it. CONN-UPL-01.
+- [x] Don't delete the `imported/…` keys yet (step 5). The fold script never deletes or changes them.
 
 ### 2. Stage and read the report
+
+First, on the server, fold the imported keys (dry run, then for real) and keep the hash list:
+
+```bash
+railway ssh --service connector -- sh -c 'cd /app && runuser -u memopop -- env HOME=/home/memopop /opt/venv/bin/python - <firm-slug> --dry-run' < scripts/fold_imported_blobs.py > /dev/null
+railway ssh --service connector -- sh -c 'cd /app && runuser -u memopop -- env HOME=/home/memopop /opt/venv/bin/python - <firm-slug>' < scripts/fold_imported_blobs.py > <scratch>/known-blobs.txt
+```
+
+Then stage with `--known-blobs <scratch>/known-blobs.txt` added to the command below.
 
 - [ ] `uv run python scripts/upload_firm.py io/<firm> --firm <firm-slug> --out <scratch>/upload`
 - [ ] Read `report.md`: for each deal, the version picked, sections matched (all of the outline's keys?), compiled v1 label, binaries new vs. known, and what `next_step` would ask for.
@@ -65,7 +74,7 @@ So the first upload doesn't send the same bytes again. Per the spec's "The 901 k
 
 ### 4. Check every deal against its local folder
 
-- [ ] A check script compares, per deal: compiled version label against the newest local `7-`/`6-` memo, section count against the outline, materials against the manifest entries.
+- [x] A check script compares, per deal: compiled version label against the newest local `7-`/`6-` memo, section count against the outline, materials against the manifest entries. `scripts/check_upload.py` (`snapshot` on the server, `compare` on the laptop), tested on fixtures. CONN-UPL-02. Not yet run against the server.
 - [ ] `list_deals` from Claude: each finished deal reads as compiled, at its local version.
 - [ ] Re-run the uploader unchanged: nothing staged.
 
