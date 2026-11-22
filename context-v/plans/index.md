@@ -34,3 +34,7 @@
 3. [Serve the Method from the Server](Serve-the-Method-from-the-Server.md), steps 1–2, any time.
 4. [Finish Turning the Agents into Connector Steps](Finish-Turning-Agents-into-Connector-Steps.md), step 1 (the rewrite step), then [Edit Tools for Finished Memos](Edit-Tools-for-Finished-Memos.md).
 5. [Serve Compiled Memos to Firm Sites](Serve-Compiled-Memos-to-Firm-Sites.md) once compiled versions are on the server, and the rest of the skills once the edit tools exist.
+
+## Next: drafting from scratch in Claude (2026-11-22)
+
+1. [Draft a Memo from Scratch in Claude](Draft-a-Memo-from-Scratch-in-Claude.md): `get_started`, suggested next steps, materials by reference, and the upload offered twice and at compile. No Google Drive integration: partners download and upload.
