@@ -34,3 +34,7 @@ Found 2026-11-21 in a fresh `justify` run. The memo was fixed by hand, and the d
 - Build the overview's display names from the scorecard definition being used, not a hard-coded 7 Cs map. A dimension the scorecard doesn't define must not render as 0.0/5.
 - Insert the scorecard under one heading, with its groups as `###` subheadings, so the memo's section numbers stay unique.
 - Tests: a justify run with a scorecard has no "Recommendation:" line, no repeated `## N.` headings, and no 0.0/5 rows for dimensions outside its scorecard.
+
+## Second case: consider mode (2026-11-22)
+
+A consider-mode 12Ps run (`io/humain`, deal Rockland, v0.0.2) shows the same overview bug. `src/agents/scorecard_navigator.py` hard-codes another framework's groups (`capital_quality`, `market_dominance`, `growth_durability`, `return_profile`) in `group_display`, so a 12Ps scorecard renders four rows of **0.0/5** in the Executive Summary under "Overall Score: 3.2/5 | Recommendation: CONSIDER". The overview should read its groups and dimension names from the scorecard JSON it was given, not from a fixed table. The scorecard section's "Critical Questions for Diligence" also leaked into this memo; see [[Consider-Mode-Has-No-Due-Diligence-Questionnaire]].
