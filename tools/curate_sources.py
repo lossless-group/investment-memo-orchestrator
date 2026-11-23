@@ -2,7 +2,7 @@
 """
 Sources Curation UI — a local, disposable tool for converging a Sources.md.
 
-Binds a navigable curation UI to ONE `Sources-aggregated.md` (or any
+Binds a navigable curation UI to ONE `Sources--Aggregated.md` (or any
 Sources.md). Page through each source, edit metadata, delete/reorder,
 preview content via Jina, fire a SearXNG search and add results back into
 the list, then save a converged `inputs/Sources.md` (backed up).
@@ -114,7 +114,7 @@ def inputs_sources_path() -> Path:
     p = TARGET_FILE
     if p.name == "Sources.md" and p.parent.name == "inputs":
         return p
-    # aggregated path shape: <deal>/outputs/<ver>/Sources-aggregated.md
+    # aggregated path shape: <deal>/outputs/<ver>/Sources--Aggregated.md
     return p.parents[2] / "inputs" / "Sources.md"
 
 

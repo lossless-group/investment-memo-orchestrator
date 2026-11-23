@@ -139,7 +139,7 @@ def main() -> int:
                     help="write verdicts back into inputs/Sources.md (backed up)")
     ap.add_argument("--sources-file", default=None,
                     help="explicit path to a Sources*.md (default: inputs/Sources.md). "
-                         "Use for the pipeline's outputs/.../Sources-aggregated.md draft.")
+                         "Use for the pipeline's outputs/.../Sources--Aggregated.md draft.")
     ap.add_argument("--workers", type=int, default=12)
     args = ap.parse_args()
 

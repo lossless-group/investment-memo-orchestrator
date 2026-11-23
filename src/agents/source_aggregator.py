@@ -18,9 +18,9 @@ Two-phase workflow:
 
   PHASE 1 (this run, broad search):
     deck → research → section_research (broad) → cleanup_research →
-      source_aggregator → writes outputs/<v>/Sources-aggregated.md → HALT
+      source_aggregator → writes outputs/<v>/Sources--Aggregated.md → HALT
 
-  Analyst opens outputs/<v>/Sources-aggregated.md, reorders rows,
+  Analyst opens outputs/<v>/Sources--Aggregated.md, reorders rows,
   x-es out junk, copies the file to inputs/Sources.md, sets
   `mode: codified`, saves.
 
@@ -194,8 +194,8 @@ def source_aggregator_agent(state: MemoState) -> Dict[str, Any]:
 
     surviving.sort(key=_rank)
 
-    # Write to outputs/<version>/Sources-aggregated.md
-    aggregated_path = output_dir / "Sources-aggregated.md"
+    # Write to outputs/<version>/Sources--Aggregated.md
+    aggregated_path = output_dir / "Sources--Aggregated.md"
     aggregated_path.write_text(
         _build_aggregated_sources_md(
             company_name=company_name,

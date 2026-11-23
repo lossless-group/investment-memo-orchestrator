@@ -136,7 +136,11 @@ async def get_sources(firm: str, deal: str) -> dict:
 
     origin = "curated"
     if not path.exists():
-        aggregated = sorted(inputs.parent.glob("outputs/*/Sources-aggregated.md"))
+        # Sources--Aggregated.md since 2026-11-22; older runs wrote Sources-aggregated.md.
+        aggregated = sorted(
+            list(inputs.parent.glob("outputs/*/Sources--Aggregated.md"))
+            + list(inputs.parent.glob("outputs/*/Sources-aggregated.md"))
+        )
         if aggregated:
             path, origin = aggregated[-1], "aggregated"
 

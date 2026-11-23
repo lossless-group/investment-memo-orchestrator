@@ -531,7 +531,7 @@ See `[[sources-md-curation]]` for the full file-mechanics discipline.
   stage.** Renaming after the first run requires updating: `versions.json`
   key, deal JSON internal paths (`deck`, `trademark_light`,
   `trademark_dark`), `inputs/Sources.md` `deal:` field,
-  `outputs/<v>/Sources-aggregated.md` `deal:` field + the H1 header. See
+  `outputs/<v>/Sources--Aggregated.md` (`Sources-aggregated.md` in runs before 2026-11-22) `deal:` field + the H1 header. See
   "Operational rename checklist" below.
 
 ### Operational rename checklist
@@ -544,7 +544,7 @@ because the actual round is different):
 3. In that JSON, rewrite the `deck`, `trademark_light`, `trademark_dark`
    paths (any string containing `<OldName>` → `<NewName>`)
 4. In `inputs/Sources.md` frontmatter, update `deal: <NewName>`
-5. In every `outputs/<v>/Sources-aggregated.md`, update `deal: <NewName>`
+5. In every `outputs/<v>/Sources--Aggregated.md` (or older `Sources-aggregated.md`), update `deal: <NewName>`
    in frontmatter + the `# Aggregated Sources — <NewName>` H1
 6. In `io/<firm>/versions.json`, rekey the `"<OldName>"` entry to `"<NewName>"`
    and update the `file_path` field in each history entry
